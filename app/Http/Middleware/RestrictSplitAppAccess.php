@@ -19,7 +19,7 @@ class RestrictSplitAppAccess
     {
         $kind = (string) config('cmih.app_kind', 'all');
 
-        if ($kind === 'all' || app()->runningInConsole()) {
+        if ($kind === 'all') {
             return $next($request);
         }
 

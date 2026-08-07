@@ -117,4 +117,28 @@ class StaffPortalBoundaryTest extends TestCase
 
         $response->assertOk();
     }
+
+    public function test_brands_split_redirects_staff_routes_to_staff_domain_before_auth(): void
+    {
+        config([
+            'cmih.app_kind' => 'brands',
+            'cmih.urls.staff' => 'https://portal.cmih.africa',
+        ]);
+
+        $response = $this->get('/portal/tasks');
+
+        $response->assertRedirect('https://portal.cmih.africa/portal/tasks');
+    }
+
+    public function test_staff_split_redirects_merchandiser_routes_to_brands_domain_before_auth(): void
+    {
+        config([
+            'cmih.app_kind' => 'staff',
+            'cmih.urls.brands' => 'https://brands.cmih.africa',
+        ]);
+
+        $response = $this->get('/merchandisers/login');
+
+        $response->assertRedirect('https://brands.cmih.africa/merchandisers/login');
+    }
 }
