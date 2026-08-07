@@ -9,27 +9,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RestrictSplitAppAccess
 {
-    /**
-     * Keep the future split apps pointed at their own modules.
-     *
-     * The current production app runs with CMIH_APP_KIND=all, so this middleware
-     * is inert until one of the copied apps is deployed as website/staff/brands.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $kind = (string) config('cmih.app_kind', 'all');
+        $path = $request->path();
 
         if ($kind === 'all') {
+            if ($this->isWebsiteHost($request->getHost()) && ! $this->isAllowed('website', $path)) {
+                return redirect()->away($this->targetUrlFor($request));
+            }
+
             return $next($request);
         }
-
-        $path = $request->path();
 
         if ($this->isAllowed($kind, $path)) {
             return $next($request);
         }
 
-        return redirect()->away($this->targetUrlFor($path));
+        return redirect()->away($this->targetUrlFor($request));
     }
 
     private function isAllowed(string $kind, string $path): bool
@@ -77,10 +74,13 @@ class RestrictSplitAppAccess
         };
     }
 
-    private function targetUrlFor(string $path): string
+    private function targetUrlFor(Request $request): string
     {
+        $path = $request->path();
+        $queryString = $request->getQueryString();
+
         if ($this->matches($path, ['merchandisers', 'merchandisers/*'])) {
-            return $this->buildUrl(config('cmih.urls.brands'), $path);
+            return $this->buildUrl(config('cmih.urls.brands'), $path, $queryString);
         }
 
         if ($this->matches($path, [
@@ -94,18 +94,50 @@ class RestrictSplitAppAccess
             'profile/*',
             ...$this->authPatterns(),
         ])) {
-            return $this->buildUrl(config('cmih.urls.staff'), $path === '/' ? 'dashboard' : $path);
+            return $this->buildUrl(config('cmih.urls.staff'), $path === '/' ? 'dashboard' : $path, $queryString);
         }
 
-        return $this->buildUrl(config('cmih.urls.website'), $path === '/' ? '' : $path);
+        return $this->buildUrl(config('cmih.urls.website'), $path === '/' ? '' : $path, $queryString);
     }
 
-    private function buildUrl(?string $baseUrl, string $path): string
+    private function buildUrl(?string $baseUrl, string $path, ?string $queryString = null): string
     {
         $baseUrl = rtrim($baseUrl ?: config('app.url'), '/');
         $path = trim($path, '/');
+        $url = $path === '' ? $baseUrl : "{$baseUrl}/{$path}";
 
-        return $path === '' ? $baseUrl : "{$baseUrl}/{$path}";
+        return $queryString ? "{$url}?{$queryString}" : $url;
+    }
+
+    private function isWebsiteHost(string $host): bool
+    {
+        $host = strtolower($host);
+        $hosts = [
+            $this->hostFromUrl(config('cmih.urls.website')),
+        ];
+
+        $expandedHosts = $hosts;
+
+        foreach ($hosts as $candidate) {
+            if (! $candidate) {
+                continue;
+            }
+
+            $expandedHosts[] = str_starts_with($candidate, 'www.')
+                ? substr($candidate, 4)
+                : "www.{$candidate}";
+        }
+
+        return in_array($host, array_unique(array_filter($expandedHosts)), true);
+    }
+
+    private function hostFromUrl(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        return strtolower((string) parse_url($url, PHP_URL_HOST));
     }
 
     /**

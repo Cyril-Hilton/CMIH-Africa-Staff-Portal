@@ -141,4 +141,30 @@ class StaffPortalBoundaryTest extends TestCase
 
         $response->assertRedirect('https://brands.cmih.africa/merchandisers/login');
     }
+
+    public function test_root_domain_redirects_dashboard_to_staff_subdomain_with_query_string(): void
+    {
+        config([
+            'cmih.app_kind' => 'all',
+            'cmih.urls.website' => 'https://www.cmih.africa',
+            'cmih.urls.staff' => 'https://portal.cmih.africa',
+        ]);
+
+        $response = $this->get('https://cmih.africa/dashboard?weekly_department=client_relations');
+
+        $response->assertRedirect('https://portal.cmih.africa/dashboard?weekly_department=client_relations');
+    }
+
+    public function test_root_domain_redirects_merchandiser_admin_to_brands_subdomain(): void
+    {
+        config([
+            'cmih.app_kind' => 'all',
+            'cmih.urls.website' => 'https://www.cmih.africa',
+            'cmih.urls.brands' => 'https://brands.cmih.africa',
+        ]);
+
+        $response = $this->get('https://cmih.africa/merchandisers/admin');
+
+        $response->assertRedirect('https://brands.cmih.africa/merchandisers/admin');
+    }
 }
