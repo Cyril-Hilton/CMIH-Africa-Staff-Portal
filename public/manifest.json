@@ -1,0 +1,22 @@
+{
+  "name": "CMIH Africa Staff Portal",
+  "short_name": "CMIH Portal",
+  "description": "Experiential and Below-The-Line Marketing Operations Management Portal.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#E50914",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/images/logo/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/images/logo/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

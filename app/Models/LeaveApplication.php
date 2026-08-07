@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class LeaveApplication extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'start_date',
+        'end_date',
+        'leave_type',
+        'line_manager_id',
+        'covering_staff_id',
+        'delegate_line_manager_id',
+        'status',
+        'comments',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'start_date' => 'date',
+            'end_date' => 'date',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function lineManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'line_manager_id');
+    }
+
+    public function coveringStaff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'covering_staff_id');
+    }
+
+    public function delegateLineManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delegate_line_manager_id');
+    }
+
+    /**
+     * Check if this approved leave request is currently active today.
+     */
+    public function isActiveToday(): bool
+    {
+        if ($this->status !== 'approved' || ! $this->start_date || ! $this->end_date) {
+            return false;
+        }
+
+        $today = today();
+
+        return $this->start_date->lte($today) && $this->end_date->gte($today);
+    }
+}
