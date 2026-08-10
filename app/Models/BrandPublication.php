@@ -6,34 +6,27 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class BrandFieldActivity extends Model
+class BrandPublication extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'brand_id',
         'brand_activation_id',
-        'user_id',
-        'staff_role',
-        'activity_type',
+        'title',
+        'category',
         'status',
-        'location',
-        'units',
-        'conversion_count',
-        'transaction_value',
-        'reference_code',
-        'notes',
-        'metadata',
-        'evidence_path',
+        'summary',
+        'body',
+        'image_path',
+        'published_at',
+        'created_by',
     ];
 
     protected function casts(): array
     {
         return [
-            'units' => 'integer',
-            'conversion_count' => 'integer',
-            'transaction_value' => 'decimal:2',
-            'metadata' => 'array',
+            'published_at' => 'datetime',
         ];
     }
 
@@ -47,8 +40,8 @@ class BrandFieldActivity extends Model
         return $this->belongsTo(BrandActivation::class, 'brand_activation_id');
     }
 
-    public function user(): BelongsTo
+    public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

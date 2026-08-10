@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class BrandFieldActivity extends Model
+class BrandActivityLog extends Model
 {
     use HasFactory;
 
@@ -14,25 +14,16 @@ class BrandFieldActivity extends Model
         'brand_id',
         'brand_activation_id',
         'user_id',
-        'staff_role',
-        'activity_type',
-        'status',
-        'location',
-        'units',
-        'conversion_count',
-        'transaction_value',
-        'reference_code',
-        'notes',
+        'action',
+        'context',
+        'ip_address',
+        'user_agent',
         'metadata',
-        'evidence_path',
     ];
 
     protected function casts(): array
     {
         return [
-            'units' => 'integer',
-            'conversion_count' => 'integer',
-            'transaction_value' => 'decimal:2',
             'metadata' => 'array',
         ];
     }

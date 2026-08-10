@@ -11,6 +11,7 @@ use App\Models\MerchandiserReport;
 use App\Models\PosmLedger;
 use App\Models\User;
 use App\Models\KeyDistributor;
+use App\Services\PerfectStoreKpiService;
 use Illuminate\Support\Carbon;
 
 class MerchandiserReportController extends Controller
@@ -127,6 +128,13 @@ class MerchandiserReportController extends Controller
                     + MerchandiserPjpClockin::whereDate('clocked_in_at', $date)->count();
             }
             $data['attendance_chart'] = $chart;
+        }
+
+        if ($report->section('show_overview') || $report->section('show_top_performers')) {
+            $data['perfect_store_summary'] = app(PerfectStoreKpiService::class)->summary(
+                Carbon::today()->subDays(6),
+                Carbon::today()
+            );
         }
 
         if ($report->section('show_tracking')) {

@@ -156,6 +156,52 @@
             </div>
             @endif
 
+            @if(!empty($data['perfect_store_summary']))
+                @php
+                    $perfectStore = $data['perfect_store_summary'];
+                    $perfectOverview = $perfectStore['overview'] ?? [];
+                    $perfectTargets = $perfectStore['targets'] ?? [];
+                    $perfectMetrics = ['coverage' => 'Coverage', 'osa' => 'OSA', 'npd' => 'NPD', 'mhs' => 'MHS', 'planogram' => 'Planogram', 'facing' => 'Facing', 'sos' => 'SOS'];
+                    $perfectLabels = collect($perfectMetrics)->values()->all();
+                    $perfectValues = collect(array_keys($perfectMetrics))->map(fn ($key) => $perfectOverview[$key] ?? 0)->values()->all();
+                    $perfectTargetValues = collect(array_keys($perfectMetrics))->map(fn ($key) => $perfectTargets[$key] ?? 100)->values()->all();
+                    $topKds = collect($perfectStore['kds'] ?? collect())->take(8);
+                    $topMerchandisers = collect($perfectStore['merchandisers'] ?? collect())->take(8);
+                @endphp
+                <div class="glass-panel rounded-2xl border border-brand-white/10 p-5">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-widest text-brand-ash">Perfect Store KPI Summary</p>
+                            <p class="mt-1 text-xs text-brand-ash">Coverage, OSA, NPD, MHS, planogram, facing and share-of-shelf for the last 7 days.</p>
+                        </div>
+                        <p class="text-3xl font-display text-brand-white">{{ number_format((float) ($perfectOverview['perfect_store_score'] ?? 0), 1) }}%</p>
+                    </div>
+                    <div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                        @foreach($perfectMetrics as $key => $label)
+                            <div class="rounded-xl border border-brand-white/10 bg-brand-black/35 p-4">
+                                <p class="text-[10px] uppercase tracking-widest text-brand-ash">{{ $label }}</p>
+                                <p class="mt-2 text-2xl font-display text-brand-white">{{ ($perfectOverview[$key] ?? null) === null ? 'N/A' : number_format((float) ($perfectOverview[$key] ?? 0), 1).'%' }}</p>
+                                <p class="mt-1 text-[10px] text-brand-white/40">Target {{ number_format((float) ($perfectTargets[$key] ?? 100), 0) }}%</p>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-6 grid gap-6 lg:grid-cols-3">
+                        <div class="rounded-2xl border border-brand-white/10 bg-brand-black/30 p-4">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">KPI vs Target</p>
+                            <div class="mt-4 h-72"><canvas id="perfectStoreReportRadar"></canvas></div>
+                        </div>
+                        <div class="rounded-2xl border border-brand-white/10 bg-brand-black/30 p-4">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Top Merchandisers</p>
+                            <div class="mt-4 h-72"><canvas id="perfectStoreReportMerch"></canvas></div>
+                        </div>
+                        <div class="rounded-2xl border border-brand-white/10 bg-brand-black/30 p-4">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">KD Performance</p>
+                            <div class="mt-4 h-72"><canvas id="perfectStoreReportKd"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- Live Map -->
             @if($report->section('show_tracking'))
             <div class="glass-panel rounded-2xl border border-brand-white/10 overflow-hidden">
@@ -280,6 +326,74 @@
                 }
             });
         }
+    </script>
+    @endif
+
+    @if(!empty($data['perfect_store_summary']))
+    <script>
+        (() => {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: 'rgba(255,255,255,.72)' } } },
+                scales: {
+                    x: { ticks: { color: 'rgba(255,255,255,.55)' }, grid: { color: 'rgba(255,255,255,.08)' } },
+                    y: { beginAtZero: true, suggestedMax: 100, ticks: { color: 'rgba(255,255,255,.55)' }, grid: { color: 'rgba(255,255,255,.08)' } },
+                },
+            };
+            const radar = document.getElementById('perfectStoreReportRadar');
+            const merch = document.getElementById('perfectStoreReportMerch');
+            const kd = document.getElementById('perfectStoreReportKd');
+
+            if (radar) {
+                new Chart(radar, {
+                    type: 'radar',
+                    data: {
+                        labels: @json($perfectLabels),
+                        datasets: [
+                            { label: 'Actual', data: @json($perfectValues), borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,.22)' },
+                            { label: 'Target', data: @json($perfectTargetValues), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)' },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                suggestedMax: 100,
+                                grid: { color: 'rgba(255,255,255,.12)' },
+                                angleLines: { color: 'rgba(255,255,255,.1)' },
+                                pointLabels: { color: 'rgba(255,255,255,.72)' },
+                                ticks: { backdropColor: 'transparent', color: 'rgba(255,255,255,.45)' },
+                            },
+                        },
+                    },
+                });
+            }
+
+            if (merch) {
+                new Chart(merch, {
+                    type: 'bar',
+                    data: {
+                        labels: @json($topMerchandisers->pluck('name')->values()),
+                        datasets: [{ label: 'Perfect Store Score', data: @json($topMerchandisers->pluck('perfect_store_score')->map(fn ($value) => (float) $value)->values()), backgroundColor: 'rgba(59,130,246,.75)' }],
+                    },
+                    options: { ...commonOptions, indexAxis: 'y' },
+                });
+            }
+
+            if (kd) {
+                new Chart(kd, {
+                    type: 'bar',
+                    data: {
+                        labels: @json($topKds->pluck('name')->values()),
+                        datasets: [{ label: 'Perfect Store Score', data: @json($topKds->pluck('perfect_store_score')->map(fn ($value) => (float) $value)->values()), backgroundColor: 'rgba(34,197,94,.75)' }],
+                    },
+                    options: { ...commonOptions, indexAxis: 'y' },
+                });
+            }
+        })();
     </script>
     @endif
 

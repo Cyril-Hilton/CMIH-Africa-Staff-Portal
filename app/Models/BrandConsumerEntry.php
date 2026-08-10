@@ -21,6 +21,16 @@ class BrandConsumerEntry extends Model
         'location',
         'source',
         'result_type',
+        'current_choice',
+        'purchase_intent',
+        'preferred_channel',
+        'is_new_to_brand',
+        'marketing_consent',
+        'data_consent',
+        'verification_token',
+        'otp_code',
+        'otp_verified_at',
+        'reward_code',
         'answers',
     ];
 
@@ -28,6 +38,10 @@ class BrandConsumerEntry extends Model
     {
         return [
             'answers' => 'array',
+            'is_new_to_brand' => 'boolean',
+            'marketing_consent' => 'boolean',
+            'data_consent' => 'boolean',
+            'otp_verified_at' => 'datetime',
         ];
     }
 

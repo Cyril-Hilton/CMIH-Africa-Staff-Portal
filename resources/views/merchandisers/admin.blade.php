@@ -414,6 +414,19 @@
                         $perfectOverview = $perfectStoreSummary['overview'] ?? [];
                         $perfectTargets = $perfectStoreSummary['targets'] ?? [];
                         $metricLabel = fn ($value) => $value === null ? 'N/A' : number_format((float) $value, 1) . '%';
+                        $perfectMetricLabels = ['Coverage', 'OSA', 'NPD', 'MHS', 'Planogram', 'Facing', 'SOS'];
+                        $perfectMetricValues = collect(['coverage', 'osa', 'npd', 'mhs', 'planogram', 'facing', 'sos'])
+                            ->map(fn ($metric) => $perfectOverview[$metric] === null ? 0 : (float) ($perfectOverview[$metric] ?? 0))
+                            ->values();
+                        $perfectTargetValues = collect(['coverage', 'osa', 'npd', 'mhs', 'planogram', 'facing', 'sos'])
+                            ->map(fn ($metric) => (float) ($perfectTargets[$metric] ?? 100))
+                            ->values();
+                        $perfectMerchChart = collect($perfectStoreSummary['merchandisers'] ?? collect())->take(8);
+                        $perfectKdChart = collect($perfectStoreSummary['kds'] ?? collect())->take(8);
+                        $perfectMerchChartLabels = $perfectMerchChart->pluck('name')->values();
+                        $perfectMerchChartScores = $perfectMerchChart->pluck('perfect_store_score')->map(fn ($value) => (float) $value)->values();
+                        $perfectKdChartLabels = $perfectKdChart->pluck('name')->values();
+                        $perfectKdChartScores = $perfectKdChart->pluck('perfect_store_score')->map(fn ($value) => (float) $value)->values();
                     @endphp
                     <div class="grid grid-cols-2 gap-4 mb-6 xl:grid-cols-5">
                         <div class="glass-panel rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
@@ -440,6 +453,27 @@
                             <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Perfect Store Score</p>
                             <p class="text-3xl font-display text-brand-white">{{ $metricLabel($perfectOverview['perfect_store_score'] ?? 0) }}</p>
                             <p class="text-xs text-brand-ash mt-1">{{ $perfectOverview['visits'] ?? 0 }} scored visit(s)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 mb-6 xl:grid-cols-3">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Perfect Store KPI Radar</p>
+                            <div class="h-72">
+                                <canvas id="perfectStoreMetricRadarChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Top Merchandiser Scores</p>
+                            <div class="h-72">
+                                <canvas id="perfectStoreMerchChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">KD Execution Scores</p>
+                            <div class="h-72">
+                                <canvas id="perfectStoreKdChart"></canvas>
+                            </div>
                         </div>
                     </div>
 
@@ -3110,6 +3144,114 @@
 
 <script>
 const adminChartsAvailable = typeof Chart !== 'undefined';
+if (adminChartsAvailable) {
+    Chart.defaults.color = 'rgba(255,255,255,0.72)';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.1)';
+}
+
+const merchKpiChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            position: 'bottom',
+            labels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } }
+        }
+    },
+    scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } }, beginAtZero: true, max: 100 }
+    }
+};
+
+const perfectMetricRadarCtx = document.getElementById('perfectStoreMetricRadarChart');
+if (perfectMetricRadarCtx && adminChartsAvailable) {
+    new Chart(perfectMetricRadarCtx, {
+        type: 'radar',
+        data: {
+            labels: @json($perfectMetricLabels ?? []),
+            datasets: [
+                {
+                    label: 'Actual',
+                    data: @json($perfectMetricValues ?? []),
+                    backgroundColor: 'rgba(239,68,68,0.16)',
+                    borderColor: 'rgba(239,68,68,0.9)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#ef4444',
+                },
+                {
+                    label: 'Target',
+                    data: @json($perfectTargetValues ?? []),
+                    backgroundColor: 'rgba(34,197,94,0.08)',
+                    borderColor: 'rgba(34,197,94,0.7)',
+                    borderDash: [4, 4],
+                    borderWidth: 1.5,
+                    pointBackgroundColor: '#22c55e',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } } }
+            },
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.08)' },
+                    angleLines: { color: 'rgba(255,255,255,0.08)' },
+                    pointLabels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } },
+                    ticks: { display: false }
+                }
+            }
+        }
+    });
+}
+
+const perfectMerchCtx = document.getElementById('perfectStoreMerchChart');
+if (perfectMerchCtx && adminChartsAvailable) {
+    const labels = @json($perfectMerchChartLabels ?? []);
+    const scores = @json($perfectMerchChartScores ?? []);
+    new Chart(perfectMerchCtx, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['No data'],
+            datasets: [{
+                label: 'Score',
+                data: scores.length ? scores : [0],
+                backgroundColor: 'rgba(14,165,233,0.55)',
+                borderColor: 'rgba(14,165,233,0.95)',
+                borderWidth: 1.5,
+                borderRadius: 6,
+            }]
+        },
+        options: { ...merchKpiChartOptions, indexAxis: 'y' }
+    });
+}
+
+const perfectKdCtx = document.getElementById('perfectStoreKdChart');
+if (perfectKdCtx && adminChartsAvailable) {
+    const labels = @json($perfectKdChartLabels ?? []);
+    const scores = @json($perfectKdChartScores ?? []);
+    new Chart(perfectKdCtx, {
+        type: 'bar',
+        data: {
+            labels: labels.length ? labels : ['No data'],
+            datasets: [{
+                label: 'Score',
+                data: scores.length ? scores : [0],
+                backgroundColor: 'rgba(167,139,250,0.55)',
+                borderColor: 'rgba(167,139,250,0.95)',
+                borderWidth: 1.5,
+                borderRadius: 6,
+            }]
+        },
+        options: { ...merchKpiChartOptions, indexAxis: 'y' }
+    });
+}
+
 const routeDailyCtx = document.getElementById('routeDailyChart');
 if (routeDailyCtx && adminChartsAvailable) {
     new Chart(routeDailyCtx, {

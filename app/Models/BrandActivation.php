@@ -19,10 +19,14 @@ class BrandActivation extends Model
         'starts_at',
         'ends_at',
         'target_reach',
+        'target_unit',
         'actual_reach',
         'locations',
+        'activation_plan',
         'description',
+        'banner_path',
         'client_share_token',
+        'client_share_expires_at',
         'created_by',
     ];
 
@@ -34,6 +38,8 @@ class BrandActivation extends Model
             'target_reach' => 'integer',
             'actual_reach' => 'integer',
             'locations' => 'array',
+            'activation_plan' => 'array',
+            'client_share_expires_at' => 'datetime',
         ];
     }
 
@@ -55,5 +61,15 @@ class BrandActivation extends Model
     public function fieldActivities(): HasMany
     {
         return $this->hasMany(BrandFieldActivity::class);
+    }
+
+    public function publications(): HasMany
+    {
+        return $this->hasMany(BrandPublication::class);
+    }
+
+    public function clientShareIsActive(): bool
+    {
+        return ! $this->client_share_expires_at || $this->client_share_expires_at->isFuture();
     }
 }

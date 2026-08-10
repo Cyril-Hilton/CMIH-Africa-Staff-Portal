@@ -57,16 +57,30 @@ Route::prefix('brands')->name('brands-platform.')->group(function () {
     Route::post('/{brand}/consumer-entry', [BrandsPlatformController::class, 'storeConsumerEntry'])
         ->middleware('throttle:30,1')
         ->name('consumer-entry.store');
+    Route::get('/{brand}/consumer-entry/{token}', [BrandsPlatformController::class, 'verifyConsumerEntry'])
+        ->name('consumer-entry.verify');
+    Route::post('/{brand}/consumer-entry/{token}', [BrandsPlatformController::class, 'completeConsumerVerification'])
+        ->middleware('throttle:20,1')
+        ->name('consumer-entry.complete');
 });
 
 Route::middleware(['auth', 'active'])->prefix('brands')->name('brands-platform.')->group(function () {
-    Route::get('/{brand}/gallery', [BrandsPlatformController::class, 'gallery'])->name('brand-gallery');
-    Route::get('/{brand}/agency', [BrandsPlatformController::class, 'agency'])->name('agency');
-    Route::post('/{brand}/field-activity', [BrandsPlatformController::class, 'storeFieldActivity'])->name('field-activity.store');
     Route::get('/admin/console', [BrandsPlatformController::class, 'admin'])->name('admin');
     Route::get('/admin/staff-feed', [BrandsPlatformController::class, 'staffFeed'])->name('admin.staff-feed');
+    Route::post('/admin/brands', [BrandsPlatformController::class, 'storeBrand'])->name('admin.brands.store');
+    Route::post('/admin/{brand}/activations', [BrandsPlatformController::class, 'storeActivation'])->name('admin.activations.store');
+    Route::post('/admin/{brand}/publications', [BrandsPlatformController::class, 'storePublication'])->name('admin.publications.store');
+    Route::post('/admin/activations/{activation}/client-link', [BrandsPlatformController::class, 'generateClientLink'])->name('admin.client-link.generate');
     Route::post('/admin/{brand}/assignments', [BrandsPlatformController::class, 'storeAssignment'])->name('admin.assignments.store');
     Route::delete('/admin/assignments/{assignment}', [BrandsPlatformController::class, 'destroyAssignment'])->name('admin.assignments.destroy');
+    Route::get('/{brand}/gallery', [BrandsPlatformController::class, 'gallery'])->name('brand-gallery');
+    Route::get('/{brand}/agency', [BrandsPlatformController::class, 'agency'])->name('agency');
+    Route::get('/{brand}/support', [BrandsPlatformController::class, 'support'])->name('support');
+    Route::get('/{brand}/retail', [BrandsPlatformController::class, 'retail'])->name('retail');
+    Route::get('/{brand}/export/{type}', [BrandsPlatformController::class, 'exportReport'])
+        ->whereIn('type', ['current', 'daily', 'weekly', 'retail', 'promoter', 'consumer-insights', 'closeout'])
+        ->name('export');
+    Route::post('/{brand}/field-activity', [BrandsPlatformController::class, 'storeFieldActivity'])->name('field-activity.store');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])

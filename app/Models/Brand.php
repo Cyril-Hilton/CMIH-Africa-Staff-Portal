@@ -46,6 +46,16 @@ class Brand extends Model
         return $this->hasMany(BrandFieldActivity::class);
     }
 
+    public function publications(): HasMany
+    {
+        return $this->hasMany(BrandPublication::class);
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(BrandActivityLog::class);
+    }
+
     public function logoUrl(string $theme = 'light'): ?string
     {
         $path = $theme === 'dark' && $this->logo_dark_path
