@@ -214,7 +214,7 @@ class TaskVerificationTest extends TestCase
         $response->assertSee('Current July Task');
     }
 
-    public function test_my_task_stats_count_assigned_or_created_tasks_but_not_support_only_tasks(): void
+    public function test_my_task_stats_count_assigned_created_and_supporting_tasks(): void
     {
         $staff = $this->staffMembers['creatives'];
         $coworker = User::factory()->create([
@@ -254,12 +254,64 @@ class TaskVerificationTest extends TestCase
         $response = $this->actingAs($staff)->get(route('portal.tasks'));
 
         $response->assertOk();
-        $this->assertSame(2, $response->viewData('myTotal'));
+        $this->assertSame(3, $response->viewData('myTotal'));
         $this->assertSame(2, $response->viewData('myCreatedTotal'));
         $this->assertSame(0, $response->viewData('myCompleted'));
         $this->assertSame(0, $response->viewData('myApproved'));
-        $this->assertSame(1, $response->viewData('myInProgress'));
+        $this->assertSame(3, $response->viewData('myInProgress'));
         $this->assertSame(3, $response->viewData('myTasks')->total());
+    }
+
+    public function test_cyril_can_complete_supporting_task_that_counts_toward_his_score(): void
+    {
+        $cyril = User::factory()->create([
+            'name' => 'Cyril Hilton',
+            'email' => 'cyrilhilton@cmih.africa',
+            'access_role' => 'staff',
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+        $coworker = User::factory()->create([
+            'access_role' => 'staff',
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+
+        $task = Task::create([
+            'title' => 'Collaborative render cleanup',
+            'details' => 'Cyril is responsible for the final render pass.',
+            'assigned_to' => $coworker->id,
+            'assigned_by' => $coworker->id,
+            'supporting_staff_ids' => [$cyril->id],
+            'department' => 'creatives',
+            'status' => 'In Progress',
+            'priority' => 'Medium',
+        ]);
+
+        $response = $this->actingAs($cyril)->patch(route('portal.tasks.update', $task), [
+            'title' => 'Collaborative render cleanup',
+            'details' => 'Cyril is responsible for the final render pass.',
+            'priority' => 'Medium',
+            'status' => 'Completed',
+            'supporting_staff_ids' => [$cyril->id],
+            'copied_manager_ids' => [],
+            'supporting_roles' => 'Final 3D/4D render pass',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $task->refresh();
+        $this->assertSame('Completed', $task->status);
+        $this->assertSame(100, $task->progress);
+
+        $dashboard = $this->actingAs($cyril)->get(route('dashboard'));
+
+        $dashboard->assertOk();
+        $dashboard->assertViewHas('individualStats', function ($stats) {
+            return (int) $stats['completion_rate'] === 100
+                && (int) $stats['open_deliverables'] === 0;
+        });
     }
 
     public function test_create_task_page_does_not_prompt_second_clock_in_when_already_clocked_in(): void

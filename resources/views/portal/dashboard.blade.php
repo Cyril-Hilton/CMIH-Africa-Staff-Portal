@@ -1745,13 +1745,16 @@
             const activeDept = deptNormMap[userDept] || userDept || 'operations_projects';
             const departments = @json(array_keys($departments));
             const weeklyDepartments = @json($weeklyConsolidatedDepartments->keys()->values());
+            const dashboardUserId = @json((int) $user->id);
+            const weeklyStorageKey = `cmih.dashboard.weeklyDepartment.${dashboardUserId}`;
+            window.CMIHDashboardWeeklyStorageKey = weeklyStorageKey;
             const urlParams = new URLSearchParams(window.location.search);
             const urlTab = urlParams.get('tab');
             let storedMegaTab = null;
             let storedWeeklyDepartment = null;
             try {
                 storedMegaTab = window.sessionStorage.getItem('cmih.dashboard.megaDepartment');
-                storedWeeklyDepartment = window.sessionStorage.getItem('cmih.dashboard.weeklyDepartment');
+                storedWeeklyDepartment = window.sessionStorage.getItem(weeklyStorageKey);
             } catch (error) {
                 storedMegaTab = null;
                 storedWeeklyDepartment = null;
@@ -1849,7 +1852,7 @@
 
             function getStoredWeeklyDepartment() {
                 try {
-                    return window.sessionStorage.getItem('cmih.dashboard.weeklyDepartment') || '';
+                    return window.sessionStorage.getItem(weeklyStorageKey) || '';
                 } catch (error) {
                     return '';
                 }
@@ -1859,7 +1862,7 @@
                 if (!isValidWeeklyDepartment(department)) return;
 
                 try {
-                    window.sessionStorage.setItem('cmih.dashboard.weeklyDepartment', department);
+                    window.sessionStorage.setItem(weeklyStorageKey, department);
                 } catch (error) {
                     // Browser storage can be disabled; URL state still preserves the tab.
                 }

@@ -85,20 +85,6 @@
 
             <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
-                {{-- CMIH Logo --}}
-                @include('portal.surveys._logo_upload_slot', [
-                    'inputId'     => 'cmih_logo',
-                    'inputName'   => 'cmih_logo',
-                    'previewId'   => 'cmih_preview',
-                    'label'       => 'CMIH Logo',
-                    'sublabel'    => 'Left side',
-                    'hasNameField'=> false,
-                    'nameField'   => '',
-                    'namePlaceholder' => '',
-                    'existingPath'=> null,
-                    'existingName'=> null,
-                ])
-
                 {{-- Partner Brand 1 --}}
                 <div class="space-y-2 lg:col-span-1">
                     <label class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash font-medium">Brand 1 Name</label>

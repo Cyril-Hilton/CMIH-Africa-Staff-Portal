@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Brands\BrandsPlatformController;
 use App\Models\Event;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
@@ -10,8 +11,12 @@ use Illuminate\View\View;
 
 class SiteController extends Controller
 {
-    public function home(): View
+    public function home(Request $request): View
     {
+        if ($this->shouldShowBrandsPlatform($request)) {
+            return app(BrandsPlatformController::class)->index($request);
+        }
+
         $events = Event::where('status', 'published')
             ->whereDate('starts_at', '>=', now()->toDateString())
             ->orderBy('starts_at')
@@ -21,6 +26,17 @@ class SiteController extends Controller
         $brands = \App\Models\Brand::all();
 
         return view('pages.home', compact('events', 'brands'));
+    }
+
+    private function shouldShowBrandsPlatform(Request $request): bool
+    {
+        if ((string) config('cmih.app_kind') === 'brands') {
+            return true;
+        }
+
+        $brandsHost = parse_url((string) config('cmih.urls.brands'), PHP_URL_HOST);
+
+        return $brandsHost && strtolower($request->getHost()) === strtolower($brandsHost);
     }
 
     public function news(): View

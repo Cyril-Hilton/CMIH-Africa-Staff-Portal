@@ -65,6 +65,8 @@ class RestrictSplitAppAccess
             ]),
             'brands' => $this->matches($path, [
                 '/',
+                'brands',
+                'brands/*',
                 'merchandisers',
                 'merchandisers/*',
                 ...$this->authPatterns(),
@@ -79,7 +81,7 @@ class RestrictSplitAppAccess
         $path = $request->path();
         $queryString = $request->getQueryString();
 
-        if ($this->matches($path, ['merchandisers', 'merchandisers/*'])) {
+        if ($this->matches($path, ['brands', 'brands/*', 'merchandisers', 'merchandisers/*'])) {
             return $this->buildUrl(config('cmih.urls.brands'), $path, $queryString);
         }
 

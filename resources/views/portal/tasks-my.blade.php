@@ -73,7 +73,7 @@
         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
             <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">Total Assigned</p>
             <p class="mt-2 text-4xl font-bold text-brand-white">{{ $myTotal }}</p>
-            <p class="mt-1 text-xs text-brand-white/40">Assigned + created</p>
+            <p class="mt-1 text-xs text-brand-white/40">Assigned + created + supporting</p>
         </div>
         <div class="glass-panel rounded-2xl p-5 border border-cyan-500/20 bg-cyan-500/5">
             <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">Total Tasks</p>

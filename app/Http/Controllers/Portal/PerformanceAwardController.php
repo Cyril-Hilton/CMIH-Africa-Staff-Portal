@@ -333,7 +333,7 @@ class PerformanceAwardController extends Controller
     private function scoreUserForPeriod(User $user, Carbon $startDate, Carbon $endDate, bool $includeInactiveAsZero = false): array
     {
         $taskStats = TaskStatsService::forUser($user, $startDate, $endDate);
-        $totalTasks = $taskStats['assigned_total'];
+        $totalTasks = $taskStats['accountable_total'];
         $attendanceSummary = PerformanceScoringService::attendanceSummary($user, $startDate, $endDate);
         $totalAttendances = $attendanceSummary['attendance_days'];
 

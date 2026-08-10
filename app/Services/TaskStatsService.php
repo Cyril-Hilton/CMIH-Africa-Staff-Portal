@@ -14,29 +14,32 @@ class TaskStatsService
         $assignedQuery = self::assignedToUserQuery($user, $startDate, $endDate);
         $createdQuery = self::createdByUserQuery($user, $startDate, $endDate);
         $assignedOrCreatedQuery = self::assignedOrCreatedQuery($user, $startDate, $endDate);
+        $accountableQuery = self::accountableToUserQuery($user, $startDate, $endDate);
 
         $assignedTotal = (clone $assignedQuery)->count();
         $createdTotal = (clone $createdQuery)->count();
         $assignedOrCreatedTotal = (clone $assignedOrCreatedQuery)->count();
-        $completed = (clone $assignedQuery)->approvedForPerformance()->count();
-        $approvedOwnWork = self::ownWorkApprovedCount($user, clone $assignedQuery);
+        $accountableTotal = (clone $accountableQuery)->count();
+        $completed = (clone $accountableQuery)->approvedForPerformance()->count();
+        $approvedOwnWork = self::ownWorkApprovedCount($user, clone $accountableQuery);
         $approvedByUser = self::approvedByReviewerCount($user, $startDate, $endDate);
         $showsReviewerApprovals = $user->isLineManager() || $approvedByUser > 0;
         $approved = $showsReviewerApprovals ? $approvedByUser : $approvedOwnWork;
-        $pending = (clone $assignedQuery)->pendingFinalSignOff()->count();
-        $overdue = self::overdueCount(clone $assignedQuery, $endDate);
+        $pending = (clone $accountableQuery)->pendingFinalSignOff()->count();
+        $overdue = self::overdueCount(clone $accountableQuery, $endDate);
 
         return [
             'assigned_total' => $assignedTotal,
             'created_total' => $createdTotal,
             'assigned_or_created_total' => $assignedOrCreatedTotal,
+            'accountable_total' => $accountableTotal,
             'completed' => $completed,
             'approved' => $approved,
             'approved_own_work' => $approvedOwnWork,
             'approved_by_user' => $approvedByUser,
             'pending' => $pending,
             'overdue' => $overdue,
-            'completion_rate' => $assignedTotal > 0 ? round(($completed / $assignedTotal) * 100, 1) : 0,
+            'completion_rate' => $accountableTotal > 0 ? round(($completed / $accountableTotal) * 100, 1) : 0,
             'approval_label' => self::approvalLabel($user, $showsReviewerApprovals),
         ];
     }
@@ -164,6 +167,22 @@ class TaskStatsService
                 ->where(function ($query) use ($user) {
                     $query->where('assigned_to', $user->id)
                         ->orWhere('assigned_by', $user->id);
+                })
+                ->realWork(),
+            $startDate,
+            $endDate
+        );
+    }
+
+    public static function accountableToUserQuery(User $user, ?Carbon $startDate = null, ?Carbon $endDate = null): Builder
+    {
+        return self::withDateRange(
+            Task::query()
+                ->where(function ($query) use ($user) {
+                    $query->where('assigned_to', $user->id)
+                        ->orWhere('assigned_by', $user->id)
+                        ->orWhereJsonContains('supporting_staff_ids', $user->id)
+                        ->orWhereJsonContains('supporting_staff_ids', (string) $user->id);
                 })
                 ->realWork(),
             $startDate,

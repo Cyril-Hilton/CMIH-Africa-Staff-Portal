@@ -45,14 +45,15 @@
             <div x-data class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                 @foreach ($brands as $brand)
                     @php
-                        $darkLogo = $brand->logo_dark_path ?: $brand->logo_path;
+                        $lightLogo = $brand->logoUrl();
+                        $darkLogo = $brand->logoUrl('dark') ?: $lightLogo;
                     @endphp
                     <div class="group relative flex aspect-square flex-col gap-2 rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 transition hover:border-brand-white/20">
                         <div class="flex flex-1 items-center justify-center rounded-lg bg-brand-white/10 px-2">
-                            <img src="{{ asset('storage/'.$brand->logo_path) }}" alt="{{ $brand->name }} (Light)" class="max-h-12 w-full object-contain filter grayscale transition group-hover:grayscale-0">
+                            <img src="{{ $lightLogo }}" alt="{{ $brand->name }} (Light)" class="max-h-12 w-full object-contain filter grayscale transition group-hover:grayscale-0">
                         </div>
                         <div class="flex flex-1 items-center justify-center rounded-lg bg-brand-black/70 px-2">
-                            <img src="{{ asset('storage/'.$darkLogo) }}" alt="{{ $brand->name }} (Dark)" class="max-h-12 w-full object-contain filter grayscale transition group-hover:grayscale-0">
+                            <img src="{{ $darkLogo }}" alt="{{ $brand->name }} (Dark)" class="max-h-12 w-full object-contain filter grayscale transition group-hover:grayscale-0">
                         </div>
                         <p class="text-center text-[10px] uppercase tracking-wider text-brand-white/60">{{ $brand->name }}</p>
 

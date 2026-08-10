@@ -86,7 +86,7 @@ class AppraisalController extends Controller
             'completion_rate' => round($taskStats['completion_rate']),
             'punctuality'     => round($attendanceStats['punctuality_score']),
             'overtime_hours'  => $overtimeHours,
-            'total_tasks'     => $taskStats['assigned_total'],
+            'total_tasks'     => $taskStats['accountable_total'],
             'completed_tasks' => $taskStats['completed'],
         ];
 
@@ -132,7 +132,7 @@ class AppraisalController extends Controller
 
             $transparencyMatrix[] = [
                 'user'               => $staff,
-                'total_tasks'        => $staffTaskStats['assigned_total'],
+                'total_tasks'        => $staffTaskStats['accountable_total'],
                 'completion_rate'    => round($staffTaskStats['completion_rate']),
                 'punctuality'        => round($staffAttendanceStats['punctuality_score']),
                 'overtime_hours'     => $sOvertime,
@@ -454,7 +454,7 @@ class AppraisalController extends Controller
         // 1. Task calculations & list
         $taskStats = TaskStatsService::forUser($user);
         $allTasks = Task::where('assigned_to', $user->id)->realWork()->orderBy('due_on', 'asc')->get();
-        $totalTasks = $taskStats['assigned_total'];
+        $totalTasks = $taskStats['accountable_total'];
         $completedTasks = $allTasks->filter->isApprovedForPerformance();
         $completedCount = $taskStats['completed'];
         

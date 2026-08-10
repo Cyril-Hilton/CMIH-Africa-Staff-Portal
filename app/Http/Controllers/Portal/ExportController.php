@@ -112,7 +112,7 @@ class ExportController extends Controller
             'tasks', 'petty_cash_claims', 'asset_logs', 'attendance' => true,
             'assets' => true,
             'freelance_promoters' => in_array($department, ['operations_projects', 'operations', 'client_relations', 'brands_marketing', 'hr_admin', 'admin'], true),
-            'campaigns' => $this->isOperationsUser($user),
+            'campaigns' => true,
             'appraisal_metrics' => $user->isLineManager(),
             default => false,
         };
@@ -152,7 +152,17 @@ class ExportController extends Controller
                 }),
             'campaigns' => $this->isOperationsUser($user)
                 ? $query
-                : $query->whereIn('created_by', $visibleUserIds),
+                : $query->where(function (Builder $campaignQuery) use ($user, $visibleUserIds) {
+                    $campaignQuery->whereIn('created_by', $visibleUserIds)
+                        ->orWhereHas('tasks', function (Builder $taskQuery) use ($user, $visibleUserIds) {
+                            $taskQuery->whereIn('assigned_to', $visibleUserIds)
+                                ->orWhere('assigned_by', $user->id)
+                                ->orWhereJsonContains('supporting_staff_ids', $user->id)
+                                ->orWhereJsonContains('supporting_staff_ids', (string) $user->id)
+                                ->orWhereJsonContains('copied_manager_ids', $user->id)
+                                ->orWhereJsonContains('copied_manager_ids', (string) $user->id);
+                        });
+                }),
             'attendance' => $query->whereIn('user_id', $visibleUserIds),
             default => $query,
         };

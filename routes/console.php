@@ -157,3 +157,119 @@ Artisan::command('sku-ai:generate-fixtures {--count=8} {--output=storage/app/sku
 })->purpose('Generate synthetic shelf image fixtures with expected SKU counts for AI prompt regression');
 
 \Illuminate\Support\Facades\Schedule::command('messenger:archive-old-media --days=60 --limit=250')->twiceMonthly(1, 16, '02:30');
+
+Artisan::command('metrics:audit {--from= : Start date, defaults to task cycle start} {--to= : End date, defaults to today} {--json : Output JSON instead of tables}', function () {
+    $from = $this->option('from')
+        ? \Illuminate\Support\Carbon::parse((string) $this->option('from'))->startOfDay()
+        : \App\Models\Task::cycleStart();
+    $to = $this->option('to')
+        ? \Illuminate\Support\Carbon::parse((string) $this->option('to'))->endOfDay()
+        : now()->endOfDay();
+
+    $staffRows = \App\Models\User::internalStaff()
+        ->where('status', 'active')
+        ->orderBy('department')
+        ->orderBy('name')
+        ->get()
+        ->map(function (\App\Models\User $user) use ($from, $to) {
+            $taskStats = \App\Services\TaskStatsService::forUser($user, $from, $to);
+            $attendanceStats = \App\Services\PerformanceScoringService::attendanceSummary($user, $from, $to);
+            $totalScore = (
+                ((float) $taskStats['completion_rate'] * 0.2)
+                + ((float) $attendanceStats['punctuality_score'] * 0.5)
+                + ((float) $attendanceStats['attendance_rate'] * 0.3)
+            );
+
+            return [
+                'name' => $user->name,
+                'email' => $user->email,
+                'department' => \App\Models\User::departmentLabel($user->department),
+                'accountable_tasks' => $taskStats['accountable_total'],
+                'created_tasks' => $taskStats['created_total'],
+                'assigned_tasks' => $taskStats['assigned_total'],
+                'completed_tasks' => $taskStats['completed'],
+                'pending_tasks' => $taskStats['pending'],
+                'approved' => $taskStats['approved'],
+                'completion_rate' => $taskStats['completion_rate'],
+                'expected_workdays' => $attendanceStats['expected_workdays'],
+                'clocked_days' => $attendanceStats['attendance_days'],
+                'punctual_days' => $attendanceStats['punctual_days'],
+                'attendance_rate' => $attendanceStats['attendance_rate'],
+                'punctuality_score' => $attendanceStats['punctuality_score'],
+                'total_score' => round($totalScore, 1),
+            ];
+        })
+        ->values();
+
+    $departmentRows = $staffRows
+        ->groupBy('department')
+        ->map(fn ($rows, $department) => [
+            'department' => $department,
+            'staff' => $rows->count(),
+            'tasks' => $rows->sum('accountable_tasks'),
+            'completion_rate' => round((float) $rows->avg('completion_rate'), 1),
+            'attendance_rate' => round((float) $rows->avg('attendance_rate'), 1),
+            'punctuality_score' => round((float) $rows->avg('punctuality_score'), 1),
+            'total_score' => round((float) $rows->avg('total_score'), 1),
+        ])
+        ->sortByDesc('total_score')
+        ->values();
+
+    $perfectStore = app(\App\Services\PerfectStoreKpiService::class)->summary($from, $to);
+    $payload = [
+        'range' => [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ],
+        'staff' => $staffRows,
+        'departments' => $departmentRows,
+        'perfect_store' => [
+            'overview' => $perfectStore['overview'],
+            'top_merchandisers' => $perfectStore['merchandisers']->take(10)->values(),
+            'top_kds' => $perfectStore['kds']->take(10)->values(),
+            'top_regions' => $perfectStore['regions']->take(10)->values(),
+            'top_brands' => $perfectStore['brands']->take(10)->values(),
+            'alerts' => $perfectStore['alerts'],
+        ],
+    ];
+
+    if ($this->option('json')) {
+        $this->line(json_encode($payload, JSON_PRETTY_PRINT));
+        return 0;
+    }
+
+    $this->info('Metrics audit: '.$from->toDateString().' to '.$to->toDateString());
+    $this->table(
+        ['Name', 'Dept', 'Acct Tasks', 'Completed', 'Pending', 'Approved', 'Completion %', 'Clocked', 'Punctual', 'Attendance %', 'Punctuality %', 'Total %'],
+        $staffRows->map(fn ($row) => [
+            $row['name'],
+            $row['department'],
+            $row['accountable_tasks'],
+            $row['completed_tasks'],
+            $row['pending_tasks'],
+            $row['approved'],
+            $row['completion_rate'],
+            $row['clocked_days'].'/'.$row['expected_workdays'],
+            $row['punctual_days'],
+            $row['attendance_rate'],
+            $row['punctuality_score'],
+            $row['total_score'],
+        ])->all()
+    );
+    $this->table(
+        ['Department', 'Staff', 'Tasks', 'Completion %', 'Attendance %', 'Punctuality %', 'Total %'],
+        $departmentRows->map(fn ($row) => [
+            $row['department'],
+            $row['staff'],
+            $row['tasks'],
+            $row['completion_rate'],
+            $row['attendance_rate'],
+            $row['punctuality_score'],
+            $row['total_score'],
+        ])->all()
+    );
+
+    $this->info('Perfect Store overview: '.json_encode($perfectStore['overview']));
+
+    return 0;
+})->purpose('Audit staff task, attendance, punctuality and merchandiser Perfect Store metrics for a date range');

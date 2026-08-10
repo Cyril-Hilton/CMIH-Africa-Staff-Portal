@@ -32,6 +32,7 @@ use App\Models\Sku;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\MerchandiserRoutePlanner;
+use App\Services\PerfectStoreKpiService;
 use App\Services\PerfectStoreFormTemplate;
 use App\Support\MerchandiserClockWindows;
 use Illuminate\Http\Request;
@@ -105,8 +106,10 @@ class MerchandiserAdminHubController extends Controller
 
         $attendanceChart = [];
         $topPerformers = collect();
+        $perfectStoreSummary = PerfectStoreKpiService::emptySummary();
 
         if ($activeTab === 'overview') {
+            $perfectStoreSummary = app(PerfectStoreKpiService::class)->summary($clockFrom, $clockTo);
             $chartStart = $clockFrom->copy()->startOfDay();
             $chartEnd = $clockTo->copy()->startOfDay();
             if ($chartStart->diffInDays($chartEnd) > 30) {
@@ -151,14 +154,6 @@ class MerchandiserAdminHubController extends Controller
 
                 return $clone;
             });
-        }
-
-        if ($activeTab === 'routes') {
-            $assignableOutlets = Outlet::with(['keyDistributor', 'registeredBy', 'assignedMerchandisers'])
-                ->orderByDesc('created_at')
-                ->get()
-                ->filter(fn (Outlet $outlet) => $this->outletMatchesRegistrationDay($outlet, $outletRegistrationDay))
-                ->values();
         }
 
         $merchandiserLocations = [];
@@ -296,6 +291,22 @@ class MerchandiserAdminHubController extends Controller
                         ->values()
                 );
             });
+
+            $visibleKdIds = $outletAssignmentMerchandisers->getCollection()
+                ->pluck('kd_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            $assignableOutlets = $visibleKdIds->isNotEmpty()
+                ? $this->applyOutletRegistrationDayQuery(
+                    Outlet::with(['keyDistributor', 'registeredBy', 'assignedMerchandisers'])
+                        ->whereIn('kd_id', $visibleKdIds->all())
+                        ->orderByDesc('created_at'),
+                    $outletRegistrationDay
+                )->get()
+                : collect();
         }
 
         // ── All POSM / Field Gear entries ──────────────────────────────────────
@@ -617,6 +628,7 @@ class MerchandiserAdminHubController extends Controller
             'clockFromInput',
             'clockToInput',
             'clockRangeLabel',
+            'perfectStoreSummary',
             'clockAttendanceCount',
             'clockPcmCount',
             'clockPjpCount',
@@ -722,6 +734,12 @@ class MerchandiserAdminHubController extends Controller
             'new_brand_name' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:255'],
             'new_category' => ['nullable', 'string', 'max:255'],
+            'track_osa' => ['nullable', 'boolean'],
+            'osa_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_npd' => ['nullable', 'boolean'],
+            'npd_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_mhs' => ['nullable', 'boolean'],
+            'mhs_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'reference_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'aliases' => ['nullable', 'string', 'max:1000'],
             'ai_reference_notes' => ['nullable', 'string', 'max:1000'],
@@ -736,6 +754,12 @@ class MerchandiserAdminHubController extends Controller
             'name' => $validated['name'],
             'brand_id' => $this->resolveSkuBrandId($validated),
             'category' => $this->resolveSkuCategory($validated),
+            'track_osa' => $request->boolean('track_osa', true),
+            'osa_drop_size' => (int) ($validated['osa_drop_size'] ?? 1),
+            'track_npd' => $request->boolean('track_npd'),
+            'npd_drop_size' => (int) ($validated['npd_drop_size'] ?? 1),
+            'track_mhs' => $request->boolean('track_mhs'),
+            'mhs_drop_size' => (int) ($validated['mhs_drop_size'] ?? 1),
             'reference_image_path' => $path,
             'aliases' => $this->parseSkuAliases($validated['aliases'] ?? ''),
             'ai_reference_notes' => $validated['ai_reference_notes'] ?? null,
@@ -754,6 +778,12 @@ class MerchandiserAdminHubController extends Controller
             'new_brand_name' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:255'],
             'new_category' => ['nullable', 'string', 'max:255'],
+            'track_osa' => ['nullable', 'boolean'],
+            'osa_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_npd' => ['nullable', 'boolean'],
+            'npd_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_mhs' => ['nullable', 'boolean'],
+            'mhs_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'reference_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'aliases' => ['nullable', 'string', 'max:1000'],
             'ai_reference_notes' => ['nullable', 'string', 'max:1000'],
@@ -777,6 +807,12 @@ class MerchandiserAdminHubController extends Controller
             'name' => $validated['name'],
             'brand_id' => $this->resolveSkuBrandId($validated),
             'category' => $this->resolveSkuCategory($validated),
+            'track_osa' => $request->boolean('track_osa'),
+            'osa_drop_size' => (int) ($validated['osa_drop_size'] ?? 1),
+            'track_npd' => $request->boolean('track_npd'),
+            'npd_drop_size' => (int) ($validated['npd_drop_size'] ?? 1),
+            'track_mhs' => $request->boolean('track_mhs'),
+            'mhs_drop_size' => (int) ($validated['mhs_drop_size'] ?? 1),
             'reference_image_path' => $path,
             'aliases' => $this->parseSkuAliases($validated['aliases'] ?? ''),
             'ai_reference_notes' => $validated['ai_reference_notes'] ?? null,
@@ -1118,27 +1154,27 @@ class MerchandiserAdminHubController extends Controller
         $assigned = 0;
         $skipped = 0;
 
-        Outlet::with('registeredBy')
-            ->whereNotNull('registered_by')
-            ->orderBy('id')
-            ->get()
-            ->filter(fn (Outlet $outlet) => $this->outletMatchesRegistrationDay($outlet, $day))
-            ->each(function (Outlet $outlet) use (&$assigned, &$skipped) {
-                $registeredBy = $outlet->registeredBy;
+        $this->applyOutletRegistrationDayQuery(
+            Outlet::with('registeredBy')->whereNotNull('registered_by'),
+            $day
+        )->chunkById(250, function ($outlets) use (&$assigned, &$skipped) {
+            $outlets->each(function (Outlet $outlet) use (&$assigned, &$skipped) {
+                    $registeredBy = $outlet->registeredBy;
 
-                if (! $registeredBy?->isMerchandiserAccount() || (int) $registeredBy->kd_id !== (int) $outlet->kd_id) {
-                    $skipped++;
+                    if (! $registeredBy?->isMerchandiserAccount() || (int) $registeredBy->kd_id !== (int) $outlet->kd_id) {
+                        $skipped++;
 
-                    return;
-                }
+                        return;
+                    }
 
-                $outlet->assignedMerchandisers()->syncWithoutDetaching([
-                    $registeredBy->id => [
-                        'assigned_by' => auth()->id(),
-                        'assigned_at' => now(),
-                    ],
-                ]);
-                $assigned++;
+                    $outlet->assignedMerchandisers()->syncWithoutDetaching([
+                        $registeredBy->id => [
+                            'assigned_by' => auth()->id(),
+                            'assigned_at' => now(),
+                        ],
+                    ]);
+                    $assigned++;
+                });
             });
 
         $label = $this->outletDayLabels()[$day] ?? 'selected day';
@@ -2047,6 +2083,23 @@ class MerchandiserAdminHubController extends Controller
         }
 
         return $outlet->created_at && (string) $outlet->created_at->isoWeekday() === $day;
+    }
+
+    private function applyOutletRegistrationDayQuery($query, string $day)
+    {
+        if ($day === 'all') {
+            return $query;
+        }
+
+        $targetDay = (int) $day;
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'mysql', 'mariadb' => $query->whereRaw('DAYOFWEEK(created_at) = ?', [$targetDay === 7 ? 1 : $targetDay + 1]),
+            'pgsql' => $query->whereRaw('EXTRACT(ISODOW FROM created_at) = ?', [$targetDay]),
+            'sqlite' => $query->whereRaw("CAST(strftime('%w', created_at) AS INTEGER) = ?", [$targetDay === 7 ? 0 : $targetDay]),
+            default => $query,
+        };
     }
 
     private function routePlanningRange(Request $request, string $timezone): array

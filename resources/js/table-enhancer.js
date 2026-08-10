@@ -270,7 +270,7 @@ const enhanceTable = (table) => {
             } else if (isWeeklyTable) {
                 let storedWeeklyDept = '';
                 try {
-                    storedWeeklyDept = window.sessionStorage.getItem('cmih.dashboard.weeklyDepartment') || '';
+                    storedWeeklyDept = window.sessionStorage.getItem(window.CMIHDashboardWeeklyStorageKey || 'cmih.dashboard.weeklyDepartment') || '';
                 } catch (error) {
                     storedWeeklyDept = '';
                 }
@@ -282,7 +282,7 @@ const enhanceTable = (table) => {
                     url.searchParams.set('weekly_department', weeklyDept);
                     window.currentWeeklyConsolidatedDepartment = weeklyDept;
                     try {
-                        window.sessionStorage.setItem('cmih.dashboard.weeklyDepartment', weeklyDept);
+                        window.sessionStorage.setItem(window.CMIHDashboardWeeklyStorageKey || 'cmih.dashboard.weeklyDepartment', weeklyDept);
                     } catch (error) {
                         // Ignore disabled storage; the URL still keeps the active department.
                     }

@@ -167,6 +167,7 @@ class ImportController extends Controller
                     $data['status'] = $data['status'] ?? 'Open';
                     $data['priority'] = $data['priority'] ?? 'Medium';
                     $data['progress'] = $data['progress'] ?? 0;
+                    $data = $this->normalizeImportedTaskCompletion($data);
                 } elseif ($table === 'visitor_logs') {
                     $data['status'] = $data['status'] ?? 'checked_in';
                     $data['host_id'] = $data['host_id'] ?? $user->id;
@@ -208,9 +209,24 @@ class ImportController extends Controller
         return match ($table) {
             'tasks', 'petty_cash_claims', 'visitor_logs' => true,
             'freelance_promoters' => in_array($department, ['operations_projects', 'operations', 'client_relations', 'brands_marketing', 'hr_admin', 'admin'], true),
-            'campaigns' => $this->isOperationsUser($user),
+            'campaigns' => true,
             default => false,
         };
+    }
+
+    private function normalizeImportedTaskCompletion(array $data): array
+    {
+        $status = strtolower(trim((string) ($data['status'] ?? '')));
+        $progress = (int) ($data['progress'] ?? 0);
+
+        if (in_array($status, ['completed', 'approved', 'paid', 'done'], true) || $progress >= 100) {
+            $data['status'] = 'Awaiting Approval';
+            $data['progress'] = 95;
+            $data['completion_review_status'] = 'pending';
+            $data['completion_review_requested_at'] = now();
+        }
+
+        return $data;
     }
 
     private function scopeImportedData(string $table, array $data, User $user): array

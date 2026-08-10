@@ -48,7 +48,7 @@ class TaskController extends Controller
 
             // Quick stats using the same definitions as the card labels.
             $taskStats = TaskStatsService::forUser($user);
-            $myTotal = $taskStats['assigned_or_created_total'];
+            $myTotal = $taskStats['accountable_total'];
             $myCreatedTotal = $taskStats['created_total'];
             $myCompleted = $taskStats['completed'];
             $myApproved = $taskStats['approved'];

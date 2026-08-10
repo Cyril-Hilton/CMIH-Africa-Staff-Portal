@@ -38,6 +38,11 @@ class DirectoryController extends Controller
                 }
                 return true;
             })
+            ->map(function (User $user) {
+                $user->setAttribute('profile_photo_url', $user->profilePhotoUrl());
+
+                return $user;
+            })
             ->values();
 
         $month = Carbon::now()->month;

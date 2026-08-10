@@ -79,7 +79,7 @@
                                 <td class="py-4">
                                     <div class="flex items-center gap-3">
                                         @if($pUser->profile_photo_path)
-                                            <img src="{{ asset('storage/' . $pUser->profile_photo_path) }}" alt="{{ $pUser->name }}" class="w-10 h-10 rounded-xl object-cover border border-brand-white/10">
+                                            <img src="{{ $pUser->profilePhotoUrl() }}" alt="{{ $pUser->name }}" class="w-10 h-10 rounded-xl object-cover border border-brand-white/10">
                                         @else
                                             <div class="w-10 h-10 rounded-xl bg-brand-white/10 flex items-center justify-center border border-brand-white/10">
                                                 <span class="text-xs font-semibold text-brand-white/50">{{ substr($pUser->name, 0, 2) }}</span>
@@ -254,7 +254,7 @@
                             <td class="px-4 py-4 align-middle">
                                 <div class="flex items-center gap-3">
                                     @if($user->profile_photo_path)
-                                        <img src="{{ asset('storage/' . $user->profile_photo_path) }}" 
+                                        <img src="{{ $user->profilePhotoUrl() }}" 
                                              alt="{{ $user->name }}" 
                                              class="w-10 h-10 shrink-0 rounded-xl object-cover border border-brand-white/10 group-hover:border-brand-red/50 transition-colors">
                                     @else

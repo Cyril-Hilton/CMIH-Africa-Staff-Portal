@@ -13,6 +13,11 @@ class MerchandiserResetPassword extends ResetPassword
         parent::__construct($token);
     }
 
+    public function requestedEmail(): ?string
+    {
+        return $this->requestedEmail;
+    }
+
     protected function resetUrl($notifiable): string
     {
         return url(route('password.reset', [

@@ -244,12 +244,13 @@
                         <div class="rounded-2xl border border-brand-white/10 bg-brand-white/5 px-4 py-6 flex flex-col items-center justify-center gap-2 text-center transition hover:border-brand-red/30 hover:bg-brand-white/10 hover-lift group">
                             @if($brand->logo_path)
                                 @php
-                                    $darkLogo = $brand->logo_dark_path ?: $brand->logo_path;
+                                    $lightLogo = $brand->logoUrl();
+                                    $darkLogo = $brand->logoUrl('dark') ?: $lightLogo;
                                 @endphp
                                 <img
-                                    src="{{ asset('storage/'.$brand->logo_path) }}"
-                                    data-theme-src-light="{{ asset('storage/'.$brand->logo_path) }}"
-                                    data-theme-src-dark="{{ asset('storage/'.$darkLogo) }}"
+                                    src="{{ $lightLogo }}"
+                                    data-theme-src-light="{{ $lightLogo }}"
+                                    data-theme-src-dark="{{ $darkLogo }}"
                                     alt="{{ $brand->name }}"
                                     class="h-8 w-auto opacity-50 grayscale transition group-hover:opacity-100 group-hover:grayscale-0"
                                     loading="lazy"

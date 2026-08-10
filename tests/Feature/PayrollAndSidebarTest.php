@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\StaffPayslipMail;
 use App\Models\User;
 use App\Models\Task;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -86,6 +88,50 @@ class PayrollAndSidebarTest extends TestCase
 
         $response->assertForbidden();
         $this->assertSame(0.0, (float) $target->fresh()->salary);
+    }
+
+    public function test_hr_can_issue_payslip_to_selected_staff_for_selected_month(): void
+    {
+        Mail::fake();
+
+        $hr = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'department' => 'HR Admin',
+            'position_title' => 'HR Manager',
+        ]);
+        $selectedStaff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'email' => 'selected@cmih.africa',
+            'salary' => 5000,
+        ]);
+        $otherStaff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'email' => 'other@cmih.africa',
+            'salary' => 5000,
+        ]);
+
+        $response = $this->actingAs($hr)->post(route('portal.payroll.distribute'), [
+            'period' => '2026-07',
+            'recipient_ids' => [$selectedStaff->id],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('payslips', [
+            'user_id' => $selectedStaff->id,
+            'period' => '2026-07',
+        ]);
+        $this->assertDatabaseMissing('payslips', [
+            'user_id' => $otherStaff->id,
+            'period' => '2026-07',
+        ]);
+
+        Mail::assertSent(StaffPayslipMail::class, 1);
+        Mail::assertSent(StaffPayslipMail::class, fn (StaffPayslipMail $mail) => (int) $mail->staff->id === (int) $selectedStaff->id);
     }
 
     public function test_user_can_update_banking_details(): void

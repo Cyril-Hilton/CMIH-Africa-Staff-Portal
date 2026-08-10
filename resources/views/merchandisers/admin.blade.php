@@ -410,6 +410,208 @@
                         </div>
                     </div>
 
+                    @php
+                        $perfectOverview = $perfectStoreSummary['overview'] ?? [];
+                        $perfectTargets = $perfectStoreSummary['targets'] ?? [];
+                        $metricLabel = fn ($value) => $value === null ? 'N/A' : number_format((float) $value, 1) . '%';
+                    @endphp
+                    <div class="grid grid-cols-2 gap-4 mb-6 xl:grid-cols-5">
+                        <div class="glass-panel rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Coverage</p>
+                            <p class="text-3xl font-display text-emerald-300">{{ $metricLabel($perfectOverview['coverage'] ?? 0) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">{{ $perfectOverview['scored'] ?? 0 }} scored of {{ $perfectOverview['scheduled'] ?? 0 }} scheduled</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">OSA</p>
+                            <p class="text-3xl font-display text-sky-300">{{ $metricLabel($perfectOverview['osa'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">Target {{ $perfectTargets['osa'] ?? 95 }}%</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">NPD</p>
+                            <p class="text-3xl font-display text-amber-300">{{ $metricLabel($perfectOverview['npd'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">All-or-nothing per store</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">MHS</p>
+                            <p class="text-3xl font-display text-violet-300">{{ $metricLabel($perfectOverview['mhs'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">Must-have SKU compliance</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-red/25 bg-brand-red/10 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Perfect Store Score</p>
+                            <p class="text-3xl font-display text-brand-white">{{ $metricLabel($perfectOverview['perfect_store_score'] ?? 0) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">{{ $perfectOverview['visits'] ?? 0 }} scored visit(s)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 mb-6 xl:grid-cols-2">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">Merchandiser Perfect Store Roll-up</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[720px] text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-5 py-3 text-left">Name</th>
+                                            <th class="px-5 py-3 text-right">Coverage</th>
+                                            <th class="px-5 py-3 text-right">OSA</th>
+                                            <th class="px-5 py-3 text-right">NPD</th>
+                                            <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse(($perfectStoreSummary['merchandisers'] ?? collect())->take(6) as $rollup)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $rollup['name'] }}</td>
+                                                <td class="px-5 py-3 text-right text-emerald-300">{{ $metricLabel($rollup['coverage']) }}</td>
+                                                <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
+                                                <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
+                                                <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No Perfect Store KPI activity in this range yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">KD Perfect Store Roll-up</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[720px] text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-5 py-3 text-left">Key Distributor</th>
+                                            <th class="px-5 py-3 text-right">Coverage</th>
+                                            <th class="px-5 py-3 text-right">OSA</th>
+                                            <th class="px-5 py-3 text-right">NPD</th>
+                                            <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse(($perfectStoreSummary['kds'] ?? collect())->take(6) as $rollup)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $rollup['name'] }}</td>
+                                                <td class="px-5 py-3 text-right text-emerald-300">{{ $metricLabel($rollup['coverage']) }}</td>
+                                                <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
+                                                <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
+                                                <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No KD Perfect Store KPI activity in this range yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 mb-6 xl:grid-cols-2">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">Regional KPI Roll-up</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[720px] text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-5 py-3 text-left">Region</th>
+                                            <th class="px-5 py-3 text-right">Coverage</th>
+                                            <th class="px-5 py-3 text-right">OSA</th>
+                                            <th class="px-5 py-3 text-right">NPD</th>
+                                            <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse(($perfectStoreSummary['regions'] ?? collect())->take(6) as $rollup)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $rollup['name'] }}</td>
+                                                <td class="px-5 py-3 text-right text-emerald-300">{{ $metricLabel($rollup['coverage']) }}</td>
+                                                <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
+                                                <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
+                                                <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No regional Perfect Store activity in this range yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">Brand KPI Roll-up</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[720px] text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-5 py-3 text-left">Brand</th>
+                                            <th class="px-5 py-3 text-right">OSA</th>
+                                            <th class="px-5 py-3 text-right">NPD</th>
+                                            <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">SOS</th>
+                                            <th class="px-5 py-3 text-right">Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse(($perfectStoreSummary['brands'] ?? collect())->take(6) as $rollup)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $rollup['name'] }}</td>
+                                                <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
+                                                <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
+                                                <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right text-pink-300">{{ $metricLabel($rollup['sos']) }}</td>
+                                                <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No brand-level SKU scoring in this range yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-5 mb-6 xl:grid-cols-2">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Alerts and Bottlenecks</p>
+                            <div class="space-y-3">
+                                @forelse(($perfectStoreSummary['alerts'] ?? collect()) as $alert)
+                                    <div class="rounded-xl border {{ ($alert['level'] ?? '') === 'critical' ? 'border-brand-red/40 bg-brand-red/10' : 'border-amber-400/25 bg-amber-400/10' }} p-3">
+                                        <p class="text-sm font-bold text-brand-white">{{ $alert['title'] }}</p>
+                                        <p class="mt-1 text-xs leading-relaxed text-brand-white/55">{{ $alert['detail'] }}</p>
+                                    </div>
+                                @empty
+                                    <p class="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-4 text-sm text-emerald-200">No critical Perfect Store bottlenecks detected in this range.</p>
+                                @endforelse
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">AI Coaching Prompts</p>
+                            <div class="space-y-3">
+                                @forelse(($perfectStoreSummary['coaching'] ?? collect()) as $tip)
+                                    <div class="rounded-xl border border-brand-white/10 bg-brand-black/35 p-3">
+                                        <p class="text-sm font-bold text-brand-white">{{ $tip['name'] }} - {{ $tip['title'] }}</p>
+                                        <p class="mt-1 text-xs leading-relaxed text-brand-white/55">{{ $tip['detail'] }}</p>
+                                    </div>
+                                @empty
+                                    <p class="rounded-xl border border-brand-white/10 bg-brand-black/35 px-3 py-4 text-sm text-brand-white/45">Coaching prompts will appear after visits or route coverage activity is available.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Charts Row -->
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
 
@@ -766,6 +968,29 @@
                                     <span class="text-[10px] uppercase tracking-wider text-brand-ash">New Category If Not Listed</span>
                                     <input name="new_category" placeholder="Type category to add it" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                 </label>
+                                <div class="grid gap-3 rounded-2xl border border-brand-white/10 bg-brand-black/35 p-3 sm:grid-cols-3">
+                                    <label class="block">
+                                        <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                            <input type="checkbox" name="track_osa" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                            OSA
+                                        </span>
+                                        <input name="osa_drop_size" type="number" min="1" value="1" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <label class="block">
+                                        <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                            <input type="checkbox" name="track_npd" value="1" class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                            NPD
+                                        </span>
+                                        <input name="npd_drop_size" type="number" min="1" value="1" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <label class="block">
+                                        <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                            <input type="checkbox" name="track_mhs" value="1" class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                            MHS
+                                        </span>
+                                        <input name="mhs_drop_size" type="number" min="1" value="1" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                </div>
                                 <label class="block">
                                     <span class="text-[10px] uppercase tracking-wider text-brand-ash">Reference Image</span>
                                     <input name="reference_image" type="file" accept="image/*" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white file:mr-3 file:rounded-lg file:border-0 file:bg-brand-red file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white">
@@ -825,6 +1050,17 @@
                                                             {{ $sku->category ?: 'No category' }}
                                                         </span>
                                                     </div>
+                                                    <div class="mt-2 flex flex-wrap gap-2">
+                                                        @if($sku->track_osa)
+                                                            <span class="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-200">OSA {{ $sku->osa_drop_size }}</span>
+                                                        @endif
+                                                        @if($sku->track_npd)
+                                                            <span class="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">NPD {{ $sku->npd_drop_size }}</span>
+                                                        @endif
+                                                        @if($sku->track_mhs)
+                                                            <span class="rounded-full border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">MHS {{ $sku->mhs_drop_size }}</span>
+                                                        @endif
+                                                    </div>
                                                     <p class="mt-1 text-xs text-brand-ash">
                                                         @if($sku->aliases)
                                                             Aliases: {{ implode(', ', $sku->aliases) }}
@@ -881,6 +1117,29 @@
                                                 <span class="text-[10px] uppercase tracking-wider text-brand-ash">New Category If Not Listed</span>
                                                 <input name="new_category" placeholder="Type category to add it" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                             </label>
+                                            <div class="grid gap-3 rounded-2xl border border-brand-white/10 bg-brand-black/35 p-3 md:col-span-2 sm:grid-cols-3">
+                                                <label class="block">
+                                                    <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                                        <input type="checkbox" name="track_osa" value="1" @checked($sku->track_osa) class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                                        OSA
+                                                    </span>
+                                                    <input name="osa_drop_size" type="number" min="1" value="{{ $sku->osa_drop_size ?: 1 }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                                </label>
+                                                <label class="block">
+                                                    <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                                        <input type="checkbox" name="track_npd" value="1" @checked($sku->track_npd) class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                                        NPD
+                                                    </span>
+                                                    <input name="npd_drop_size" type="number" min="1" value="{{ $sku->npd_drop_size ?: 1 }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                                </label>
+                                                <label class="block">
+                                                    <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                                        <input type="checkbox" name="track_mhs" value="1" @checked($sku->track_mhs) class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                                        MHS
+                                                    </span>
+                                                    <input name="mhs_drop_size" type="number" min="1" value="{{ $sku->mhs_drop_size ?: 1 }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                                </label>
+                                            </div>
                                             <label class="block">
                                                 <span class="text-[10px] uppercase tracking-wider text-brand-ash">Replace Reference Image</span>
                                                 <input name="reference_image" type="file" accept="image/*" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white file:mr-3 file:rounded-lg file:border-0 file:bg-brand-red file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white">

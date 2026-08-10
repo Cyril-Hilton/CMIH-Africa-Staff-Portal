@@ -233,8 +233,38 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
+                        <details class="w-full sm:w-[420px] rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-left">
+                            <summary class="cursor-pointer text-xs font-bold uppercase tracking-wider text-emerald-200">
+                                Issue Payslips
+                            </summary>
+                            <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="mt-4 space-y-3" onsubmit="return confirm('Generate and email payslips for the selected recipient(s)?')">
+                                @csrf
+                                <label class="block">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Payslip Month</span>
+                                    <input type="month" name="period" value="{{ old('period', now()->format('Y-m')) }}" required class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:outline-none">
+                                </label>
+                                <label class="flex items-center gap-2 rounded-xl border border-brand-white/10 bg-brand-black/35 px-3 py-2 text-xs text-brand-white/70">
+                                    <input type="checkbox" name="send_all" value="1" class="rounded border-brand-white/20 bg-brand-black text-emerald-500 focus:ring-0">
+                                    Send to all active staff
+                                </label>
+                                <label class="block">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Selected Staff</span>
+                                    <select name="recipient_ids[]" multiple size="7" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:outline-none">
+                                        @foreach(($payrollStaffOptions ?? collect()) as $staffOption)
+                                            <option value="{{ $staffOption->id }}" @selected(collect(old('recipient_ids', []))->map(fn($id) => (int) $id)->contains((int) $staffOption->id))>
+                                                {{ $staffOption->name }} - {{ \App\Models\User::departmentLabel($staffOption->department) }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <span class="mt-1 block text-[10px] text-brand-white/40">Hold Ctrl or Command to pick more than one person.</span>
+                                </label>
+                                <button type="submit" class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-all shadow-lg">
+                                    Generate & Email Payslip
+                                </button>
+                            </form>
+                        </details>
                         {{-- HR Bulk Email Action --}}
-                        <form method="POST" action="{{ route('portal.payroll.distribute') }}" onsubmit="return confirm('Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?')">
+                        <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="hidden" onsubmit="return confirm('Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?')">
                             @csrf
                             <input type="hidden" name="period" value="{{ now()->format('Y-m') }}">
                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-all shadow-lg">

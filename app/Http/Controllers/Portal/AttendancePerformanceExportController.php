@@ -200,7 +200,7 @@ class AttendancePerformanceExportController extends Controller
         $stats = TaskStatsService::forUser($staff, $start, $end);
 
         return [
-            'total' => $stats['assigned_total'],
+            'total' => $stats['accountable_total'],
             'completed' => $stats['completed'],
             'pending' => $stats['pending'],
             'overdue' => $stats['overdue'],
@@ -213,7 +213,7 @@ class AttendancePerformanceExportController extends Controller
         $stats = TaskStatsService::forUser($staff);
 
         return [
-            'total' => $stats['assigned_total'],
+            'total' => $stats['accountable_total'],
             'completed' => $stats['completed'],
             'pending' => $stats['pending'],
         ];

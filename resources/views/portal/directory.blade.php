@@ -310,7 +310,7 @@
                     <!-- Iterating active tier members -->
                     <template x-for="u in users.filter(user => user.position_title === activeTier)">
                         <div class="flex items-center gap-4 p-3 rounded-xl bg-brand-white/5 border border-brand-white/10 hover:border-amber-500/30 transition-all">
-                            <img :src="u.profile_photo_path ? '{{ asset('storage') }}/' + u.profile_photo_path : '{{ asset('images/CMIH%20WEB%20ASSETS/Company%20logo/CMIH%20Logo_light%20theme.png') }}'" 
+                            <img :src="u.profile_photo_url || '{{ asset('images/CMIH%20WEB%20ASSETS/Company%20logo/CMIH%20Logo_light%20theme.png') }}'" 
                                 class="w-12 h-12 rounded-full object-cover border border-brand-white/10" />
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-brand-white truncate" x-text="u.name"></p>

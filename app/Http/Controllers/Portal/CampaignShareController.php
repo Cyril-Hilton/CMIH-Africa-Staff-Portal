@@ -8,6 +8,8 @@ use App\Jobs\ProvisionCampaignDropboxFolder;
 use App\Models\Campaign;
 use App\Models\CampaignPhoto;
 use App\Models\AssetLog;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -110,12 +112,41 @@ class CampaignShareController extends Controller
     {
         $campaign = Campaign::with('projectLead')->where('share_token', $token)->firstOrFail();
         
-        $tasks = $campaign->tasks()->latest()->get();
+        $tasks = $campaign->tasks()
+            ->with('assignee')
+            ->latest()
+            ->get()
+            ->filter(fn (Task $task) => $this->taskIsClientShareable($task))
+            ->values();
         
         // Load photos using dedicated CampaignPhoto model
         $photos = $campaign->campaignPhotos()->latest()->get();
 
         return view('portal.share', compact('campaign', 'tasks', 'photos'));
+    }
+
+    private function taskIsClientShareable(Task $task): bool
+    {
+        $customFields = is_array($task->custom_fields) ? $task->custom_fields : [];
+        if (($customFields['client_shareable'] ?? false) === true) {
+            return true;
+        }
+
+        return ! in_array($this->departmentKey($task), ['finance', 'hr_admin', 'admin'], true)
+            && ! in_array($this->departmentKey($task->assignee), ['finance', 'hr_admin', 'admin'], true);
+    }
+
+    private function departmentKey(Task|User|null $model): string
+    {
+        $department = strtolower(trim((string) ($model?->department ?? '')));
+
+        return match ($department) {
+            'hr admin', 'hr_admin', 'human resources', 'transport' => 'hr_admin',
+            'operations', 'operations projects', 'operations_projects' => 'operations_projects',
+            'brands', 'brand', 'brand marketing', 'brands marketing', 'brands_marketing' => 'brands_marketing',
+            'client service', 'client_service', 'client relations', 'client_relations' => 'client_relations',
+            default => $department,
+        };
     }
 
     /**

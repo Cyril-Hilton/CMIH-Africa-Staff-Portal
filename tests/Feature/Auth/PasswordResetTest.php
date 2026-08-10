@@ -77,6 +77,7 @@ class PasswordResetTest extends TestCase
 
             $this->assertStringContainsString('portal=merchandisers', $mail->actionUrl);
             $this->assertStringContainsString(rawurlencode('sagyapomaa12@gmail.com'), $mail->actionUrl);
+            $this->assertSame('sagyapomaa12@gmail.com', $user->routeNotificationForMail($notification));
 
             return true;
         });

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class User extends Authenticatable
@@ -42,6 +43,10 @@ class User extends Authenticatable
      */
     public function routeNotificationForMail(\Illuminate\Notifications\Notification $notification): array|string
     {
+        if ($notification instanceof \App\Notifications\MerchandiserResetPassword && $notification->requestedEmail()) {
+            return $notification->requestedEmail();
+        }
+
         // If it's a ResetPassword notification, send to contact_email
         if ($notification instanceof \Illuminate\Auth\Notifications\ResetPassword) {
             return $this->contact_email ?? $this->email;
@@ -259,6 +264,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Outlet::class, 'merchandiser_outlet_user')
             ->withPivot(['assigned_by', 'assigned_at', 'visit_days'])
             ->withTimestamps();
+    }
+
+    public function brandStaffAssignments(): HasMany
+    {
+        return $this->hasMany(BrandStaffAssignment::class);
     }
 
     public function isActive(): bool
@@ -946,7 +956,7 @@ class User extends Authenticatable
     public function profilePhotoUrl(): string
     {
         if ($this->profile_photo_path) {
-            return asset('storage/'.$this->profile_photo_path);
+            return Storage::disk('public')->url($this->profile_photo_path);
         }
 
         return asset('images/CMIH%20WEB%20ASSETS/Company%20logo/CMIH%20Logo_light%20theme.png');

@@ -42,8 +42,12 @@ class PayrollController extends Controller
         $canViewAllPayroll = $user->canViewAllPayroll();
 
         $staffPayroll = null;
+        $payrollStaffOptions = collect();
         if ($canViewAllPayroll) {
             $staffMembers = User::internalStaff()->orderBy('name')->get();
+            $payrollStaffOptions = $staffMembers
+                ->where('status', 'active')
+                ->values();
             $staffPayroll = $staffMembers->map(function (User $staff) {
                 $calc = GhanaPayrollCalculator::calculate(
                     (float) ($staff->salary ?? 0),
@@ -57,7 +61,7 @@ class PayrollController extends Controller
             });
         }
 
-        return view('portal.payroll', compact('user', 'salary', 'myPayslips', 'staffPayroll', 'periodFilter'));
+        return view('portal.payroll', compact('user', 'salary', 'myPayslips', 'staffPayroll', 'payrollStaffOptions', 'periodFilter'));
     }
 
     /**
@@ -134,15 +138,39 @@ class PayrollController extends Controller
     }
 
     /**
-     * HR Action: Generate and email payslips to all active internal staff.
+     * HR Action: Generate and email payslips to selected or all active internal staff.
      */
     public function distributePayslips(Request $request): RedirectResponse
     {
         abort_unless($request->user()->canViewAllPayroll(), 403);
 
-        $period = $request->input('period', now()->format('Y-m'));
+        $validated = $request->validate([
+            'period' => ['required', 'date_format:Y-m'],
+            'recipient_ids' => ['nullable', 'array'],
+            'recipient_ids.*' => ['integer', 'exists:users,id'],
+            'send_all' => ['nullable', 'boolean'],
+        ]);
 
-        $activeStaff = User::internalStaff()->where('status', 'active')->get();
+        $period = $validated['period'];
+        $sendAll = $request->boolean('send_all');
+        $recipientIds = collect($validated['recipient_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! $sendAll && empty($recipientIds)) {
+            return back()
+                ->withInput()
+                ->withErrors(['recipient_ids' => 'Select at least one staff member or choose Send to all active staff.']);
+        }
+
+        $activeStaff = User::internalStaff()
+            ->where('status', 'active')
+            ->when(! $sendAll, fn ($query) => $query->whereIn('id', $recipientIds))
+            ->orderBy('name')
+            ->get();
         $count = 0;
 
         foreach ($activeStaff as $staff) {
@@ -188,6 +216,7 @@ class PayrollController extends Controller
         }
 
         $periodLabel = Carbon::createFromFormat('!Y-m', $period)->format('F Y');
+        return back()->with('status', "Monthly payslips generated and emailed to {$count} staff member(s) for {$periodLabel}.");
         return back()->with('status', "🎉 Success! Monthly payslips generated & emailed to {$count} staff members for {$periodLabel}.");
     }
 

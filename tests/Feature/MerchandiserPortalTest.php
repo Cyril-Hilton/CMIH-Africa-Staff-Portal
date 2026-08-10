@@ -2576,6 +2576,12 @@ class MerchandiserPortalTest extends TestCase
             'name' => 'AI Catalog SKU',
             'brand_id' => $brand->id,
             'category' => 'Beverage',
+            'track_osa' => '1',
+            'osa_drop_size' => '6',
+            'track_npd' => '1',
+            'npd_drop_size' => '2',
+            'track_mhs' => '1',
+            'mhs_drop_size' => '4',
             'reference_image' => UploadedFile::fake()->create('product.jpg', 128, 'image/jpeg'),
             'aliases' => 'Catalog Alias, shelf short name',
             'ai_reference_notes' => 'Red label, bottle format.',
@@ -2588,11 +2594,20 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame(['Catalog Alias', 'shelf short name'], $sku->aliases);
         $this->assertTrue($sku->brand->is($brand));
         $this->assertSame('Beverage', $sku->category);
+        $this->assertTrue($sku->track_osa);
+        $this->assertSame(6, $sku->osa_drop_size);
+        $this->assertTrue($sku->track_npd);
+        $this->assertSame(2, $sku->npd_drop_size);
+        $this->assertTrue($sku->track_mhs);
+        $this->assertSame(4, $sku->mhs_drop_size);
 
         $updateResponse = $this->actingAs($admin)->put(route('merchandisers.admin.skus.update', $sku), [
             'name' => 'AI Catalog SKU Updated',
             'brand_id' => $updatedBrand->id,
             'category' => 'Home Care',
+            'track_osa' => '1',
+            'osa_drop_size' => '7',
+            'mhs_drop_size' => '5',
             'aliases' => 'Updated Alias',
             'ai_reference_notes' => 'Updated notes.',
         ]);
@@ -2604,6 +2619,11 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame('Updated notes.', $sku->ai_reference_notes);
         $this->assertTrue($sku->brand->is($updatedBrand));
         $this->assertSame('Home Care', $sku->category);
+        $this->assertTrue($sku->track_osa);
+        $this->assertSame(7, $sku->osa_drop_size);
+        $this->assertFalse($sku->track_npd);
+        $this->assertFalse($sku->track_mhs);
+        $this->assertSame(5, $sku->mhs_drop_size);
     }
 
     /** @test */

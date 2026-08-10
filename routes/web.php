@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\UpdateController as AdminUpdateController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Brands\BrandsPlatformController;
 use App\Http\Controllers\Admin\PortfolioController as AdminPortfolioController;
 use App\Http\Controllers\Portal\AnnouncementController;
 use App\Http\Controllers\Portal\AssetController;
@@ -45,6 +46,28 @@ Route::get('/surveys/{survey:slug}', [\App\Http\Controllers\SiteController::clas
 Route::post('/surveys/{survey:slug}/submit', [\App\Http\Controllers\SiteController::class, 'submitSurvey'])
     ->middleware('throttle:10,1')
     ->name('surveys.submit');
+
+Route::prefix('brands')->name('brands-platform.')->group(function () {
+    Route::get('/', [BrandsPlatformController::class, 'index'])->name('index');
+    Route::get('/gallery', [BrandsPlatformController::class, 'gallery'])
+        ->middleware(['auth', 'active'])
+        ->name('gallery');
+    Route::get('/client/report/{token}', [BrandsPlatformController::class, 'clientReport'])->name('client-report');
+    Route::get('/{brand}', [BrandsPlatformController::class, 'show'])->name('show');
+    Route::post('/{brand}/consumer-entry', [BrandsPlatformController::class, 'storeConsumerEntry'])
+        ->middleware('throttle:30,1')
+        ->name('consumer-entry.store');
+});
+
+Route::middleware(['auth', 'active'])->prefix('brands')->name('brands-platform.')->group(function () {
+    Route::get('/{brand}/gallery', [BrandsPlatformController::class, 'gallery'])->name('brand-gallery');
+    Route::get('/{brand}/agency', [BrandsPlatformController::class, 'agency'])->name('agency');
+    Route::post('/{brand}/field-activity', [BrandsPlatformController::class, 'storeFieldActivity'])->name('field-activity.store');
+    Route::get('/admin/console', [BrandsPlatformController::class, 'admin'])->name('admin');
+    Route::get('/admin/staff-feed', [BrandsPlatformController::class, 'staffFeed'])->name('admin.staff-feed');
+    Route::post('/admin/{brand}/assignments', [BrandsPlatformController::class, 'storeAssignment'])->name('admin.assignments.store');
+    Route::delete('/admin/assignments/{assignment}', [BrandsPlatformController::class, 'destroyAssignment'])->name('admin.assignments.destroy');
+});
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'active', 'clocked_in'])
@@ -385,11 +408,11 @@ Route::middleware(['auth', 'active'])->group(function () {
 Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'gateway'])->name('portal');
     Route::get('/login', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'showLogin'])->name('login');
-    Route::post('/login', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'login']);
+    Route::post('/login', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'login'])->name('login.store');
     Route::get('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'create'])->defaults('portal', 'merchandisers')->name('password.request');
     Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store'])->defaults('portal', 'merchandisers')->name('password.email');
     Route::get('/register', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'showRegister'])->name('register');
-    Route::post('/register', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'register']);
+    Route::post('/register', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'register'])->name('register.store');
     
     Route::middleware(['auth', 'active', 'identity_docs'])->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'dashboard'])->name('dashboard');

@@ -192,6 +192,36 @@ class Phase2FeaturesTest extends TestCase
         $this->assertContains($this->staffUser->id, array_map('intval', $task->supporting_staff_ids ?? []));
     }
 
+    public function test_completed_task_import_goes_to_approval_instead_of_counting_as_approved(): void
+    {
+        Storage::fake('local');
+
+        $csvContent = "Title,Status,Progress\nImported Completed Task,Completed,100\n";
+        $file = UploadedFile::fake()->createWithContent('tasks.csv', $csvContent);
+
+        $response = $this->actingAs($this->staffUser)->post(route('portal.import.process', ['table' => 'tasks']), [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(200);
+
+        $execResponse = $this->actingAs($this->staffUser)->post(route('portal.import.execute', ['table' => 'tasks']), [
+            'temp_file' => $response->viewData('temp_file'),
+            'mappings' => [
+                'title' => '0',
+                'status' => '1',
+                'progress' => '2',
+            ],
+        ]);
+
+        $execResponse->assertRedirect();
+
+        $task = Task::where('title', 'Imported Completed Task')->firstOrFail();
+        $this->assertSame('Awaiting Approval', $task->status);
+        $this->assertSame(95, (int) $task->progress);
+        $this->assertSame('pending', $task->completion_review_status);
+    }
+
     /**
      * Test campaign creation, share token generation, and read-only live feed
      */
@@ -363,6 +393,52 @@ class Phase2FeaturesTest extends TestCase
         $adminView = $this->actingAs($this->adminUser)->get(route('portal.operations'));
         $adminView->assertOk();
         $adminView->assertSee('Confidential Invoice For Guinness Matchday');
+    }
+
+    public function test_public_campaign_share_hides_sensitive_finance_tasks(): void
+    {
+        $financeUser = User::factory()->create([
+            'name' => 'Finance Team Member',
+            'access_role' => 'staff',
+            'status' => 'active',
+            'department' => 'finance',
+        ]);
+
+        $campaign = Campaign::create([
+            'name' => 'Public Campaign Link',
+            'client_name' => 'Guinness',
+            'share_token' => 'public-share-token',
+            'created_by' => $this->staffUser->id,
+            'status' => 'active',
+        ]);
+
+        Task::create([
+            'campaign_id' => $campaign->id,
+            'title' => 'Activation report shared',
+            'assigned_to' => $this->staffUser->id,
+            'assigned_by' => $this->staffUser->id,
+            'department' => 'operations_projects',
+            'status' => 'In Progress',
+            'priority' => 'Medium',
+        ]);
+
+        Task::create([
+            'campaign_id' => $campaign->id,
+            'title' => 'Confidential finance invoice',
+            'assigned_to' => $financeUser->id,
+            'assigned_by' => $financeUser->id,
+            'department' => 'finance',
+            'status' => 'In Progress',
+            'priority' => 'High',
+        ]);
+
+        auth()->logout();
+
+        $this->get(route('campaign.share.view', $campaign->share_token))
+            ->assertOk()
+            ->assertSee('Activation report shared')
+            ->assertDontSee('Confidential finance invoice')
+            ->assertDontSee('Finance Team Member');
     }
 
     public function test_campaign_can_be_deleted_without_deleting_linked_task_history(): void
