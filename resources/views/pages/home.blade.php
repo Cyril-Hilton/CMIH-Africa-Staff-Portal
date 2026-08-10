@@ -202,7 +202,7 @@
                     @foreach ($events as $event)
                         @php
                             $fallbackImage = $fallbackEvents[$loop->index % count($fallbackEvents)]['image'];
-                            $imageUrl = $event->image_path ? asset('storage/'.$event->image_path) : asset('images/'.$fallbackImage);
+                            $imageUrl = $event->image_path ? Storage::disk('public')->url($event->image_path) : asset('images/'.$fallbackImage);
                         @endphp
                         <article class="glass-panel rounded-2xl overflow-hidden reveal hover-lift">
                             <img src="{{ $imageUrl }}" alt="{{ $event->title }}" class="w-full aspect-[3/4] object-contain bg-brand-black/40" loading="lazy" />

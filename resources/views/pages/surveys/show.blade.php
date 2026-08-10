@@ -22,7 +22,7 @@
                         {{-- CMIH Logo (left) --}}
                         <div class="flex flex-col items-start gap-1 shrink-0">
                             @if($survey->cmih_logo_path)
-                                <img src="{{ Storage::url($survey->cmih_logo_path) }}" alt="CMIH" class="h-12 w-auto object-contain max-w-[110px]">
+                                <img src="{{ Storage::disk('public')->url($survey->cmih_logo_path) }}" alt="CMIH" class="h-12 w-auto object-contain max-w-[110px]">
                             @else
                                 <div class="h-12"></div>
                             @endif
@@ -34,7 +34,7 @@
                         <div class="flex items-center gap-5 shrink-0">
                             @if($survey->client_logo_path)
                                 <div class="flex flex-col items-center gap-1">
-                                    <img src="{{ Storage::url($survey->client_logo_path) }}" alt="{{ $survey->client_brand_name ?? 'Partner' }}" class="h-12 w-auto object-contain max-w-[100px]">
+                                    <img src="{{ Storage::disk('public')->url($survey->client_logo_path) }}" alt="{{ $survey->client_brand_name ?? 'Partner' }}" class="h-12 w-auto object-contain max-w-[100px]">
                                     @if($survey->client_brand_name)
                                         <span class="text-[8px] uppercase tracking-[0.2em] text-brand-white/40">{{ $survey->client_brand_name }}</span>
                                     @endif
@@ -42,7 +42,7 @@
                             @endif
                             @if($survey->client_logo_path_2)
                                 <div class="flex flex-col items-center gap-1">
-                                    <img src="{{ Storage::url($survey->client_logo_path_2) }}" alt="{{ $survey->client_brand_name_2 ?? 'Partner 2' }}" class="h-12 w-auto object-contain max-w-[100px]">
+                                    <img src="{{ Storage::disk('public')->url($survey->client_logo_path_2) }}" alt="{{ $survey->client_brand_name_2 ?? 'Partner 2' }}" class="h-12 w-auto object-contain max-w-[100px]">
                                     @if($survey->client_brand_name_2)
                                         <span class="text-[8px] uppercase tracking-[0.2em] text-brand-white/40">{{ $survey->client_brand_name_2 }}</span>
                                     @endif

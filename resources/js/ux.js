@@ -122,7 +122,33 @@ const initPrefetch = () => {
     links.forEach(link => observer.observe(link));
 };
 
+const initImageFallbacks = () => {
+    const fallbackUrl = `${window.location.origin}/images/logo/icon-192.png`;
+
+    const applyFallback = (target) => {
+        if (!(target instanceof HTMLImageElement)) return;
+
+        const src = target.getAttribute('src') || '';
+        if (!src || target.dataset.imageFallbackApplied === 'true') return;
+
+        target.dataset.imageFallbackApplied = 'true';
+        target.src = target.dataset.fallbackSrc || fallbackUrl;
+        if (!target.alt) {
+            target.alt = 'CMIH Africa';
+        }
+    };
+
+    document.addEventListener('error', (event) => applyFallback(event.target), true);
+
+    document.querySelectorAll('img').forEach((image) => {
+        if (image.complete && image.naturalWidth === 0) {
+            applyFallback(image);
+        }
+    });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     initLoader();
     initPrefetch();
+    initImageFallbacks();
 });

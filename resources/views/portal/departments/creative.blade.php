@@ -146,7 +146,7 @@
                                 @endif
                                 <p class="text-brand-ash text-[9px] mt-1">Uploaded by: {{ $design->creator?->name ?? 'Designer' }}</p>
                             </div>
-                            <a href="{{ asset('storage/' . $design->image_path) }}" target="_blank" class="rounded-full bg-brand-white/10 p-2 text-brand-white hover:bg-brand-white/20 transition-all">
+                            <a href="{{ Storage::disk('public')->url($design->image_path) }}" target="_blank" class="rounded-full bg-brand-white/10 p-2 text-brand-white hover:bg-brand-white/20 transition-all">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                             </a>
                         </div>
@@ -258,7 +258,7 @@
 
                             @if($comment->attachment_path)
                                 <div class="pt-2 border-t border-brand-white/5">
-                                    <a href="{{ asset('storage/' . $comment->attachment_path) }}" target="_blank"
+                                    <a href="{{ Storage::disk('public')->url($comment->attachment_path) }}" target="_blank"
                                        class="inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300 font-semibold transition-colors">
                                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                         View Attachment File

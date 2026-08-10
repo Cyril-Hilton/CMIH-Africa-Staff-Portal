@@ -38,7 +38,7 @@
                             <div class="aspect-[4/3] overflow-hidden">
                                 @if($album->cover_image)
                                     <img
-                                        src="{{ asset('storage/' . $album->cover_image) }}"
+                                        src="{{ Storage::disk('public')->url($album->cover_image) }}"
                                         alt="{{ $album->title }}"
                                         class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                                         loading="lazy"

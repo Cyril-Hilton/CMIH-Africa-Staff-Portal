@@ -190,7 +190,7 @@
                                             <p class="mt-0.5 text-[10px] text-brand-white/40">{{ $planogram->category ?? 'General' }} / {{ $planogram->channel_type ?? 'Any channel' }}</p>
                                         </div>
                                         @if($planogram->reference_file_path)
-                                            <a href="{{ \Illuminate\Support\Facades\Storage::url($planogram->reference_file_path) }}" target="_blank" rel="noopener" class="rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">Open</a>
+                                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($planogram->reference_file_path) }}" target="_blank" rel="noopener" class="rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">Open</a>
                                         @endif
                                     </div>
                                     @if($planogram->checklist)

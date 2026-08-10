@@ -1158,8 +1158,8 @@
                                                         <td class="py-3">{{ $item->location }}</td>
                                                         <td class="py-3">
                                                             @if($item->image_path)
-                                                                <a href="{{ asset('storage/' . $item->image_path) }}" target="_blank">
-                                                                    <img src="{{ asset('storage/' . $item->image_path) }}" class="w-8 h-8 rounded object-cover hover:scale-150 transition-all border border-brand-white/10" alt="Proof">
+                                                                <a href="{{ Storage::disk('public')->url($item->image_path) }}" target="_blank">
+                                                                    <img src="{{ Storage::disk('public')->url($item->image_path) }}" class="w-8 h-8 rounded object-cover hover:scale-150 transition-all border border-brand-white/10" alt="Proof">
                                                                 </a>
                                                             @else
                                                                 <span class="text-brand-white/30 text-[10px]">No Photo</span>

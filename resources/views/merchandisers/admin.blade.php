@@ -2291,7 +2291,7 @@
                                         </form>
                                     </div>
                                     @if($planogram->reference_file_path)
-                                        <a href="{{ \Illuminate\Support\Facades\Storage::url($planogram->reference_file_path) }}" target="_blank" rel="noopener" class="mt-3 inline-flex rounded-lg border border-brand-white/10 bg-brand-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">Open Reference</a>
+                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($planogram->reference_file_path) }}" target="_blank" rel="noopener" class="mt-3 inline-flex rounded-lg border border-brand-white/10 bg-brand-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">Open Reference</a>
                                     @endif
                                     @if($planogram->checklist)
                                         <ul class="mt-3 space-y-1 text-[11px] text-brand-white/55">
@@ -2544,8 +2544,8 @@
                                         </td>
                                         <td class="px-5 py-3 text-center">
                                             @if($asset->image_path)
-                                                <a href="{{ Storage::url($asset->image_path) }}" target="_blank" class="inline-block">
-                                                    <img src="{{ Storage::url($asset->image_path) }}" alt="Proof" class="w-10 h-10 rounded-lg object-cover border border-brand-white/20 hover:border-brand-red/50 transition cursor-pointer">
+                                                <a href="{{ Storage::disk('public')->url($asset->image_path) }}" target="_blank" class="inline-block">
+                                                    <img src="{{ Storage::disk('public')->url($asset->image_path) }}" alt="Proof" class="w-10 h-10 rounded-lg object-cover border border-brand-white/20 hover:border-brand-red/50 transition cursor-pointer">
                                                 </a>
                                             @else
                                                 <span class="text-brand-ash/40 text-xs">—</span>
@@ -2892,7 +2892,7 @@
                                                             <form method="POST" action="{{ route('merchandisers.admin.pjps.activate', $pjp) }}">@csrf<button type="submit" class="rounded-lg bg-green-500/20 px-3 py-1.5 text-[10px] font-bold text-green-300">Activate</button></form>
                                                         @endif
                                                         @if($pjp->file_path)
-                                                            <a href="{{ Storage::url($pjp->file_path) }}" target="_blank" class="rounded-lg bg-brand-white/10 px-3 py-1.5 text-[10px] font-bold text-brand-white">File</a>
+                                                            <a href="{{ Storage::disk('public')->url($pjp->file_path) }}" target="_blank" class="rounded-lg bg-brand-white/10 px-3 py-1.5 text-[10px] font-bold text-brand-white">File</a>
                                                         @endif
                                                     </div>
                                                 </td>

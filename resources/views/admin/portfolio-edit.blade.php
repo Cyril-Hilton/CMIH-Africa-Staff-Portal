@@ -38,7 +38,7 @@
                     <x-input-label for="cover_image" value="{{ __('Update Cover (Optional)') }}" />
                     <input id="cover_image" name="cover_image" type="file" class="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:rounded-full file:border-0 file:bg-brand-white/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-white hover:file:bg-brand-white/20" accept="image/*" />
                     <div class="mt-2 h-24 w-full overflow-hidden rounded-lg border border-brand-white/10">
-                        <img src="{{ asset('storage/' . $album->cover_image) }}" class="h-full w-full object-cover">
+                        <img src="{{ Storage::disk('public')->url($album->cover_image) }}" class="h-full w-full object-cover">
                     </div>
                 </div>
 
@@ -69,7 +69,7 @@
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach ($album->images as $image)
                     <div class="group relative aspect-square overflow-hidden rounded-lg border border-brand-white/10 bg-black/40">
-                        <img src="{{ asset('storage/' . $image->image_path) }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-110">
+                        <img src="{{ Storage::disk('public')->url($image->image_path) }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-110">
                         <form method="POST" action="{{ route('admin.portfolio.image.destroy', $image) }}" class="touch-visible absolute inset-0 flex items-center justify-center bg-black/60 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             @csrf
                             @method('DELETE')

@@ -17,7 +17,7 @@
             @forelse($albums as $album)
                 <div class="relative overflow-hidden rounded-xl border border-brand-white/10 bg-brand-white/5 p-4 group hover:border-brand-red/30 transition-colors">
                     <div class="aspect-[4/3] w-full overflow-hidden rounded-lg bg-black/20">
-                        <img src="{{ asset('storage/' . $album->cover_image) }}" alt="{{ $album->title }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+                        <img src="{{ Storage::disk('public')->url($album->cover_image) }}" alt="{{ $album->title }}" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
                     </div>
                     <div class="mt-4">
                         <p class="text-xs uppercase tracking-wider text-brand-white/50">{{ $album->brand }}</p>

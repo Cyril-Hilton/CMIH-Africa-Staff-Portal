@@ -88,7 +88,7 @@
                     <label class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash font-medium">CMIH Logo <span class="text-brand-white/30">(Left side)</span></label>
                     @if($survey->cmih_logo_path)
                         <div class="flex items-center gap-3 rounded-lg bg-brand-black/40 border border-emerald-500/30 px-3 py-2 mb-2" id="cmih_existing">
-                            <img src="{{ Storage::url($survey->cmih_logo_path) }}" alt="CMIH Logo" class="h-10 w-auto object-contain max-w-[80px]">
+                            <img src="{{ Storage::disk('public')->url($survey->cmih_logo_path) }}" alt="CMIH Logo" class="h-10 w-auto object-contain max-w-[80px]">
                             <span class="text-[10px] text-brand-white/50 flex-1">Current logo</span>
                             <label class="inline-flex items-center gap-1.5 cursor-pointer">
                                 <input type="checkbox" name="remove_cmih_logo" value="1"
@@ -119,7 +119,7 @@
                         placeholder="e.g. Guinness" value="{{ old('client_brand_name', $survey->client_brand_name) }}" />
                     @if($survey->client_logo_path)
                         <div class="flex items-center gap-3 rounded-lg bg-brand-black/40 border border-emerald-500/30 px-3 py-2 mb-2" id="client1_existing">
-                            <img src="{{ Storage::url($survey->client_logo_path) }}" alt="" class="h-10 w-auto object-contain max-w-[80px]">
+                            <img src="{{ Storage::disk('public')->url($survey->client_logo_path) }}" alt="" class="h-10 w-auto object-contain max-w-[80px]">
                             <span class="text-[10px] text-brand-white/50 flex-1">Current logo</span>
                             <label class="inline-flex items-center gap-1.5 cursor-pointer">
                                 <input type="checkbox" name="remove_client_logo" value="1"
@@ -150,7 +150,7 @@
                         placeholder="e.g. Coca-Cola" value="{{ old('client_brand_name_2', $survey->client_brand_name_2) }}" />
                     @if($survey->client_logo_path_2)
                         <div class="flex items-center gap-3 rounded-lg bg-brand-black/40 border border-emerald-500/30 px-3 py-2 mb-2" id="client2_existing">
-                            <img src="{{ Storage::url($survey->client_logo_path_2) }}" alt="" class="h-10 w-auto object-contain max-w-[80px]">
+                            <img src="{{ Storage::disk('public')->url($survey->client_logo_path_2) }}" alt="" class="h-10 w-auto object-contain max-w-[80px]">
                             <span class="text-[10px] text-brand-white/50 flex-1">Current logo</span>
                             <label class="inline-flex items-center gap-1.5 cursor-pointer">
                                 <input type="checkbox" name="remove_client_logo_2" value="1"

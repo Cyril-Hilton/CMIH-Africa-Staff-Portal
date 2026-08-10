@@ -110,7 +110,7 @@
                                     <x-input-label for="image-{{ $event->id }}" :value="__('Event Banner (Optional)')" />
                                     <input id="image-{{ $event->id }}" name="image" type="file" accept="image/*" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white file:mr-4 file:rounded-full file:border-0 file:bg-brand-white/10 file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.3em] file:text-brand-white" />
                                     @if ($event->image_path)
-                                        <p class="mt-2 text-xs text-brand-white/60">Current: <a href="{{ asset('storage/'.$event->image_path) }}" target="_blank" rel="noreferrer" class="text-brand-red">View</a></p>
+                                        <p class="mt-2 text-xs text-brand-white/60">Current: <a href="{{ Storage::disk('public')->url($event->image_path) }}" target="_blank" rel="noreferrer" class="text-brand-red">View</a></p>
                                     @endif
                                 </div>
                                 <div>

@@ -274,8 +274,8 @@
                                 <td class="px-5 py-3 text-brand-ash text-xs">{{ $asset->location ?? '—' }}</td>
                                 <td class="px-5 py-3 text-center">
                                     @if($asset->image_path)
-                                    <a href="{{ Storage::url($asset->image_path) }}" target="_blank">
-                                        <img src="{{ Storage::url($asset->image_path) }}" alt="Proof" class="w-10 h-10 rounded-lg object-cover border border-brand-white/10 hover:border-brand-red/50 transition">
+                                    <a href="{{ Storage::disk('public')->url($asset->image_path) }}" target="_blank">
+                                        <img src="{{ Storage::disk('public')->url($asset->image_path) }}" alt="Proof" class="w-10 h-10 rounded-lg object-cover border border-brand-white/10 hover:border-brand-red/50 transition">
                                     </a>
                                     @else
                                     <span class="text-brand-ash/40">—</span>

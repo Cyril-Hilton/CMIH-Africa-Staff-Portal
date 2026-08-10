@@ -41,7 +41,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => env('PUBLIC_DISK_ROOT', storage_path('app/public')),
-            'url' => env('PUBLIC_DISK_URL', env('APP_URL').'/storage'),
+            'url' => env('PUBLIC_DISK_URL', rtrim(env('CMIH_WEBSITE_URL', env('APP_URL')), '/').'/storage'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

@@ -10,7 +10,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                     Back to Portfolio
                 </a>
-                
+
                 <div class="grid gap-8 lg:grid-cols-[1fr_0.4fr]">
                     <div class="space-y-4 reveal">
                         <p class="text-xs uppercase tracking-[0.3em] text-brand-red">{{ $album->brand }}</p>
@@ -38,15 +38,15 @@
                 <div class="columns-1 gap-4 sm:columns-2 lg:columns-3 space-y-4">
                     @foreach ($album->images as $image)
                         <div class="relative group break-inside-avoid">
-                            <a 
-                                href="{{ asset('storage/' . $image->image_path) }}" 
-                                data-lightbox="gallery" 
+                            <a
+                                href="{{ Storage::disk('public')->url($image->image_path) }}"
+                                data-lightbox="gallery"
                                 data-title="{{ $album->title }} - {{ $album->brand }}"
                                 class="block overflow-hidden rounded-xl border border-brand-white/10 hover:border-brand-red/50 transition-colors"
                             >
-                                <img 
-                                    src="{{ asset('storage/' . $image->image_path) }}" 
-                                    alt="{{ $album->title }} Image" 
+                                <img
+                                    src="{{ Storage::disk('public')->url($image->image_path) }}"
+                                    alt="{{ $album->title }} Image"
                                     class="w-full object-cover transition duration-700 group-hover:scale-105"
                                     loading="lazy"
                                 />
