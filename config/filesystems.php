@@ -1,5 +1,11 @@
 <?php
 
+$defaultPublicRoot = storage_path('app/public');
+$domainsRoot = dirname(dirname(base_path()));
+$sharedPublicRoot = $domainsRoot.DIRECTORY_SEPARATOR.'cmih.africa'.DIRECTORY_SEPARATOR.'public_html'.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'app'.DIRECTORY_SEPARATOR.'public';
+$publicDiskRoot = env('PUBLIC_DISK_ROOT', is_dir($sharedPublicRoot) ? $sharedPublicRoot : $defaultPublicRoot);
+$publicDiskUrl = env('PUBLIC_DISK_URL', rtrim(env('CMIH_WEBSITE_URL', env('APP_URL')), '/').'/storage');
+
 return [
 
     /*
@@ -40,8 +46,8 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => env('PUBLIC_DISK_ROOT', storage_path('app/public')),
-            'url' => env('PUBLIC_DISK_URL', rtrim(env('CMIH_WEBSITE_URL', env('APP_URL')), '/').'/storage'),
+            'root' => $publicDiskRoot,
+            'url' => $publicDiskUrl,
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
@@ -74,7 +80,7 @@ return [
     */
 
     'links' => [
-        public_path('storage') => storage_path('app/public'),
+        public_path('storage') => $publicDiskRoot,
     ],
 
 ];
