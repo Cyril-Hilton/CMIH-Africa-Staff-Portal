@@ -91,7 +91,7 @@
                                     <td class="py-4 font-mono text-xs text-emerald-400 font-semibold">GHS {{ number_format($slip->net_salary, 2) }}</td>
                                     <td class="py-4 text-right">
                                         <a href="{{ route('portal.payroll.payslip', $slip) }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20 transition-all">
-                                            📥 View / Download
+                                            Download Payslip
                                         </a>
                                     </td>
                                 </tr>

@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Mail\StaffPayslipMail;
+use App\Models\Payslip;
 use App\Models\User;
 use App\Models\Task;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class PayrollAndSidebarTest extends TestCase
@@ -132,6 +134,45 @@ class PayrollAndSidebarTest extends TestCase
 
         Mail::assertSent(StaffPayslipMail::class, 1);
         Mail::assertSent(StaffPayslipMail::class, fn (StaffPayslipMail $mail) => (int) $mail->staff->id === (int) $selectedStaff->id);
+    }
+
+    public function test_signed_payslip_link_is_downloadable_without_login(): void
+    {
+        $staff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'name' => 'Nicolette  Elisa Nana Ekua Kokoe Chachu',
+            'department' => 'client_relations',
+        ]);
+
+        $payslip = Payslip::create([
+            'user_id' => $staff->id,
+            'period' => '2026-07',
+            'gross_salary' => 5000,
+            'ssnit_employee' => 275,
+            'ssnit_employer' => 650,
+            'paye_tax' => 420,
+            'other_deductions' => 0,
+            'bonuses' => 0,
+            'net_salary' => 4305,
+            'issued_at' => now(),
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'portal.payroll.payslip.signed',
+            now()->addDay(),
+            ['payslip' => $payslip->id]
+        );
+
+        $response = $this->get($url);
+
+        $response->assertOk();
+        $response->assertSee('Staff Payslip Statement', false);
+        $response->assertSee('Download / View Payslip', false);
+        $response->assertSee('Print / Save as PDF', false);
+        $response->assertSee('Ghana Office', false);
+        $response->assertSee('Nigeria Office', false);
+        $response->assertSee('info@cmihgh.com', false);
     }
 
     public function test_user_can_update_banking_details(): void

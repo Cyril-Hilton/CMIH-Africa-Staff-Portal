@@ -24,7 +24,7 @@ class StaffPayslipMail extends Mailable
     public function build()
     {
         $periodLabel = $this->payslip->period_label;
-        $subject = "📄 Official Payslip Statement - {$periodLabel} | CMIH Africa";
+        $subject = "Official Payslip Statement - {$periodLabel} | CMIH Africa";
 
         return $this->subject($subject)
             ->view('emails.staff-payslip');

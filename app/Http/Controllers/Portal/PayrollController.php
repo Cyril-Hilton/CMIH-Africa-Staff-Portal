@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -226,7 +227,13 @@ class PayrollController extends Controller
     public function downloadPayslip(Request $request, Payslip $payslip)
     {
         $viewer = $request->user();
-        abort_unless((int) $viewer->id === (int) $payslip->user_id || $viewer->canViewAllPayroll(), 403);
+        $hasSignedAccess = URL::hasValidSignature($request);
+
+        abort_unless(
+            $hasSignedAccess
+                || ($viewer && ((int) $viewer->id === (int) $payslip->user_id || $viewer->canViewAllPayroll())),
+            403
+        );
 
         $staff = $payslip->user ?: $viewer;
 

@@ -87,6 +87,10 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'active', 'clocked_in'])
     ->name('dashboard');
 
+Route::get('/portal/payroll/payslips/{payslip}/download', [\App\Http\Controllers\Portal\PayrollController::class, 'downloadPayslip'])
+    ->middleware(['signed', 'throttle:20,1'])
+    ->name('portal.payroll.payslip.signed');
+
 Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/updates', [UpdateController::class, 'index'])->name('updates');
     Route::post('/updates', [UpdateController::class, 'store'])->name('updates.store');
