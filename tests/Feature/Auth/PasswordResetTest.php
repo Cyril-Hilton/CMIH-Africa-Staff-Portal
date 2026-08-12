@@ -16,6 +16,13 @@ class PasswordResetTest extends TestCase
 
     private const VALID_PASSWORD = 'Newpass12!';
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['cmih.app_kind' => 'staff']);
+    }
+
     public function test_reset_password_link_screen_can_be_rendered(): void
     {
         $response = $this->get('/forgot-password');
@@ -54,6 +61,8 @@ class PasswordResetTest extends TestCase
 
     public function test_merchandiser_reset_link_can_be_requested_from_merchandiser_login_with_contact_email(): void
     {
+        config(['cmih.app_kind' => 'brands']);
+
         Notification::fake();
 
         $user = User::factory()->create([

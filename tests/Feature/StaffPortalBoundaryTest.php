@@ -12,6 +12,13 @@ class StaffPortalBoundaryTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['cmih.app_kind' => 'staff']);
+    }
+
     public function test_main_admin_users_directory_excludes_external_merchandisers(): void
     {
         $admin = User::factory()->create([
@@ -140,6 +147,21 @@ class StaffPortalBoundaryTest extends TestCase
         $response = $this->get('/merchandisers/login');
 
         $response->assertRedirect('https://brands.cmih.africa/merchandisers/login');
+    }
+
+    public function test_split_apps_allow_exact_reset_password_post_path(): void
+    {
+        config(['cmih.app_kind' => 'staff']);
+
+        $staffResponse = $this->from('/reset-password/test-token')->post('/reset-password', []);
+        $staffResponse->assertRedirect('/reset-password/test-token');
+        $staffResponse->assertSessionHasErrors(['token', 'email', 'password']);
+
+        config(['cmih.app_kind' => 'brands']);
+
+        $brandsResponse = $this->from('/reset-password/test-token')->post('/reset-password', []);
+        $brandsResponse->assertRedirect('/reset-password/test-token');
+        $brandsResponse->assertSessionHasErrors(['token', 'email', 'password']);
     }
 
     public function test_root_domain_redirects_dashboard_to_staff_subdomain_with_query_string(): void
