@@ -591,7 +591,7 @@
         .weekly-consolidated-table th:last-child,
         .weekly-consolidated-table td:last-child { min-width: 11rem; max-width: 13rem; }
         .weekly-consolidated-table--brands {
-            min-width: 145rem;
+            min-width: 136rem;
             table-layout: fixed;
             border-spacing: .65rem .75rem;
         }
@@ -616,7 +616,13 @@
         .weekly-consolidated-table--brands th:nth-child(8),
         .weekly-consolidated-table--brands td:nth-child(8) { width: 10rem; min-width: 10rem; max-width: 10rem; }
         .weekly-consolidated-table--brands th:nth-child(9),
-        .weekly-consolidated-table--brands td:nth-child(9) { width: 22rem; min-width: 22rem; max-width: 22rem; }
+        .weekly-consolidated-table--brands td:nth-child(9) { width: 13rem; min-width: 13rem; max-width: 13rem; }
+        .weekly-consolidated-table--brands th:nth-child(10),
+        .weekly-consolidated-table--brands td:nth-child(10) { width: 14rem; min-width: 14rem; max-width: 14rem; }
+        .weekly-consolidated-table--brands th:last-child {
+            white-space: nowrap;
+            word-break: keep-all;
+        }
         .weekly-consolidated-table--brands .weekly-rich-content {
             font-size: .9rem;
             line-height: 1.55;
@@ -693,6 +699,12 @@
             'Done' => 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
             'Blocked' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
             'Deferred' => 'border-brand-white/20 bg-brand-white/10 text-brand-white/70',
+        ];
+        $brandsUpdateStatuses = \App\Models\WeeklyConsolidatedItem::BRANDS_UPDATE_STATUSES;
+        $brandsUpdateStatusClasses = [
+            'Pending' => 'border-amber-400/30 bg-amber-500/10 text-amber-200',
+            'In Progress' => 'border-sky-400/30 bg-sky-500/10 text-sky-200',
+            'Completed' => 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200',
         ];
     @endphp
     <div id="weekly-consolidated-live-region"
@@ -910,7 +922,11 @@
                             <div>
                                 <input type="hidden" name="status" value="{{ old('status', 'In Progress') }}">
                                 <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Update</label>
-                                <textarea name="notes" rows="6" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('notes') }}</textarea>
+                                <select name="notes" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                    @foreach($brandsUpdateStatuses as $updateStatus)
+                                        <option value="{{ $updateStatus }}" @selected(old('notes', 'Pending') === $updateStatus)>{{ $updateStatus }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                         @else
                             <div>
@@ -1030,7 +1046,12 @@
                                     {{ $item->week_end?->format('d M Y') ?? '-' }}
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <div class="weekly-rich-content">{!! $item->notes ?: '<span class="text-brand-white/30"></span>' !!}</div>
+                                    @php
+                                        $brandsUpdateStatus = $item->brandsUpdateStatus();
+                                    @endphp
+                                    <span class="inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-widest {{ $brandsUpdateStatusClasses[$brandsUpdateStatus] ?? 'border-brand-white/10 bg-brand-white/5 text-brand-white/60' }}">
+                                        {{ $brandsUpdateStatus }}
+                                    </span>
                                 </td>
                             @else
                             @if($isAllWeeklyDepartments)
@@ -1165,7 +1186,11 @@
                                                 @if($itemIsBrandsWeeklyDepartment)
                                                     <div class="grid gap-2 md:grid-cols-2">
                                                         <textarea name="target_breakdown" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white" placeholder="KPIS">{{ $item->target_breakdown }}</textarea>
-                                                        <textarea name="notes" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white" placeholder="Update">{{ $item->notes }}</textarea>
+                                                        <select name="notes" required class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                            @foreach($brandsUpdateStatuses as $updateStatus)
+                                                                <option value="{{ $updateStatus }}" @selected($item->brandsUpdateStatus() === $updateStatus)>{{ $updateStatus }}</option>
+                                                            @endforeach
+                                                        </select>
                                                     </div>
                                                 @elseif($weeklyDepartmentHasBreakdown)
                                                     <div class="grid gap-2 md:grid-cols-3">

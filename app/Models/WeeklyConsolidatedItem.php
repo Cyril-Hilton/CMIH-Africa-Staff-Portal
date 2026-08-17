@@ -11,6 +11,7 @@ class WeeklyConsolidatedItem extends Model
     use HasFactory;
 
     public const BRANDS_TASK_ID_FIELD = '_brands_task_id';
+    public const BRANDS_UPDATE_STATUSES = ['Pending', 'In Progress', 'Completed'];
 
     protected $fillable = [
         'department',
@@ -94,6 +95,18 @@ class WeeklyConsolidatedItem extends Model
         $value = trim((string) $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    public function brandsUpdateStatus(): string
+    {
+        $value = trim(strip_tags((string) $this->notes));
+        $normalized = mb_strtolower($value);
+
+        return match ($normalized) {
+            'completed', 'complete', 'done' => 'Completed',
+            'in progress', 'in-progress', 'progress' => 'In Progress',
+            default => 'Pending',
+        };
     }
 
     public function targetLines(): array

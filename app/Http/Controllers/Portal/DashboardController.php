@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
 {
@@ -739,9 +740,11 @@ class DashboardController extends Controller
             ]);
         }
 
+        $isBrandsWeeklyDepartment = $request->input('department') === 'brands_marketing';
+
         $rules = [
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
-            'brands_task_id' => $request->input('department') === 'brands_marketing'
+            'brands_task_id' => $isBrandsWeeklyDepartment
                 ? ['required', 'string', 'max:80']
                 : ['nullable', 'string', 'max:80'],
             'week_start' => ['required', 'date'],
@@ -760,7 +763,9 @@ class DashboardController extends Controller
             'status' => ['required', 'string', 'in:Planned,In Progress,Done,Blocked,Deferred'],
             'priority' => ['nullable', 'string', 'max:50'],
             'progress_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'notes' => ['nullable', 'string', 'max:5000'],
+            'notes' => $isBrandsWeeklyDepartment
+                ? ['required', 'string', Rule::in(WeeklyConsolidatedItem::BRANDS_UPDATE_STATUSES)]
+                : ['nullable', 'string', 'max:5000'],
             'custom_fields' => ['nullable', 'array'],
             'custom_fields.*' => ['nullable', 'string', 'max:15000'],
         ];

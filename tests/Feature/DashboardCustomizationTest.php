@@ -924,7 +924,7 @@ class DashboardCustomizationTest extends TestCase
             'lead_staff_id' => $lead->id,
             'deliverables' => '<p>Create visibility assets and activation mockups.</p>',
             'target_breakdown' => '<p>OSA 95%, MHS 90%, SOS 70%</p>',
-            'notes' => '<p>Artwork awaiting client approval.</p>',
+            'notes' => 'Pending',
             'status' => 'In Progress',
         ]);
 
@@ -935,7 +935,8 @@ class DashboardCustomizationTest extends TestCase
         $this->assertSame('brands_marketing', $item->department);
         $this->assertSame('BR-GNS-001', $item->brandsTaskId());
         $this->assertSame('<p>OSA 95%, MHS 90%, SOS 70%</p>', $item->target_breakdown);
-        $this->assertSame('<p>Artwork awaiting client approval.</p>', $item->notes);
+        $this->assertSame('Pending', $item->notes);
+        $this->assertSame('Pending', $item->brandsUpdateStatus());
 
         $dashboard = $this->actingAs($manager)->get(route('dashboard', [
             'weekly_department' => 'brands_marketing',
@@ -956,7 +957,7 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertSee('BR-GNS-001');
         $dashboard->assertSee('Guinness Trade Campaign');
         $dashboard->assertSee('OSA 95%, MHS 90%, SOS 70%', false);
-        $dashboard->assertSee('Artwork awaiting client approval.', false);
+        $dashboard->assertSee('Pending');
         $dashboard->assertDontSee('WCT-', false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $item), false);
@@ -971,7 +972,7 @@ class DashboardCustomizationTest extends TestCase
             'lead_staff_id' => $lead->id,
             'deliverables' => '<p>Updated project brief.</p>',
             'target_breakdown' => '<p>Updated KPI: 100 retailer visits.</p>',
-            'notes' => '<p>Updated weekly status.</p>',
+            'notes' => 'Completed',
             'status' => 'In Progress',
         ]);
 
@@ -983,7 +984,8 @@ class DashboardCustomizationTest extends TestCase
         $this->assertSame('Updated task name', $item->client_name);
         $this->assertSame('BR-GNS-009', $item->brandsTaskId());
         $this->assertSame('<p>Updated KPI: 100 retailer visits.</p>', $item->target_breakdown);
-        $this->assertSame('<p>Updated weekly status.</p>', $item->notes);
+        $this->assertSame('Completed', $item->notes);
+        $this->assertSame('Completed', $item->brandsUpdateStatus());
 
         $deleteResponse = $this->actingAs($manager)->delete(route('portal.dashboard.weekly-consolidated.destroy', $item));
 
@@ -1032,6 +1034,7 @@ class DashboardCustomizationTest extends TestCase
 
             if ($department === 'brands_marketing') {
                 $createPayload['brands_task_id'] = 'BR-TEAM-001';
+                $createPayload['notes'] = 'Pending';
             }
 
             $createResponse = $this->actingAs($manager)->post(route('portal.dashboard.weekly-consolidated.store'), $createPayload);
@@ -1056,6 +1059,7 @@ class DashboardCustomizationTest extends TestCase
 
             if ($department === 'brands_marketing') {
                 $updatePayload['brands_task_id'] = 'BR-TEAM-002';
+                $updatePayload['notes'] = 'In Progress';
             }
 
             $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), $updatePayload);
