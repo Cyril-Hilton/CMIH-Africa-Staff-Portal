@@ -126,6 +126,13 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/assets', [AssetController::class, 'index'])->name('assets');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
+    Route::get('/assets/warehouse/export/{format?}', [AssetController::class, 'exportWarehouse'])
+        ->whereIn('format', ['csv', 'xls', 'excel', 'pdf', 'print'])
+        ->name('assets.warehouse.export');
+    Route::post('/assets/{asset}/warehouse-requests', [AssetController::class, 'requestWarehouseAsset'])->name('assets.warehouse.request');
+    Route::patch('/assets/warehouse-requests/{assetWarehouseRequest}', [AssetController::class, 'correctWarehouseRequest'])->name('assets.warehouse.correct');
+    Route::post('/assets/warehouse-requests/{assetWarehouseRequest}/evidence', [AssetController::class, 'updateWarehouseEvidence'])->name('assets.warehouse.evidence');
+    Route::post('/assets/warehouse-requests/{assetWarehouseRequest}/action', [AssetController::class, 'warehouseAction'])->name('assets.warehouse.action');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
     Route::match(['put', 'patch'], '/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
