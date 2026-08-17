@@ -479,6 +479,7 @@ class DashboardController extends Controller
                 ->orWhere('achieved_breakdown', 'like', $like)
                 ->orWhere('gap_breakdown', 'like', $like)
                 ->orWhere('notes', 'like', $like)
+                ->orWhere('custom_fields', 'like', $like)
                 ->orWhereHas('leadStaff', fn (Builder $userQuery) => $userQuery->where('name', 'like', $like))
                 ->orWhereHas('creator', fn (Builder $userQuery) => $userQuery->where('name', 'like', $like));
         });
@@ -738,8 +739,11 @@ class DashboardController extends Controller
             ]);
         }
 
-        return $request->validate([
+        $rules = [
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
+            'brands_task_id' => $request->input('department') === 'brands_marketing'
+                ? ['required', 'string', 'max:80']
+                : ['nullable', 'string', 'max:80'],
             'week_start' => ['required', 'date'],
             'week_end' => ['nullable', 'date', 'after_or_equal:week_start'],
             'client_name' => ['nullable', 'string', 'max:255'],
@@ -759,7 +763,12 @@ class DashboardController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'custom_fields' => ['nullable', 'array'],
             'custom_fields.*' => ['nullable', 'string', 'max:15000'],
-        ]);
+        ];
+
+        $validated = $request->validate($rules);
+        unset($validated['brands_task_id']);
+
+        return $validated;
     }
 
     private function normalizeWeeklyConsolidatedDepartmentInput(Request $request, ?string $fallback = null): string
@@ -942,10 +951,20 @@ class DashboardController extends Controller
             ->pluck('column_key')
             ->all();
 
-        return collect($fields)
+        $customFields = collect($fields)
             ->only($columns)
             ->map(fn ($value) => trim((string) $value))
             ->filter(fn ($value) => $value !== '')
             ->all();
+
+        if ($this->normalizeDepartment((string) $department) === 'brands_marketing') {
+            $taskId = trim((string) $request->input('brands_task_id'));
+
+            if ($taskId !== '') {
+                $customFields[WeeklyConsolidatedItem::BRANDS_TASK_ID_FIELD] = $taskId;
+            }
+        }
+
+        return $customFields;
     }
 }

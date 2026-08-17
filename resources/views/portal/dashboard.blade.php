@@ -591,7 +591,7 @@
         .weekly-consolidated-table th:last-child,
         .weekly-consolidated-table td:last-child { min-width: 11rem; max-width: 13rem; }
         .weekly-consolidated-table--brands {
-            min-width: 122rem;
+            min-width: 145rem;
             table-layout: fixed;
             border-spacing: .65rem .75rem;
         }
@@ -600,23 +600,23 @@
             max-width: none;
         }
         .weekly-consolidated-table--brands th:nth-child(1),
-        .weekly-consolidated-table--brands td:nth-child(1) { width: 8.5rem; min-width: 8.5rem; max-width: 8.5rem; }
+        .weekly-consolidated-table--brands td:nth-child(1) { width: 8rem; min-width: 8rem; max-width: 8rem; }
         .weekly-consolidated-table--brands th:nth-child(2),
-        .weekly-consolidated-table--brands td:nth-child(2) { width: 16rem; min-width: 16rem; max-width: 16rem; }
+        .weekly-consolidated-table--brands td:nth-child(2) { width: 14rem; min-width: 14rem; max-width: 14rem; }
         .weekly-consolidated-table--brands th:nth-child(3),
-        .weekly-consolidated-table--brands td:nth-child(3) { width: 35rem; min-width: 35rem; max-width: 35rem; }
+        .weekly-consolidated-table--brands td:nth-child(3) { width: 30rem; min-width: 30rem; max-width: 30rem; }
         .weekly-consolidated-table--brands th:nth-child(4),
         .weekly-consolidated-table--brands td:nth-child(4) { width: 18rem; min-width: 18rem; max-width: 18rem; }
         .weekly-consolidated-table--brands th:nth-child(5),
         .weekly-consolidated-table--brands td:nth-child(5) { width: 20rem; min-width: 20rem; max-width: 20rem; }
         .weekly-consolidated-table--brands th:nth-child(6),
-        .weekly-consolidated-table--brands td:nth-child(6) { width: 10rem; min-width: 10rem; max-width: 10rem; }
+        .weekly-consolidated-table--brands td:nth-child(6) { width: 24rem; min-width: 24rem; max-width: 24rem; }
         .weekly-consolidated-table--brands th:nth-child(7),
         .weekly-consolidated-table--brands td:nth-child(7) { width: 10rem; min-width: 10rem; max-width: 10rem; }
         .weekly-consolidated-table--brands th:nth-child(8),
-        .weekly-consolidated-table--brands td:nth-child(8) { width: 11rem; min-width: 11rem; max-width: 11rem; }
+        .weekly-consolidated-table--brands td:nth-child(8) { width: 10rem; min-width: 10rem; max-width: 10rem; }
         .weekly-consolidated-table--brands th:nth-child(9),
-        .weekly-consolidated-table--brands td:nth-child(9) { width: 12rem; min-width: 12rem; max-width: 12rem; }
+        .weekly-consolidated-table--brands td:nth-child(9) { width: 22rem; min-width: 22rem; max-width: 22rem; }
         .weekly-consolidated-table--brands .weekly-rich-content {
             font-size: .9rem;
             line-height: 1.55;
@@ -682,10 +682,11 @@
     @php
         $isAllWeeklyDepartments = $isAllWeeklyDepartments ?? false;
         $isBrandsWeeklyDepartment = ! $isAllWeeklyDepartments && $weeklyDepartmentFilter === 'brands_marketing';
+        $weeklyVisibleCustomColumns = $isBrandsWeeklyDepartment ? collect() : $weeklyConsolidatedDisplayColumns;
         $weeklyBaseColumnCount = $isAllWeeklyDepartments
             ? 8 + ($weeklyDepartmentHasBreakdown ? 3 : 0)
             : ($isBrandsWeeklyDepartment ? 9 : (5 + ($weeklyDepartmentHasBreakdown ? 3 : 0)));
-        $weeklyTableColumnCount = $weeklyBaseColumnCount + $weeklyConsolidatedDisplayColumns->count() + ($canManageActiveWeeklyDepartment ? 1 : 0);
+        $weeklyTableColumnCount = $weeklyBaseColumnCount + $weeklyVisibleCustomColumns->count() + ($canManageActiveWeeklyDepartment ? 1 : 0);
         $weeklyStatusClasses = [
             'Planned' => 'border-sky-500/30 bg-sky-500/10 text-sky-300',
             'In Progress' => 'border-amber-500/30 bg-amber-500/10 text-amber-300',
@@ -693,7 +694,6 @@
             'Blocked' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
             'Deferred' => 'border-brand-white/20 bg-brand-white/10 text-brand-white/70',
         ];
-        $weeklyPriorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
     @endphp
     <div id="weekly-consolidated-live-region"
          data-silent-region="weekly-consolidated-table"
@@ -710,10 +710,12 @@
             </div>
             @if($canManageActiveWeeklyDepartment)
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
-                            class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
-                         Manage Columns
-                    </button>
+                    @unless($isBrandsWeeklyDepartment)
+                        <button type="button" onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
+                                class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
+                             Manage Columns
+                        </button>
+                    @endunless
                     <button type="button" onclick="document.getElementById('weekly-consolidated-form').classList.toggle('hidden')"
                             class="rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white hover:bg-brand-red-dark">
                         + Add Weekly Row
@@ -755,7 +757,7 @@
             @endforeach
         </div>
 
-        @if($canManageActiveWeeklyDepartment)
+        @if($canManageActiveWeeklyDepartment && ! $isBrandsWeeklyDepartment)
             <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
                     <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.store') }}" class="grid flex-1 gap-3 md:grid-cols-[1fr_180px_auto]">
@@ -799,7 +801,9 @@
                     @endforelse
                 </div>
             </div>
+        @endif
 
+        @if($canManageActiveWeeklyDepartment)
             <form id="weekly-consolidated-form" method="POST" action="{{ route('portal.dashboard.weekly-consolidated.store') }}"
                   class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
                 @csrf
@@ -811,8 +815,15 @@
                             {{ $departments[$weeklyDepartmentFilter] ?? \App\Models\User::departmentLabel($weeklyDepartmentFilter) }}
                         </div>
                     </div>
+                    @if($isBrandsWeeklyDepartment)
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Task ID</label>
+                            <input type="text" name="brands_task_id" value="{{ old('brands_task_id') }}" required maxlength="80" placeholder="e.g. BTL-REX-001"
+                                   class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                        </div>
+                    @endif
                     <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Week Start</label>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Start Date' : 'Week Start' }}</label>
                         <input type="date" name="week_start" value="{{ old('week_start', now()->startOfWeek()->toDateString()) }}" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
                     </div>
                     <div>
@@ -857,7 +868,12 @@
                     </div>
                 </div>
 
-                @if($weeklyDepartmentHasBreakdown)
+                @if($isBrandsWeeklyDepartment)
+                    <div class="mt-4">
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">KPIS</label>
+                        <textarea name="target_breakdown" rows="4" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('target_breakdown') }}</textarea>
+                    </div>
+                @elseif($weeklyDepartmentHasBreakdown)
                     <div class="mt-4 grid gap-3 xl:grid-cols-3">
                         <div>
                             <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Target</label>
@@ -874,7 +890,7 @@
                     </div>
                 @endif
 
-                @if($myWeeklyConsolidatedColumns->isNotEmpty())
+                @if(! $isBrandsWeeklyDepartment && $myWeeklyConsolidatedColumns->isNotEmpty())
                     <div class="mt-4 grid gap-3 lg:grid-cols-2">
                         @foreach($myWeeklyConsolidatedColumns as $column)
                             <div>
@@ -890,30 +906,25 @@
                         <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Project Brief' : 'Deliverables / Weekly Summary' }}</label>
                         <textarea name="deliverables" rows="6" required class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('deliverables') }}</textarea>
                     </div>
-                    <div>
                         @if($isBrandsWeeklyDepartment)
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Priority</label>
-                            <select name="priority" class="mb-3 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                @foreach($weeklyPriorityOptions as $priority)
-                                    <option value="{{ $priority }}" @selected(old('priority', 'Medium') === $priority)>{{ $priority }}</option>
-                                @endforeach
-                            </select>
-                        @endif
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Status</label>
-                        <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                            @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
-                                <option value="{{ $status }}" @selected(old('status', 'Planned') === $status)>{{ $status }}</option>
-                            @endforeach
-                        </select>
-                        @if($isBrandsWeeklyDepartment)
-                            <label class="mb-1 mt-3 block text-[10px] uppercase tracking-widest text-brand-ash">Progress %</label>
-                            <input type="number" name="progress_percent" min="0" max="100" value="{{ old('progress_percent', 0) }}"
-                                   class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                            <div>
+                                <input type="hidden" name="status" value="{{ old('status', 'In Progress') }}">
+                                <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Update</label>
+                                <textarea name="notes" rows="6" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('notes') }}</textarea>
+                            </div>
+                        @else
+                            <div>
+                                <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Status</label>
+                                <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                    @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
+                                        <option value="{{ $status }}" @selected(old('status', 'Planned') === $status)>{{ $status }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         @endif
                         <button type="submit" class="mt-3 w-full rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark">
                             Save Weekly Row
                         </button>
-                    </div>
                 </div>
             </form>
         @endif
@@ -932,10 +943,10 @@
                             <th class="min-w-[360px] px-5 py-4">Project Brief</th>
                             <th class="min-w-[240px] px-5 py-4">Task Name</th>
                             <th class="min-w-[280px] px-5 py-4">Assigned To</th>
+                            <th class="min-w-[280px] px-5 py-4">KPIS</th>
+                            <th class="min-w-[160px] px-5 py-4">Start Date</th>
                             <th class="min-w-[160px] px-5 py-4">Due Date</th>
-                            <th class="min-w-[150px] px-5 py-4">Priority</th>
-                            <th class="min-w-[160px] px-5 py-4">Status</th>
-                            <th class="min-w-[150px] px-5 py-4">Progress %</th>
+                            <th class="min-w-[320px] px-5 py-4">Update</th>
                         @else
                             @if($isAllWeeklyDepartments)
                                 <th class="min-w-[180px] px-5 py-4">Department</th>
@@ -950,7 +961,7 @@
                                 <th class="min-w-[340px] px-5 py-4">Gap</th>
                             @endif
                         @endif
-                        @foreach($weeklyConsolidatedDisplayColumns as $column)
+                        @foreach($weeklyVisibleCustomColumns as $column)
                             <th class="min-w-[300px] px-5 py-4">
                                 <span>{{ $column->label }}</span>
                                 <span class="mt-1 block text-[9px] normal-case tracking-normal text-brand-white/35">{{ $column->user?->name }}</span>
@@ -971,7 +982,8 @@
                 <tbody>
                     @forelse($weeklyConsolidatedItems as $item)
                         @php
-                            $itemColumns = $weeklyConsolidatedDisplayColumns->where('user_id', $item->created_by);
+                            $itemColumns = $weeklyVisibleCustomColumns->where('user_id', $item->created_by);
+                            $itemIsBrandsWeeklyDepartment = \App\Models\User::normalizeDepartmentKey((string) $item->department) === 'brands_marketing';
                             $editSupportRows = $item->supporting_staff_with_roles;
                             $itemProgress = $item->progress_percent ?? match ($item->status) {
                                 'Done' => 100,
@@ -982,11 +994,10 @@
                         <tr class="align-top">
                             @if($isBrandsWeeklyDepartment)
                                 <td class="rounded-l-2xl border-y border-l border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs font-mono text-brand-white whitespace-nowrap">
-                                    WCT-{{ str_pad((string) $item->id, 4, '0', STR_PAD_LEFT) }}
+                                    {{ $item->brandsTaskId() ?: '' }}
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
                                     <div class="font-semibold text-brand-white">{{ $item->campaign_name ?: '' }}</div>
-                                    <div class="mt-2 text-[10px] text-brand-white/30">Owner: {{ $item->creator?->name ?? 'Unknown' }}</div>
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
                                     <div class="weekly-rich-content">{!! $item->deliverables !!}</div>
@@ -1009,22 +1020,17 @@
                                         @endforelse
                                     </div>
                                 </td>
+                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
+                                    <div class="weekly-rich-content">{!! $item->target_breakdown ?: '<span class="text-brand-white/30"></span>' !!}</div>
+                                </td>
+                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs whitespace-nowrap">
+                                    {{ $item->week_start?->format('d M Y') ?? '-' }}
+                                </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs whitespace-nowrap">
                                     {{ $item->week_end?->format('d M Y') ?? '-' }}
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <span class="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 font-semibold text-amber-200">{{ $item->priority ?: 'Medium' }}</span>
-                                </td>
-                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <span class="rounded-full border px-3 py-1 font-semibold {{ $weeklyStatusClasses[$item->status] ?? 'border-brand-white/10 bg-brand-white/5 text-brand-white' }}">{{ $item->status }}</span>
-                                </td>
-                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-mono text-brand-white">{{ $itemProgress }}%</span>
-                                        <span class="h-2 w-24 overflow-hidden rounded-full bg-brand-white/10">
-                                            <span class="block h-full rounded-full bg-emerald-400" style="width: {{ max(0, min(100, (int) $itemProgress)) }}%"></span>
-                                        </span>
-                                    </div>
+                                    <div class="weekly-rich-content">{!! $item->notes ?: '<span class="text-brand-white/30"></span>' !!}</div>
                                 </td>
                             @else
                             @if($isAllWeeklyDepartments)
@@ -1066,7 +1072,7 @@
                             <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs"><div class="weekly-rich-content">{!! $item->gap_breakdown ?: '<span class="text-brand-white/30"></span>' !!}</div></td>
                             @endif
                             @endif
-                            @foreach($weeklyConsolidatedDisplayColumns as $column)
+                            @foreach($weeklyVisibleCustomColumns as $column)
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
                                     @if((int) $column->user_id === (int) $item->created_by && $item->customFieldValue($column))
                                         <div class="weekly-rich-content">{!! $item->customFieldValue($column) !!}</div>
@@ -1108,10 +1114,13 @@
                                                             <option value="{{ $key }}" @selected(\App\Models\User::normalizeDepartmentKey($item->department) === $key)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <input type="date" name="week_start" value="{{ $item->week_start?->toDateString() }}" required class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                    <input type="date" name="week_end" value="{{ $item->week_end?->toDateString() }}" title="{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                    <input type="text" name="client_name" value="{{ $item->client_name }}" placeholder="{{ $isBrandsWeeklyDepartment ? 'Task Name' : 'Client' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                    <input type="text" name="campaign_name" value="{{ $item->campaign_name }}" placeholder="{{ $isBrandsWeeklyDepartment ? 'Project' : 'Campaign' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    @if($itemIsBrandsWeeklyDepartment)
+                                                        <input type="text" name="brands_task_id" value="{{ $item->brandsTaskId() }}" required maxlength="80" placeholder="Task ID" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    @endif
+                                                    <input type="date" name="week_start" value="{{ $item->week_start?->toDateString() }}" required title="{{ $itemIsBrandsWeeklyDepartment ? 'Start Date' : 'Week Start' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    <input type="date" name="week_end" value="{{ $item->week_end?->toDateString() }}" title="{{ $itemIsBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    <input type="text" name="client_name" value="{{ $item->client_name }}" placeholder="{{ $itemIsBrandsWeeklyDepartment ? 'Task Name' : 'Client' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    <input type="text" name="campaign_name" value="{{ $item->campaign_name }}" placeholder="{{ $itemIsBrandsWeeklyDepartment ? 'Project' : 'Campaign' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                     <select name="lead_staff_id" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                         <option value="">Lead staff...</option>
                                                         @foreach($allStaff as $staff)
@@ -1152,8 +1161,13 @@
                                                     </div>
                                                 </div>
 
-                                                <textarea name="deliverables" rows="4" required class="wysiwyg-editor w-full rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">{{ $item->deliverables }}</textarea>
-                                                @if($weeklyDepartmentHasBreakdown)
+                                                <textarea name="deliverables" rows="4" required class="wysiwyg-editor w-full rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white" placeholder="{{ $itemIsBrandsWeeklyDepartment ? 'Project Brief' : 'Deliverables / Weekly Summary' }}">{{ $item->deliverables }}</textarea>
+                                                @if($itemIsBrandsWeeklyDepartment)
+                                                    <div class="grid gap-2 md:grid-cols-2">
+                                                        <textarea name="target_breakdown" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white" placeholder="KPIS">{{ $item->target_breakdown }}</textarea>
+                                                        <textarea name="notes" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white" placeholder="Update">{{ $item->notes }}</textarea>
+                                                    </div>
+                                                @elseif($weeklyDepartmentHasBreakdown)
                                                     <div class="grid gap-2 md:grid-cols-3">
                                                         <textarea name="target_breakdown" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">{{ $item->target_breakdown }}</textarea>
                                                         <textarea name="achieved_breakdown" rows="4" class="wysiwyg-editor rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">{{ $item->achieved_breakdown }}</textarea>
@@ -1171,21 +1185,15 @@
                                                     </div>
                                                 @endif
                                                 <div class="flex flex-wrap items-center gap-2">
-                                                    @if($isBrandsWeeklyDepartment)
-                                                        <select name="priority" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                            @foreach($weeklyPriorityOptions as $priority)
-                                                                <option value="{{ $priority }}" @selected(($item->priority ?: 'Medium') === $priority)>{{ $priority }}</option>
+                                                    @if($itemIsBrandsWeeklyDepartment)
+                                                        <input type="hidden" name="status" value="{{ $item->status ?: 'In Progress' }}">
+                                                    @else
+                                                        <select name="status" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                            @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
+                                                                <option value="{{ $status }}" @selected($item->status === $status)>{{ $status }}</option>
                                                             @endforeach
                                                         </select>
-                                                        <input type="number" name="progress_percent" min="0" max="100" value="{{ $itemProgress }}"
-                                                               class="w-28 rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white"
-                                                               placeholder="Progress %">
                                                     @endif
-                                                    <select name="status" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                        @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
-                                                            <option value="{{ $status }}" @selected($item->status === $status)>{{ $status }}</option>
-                                                        @endforeach
-                                                    </select>
                                                     <button type="submit" class="rounded-lg bg-brand-red px-3 py-2 text-xs font-bold uppercase tracking-widest text-white">Update</button>
                                                 </div>
                                             </form>

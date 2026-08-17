@@ -10,6 +10,8 @@ class WeeklyConsolidatedItem extends Model
 {
     use HasFactory;
 
+    public const BRANDS_TASK_ID_FIELD = '_brands_task_id';
+
     protected $fillable = [
         'department',
         'week_start',
@@ -84,6 +86,14 @@ class WeeklyConsolidatedItem extends Model
         $fields = $this->custom_fields ?? [];
 
         return $fields[$column->column_key] ?? null;
+    }
+
+    public function brandsTaskId(): ?string
+    {
+        $value = ($this->custom_fields ?? [])[self::BRANDS_TASK_ID_FIELD] ?? null;
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
     }
 
     public function targetLines(): array
