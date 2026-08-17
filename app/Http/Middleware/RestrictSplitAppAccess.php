@@ -58,6 +58,7 @@ class RestrictSplitAppAccess
                 'admin/*',
                 'profile',
                 'profile/*',
+                'profile-photos/*',
                 'shared/campaign/*',
                 'surveys/*',
                 ...$this->authPatterns(),
@@ -94,6 +95,7 @@ class RestrictSplitAppAccess
             'admin/*',
             'profile',
             'profile/*',
+            'profile-photos/*',
             ...$this->authPatterns(),
         ])) {
             return $this->buildUrl(config('cmih.urls.staff'), $path === '/' ? 'dashboard' : $path, $queryString);

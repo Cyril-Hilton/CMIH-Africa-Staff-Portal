@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\Attendance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class TaskVerificationTest extends TestCase
@@ -44,6 +45,39 @@ class TaskVerificationTest extends TestCase
         Carbon::setTestNow();
 
         parent::tearDown();
+    }
+
+    public function test_profile_photo_fallback_uses_initials_instead_of_company_logo(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'No Photo Staff',
+            'profile_photo_path' => null,
+            'status' => 'active',
+        ]);
+
+        $url = $user->profilePhotoUrl();
+
+        $this->assertStringStartsWith('data:image/svg+xml', $url);
+        $this->assertStringContainsString('NP', rawurldecode($url));
+        $this->assertStringNotContainsString('Company logo', $url);
+    }
+
+    public function test_uploaded_profile_photo_is_served_through_portal_route(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('profiles/test-photo.jpg', base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2w=='));
+
+        $viewer = User::factory()->create(['status' => 'active']);
+        $user = User::factory()->create([
+            'status' => 'active',
+            'profile_photo_path' => 'profiles/test-photo.jpg',
+        ]);
+
+        $this->assertStringContainsString("/profile-photos/{$user->id}", $user->profilePhotoUrl());
+
+        $this->actingAs($viewer)
+            ->get(route('profile.photo', $user))
+            ->assertOk();
     }
 
     public function test_my_task_stats_exclude_audit_tasks_and_count_performance_completed_tasks(): void

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -956,10 +957,36 @@ class User extends Authenticatable
     public function profilePhotoUrl(): string
     {
         if ($this->profile_photo_path) {
-            return Storage::disk('public')->url($this->profile_photo_path);
+            $path = Str::of((string) $this->profile_photo_path)
+                ->ltrim('/')
+                ->replaceStart('storage/', '')
+                ->toString();
+
+            if (Storage::disk('public')->exists($path)) {
+                return Route::has('profile.photo')
+                    ? route('profile.photo', $this, false)
+                    : Storage::disk('public')->url($path);
+            }
         }
 
-        return asset('images/CMIH%20WEB%20ASSETS/Company%20logo/CMIH%20Logo_light%20theme.png');
+        $initials = Str::of((string) $this->name)
+            ->replaceMatches('/\s+/', ' ')
+            ->trim()
+            ->explode(' ')
+            ->filter()
+            ->take(2)
+            ->map(fn (string $part) => Str::upper(Str::substr($part, 0, 1)))
+            ->implode('');
+        $initials = $initials !== '' ? $initials : 'CM';
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">'
+            . '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#260507"/><stop offset="1" stop-color="#d71920"/></linearGradient></defs>'
+            . '<rect width="160" height="160" rx="80" fill="url(#g)"/>'
+            . '<text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-family="Arial,sans-serif" font-size="56" font-weight="700">'
+            . e($initials)
+            . '</text></svg>';
+
+        return 'data:image/svg+xml;charset=UTF-8,' . rawurlencode($svg);
     }
 
     public function idCardReady(): bool

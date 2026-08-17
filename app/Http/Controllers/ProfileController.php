@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ProfileController extends Controller
 {
@@ -33,6 +34,23 @@ class ProfileController extends Controller
     {
         return view('portal.id-card', [
             'user' => $request->user(),
+        ]);
+    }
+
+    public function photo(Request $request, User $user): BinaryFileResponse
+    {
+        abort_unless($request->user()?->isActive(), 403);
+
+        $path = \Illuminate\Support\Str::of((string) $user->profile_photo_path)
+            ->ltrim('/')
+            ->replaceStart('storage/', '')
+            ->toString();
+
+        abort_if($path === '' || ! Storage::disk('public')->exists($path), 404);
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Content-Type' => Storage::disk('public')->mimeType($path) ?: 'image/jpeg',
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 
