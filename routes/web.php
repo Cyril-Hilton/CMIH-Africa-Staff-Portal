@@ -153,6 +153,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/assets', [AssetController::class, 'index'])->name('assets');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
+    Route::post('/assets/warehouse-posm', [\App\Http\Controllers\Portal\DepartmentController::class, 'storePosmEntry'])->name('assets.posm.store');
+    Route::delete('/assets/warehouse-posm/{entry}', [\App\Http\Controllers\Portal\DepartmentController::class, 'destroyPosmEntry'])->name('assets.posm.destroy');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
     Route::match(['put', 'patch'], '/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');

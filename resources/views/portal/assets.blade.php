@@ -1,143 +1,308 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
-            <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">DAM & Inventory</p>
-            <h2 class="text-3xl font-display text-brand-white">Assets & Inventory Tracking</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">DAM & Inventory Hub</p>
+                <h2 class="text-3xl font-display text-brand-white">Assets & Inventory Management</h2>
+            </div>
         </div>
     </x-slot>
 
-    <div x-data="{ showModal: false }" class="glass-panel rounded-2xl p-6 relative">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-                <h3 class="text-lg font-semibold text-brand-white">Asset Overview</h3>
-                <p class="text-sm text-brand-white/70">Track availability, condition, and allocation history.</p>
+    @if (session('status'))
+        <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-400">
+            ✅ {{ session('status') }}
+        </div>
+    @endif
+
+    <div x-data="{ activeTab: @js($activeTab ?? 'it-assets'), showModal: false }" class="space-y-6">
+        <!-- Navigation Tab Switcher -->
+        <div class="flex items-center gap-2 border-b border-brand-white/10 pb-3 overflow-x-auto">
+            <button @click="activeTab = 'it-assets'"
+                    :class="activeTab === 'it-assets' ? 'bg-brand-red text-white font-bold shadow-lg shadow-brand-red/20' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/5'"
+                    class="rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] transition-all flex items-center gap-2 shrink-0 cursor-pointer">
+                <span>💻 IT & Company Assets</span>
+                <span class="rounded-full bg-brand-white/20 px-2 py-0.5 text-[10px]">{{ $assets->total() ?? count($assets) }}</span>
+            </button>
+            <button @click="activeTab = 'warehouse-posm'"
+                    :class="activeTab === 'warehouse-posm' ? 'bg-brand-red text-white font-bold shadow-lg shadow-brand-red/20' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/5'"
+                    class="rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] transition-all flex items-center gap-2 shrink-0 cursor-pointer">
+                <span>📦 Warehouse & POSM Inventory Ledger</span>
+                <span class="rounded-full bg-brand-white/20 px-2 py-0.5 text-[10px]">{{ $posmEntries->total() ?? count($posmEntries) }}</span>
+            </button>
+        </div>
+
+        <!-- ── TAB 1: IT & COMPANY ASSETS ────────────────────────────────── -->
+        <div x-show="activeTab === 'it-assets'" x-transition class="glass-panel rounded-2xl p-6 relative space-y-6">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-brand-white">IT Equipment & Company Assets</h3>
+                    <p class="text-sm text-brand-white/70">Hardware, software, vehicles, office gear availability & assignment history.</p>
+                </div>
+                @if($canCreateAssets)
+                    <button type="button" @click.prevent="showModal = true" class="inline-flex items-center rounded-full bg-gradient-to-r from-brand-red to-brand-red-dark px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white hover:opacity-90 transition cursor-pointer">
+                        + Add Asset
+                    </button>
+                @endif
             </div>
-            @if($canCreateAssets)
-                <button type="button" @click.prevent="showModal = true" class="inline-flex items-center rounded-full bg-gradient-to-r from-brand-red to-brand-red-dark px-5 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white hover:opacity-90 transition cursor-pointer">
-                    Add Asset
-                </button>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[760px] text-left text-sm text-brand-white/70">
+                    <thead class="text-xs uppercase tracking-[0.3em] text-brand-ash">
+                        <tr>
+                            <th class="py-3">
+                                <a href="{{ route('portal.assets', array_merge(request()->query(), ['tab' => 'it-assets', 'sort' => 'name', 'direction' => request('sort') === 'name' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
+                                    Asset Name
+                                    <div class="flex flex-col">
+                                        <svg class="w-2 h-2 {{ request('sort') === 'name' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
+                                        <svg class="w-2 h-2 {{ request('sort') === 'name' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </a>
+                            </th>
+                            <th class="py-3">
+                                <a href="{{ route('portal.assets', array_merge(request()->query(), ['tab' => 'it-assets', 'sort' => 'type', 'direction' => (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
+                                    Type
+                                    <div class="flex flex-col">
+                                        <svg class="w-2 h-2 {{ (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
+                                        <svg class="w-2 h-2 {{ (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </a>
+                            </th>
+                            <th class="py-3">
+                                <a href="{{ route('portal.assets', array_merge(request()->query(), ['tab' => 'it-assets', 'sort' => 'status', 'direction' => request('sort') === 'status' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
+                                    Status
+                                    <div class="flex flex-col">
+                                        <svg class="w-2 h-2 {{ request('sort') === 'status' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
+                                        <svg class="w-2 h-2 {{ request('sort') === 'status' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </a>
+                            </th>
+                            <th class="py-3">
+                                <a href="{{ route('portal.assets', array_merge(request()->query(), ['tab' => 'it-assets', 'sort' => 'condition', 'direction' => request('sort') === 'condition' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
+                                    Condition
+                                    <div class="flex flex-col">
+                                        <svg class="w-2 h-2 {{ request('sort') === 'condition' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
+                                        <svg class="w-2 h-2 {{ request('sort') === 'condition' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </a>
+                            </th>
+                            <th class="py-3">
+                                <a href="{{ route('portal.assets', array_merge(request()->query(), ['tab' => 'it-assets', 'sort' => 'assigned_to', 'direction' => request('sort') === 'assigned_to' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
+                                    Assigned To
+                                    <div class="flex flex-col">
+                                        <svg class="w-2 h-2 {{ request('sort') === 'assigned_to' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
+                                        <svg class="w-2 h-2 {{ request('sort') === 'assigned_to' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                </a>
+                            </th>
+                            <th class="py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($assets as $asset)
+                            @php
+                                $viewer = auth()->user();
+                                $viewerDept = strtolower(trim((string) ($viewer->department ?? '')));
+                                $canManageAsset = $viewer && (
+                                    $viewer->isCvoOrSuperAdmin()
+                                    || $viewer->hasRole('admin')
+                                    || $viewer->hasFullHrAccess()
+                                    || in_array($viewerDept, ['operations_projects', 'operations', 'hr_admin', 'admin'], true)
+                                    || (int) $asset->added_by === (int) $viewer->id
+                                    || (int) $asset->assigned_to === (int) $viewer->id
+                                );
+                            @endphp
+                            <tr class="border-t border-brand-white/10">
+                                <td class="py-4 text-brand-white">
+                                    <div class="flex items-center gap-3">
+                                        @if($asset->image_path)
+                                            <img src="{{ Storage::disk('public')->url($asset->image_path) }}" class="w-10 h-10 rounded-lg object-cover bg-brand-white/10" alt="">
+                                        @endif
+                                        <div>
+                                            <p class="font-semibold text-brand-white">{{ $asset->name }}</p>
+                                            @if($asset->description)
+                                                <div class="text-xs text-brand-white/50 mt-1">{!! $asset->description !!}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4">{{ $asset->type }}</td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 rounded text-xs uppercase tracking-wider {{ in_array(strtolower($asset->status), ['available', 'in stock', 'new'], true) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-brand-white/10' }}">
+                                        {{ $asset->status }}
+                                    </span>
+                                </td>
+                                <td class="py-4">{{ $asset->condition }}</td>
+                                <td class="py-4">{{ $asset->assignee?->name ?? '-' }}</td>
+                                <td class="py-4 text-right">
+                                    @if($canManageAsset)
+                                        <div class="flex items-center justify-end gap-2">
+                                            <a href="{{ route('portal.assets.edit', $asset) }}" class="text-brand-white/40 hover:text-brand-white transition" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                            </a>
+                                            <button
+                                                type="button"
+                                                @click="$dispatch('open-confirm-modal', { url: '{{ route('portal.assets.destroy', $asset) }}' })"
+                                                class="text-brand-white/40 hover:text-brand-red transition" title="Delete"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-brand-white/30">View only</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="py-8 text-center text-brand-white/40 italic">No IT or company equipment recorded yet.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if($assets instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                <div class="mt-4 pt-4 border-t border-brand-white/10">
+                    {{ $assets->links() }}
+                </div>
             @endif
         </div>
 
-        <div class="mt-6 overflow-x-auto">
-            <table class="w-full min-w-[760px] text-left text-sm text-brand-white/70">
-                <thead class="text-xs uppercase tracking-[0.3em] text-brand-ash">
-                    <tr>
-                        <th class="py-3">
-                            <a href="{{ route('portal.assets', array_merge(request()->query(), ['sort' => 'name', 'direction' => request('sort') === 'name' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
-                                Asset
-                                <div class="flex flex-col">
-                                    <svg class="w-2 h-2 {{ request('sort') === 'name' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
-                                    <svg class="w-2 h-2 {{ request('sort') === 'name' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+        <!-- ── TAB 2: WAREHOUSE & POSM INVENTORY LEDGER ────────────────── -->
+        <div x-show="activeTab === 'warehouse-posm'" x-transition class="space-y-6">
+            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Warehouse Tracking</p>
+                        <h3 class="text-xl font-display text-brand-white uppercase">📋 POSM & Materials Deployment Ledger</h3>
+                        <p class="text-xs text-brand-white/60 mt-1">Real-time stock movements across Warehouse A, Warehouse B, and field deployments.</p>
+                    </div>
+                </div>
+
+                {{-- Form + Ledger Grid --}}
+                <div class="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-6">
+                    {{-- Form --}}
+                    <div class="rounded-xl border border-brand-white/10 bg-brand-black/40 p-5 h-fit">
+                        <h4 class="text-xs uppercase tracking-widest text-brand-ash font-semibold mb-3">Log Deployment / Stock Movement</h4>
+                        <form method="POST" action="{{ route('portal.assets.posm.store') }}" class="space-y-3">
+                            @csrf
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Item Name *</label>
+                                <input type="text" name="item_name" required
+                                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0"
+                                       placeholder="e.g. Pull-up Banner A">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Item Type *</label>
+                                <select name="item_type" required
+                                        class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white">
+                                    <option value="POSM">POSM</option>
+                                    <option value="Uniform">Uniform / T-shirts</option>
+                                    <option value="Banner">Banner / Rollup</option>
+                                    <option value="Tablet">Tablet / Device</option>
+                                    <option value="AV">AV / Sound Equipment</option>
+                                    <option value="Other">Other Material</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Client / Brand</label>
+                                <input type="text" name="client_brand"
+                                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0"
+                                       placeholder="e.g. Unilever / Nestle">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Qty In *</label>
+                                    <input type="number" name="quantity_in" required min="0" value="0"
+                                           class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
                                 </div>
-                            </a>
-                        </th>
-                        <th class="py-3">
-                            <a href="{{ route('portal.assets', array_merge(request()->query(), ['sort' => 'type', 'direction' => (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
-                                Type
-                                <div class="flex flex-col">
-                                    <svg class="w-2 h-2 {{ (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
-                                    <svg class="w-2 h-2 {{ (request('sort') === 'type' || request('sort') === 'asset_type') && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Qty Out *</label>
+                                    <input type="number" name="quantity_out" required min="0" value="0"
+                                           class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
                                 </div>
-                            </a>
-                        </th>
-                        <th class="py-3">
-                            <a href="{{ route('portal.assets', array_merge(request()->query(), ['sort' => 'status', 'direction' => request('sort') === 'status' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
-                                Status
-                                <div class="flex flex-col">
-                                    <svg class="w-2 h-2 {{ request('sort') === 'status' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
-                                    <svg class="w-2 h-2 {{ request('sort') === 'status' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                            </a>
-                        </th>
-                        <th class="py-3">
-                            <a href="{{ route('portal.assets', array_merge(request()->query(), ['sort' => 'condition', 'direction' => request('sort') === 'condition' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
-                                Condition
-                                <div class="flex flex-col">
-                                    <svg class="w-2 h-2 {{ request('sort') === 'condition' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
-                                    <svg class="w-2 h-2 {{ request('sort') === 'condition' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                            </a>
-                        </th>
-                        <th class="py-3">
-                            <a href="{{ route('portal.assets', array_merge(request()->query(), ['sort' => 'assigned_to', 'direction' => request('sort') === 'assigned_to' && request('direction') === 'asc' ? 'desc' : 'asc'])) }}" class="flex items-center gap-1 group">
-                                Assigned To
-                                <div class="flex flex-col">
-                                    <svg class="w-2 h-2 {{ request('sort') === 'assigned_to' && request('direction') === 'asc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 15l7-7 7 7" /></svg>
-                                    <svg class="w-2 h-2 {{ request('sort') === 'assigned_to' && request('direction') === 'desc' ? 'text-brand-red' : 'text-brand-white/20 group-hover:text-brand-white/50' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                            </a>
-                        </th>
-                        <th class="py-3 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($assets as $asset)
-                        @php
-                            $viewer = auth()->user();
-                            $viewerDept = strtolower(trim((string) ($viewer->department ?? '')));
-                            $canManageAsset = $viewer && (
-                                $viewer->isCvoOrSuperAdmin()
-                                || $viewer->hasRole('admin')
-                                || $viewer->hasFullHrAccess()
-                                || in_array($viewerDept, ['operations_projects', 'operations', 'hr_admin', 'admin'], true)
-                                || (int) $asset->added_by === (int) $viewer->id
-                                || (int) $asset->assigned_to === (int) $viewer->id
-                            );
-                        @endphp
-                        <tr class="border-t border-brand-white/10">
-                            <td class="py-4 text-brand-white">
-                                <div class="flex items-center gap-3">
-                                    @if($asset->image_path)
-                                        <img src="{{ Storage::disk('public')->url($asset->image_path) }}" class="w-10 h-10 rounded-lg object-cover bg-brand-white/10" alt="">
-                                    @endif
-                                    <div>
-                                        <p class="font-semibold text-brand-white">{{ $asset->name }}</p>
-                                        @if($asset->description)
-                                            <div class="text-xs text-brand-white/50 mt-1">{!! $asset->description !!}</div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="py-4">{{ $asset->type }}</td>
-                            <td class="py-4">
-                                <span class="px-2 py-1 rounded text-xs uppercase tracking-wider {{ $asset->status === 'available' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-brand-white/10' }}">
-                                    {{ $asset->status }}
-                                </span>
-                            </td>
-                            <td class="py-4">{{ $asset->condition }}</td>
-                            <td class="py-4">{{ $asset->assignee?->name ?? '-' }}</td>
-                            <td class="py-4 text-right">
-                                @if($canManageAsset)
-                                    <div class="flex items-center justify-end gap-2">
-                                        <a href="{{ route('portal.assets.edit', $asset) }}" class="text-brand-white/40 hover:text-brand-white transition" title="Edit">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                        </a>
-                                        <button
-                                            type="button"
-                                            @click="$dispatch('open-confirm-modal', { url: '{{ route('portal.assets.destroy', $asset) }}' })"
-                                            class="text-brand-white/40 hover:text-brand-red transition" title="Delete"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                @else
-                                    <span class="text-xs text-brand-white/30">View only</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Location</label>
+                                <input type="text" name="location"
+                                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0"
+                                       placeholder="e.g. Warehouse A / Accra Office">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Notes / Deployment Details</label>
+                                <textarea name="notes" rows="2"
+                                          class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0"
+                                          placeholder="Purpose of movement..."></textarea>
+                            </div>
+                            <button type="submit" class="w-full rounded-xl bg-brand-red hover:bg-brand-red-dark py-2.5 text-xs uppercase tracking-widest font-bold text-white transition-all shadow-md cursor-pointer">
+                                Submit Log Entry
+                            </button>
+                        </form>
+                    </div>
+
+                    {{-- Ledger Table --}}
+                    <div class="overflow-x-auto rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 max-h-[600px] overflow-y-auto min-w-0">
+                        <table class="w-full text-left text-xs text-brand-white/70 min-w-[650px]">
+                            <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
+                                <tr>
+                                    <th class="py-2.5">Item Name</th>
+                                    <th class="py-2.5">Type</th>
+                                    <th class="py-2.5">Client / Brand</th>
+                                    <th class="py-2.5">In</th>
+                                    <th class="py-2.5">Out</th>
+                                    <th class="py-2.5">Net Bal</th>
+                                    <th class="py-2.5">Location</th>
+                                    <th class="py-2.5">Logged By</th>
+                                    <th class="py-2.5">Date</th>
+                                    <th class="py-2.5 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-brand-white/5">
+                                @forelse($posmEntries ?? [] as $entry)
+                                    <tr>
+                                        <td class="py-3 font-semibold text-brand-white">
+                                            {{ $entry->item_name }}
+                                            @if($entry->notes)
+                                                <div class="text-[10px] text-brand-white/40 font-normal mt-0.5">{!! $entry->notes !!}</div>
+                                            @endif
+                                        </td>
+                                        <td class="py-3">{{ $entry->item_type }}</td>
+                                        <td class="py-3">{{ $entry->client_brand ?? '—' }}</td>
+                                        <td class="py-3 text-emerald-400 font-semibold">+{{ $entry->quantity_in }}</td>
+                                        <td class="py-3 text-brand-red font-semibold">-{{ $entry->quantity_out }}</td>
+                                        @php $net = $entry->quantity_in - $entry->quantity_out; @endphp
+                                        <td class="py-3 font-bold {{ $net >= 0 ? 'text-emerald-400' : 'text-brand-red' }}">
+                                            {{ $net }}
+                                        </td>
+                                        <td class="py-3 text-brand-white/60">{{ $entry->location ?? 'Warehouse' }}</td>
+                                        <td class="py-3 text-brand-white/60">{{ $entry->creator?->name ?? 'System' }}</td>
+                                        <td class="py-3 text-brand-ash">{{ $entry->created_at?->format('d M H:i') }}</td>
+                                        <td class="py-3 text-right">
+                                            <form method="POST" action="{{ route('portal.assets.posm.destroy', $entry) }}" onsubmit="return confirm('Remove log entry?')">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors cursor-pointer" title="Delete log">✕</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="10" class="py-8 text-center text-xs text-brand-white/40 italic">No warehouse POSM or material stock ledger entries logged yet.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                @if($posmEntries instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                    <div class="mt-4 pt-4 border-t border-brand-white/10">
+                        {{ $posmEntries->links() }}
+                    </div>
+                @endif
+            </div>
         </div>
 
-        @if($assets instanceof \Illuminate\Pagination\LengthAwarePaginator)
-            <div class="mt-4 pt-4 border-t border-brand-white/10">
-                {{ $assets->links() }}
-            </div>
-        @endif
-
-        <!-- Add Asset Modal -->
+        <!-- Add IT Asset Modal -->
         <div x-show="showModal"
              style="display: none;"
              class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-3 py-4 sm:px-6 sm:py-8"
@@ -164,7 +329,7 @@
                     <div class="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 p-4 sm:p-5">
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-red mb-1">DAM & Inventory</p>
-                            <h3 class="text-lg font-display text-white">Add New Asset</h3>
+                            <h3 class="text-lg font-display text-white">Add New IT / Company Asset</h3>
                         </div>
                         <button @click="showModal = false" class="text-white/40 hover:text-white transition">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -243,7 +408,7 @@
 
                         <div class="flex shrink-0 flex-col-reverse gap-3 border-t border-white/10 bg-[#0a0a0a] p-4 sm:flex-row sm:justify-end sm:p-5">
                             <button type="button" @click="showModal = false" class="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60 hover:text-white transition">Cancel</button>
-                            <button type="submit" class="rounded-full bg-brand-red px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark hover:shadow-lg hover:shadow-brand-red/25 transition-all">Save Asset</button>
+                            <button type="submit" class="rounded-full bg-brand-red px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark hover:shadow-lg hover:shadow-brand-red/25 transition-all cursor-pointer">Save Asset</button>
                         </div>
                     </form>
                 </div>

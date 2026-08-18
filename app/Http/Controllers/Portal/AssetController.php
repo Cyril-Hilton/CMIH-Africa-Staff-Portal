@@ -65,11 +65,14 @@ class AssetController extends Controller
                 $assetsQuery->latest();
         }
 
-        $assets = $assetsQuery->paginate(10)->withQueryString();
+        $assets = $assetsQuery->paginate(10, ['*'], 'asset_page')->withQueryString();
         $staff = \App\Models\User::internalStaff()->where('status', 'active')->orderBy('name')->get();
         $canCreateAssets = $request->user()?->isActive() ?? false;
 
-        return view('portal.assets', compact('assets', 'search', 'type', 'status', 'condition', 'sort', 'direction', 'staff', 'canCreateAssets'));
+        $posmEntries = \App\Models\PosmLedger::with('creator')->latest()->paginate(10, ['*'], 'pe_page')->withQueryString();
+        $activeTab = $request->string('tab')->toString() ?: 'it-assets';
+
+        return view('portal.assets', compact('assets', 'search', 'type', 'status', 'condition', 'sort', 'direction', 'staff', 'canCreateAssets', 'posmEntries', 'activeTab'));
     }
 
     public function store(Request $request): RedirectResponse
