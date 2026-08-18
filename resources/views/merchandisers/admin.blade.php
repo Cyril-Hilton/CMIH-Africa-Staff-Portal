@@ -45,11 +45,29 @@
         tbody tr:hover { background: rgba(255,255,255,0.04); }
         .modal-overlay { backdrop-filter: blur(6px); }
         main > [x-show] { width: 100%; min-width: 0; max-width: 100%; }
-        main .glass-panel { max-width: 100%; }
-        main .overflow-x-auto { max-width: 100%; }
+        /* Smooth, touch-friendly vertical scrolling for main content container */
+        #merchandiser-admin-main {
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            scroll-behavior: smooth;
+        }
+        #merchandiser-admin-main::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        #merchandiser-admin-main::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        #merchandiser-admin-main::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+        }
+        #merchandiser-admin-main::-webkit-scrollbar-thumb:hover {
+            background: rgba(239, 68, 68, 0.6);
+        }
         @media (max-width: 640px) {
             #admin-map { height: 420px; border-radius: 0.75rem; }
-            main { padding-left: 1rem !important; padding-right: 1rem !important; }
+            main { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
         }
         /* Desktop sidebars stay fixed to viewport height while main content scrolls independently. */
         @media (min-width: 1024px) {
@@ -57,9 +75,9 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden bg-brand-black font-sans antialiased text-brand-white">
+<body class="h-screen h-[100dvh] overflow-hidden bg-brand-black font-sans antialiased text-brand-white">
 
-<div class="h-screen overflow-hidden bg-inked" x-data="{
+<div class="h-screen h-[100dvh] overflow-hidden bg-inked" x-data="{
     sidebarOpen: false,
     activeTab: @js($activeAdminTab),
     kdModalOpen: false,
@@ -395,7 +413,8 @@
             <!-- ── Tab Content ────────────────────────────────────────────── -->
             <main id="merchandiser-admin-main"
                   data-silent-root
-                  class="main-scrollbar-none min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 lg:p-8 space-y-6 min-w-0">
+                  class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-4 lg:p-8 space-y-6 min-w-0"
+                  style="-webkit-overflow-scrolling: touch; touch-action: pan-y;">
 
                 <!-- Flash -->
                 @if(session('success'))
