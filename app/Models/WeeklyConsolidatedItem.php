@@ -101,6 +101,28 @@ class WeeklyConsolidatedItem extends Model
         return $this->linesFromText($this->gap_breakdown);
     }
 
+    public function brandsTaskId(): string
+    {
+        $fields = $this->custom_fields ?? [];
+        $custom = trim((string) ($fields['brands_task_id'] ?? ''));
+
+        if ($custom !== '') {
+            return $custom;
+        }
+
+        return 'WCT-' . str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function brandsUpdateStatus(): string
+    {
+        $notes = trim((string) ($this->notes ?? ''));
+        if ($notes !== '') {
+            return $notes;
+        }
+
+        return $this->status ?: 'Pending';
+    }
+
     private function linesFromText(?string $value): array
     {
         return collect(preg_split('/\r\n|\r|\n/', (string) $value))

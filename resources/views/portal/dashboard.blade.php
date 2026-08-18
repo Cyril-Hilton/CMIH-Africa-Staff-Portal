@@ -804,6 +804,12 @@
                   class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
                 @csrf
                 <div class="grid gap-3 md:grid-cols-3">
+                    @if($isBrandsWeeklyDepartment)
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Custom Task ID</label>
+                            <input type="text" name="brands_task_id" value="{{ old('brands_task_id') }}" placeholder="e.g. BR-GNS-001 (Optional)" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                        </div>
+                    @endif
                     <div>
                         <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Department</label>
                         <input type="hidden" name="department" value="{{ $weeklyDepartmentFilter }}">
@@ -932,10 +938,10 @@
                             <th class="min-w-[360px] px-5 py-4">Project Brief</th>
                             <th class="min-w-[240px] px-5 py-4">Task Name</th>
                             <th class="min-w-[280px] px-5 py-4">Assigned To</th>
+                            <th class="min-w-[340px] px-5 py-4">KPIS</th>
+                            <th class="min-w-[160px] px-5 py-4">Start Date</th>
                             <th class="min-w-[160px] px-5 py-4">Due Date</th>
-                            <th class="min-w-[150px] px-5 py-4">Priority</th>
-                            <th class="min-w-[160px] px-5 py-4">Status</th>
-                            <th class="min-w-[150px] px-5 py-4">Progress %</th>
+                            <th class="min-w-[200px] px-5 py-4">Update</th>
                         @else
                             @if($isAllWeeklyDepartments)
                                 <th class="min-w-[180px] px-5 py-4">Department</th>
@@ -982,7 +988,7 @@
                         <tr class="align-top">
                             @if($isBrandsWeeklyDepartment)
                                 <td class="rounded-l-2xl border-y border-l border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs font-mono text-brand-white whitespace-nowrap">
-                                    WCT-{{ str_pad((string) $item->id, 4, '0', STR_PAD_LEFT) }}
+                                    {{ $item->brandsTaskId() }}
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
                                     <div class="font-semibold text-brand-white">{{ $item->campaign_name ?: '' }}</div>
@@ -1009,22 +1015,17 @@
                                         @endforelse
                                     </div>
                                 </td>
+                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
+                                    <div class="weekly-rich-content">{!! $item->target_breakdown ?: '<span class="text-brand-white/30">No KPIs set</span>' !!}</div>
+                                </td>
+                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs whitespace-nowrap">
+                                    {{ $item->week_start?->format('d M Y') ?? '-' }}
+                                </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs whitespace-nowrap">
                                     {{ $item->week_end?->format('d M Y') ?? '-' }}
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <span class="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 font-semibold text-amber-200">{{ $item->priority ?: 'Medium' }}</span>
-                                </td>
-                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <span class="rounded-full border px-3 py-1 font-semibold {{ $weeklyStatusClasses[$item->status] ?? 'border-brand-white/10 bg-brand-white/5 text-brand-white' }}">{{ $item->status }}</span>
-                                </td>
-                                <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-mono text-brand-white">{{ $itemProgress }}%</span>
-                                        <span class="h-2 w-24 overflow-hidden rounded-full bg-brand-white/10">
-                                            <span class="block h-full rounded-full bg-emerald-400" style="width: {{ max(0, min(100, (int) $itemProgress)) }}%"></span>
-                                        </span>
-                                    </div>
+                                    <span class="font-semibold text-brand-white">{{ $item->brandsUpdateStatus() }}</span>
                                 </td>
                             @else
                             @if($isAllWeeklyDepartments)
@@ -1112,6 +1113,9 @@
                                                 @csrf
                                                 @method('PATCH')
                                                 <div class="grid gap-2 md:grid-cols-3">
+                                                    @if($isBrandsWeeklyDepartment)
+                                                        <input type="text" name="brands_task_id" value="{{ $item->brandsTaskId() }}" placeholder="Task ID (e.g. BR-GNS-001)" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    @endif
                                                     <select name="department" required class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                         @foreach($departments as $key => $label)
                                                             <option value="{{ $key }}" @selected(\App\Models\User::normalizeDepartmentKey($item->department) === $key)>{{ $label }}</option>

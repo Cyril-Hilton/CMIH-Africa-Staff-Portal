@@ -987,10 +987,17 @@ class DashboardController extends Controller
             ->pluck('column_key')
             ->all();
 
-        return collect($fields)
+        $result = collect($fields)
             ->only($columns)
             ->map(fn ($value) => trim((string) $value))
             ->filter(fn ($value) => $value !== '')
             ->all();
+
+        $brandsTaskId = trim((string) ($request->input('brands_task_id') ?? $fields['brands_task_id'] ?? ''));
+        if ($brandsTaskId !== '') {
+            $result['brands_task_id'] = $brandsTaskId;
+        }
+
+        return $result;
     }
 }

@@ -71,7 +71,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="rounded-xl border border-purple-400/40 bg-purple-500/20 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-purple-300">
-                    {{ isset($myPendingApprovals) ? $myPendingApprovals->count() : 0 }} Waiting
+                    {{ isset($myPendingApprovals) ? ($myPendingApprovals instanceof \Illuminate\Pagination\LengthAwarePaginator ? $myPendingApprovals->total() : $myPendingApprovals->count()) : 0 }} Waiting
                 </span>
             </div>
         </div>
@@ -79,7 +79,7 @@
         @if(isset($myPendingApprovals) && $myPendingApprovals->isNotEmpty())
             <div class="space-y-3">
                 @foreach($myPendingApprovals as $approvalTask)
-                    <div class="rounded-xl border border-purple-500/20 bg-brand-black/60 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div id="approval-task-row-{{ $approvalTask->id }}" class="rounded-xl border border-purple-500/20 bg-brand-black/60 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-300">
                         <div class="space-y-1 min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <span class="rounded-full border border-purple-400/30 bg-purple-500/10 px-2.5 py-0.5 text-[9px] font-bold uppercase text-purple-300">Awaiting Your Sign-Off</span>
@@ -92,7 +92,7 @@
                             @endif
                         </div>
                         <div class="flex flex-wrap items-center gap-2 shrink-0">
-                            <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="inline">
+                            <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="inline approval-action-form">
                                 @csrf
                                 <input type="hidden" name="action" value="approve">
                                 <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition-all">
@@ -105,7 +105,7 @@
                                     ↩ Send Back
                                 </summary>
                                 <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-2xl border border-amber-500/30 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl">
-                                    <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="space-y-3">
+                                    <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="space-y-3 approval-action-form">
                                         @csrf
                                         <input type="hidden" name="action" value="revert">
                                         <div>
@@ -125,6 +125,25 @@
                         </div>
                     </div>
                 @endforeach
+
+                @if(isset($myPendingApprovals) && $myPendingApprovals instanceof \Illuminate\Pagination\LengthAwarePaginator && $myPendingApprovals->hasPages())
+                    <div class="mt-4 flex items-center justify-between border-t border-purple-500/20 pt-3">
+                        <span class="text-xs text-brand-white/40">Showing page {{ $myPendingApprovals->currentPage() }} of {{ $myPendingApprovals->lastPage() }}</span>
+                        <div class="flex items-center gap-2">
+                            @if($myPendingApprovals->onFirstPage())
+                                <span class="rounded-lg border border-brand-white/10 px-3 py-1 text-xs text-brand-white/30 cursor-not-allowed">← Prev</span>
+                            @else
+                                <a href="{{ $myPendingApprovals->previousPageUrl() }}" class="rounded-lg border border-brand-white/20 bg-brand-white/5 hover:bg-brand-white/15 px-3 py-1 text-xs text-brand-white">← Prev</a>
+                            @endif
+
+                            @if($myPendingApprovals->hasMorePages())
+                                <a href="{{ $myPendingApprovals->nextPageUrl() }}" class="rounded-lg border border-brand-white/20 bg-brand-white/5 hover:bg-brand-white/15 px-3 py-1 text-xs text-brand-white">Next →</a>
+                            @else
+                                <span class="rounded-lg border border-brand-white/10 px-3 py-1 text-xs text-brand-white/30 cursor-not-allowed">Next →</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
             </div>
         @else
             <div class="py-6 text-center">
@@ -271,4 +290,68 @@
             <div class="pt-5 border-t border-brand-white/10 mt-4">{{ $pendingTasks->links() }}</div>
         @endif
     </div>
+
+    <script>
+    document.addEventListener('submit', function (e) {
+        const form = e.target.closest('.approval-action-form');
+        if (!form) return;
+
+        e.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const row = form.closest('[id^="approval-task-row-"]');
+
+        fetch(form.action, {
+            method: form.method || 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || form.querySelector('input[name="_token"]')?.value || ''
+            },
+            body: new FormData(form)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (row) {
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateY(-10px)';
+                    setTimeout(() => row.remove(), 300);
+                }
+                showApprovalToast(data.message || 'Action completed successfully.', 'success');
+            } else {
+                showApprovalToast(data.message || 'Failed to complete action.', 'error');
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showApprovalToast('An error occurred. Please try again.', 'error');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+
+    function showApprovalToast(message, type = 'success') {
+        let toast = document.getElementById('approval-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'approval-toast';
+            toast.className = 'fixed bottom-6 right-6 z-50 rounded-2xl border px-5 py-3 text-xs font-semibold shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-full opacity-0 flex items-center gap-2';
+            document.body.appendChild(toast);
+        }
+
+        toast.className = `fixed bottom-6 right-6 z-50 rounded-2xl border px-5 py-3 text-xs font-semibold shadow-2xl backdrop-blur-xl transition-all duration-300 transform translate-y-0 opacity-100 flex items-center gap-2 ${
+            type === 'error'
+                ? 'border-red-500/30 bg-red-950/90 text-red-200 shadow-red-950/50'
+                : 'border-emerald-500/30 bg-emerald-950/90 text-emerald-200 shadow-emerald-950/50'
+        }`;
+        toast.innerHTML = `<span>${type === 'error' ? '⚠️' : '✓'}</span> <span>${message}</span>`;
+
+        setTimeout(() => {
+            toast.className = toast.className.replace('translate-y-0 opacity-100', 'translate-y-full opacity-0');
+        }, 4000);
+    }
+    </script>
 </x-app-layout>

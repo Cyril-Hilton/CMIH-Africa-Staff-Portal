@@ -110,7 +110,7 @@ class TaskController extends Controller
             $pendingTasks = $pendingQuery->paginate(15, ['*'], 'p_page')->withQueryString();
 
             // Find tasks awaiting completion review specifically by the logged-in line manager
-            $myPendingApprovals = Task::with(['assigner', 'assignee'])
+            $allApprovals = Task::with(['assigner', 'assignee'])
                 ->realWork()
                 ->where(function ($q) {
                     $q->where('status', 'Awaiting Approval')
@@ -119,6 +119,16 @@ class TaskController extends Controller
                 ->get()
                 ->filter(fn (Task $task) => $this->canReviewCompletion($task, $user))
                 ->values();
+
+            $approvalPage = (int) $request->input('approval_page', 1);
+            $perPageApprovals = 10;
+            $myPendingApprovals = new \Illuminate\Pagination\LengthAwarePaginator(
+                $allApprovals->slice(($approvalPage - 1) * $perPageApprovals, $perPageApprovals)->values(),
+                $allApprovals->count(),
+                $perPageApprovals,
+                $approvalPage,
+                ['path' => $request->url(), 'pageName' => 'approval_page', 'query' => $request->query()]
+            );
 
             // Overdue breakdown
             $overdueCount = Task::query()
@@ -634,6 +644,14 @@ class TaskController extends Controller
                 route('portal.tasks.edit', $task)
             );
 
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Task completion approved. It is now visible on the Mega Table.',
+                    'task_id' => $task->id,
+                ]);
+            }
+
             return back()->with('status', 'Task completion approved. It is now visible on the Mega Table.');
         }
 
@@ -664,6 +682,14 @@ class TaskController extends Controller
             "{$user->name} reviewed '{$task->title}' and sent it back for rework.",
             route('portal.tasks.edit', $task)
         );
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Task sent back to staff for rework.',
+                'task_id' => $task->id,
+            ]);
+        }
 
         return back()->with('status', 'Task sent back. It will stay off the Mega Table until it is completed and approved.');
     }

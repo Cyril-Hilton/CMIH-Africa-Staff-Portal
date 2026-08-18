@@ -946,13 +946,13 @@ class DashboardCustomizationTest extends TestCase
             'Project Brief',
             'Task Name',
             'Assigned To',
+            'KPIS',
+            'Start Date',
             'Due Date',
-            'Priority',
-            'Status',
-            'Progress %',
+            'Update',
         ]);
         $dashboard->assertSee('Guinness Trade Campaign');
-        $dashboard->assertSee('35%');
+        $dashboard->assertSee('Pending');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $item), false);
 
