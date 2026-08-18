@@ -916,16 +916,15 @@ class DashboardCustomizationTest extends TestCase
 
         $createResponse = $this->actingAs($manager)->post(route('portal.dashboard.weekly-consolidated.store'), [
             'department' => 'brands_marketing',
-            'brands_task_id' => 'BR-GNS-001',
             'week_start' => now()->startOfWeek()->toDateString(),
             'week_end' => now()->addDays(10)->toDateString(),
             'client_name' => 'Guinness retail visibility mockup',
             'campaign_name' => 'Guinness Trade Campaign',
             'lead_staff_id' => $lead->id,
             'deliverables' => '<p>Create visibility assets and activation mockups.</p>',
-            'target_breakdown' => '<p>OSA 95%, MHS 90%, SOS 70%</p>',
-            'notes' => 'Pending',
+            'priority' => 'High',
             'status' => 'In Progress',
+            'progress_percent' => 35,
         ]);
 
         $createResponse->assertSessionHasNoErrors();
@@ -933,10 +932,8 @@ class DashboardCustomizationTest extends TestCase
 
         $item = WeeklyConsolidatedItem::where('campaign_name', 'Guinness Trade Campaign')->firstOrFail();
         $this->assertSame('brands_marketing', $item->department);
-        $this->assertSame('BR-GNS-001', $item->brandsTaskId());
-        $this->assertSame('<p>OSA 95%, MHS 90%, SOS 70%</p>', $item->target_breakdown);
-        $this->assertSame('Pending', $item->notes);
-        $this->assertSame('Pending', $item->brandsUpdateStatus());
+        $this->assertSame('High', $item->priority);
+        $this->assertSame(35, $item->progress_percent);
 
         $dashboard = $this->actingAs($manager)->get(route('dashboard', [
             'weekly_department' => 'brands_marketing',
@@ -949,31 +946,27 @@ class DashboardCustomizationTest extends TestCase
             'Project Brief',
             'Task Name',
             'Assigned To',
-            'KPIS',
-            'Start Date',
             'Due Date',
-            'Update',
+            'Priority',
+            'Status',
+            'Progress %',
         ]);
-        $dashboard->assertSee('BR-GNS-001');
         $dashboard->assertSee('Guinness Trade Campaign');
-        $dashboard->assertSee('OSA 95%, MHS 90%, SOS 70%', false);
-        $dashboard->assertSee('Pending');
-        $dashboard->assertDontSee('WCT-', false);
+        $dashboard->assertSee('35%');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $item), false);
 
         $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
             'department' => 'brands_marketing',
-            'brands_task_id' => 'BR-GNS-009',
             'week_start' => now()->startOfWeek()->toDateString(),
             'week_end' => now()->addDays(12)->toDateString(),
             'client_name' => 'Updated task name',
             'campaign_name' => 'Updated Brands Project',
             'lead_staff_id' => $lead->id,
             'deliverables' => '<p>Updated project brief.</p>',
-            'target_breakdown' => '<p>Updated KPI: 100 retailer visits.</p>',
-            'notes' => 'Completed',
-            'status' => 'In Progress',
+            'priority' => 'Urgent',
+            'status' => 'Done',
+            'progress_percent' => 100,
         ]);
 
         $updateResponse->assertSessionHasNoErrors();
@@ -982,10 +975,9 @@ class DashboardCustomizationTest extends TestCase
         $item->refresh();
         $this->assertSame('Updated Brands Project', $item->campaign_name);
         $this->assertSame('Updated task name', $item->client_name);
-        $this->assertSame('BR-GNS-009', $item->brandsTaskId());
-        $this->assertSame('<p>Updated KPI: 100 retailer visits.</p>', $item->target_breakdown);
-        $this->assertSame('Completed', $item->notes);
-        $this->assertSame('Completed', $item->brandsUpdateStatus());
+        $this->assertSame('Urgent', $item->priority);
+        $this->assertSame('Done', $item->status);
+        $this->assertSame(100, $item->progress_percent);
 
         $deleteResponse = $this->actingAs($manager)->delete(route('portal.dashboard.weekly-consolidated.destroy', $item));
 
@@ -1019,7 +1011,7 @@ class DashboardCustomizationTest extends TestCase
                 'department' => $department,
             ]);
 
-            $createPayload = [
+            $createResponse = $this->actingAs($manager)->post(route('portal.dashboard.weekly-consolidated.store'), [
                 'department' => $managerDepartment,
                 'week_start' => now()->startOfWeek()->toDateString(),
                 'week_end' => now()->endOfWeek()->toDateString(),
@@ -1030,21 +1022,14 @@ class DashboardCustomizationTest extends TestCase
                 'priority' => 'Medium',
                 'status' => 'In Progress',
                 'progress_percent' => 40,
-            ];
-
-            if ($department === 'brands_marketing') {
-                $createPayload['brands_task_id'] = 'BR-TEAM-001';
-                $createPayload['notes'] = 'Pending';
-            }
-
-            $createResponse = $this->actingAs($manager)->post(route('portal.dashboard.weekly-consolidated.store'), $createPayload);
+            ]);
 
             $createResponse->assertSessionHasNoErrors();
 
             $item = WeeklyConsolidatedItem::where('campaign_name', "Campaign {$department}")->firstOrFail();
             $this->assertSame($department, $item->department);
 
-            $updatePayload = [
+            $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
                 'department' => $managerDepartment,
                 'week_start' => now()->startOfWeek()->toDateString(),
                 'week_end' => now()->endOfWeek()->toDateString(),
@@ -1055,14 +1040,7 @@ class DashboardCustomizationTest extends TestCase
                 'priority' => 'High',
                 'status' => 'Done',
                 'progress_percent' => 100,
-            ];
-
-            if ($department === 'brands_marketing') {
-                $updatePayload['brands_task_id'] = 'BR-TEAM-002';
-                $updatePayload['notes'] = 'In Progress';
-            }
-
-            $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), $updatePayload);
+            ]);
 
             $updateResponse->assertSessionHasNoErrors();
 
@@ -1070,10 +1048,6 @@ class DashboardCustomizationTest extends TestCase
             $this->assertSame("Updated Campaign {$department}", $item->campaign_name);
             $this->assertSame('Done', $item->status);
             $this->assertSame(100, $item->progress_percent);
-
-            if ($department === 'brands_marketing') {
-                $this->assertSame('BR-TEAM-002', $item->brandsTaskId());
-            }
 
             $deleteResponse = $this->actingAs($manager)->delete(route('portal.dashboard.weekly-consolidated.destroy', $item));
 
