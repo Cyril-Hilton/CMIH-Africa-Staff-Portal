@@ -328,7 +328,7 @@
         </aside>
 
         <!-- ── Main Content ───────────────────────────────────────────────── -->
-        <div class="flex min-h-0 flex-1 flex-col min-w-0">
+        <div class="flex h-full max-h-screen min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
 
             <!-- Top Header Bar -->
             <header class="shrink-0 border-b border-brand-white/10 bg-brand-black/95 px-6 py-4 relative z-40 w-full min-w-0">
