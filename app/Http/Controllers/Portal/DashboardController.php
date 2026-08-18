@@ -18,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 
 class DashboardController extends Controller
 {
@@ -480,7 +479,6 @@ class DashboardController extends Controller
                 ->orWhere('achieved_breakdown', 'like', $like)
                 ->orWhere('gap_breakdown', 'like', $like)
                 ->orWhere('notes', 'like', $like)
-                ->orWhere('custom_fields', 'like', $like)
                 ->orWhereHas('leadStaff', fn (Builder $userQuery) => $userQuery->where('name', 'like', $like))
                 ->orWhereHas('creator', fn (Builder $userQuery) => $userQuery->where('name', 'like', $like));
         });
@@ -569,7 +567,7 @@ class DashboardController extends Controller
         return back()->with('status', 'Custom column removed.');
     }
 
-    public function storeWeeklyConsolidated(Request $request): RedirectResponse
+    public function storeWeeklyConsolidated(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $department = $this->normalizeWeeklyConsolidatedDepartmentInput($request);
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $department);
@@ -586,13 +584,38 @@ class DashboardController extends Controller
 
         WeeklyConsolidatedItem::create($validated);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated item added successfully.']);
+        }
+
         return back()->with('status', 'Weekly consolidated item added.');
     }
 
-    public function updateWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse
+    public function updateWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $department = $this->normalizeWeeklyConsolidatedDepartmentInput($request, $item->department);
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $department, $item);
+
+        // Check for Quick Status Update from ACTIONS column
+        if ($request->has('status') && ! $request->has('deliverables') && ! $request->has('week_start')) {
+            $validated = $request->validate([
+                'status' => ['required', 'string', 'in:Planned,In Progress,Done,Blocked,Deferred'],
+            ]);
+            $validated['updated_by'] = $request->user()->id;
+            $validated['progress_percent'] = $this->normalizeWeeklyProgress(null, $validated['status']);
+
+            $item->update($validated);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Status updated to ' . $item->status,
+                    'status'  => $item->status,
+                ]);
+            }
+
+            return back()->with('status', 'Status updated to ' . $item->status);
+        }
 
         $validated = $this->validateWeeklyConsolidated($request);
         $validated['updated_by'] = $request->user()->id;
@@ -605,18 +628,26 @@ class DashboardController extends Controller
 
         $item->update($validated);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated item updated successfully.']);
+        }
+
         return back()->with('status', 'Weekly consolidated item updated.');
     }
 
-    public function destroyWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse
+    public function destroyWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $item->department, $item);
         $item->delete();
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated item removed.']);
+        }
+
         return back()->with('status', 'Weekly consolidated item removed.');
     }
 
-    public function storeWeeklyConsolidatedColumn(Request $request): RedirectResponse
+    public function storeWeeklyConsolidatedColumn(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->normalizeWeeklyConsolidatedDepartmentInput($request);
 
@@ -650,10 +681,14 @@ class DashboardController extends Controller
             'order' => $maxOrder + 1,
         ]);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated column added for your entries.']);
+        }
+
         return back()->with('status', 'Weekly consolidated column added for your entries.');
     }
 
-    public function updateWeeklyConsolidatedColumn(Request $request, WeeklyConsolidatedColumn $column): RedirectResponse
+    public function updateWeeklyConsolidatedColumn(Request $request, WeeklyConsolidatedColumn $column): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeWeeklyConsolidatedColumnManagement($request->user(), $column, $column->department);
 
@@ -669,13 +704,21 @@ class DashboardController extends Controller
             'order' => $validated['order'] ?? $column->order,
         ]);
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated column updated.']);
+        }
+
         return back()->with('status', 'Weekly consolidated column updated.');
     }
 
-    public function destroyWeeklyConsolidatedColumn(Request $request, WeeklyConsolidatedColumn $column): RedirectResponse
+    public function destroyWeeklyConsolidatedColumn(Request $request, WeeklyConsolidatedColumn $column): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorizeWeeklyConsolidatedColumnManagement($request->user(), $column, $column->department);
         $column->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Weekly consolidated column removed from your entries.']);
+        }
 
         return back()->with('status', 'Weekly consolidated column removed from your entries.');
     }
@@ -740,13 +783,8 @@ class DashboardController extends Controller
             ]);
         }
 
-        $isBrandsWeeklyDepartment = $request->input('department') === 'brands_marketing';
-
-        $rules = [
+        return $request->validate([
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
-            'brands_task_id' => $isBrandsWeeklyDepartment
-                ? ['required', 'string', 'max:80']
-                : ['nullable', 'string', 'max:80'],
             'week_start' => ['required', 'date'],
             'week_end' => ['nullable', 'date', 'after_or_equal:week_start'],
             'client_name' => ['nullable', 'string', 'max:255'],
@@ -763,17 +801,10 @@ class DashboardController extends Controller
             'status' => ['required', 'string', 'in:Planned,In Progress,Done,Blocked,Deferred'],
             'priority' => ['nullable', 'string', 'max:50'],
             'progress_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'notes' => $isBrandsWeeklyDepartment
-                ? ['required', 'string', Rule::in(WeeklyConsolidatedItem::BRANDS_UPDATE_STATUSES)]
-                : ['nullable', 'string', 'max:5000'],
+            'notes' => ['nullable', 'string', 'max:5000'],
             'custom_fields' => ['nullable', 'array'],
             'custom_fields.*' => ['nullable', 'string', 'max:15000'],
-        ];
-
-        $validated = $request->validate($rules);
-        unset($validated['brands_task_id']);
-
-        return $validated;
+        ]);
     }
 
     private function normalizeWeeklyConsolidatedDepartmentInput(Request $request, ?string $fallback = null): string
@@ -956,20 +987,10 @@ class DashboardController extends Controller
             ->pluck('column_key')
             ->all();
 
-        $customFields = collect($fields)
+        return collect($fields)
             ->only($columns)
             ->map(fn ($value) => trim((string) $value))
             ->filter(fn ($value) => $value !== '')
             ->all();
-
-        if ($this->normalizeDepartment((string) $department) === 'brands_marketing') {
-            $taskId = trim((string) $request->input('brands_task_id'));
-
-            if ($taskId !== '') {
-                $customFields[WeeklyConsolidatedItem::BRANDS_TASK_ID_FIELD] = $taskId;
-            }
-        }
-
-        return $customFields;
     }
 }

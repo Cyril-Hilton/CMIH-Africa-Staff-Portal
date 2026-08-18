@@ -55,6 +55,85 @@
         $filterUrl = fn($value) => request()->fullUrlWithQuery(['view' => 'pending', 'filter' => $value, 'p_page' => null]);
     @endphp
 
+    {{-- Session flash --}}
+    @if (session('status'))
+        <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400 flex items-center gap-3">
+            <span class="text-lg">✅</span> {{ session('status') }}
+        </div>
+    @endif
+
+    {{-- LINE MANAGER QUEUE (AWAITING MY APPROVAL) --}}
+    <div class="glass-panel rounded-2xl p-6 border border-purple-500/30 bg-purple-500/5 mb-8 shadow-2xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4 border-b border-brand-white/10 pb-4">
+            <div>
+                <p class="text-[10px] uppercase tracking-[0.3em] text-purple-300 font-bold">Line Manager Queue</p>
+                <h3 class="text-xl font-display text-brand-white uppercase">Awaiting My Approval</h3>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="rounded-xl border border-purple-400/40 bg-purple-500/20 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-purple-300">
+                    {{ isset($myPendingApprovals) ? $myPendingApprovals->count() : 0 }} Waiting
+                </span>
+            </div>
+        </div>
+
+        @if(isset($myPendingApprovals) && $myPendingApprovals->isNotEmpty())
+            <div class="space-y-3">
+                @foreach($myPendingApprovals as $approvalTask)
+                    <div class="rounded-xl border border-purple-500/20 bg-brand-black/60 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="space-y-1 min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="rounded-full border border-purple-400/30 bg-purple-500/10 px-2.5 py-0.5 text-[9px] font-bold uppercase text-purple-300">Awaiting Your Sign-Off</span>
+                                <span class="text-xs text-brand-white/40">Dept: {{ str_replace('_', ' ', $approvalTask->department) }}</span>
+                            </div>
+                            <h4 class="text-base font-semibold text-brand-white break-words">{{ $approvalTask->title }}</h4>
+                            <p class="text-xs text-brand-white/60">Assignee: <strong class="text-brand-white">{{ $approvalTask->assignee?->name ?? 'Staff' }}</strong> &bull; Assigned by: {{ $approvalTask->assigner?->name ?? 'Admin' }}</p>
+                            @if($approvalTask->details)
+                                <div class="text-xs text-brand-white/50 line-clamp-2 mt-1">{!! $approvalTask->details !!}</div>
+                            @endif
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 shrink-0">
+                            <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="inline">
+                                @csrf
+                                <input type="hidden" name="action" value="approve">
+                                <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition-all">
+                                    ✓ Approve Task
+                                </button>
+                            </form>
+
+                            <details class="relative inline-block text-left">
+                                <summary class="cursor-pointer rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-300 transition-all">
+                                    ↩ Send Back
+                                </summary>
+                                <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-2xl border border-amber-500/30 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl">
+                                    <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="space-y-3">
+                                        @csrf
+                                        <input type="hidden" name="action" value="revert">
+                                        <div>
+                                            <label class="block text-[10px] uppercase tracking-wider text-amber-300 mb-1 font-bold">Feedback / Rework Notes</label>
+                                            <textarea name="review_comment" rows="3" required placeholder="Explain what needs fixing..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/80 p-2.5 text-xs text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:outline-none"></textarea>
+                                        </div>
+                                        <button type="submit" class="w-full rounded-xl bg-amber-600 hover:bg-amber-500 py-2 text-xs font-bold uppercase tracking-wider text-white transition-all">
+                                            Confirm Send Back
+                                        </button>
+                                    </form>
+                                </div>
+                            </details>
+
+                            <a href="{{ route('portal.tasks.edit', $approvalTask) }}" class="rounded-xl border border-brand-white/10 bg-brand-white/5 hover:bg-brand-white/10 px-3 py-2 text-xs text-brand-white/70 hover:text-brand-white transition-all">
+                                Details →
+                            </a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div class="py-6 text-center">
+                <p class="text-sm text-brand-white/50">No tasks are currently waiting for your approval.</p>
+                <p class="mt-1 text-xs text-brand-white/30">Tasks in the table below with status <span class="text-purple-300 font-semibold">'Awaiting Approval'</span> are awaiting review by their respective designated line managers.</p>
+            </div>
+        @endif
+    </div>
+
     {{-- Urgency Banner --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div class="glass-panel rounded-2xl p-5 border border-red-500/30 bg-red-500/5 flex items-center gap-4">
@@ -77,70 +156,6 @@
                 <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">Total Pending</p>
                 <p class="text-3xl font-bold text-brand-white">{{ $totalPending }}</p>
             </div>
-        </div>
-    </div>
-
-    {{-- Awaiting My Approval --}}
-    <div class="glass-panel rounded-2xl p-6 border border-purple-500/20 bg-purple-500/[0.04] mb-6">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <p class="text-xs uppercase tracking-[0.25em] text-brand-ash">Line Manager Queue</p>
-                <h3 class="text-2xl font-display text-brand-white">Awaiting My Approval</h3>
-            </div>
-            <span class="rounded-xl border border-purple-400/30 bg-purple-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-200">
-                {{ $approvalQueueTotal ?? 0 }} Waiting
-            </span>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[980px] text-left text-sm">
-                <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-[0.25em] text-brand-ash">
-                    <tr>
-                        <th class="pb-3 font-semibold">Task</th>
-                        <th class="pb-3 font-semibold">Assignee</th>
-                        <th class="pb-3 font-semibold">Requested By</th>
-                        <th class="pb-3 font-semibold">Requested</th>
-                        <th class="pb-3 font-semibold">Due Date</th>
-                        <th class="pb-3 font-semibold text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-brand-white/5">
-                    @forelse(($approvalQueue ?? collect()) as $task)
-                        <tr class="hover:bg-brand-white/[0.04] transition-colors">
-                            <td class="py-4 pr-4">
-                                <p class="font-semibold text-brand-white">{{ $task->title }}</p>
-                                @if($task->completion_review_note)
-                                    <p class="mt-1 text-xs text-brand-white/45">{{ $task->completion_review_note }}</p>
-                                @endif
-                            </td>
-                            <td class="py-4 pr-4 text-brand-white/75">{{ $task->assignee?->name ?? 'Unassigned' }}</td>
-                            <td class="py-4 pr-4 text-brand-white/60">{{ $task->assigner?->name ?? 'System' }}</td>
-                            <td class="py-4 pr-4 text-xs text-brand-white/50">{{ $task->completion_review_requested_at?->format('d M Y H:i') ?? $task->updated_at?->format('d M Y H:i') }}</td>
-                            <td class="py-4 pr-4 text-xs {{ $task->due_on && $task->due_on->isPast() ? 'font-bold text-red-400' : 'text-brand-white/50' }}">{{ $task->due_on?->format('d M Y') ?? '-' }}</td>
-                            <td class="py-4">
-                                <div class="flex flex-wrap justify-end gap-2">
-                                    <a href="{{ route('portal.tasks.edit', $task) }}" class="rounded-lg border border-brand-white/10 bg-brand-white/5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-white/70 hover:text-brand-white">Review</a>
-                                    <form method="POST" action="{{ route('portal.tasks.completion-review', $task) }}">
-                                        @csrf
-                                        <input type="hidden" name="action" value="approve">
-                                        <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-emerald-500">Approve</button>
-                                    </form>
-                                    <form method="POST" action="{{ route('portal.tasks.completion-review', $task) }}">
-                                        @csrf
-                                        <input type="hidden" name="action" value="revert">
-                                        <input type="hidden" name="review_comment" value="Please correct and resubmit this task for approval.">
-                                        <button type="submit" class="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-amber-200 hover:bg-amber-500/20">Send Back</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="py-10 text-center text-sm text-brand-white/45">No tasks are currently waiting for your approval.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
         </div>
     </div>
 
@@ -223,9 +238,21 @@
                                 {{ $task->due_on?->format('d M Y') ?? '—' }}
                             </td>
                             <td class="py-4">
-                                <span class="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider {{ $statusBadge[$task->status] ?? 'border-brand-white/10 text-brand-white/60' }}">
-                                    {{ $task->status }}
-                                </span>
+                                @if($task->status === 'Awaiting Approval' || $task->completion_review_status === 'pending')
+                                    @if($task->canBeEditedBy(auth()->user()))
+                                        <span class="rounded-full border border-purple-500/40 bg-purple-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                                            Awaiting Your Approval
+                                        </span>
+                                    @else
+                                        <span class="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-400">
+                                            Awaiting Line Manager
+                                        </span>
+                                    @endif
+                                @else
+                                    <span class="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider {{ $statusBadge[$task->status] ?? 'border-brand-white/10 text-brand-white/60' }}">
+                                        {{ $task->status }}
+                                    </span>
+                                @endif
                             </td>
                         </tr>
                     @empty
