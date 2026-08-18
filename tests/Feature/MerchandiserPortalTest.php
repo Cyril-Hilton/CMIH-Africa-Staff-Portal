@@ -22,9 +22,11 @@ use App\Models\MerchandiserPjpClockin;
 use App\Models\MerchandiserPlanogram;
 use App\Models\MerchandiserSupervisorAssignment;
 use App\Models\MerchandiserVisit;
+use App\Models\MerchandiserVisitSku;
 use App\Models\Sku;
 use App\Services\MerchandiserRoutePlanner;
 use App\Services\PerfectStoreFormTemplate;
+use App\Services\PerfectStoreKpiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -32,6 +34,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class MerchandiserPortalTest extends TestCase
@@ -42,16 +45,29 @@ class MerchandiserPortalTest extends TestCase
     {
         parent::setUp();
 
-        // Create user with ID 1 to satisfy site_contents.updated_by foreign key constraint
-        User::create([
-            'id' => 1,
-            'name' => 'System Setup Admin',
-            'email' => 'setup-admin@cmih.africa',
-            'contact_email' => 'setup-admin@cmih.africa',
-            'password' => Hash::make('Pass123'),
-            'access_role' => 'super_admin',
-            'status' => 'active'
-        ]);
+        // Ensure user with ID 1 exists and is a super_admin.
+        // Seed migrations may have already created users, so we upgrade
+        // the existing user at ID 1 (or create one if none exists).
+        if (User::where('id', 1)->exists()) {
+            User::where('id', 1)->update([
+                'name'          => 'System Setup Admin',
+                'email'         => 'setup-admin@cmih.africa',
+                'contact_email' => 'setup-admin@cmih.africa',
+                'access_role'   => 'super_admin',
+                'status'        => 'active',
+            ]);
+        } else {
+            // Use forceCreate so the explicit id=1 is honoured (bypasses fillable)
+            User::forceCreate([
+                'id'            => 1,
+                'name'          => 'System Setup Admin',
+                'email'         => 'setup-admin@cmih.africa',
+                'contact_email' => 'setup-admin@cmih.africa',
+                'password'      => Hash::make('Pass123'),
+                'access_role'   => 'super_admin',
+                'status'        => 'active',
+            ]);
+        }
 
         // Add default settings
         SiteContent::updateOrCreate(
@@ -60,7 +76,21 @@ class MerchandiserPortalTest extends TestCase
         );
     }
 
-    /** @test */
+    private function recordOutletClockIn(User $user, Outlet $outlet, ?Carbon $time = null): MerchandiserAttendance
+    {
+        return MerchandiserAttendance::create([
+            'user_id' => $user->id,
+            'outlet_id' => $outlet->id,
+            'clock_in_type' => 'outlet',
+            'clock_in_time' => $time ?: now(),
+            'latitude' => $outlet->latitude ?? 5.6037,
+            'longitude' => $outlet->longitude ?? -0.1870,
+            'distance_from_outlet' => 0,
+            'status' => 'on-time',
+        ]);
+    }
+
+    #[Test]
     public function candidate_age_must_be_between_18_and_65()
     {
         // 17 years old - should fail
@@ -107,8 +137,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'pending'
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function password_must_have_more_than_eight_characters_letter_number_and_symbol()
     {
         $response = $this->post(route('merchandisers.register'), [
@@ -139,8 +168,7 @@ class MerchandiserPortalTest extends TestCase
             'access_role' => 'merchandiser',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function duplicate_merchandiser_contact_email_returns_validation_error_instead_of_server_error()
     {
         User::create([
@@ -170,8 +198,7 @@ class MerchandiserPortalTest extends TestCase
             'email' => 'fresh-agent@cmih.africa',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_login_exposes_forgot_password_link()
     {
         $this->get(route('merchandisers.login'))
@@ -179,8 +206,7 @@ class MerchandiserPortalTest extends TestCase
             ->assertSee('Forgot password?')
             ->assertSee(route('merchandisers.password.request'), false);
     }
-
-    /** @test */
+    #[Test]
     public function pending_merchandisers_cannot_log_in()
     {
         $user = User::create([
@@ -202,8 +228,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSessionHasErrors('email');
         $this->assertFalse(auth()->check());
     }
-
-    /** @test */
+    #[Test]
     public function active_merchandiser_can_log_in()
     {
         $user = User::create([
@@ -225,8 +250,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertRedirect(route('merchandisers.dashboard'));
         $this->assertTrue(auth()->check());
     }
-
-    /** @test */
+    #[Test]
     public function brands_team_member_can_use_existing_cmih_credentials_for_merchandiser_admin()
     {
         $brandUser = User::create([
@@ -252,8 +276,7 @@ class MerchandiserPortalTest extends TestCase
         $this->get(route('merchandisers.admin.dashboard'))
             ->assertOk();
     }
-
-    /** @test */
+    #[Test]
     public function active_merchandiser_using_main_login_is_routed_to_merchandiser_dashboard()
     {
         $user = User::create([
@@ -275,8 +298,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertRedirect(route('merchandisers.dashboard'));
         $this->assertAuthenticatedAs($user);
     }
-
-    /** @test */
+    #[Test]
     public function new_merchandiser_registration_notifies_brands_team_admins()
     {
         $brandUser = User::create([
@@ -308,8 +330,7 @@ class MerchandiserPortalTest extends TestCase
             'title' => 'New merchandiser registration needs approval',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function clock_in_window_boundaries_enforced()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -349,24 +370,23 @@ class MerchandiserPortalTest extends TestCase
 
         $this->actingAs($user);
 
-        // Mock current time to 11:00 AM (which is outside the morning slot 9:00 - 10:00 AM)
-        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(11, 0, 0));
+        // The new outlet visit window opens at 8:00 AM and closes at 5:00 PM.
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(7, 0, 0));
 
         $response = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.6037,
             'longitude' => -0.1870
         ]);
 
         $response->assertStatus(403); // AccessDenied: Window Closed
 
-        // Mock current time to 9:30 AM (valid morning window)
-        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(9, 30, 0));
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(8, 30, 0));
 
         $response2 = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.6037,
             'longitude' => -0.1870
         ]);
@@ -375,13 +395,145 @@ class MerchandiserPortalTest extends TestCase
         $this->assertDatabaseHas('merchandiser_attendances', [
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning'
+            'clock_in_type' => 'outlet'
         ]);
 
         Carbon::setTestNow(); // Reset clock
     }
 
-    /** @test */
+    #[Test]
+    public function merchandiser_can_clock_in_multiple_assigned_outlets_during_open_visit_window()
+    {
+        $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
+        $kd = KeyDistributor::create([
+            'name' => 'Multi Outlet KD',
+            'region_id' => $region->id,
+            'address' => 'Accra',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ]);
+        $user = User::create([
+            'name' => 'Multi Stop Agent',
+            'email' => 'multi-stop@cmih.africa',
+            'contact_email' => 'multi-stop@personal.com',
+            'phone' => '12345678',
+            'date_of_birth' => '1995-05-05',
+            'password' => Hash::make('Pass123'),
+            'access_role' => 'merchandiser',
+            'status' => 'active',
+            'kd_id' => $kd->id,
+            'region_id' => $region->id,
+        ]);
+
+        $outlets = collect([
+            Outlet::create(['name' => 'PJP Stop One', 'code' => 'PJP-001', 'kd_id' => $kd->id, 'channel_type' => 'GT', 'latitude' => 5.6037, 'longitude' => -0.1870]),
+            Outlet::create(['name' => 'PJP Stop Two', 'code' => 'PJP-002', 'kd_id' => $kd->id, 'channel_type' => 'GT', 'latitude' => 5.6038, 'longitude' => -0.1871]),
+        ]);
+
+        $outlets->each(function (Outlet $outlet, int $index) use ($user) {
+            $outlet->assignedMerchandisers()->attach($user->id, ['assigned_by' => 1, 'assigned_at' => now()]);
+            MerchandiserOutletAssignment::create([
+                'user_id' => $user->id,
+                'outlet_id' => $outlet->id,
+                'assigned_date' => Carbon::today('Africa/Accra')->toDateString(),
+                'sequence' => $index + 1,
+                'status' => 'planned',
+            ]);
+        });
+
+        $this->actingAs($user);
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(8, 15, 0));
+
+        foreach ($outlets as $outlet) {
+            $this->post(route('merchandisers.clock-in'), [
+                'outlet_id' => $outlet->id,
+                'clock_in_type' => 'outlet',
+                'latitude' => $outlet->latitude,
+                'longitude' => $outlet->longitude,
+            ])->assertRedirect(route('merchandisers.dashboard'));
+        }
+
+        $this->assertSame(2, MerchandiserAttendance::where('user_id', $user->id)->where('clock_in_type', 'outlet')->count());
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function merchandiser_clocks_out_after_perfect_store_entry_and_duration_is_recorded()
+    {
+        $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
+        $kd = KeyDistributor::create([
+            'name' => 'Duration KD',
+            'region_id' => $region->id,
+            'address' => 'Accra',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ]);
+        $outlet = Outlet::create([
+            'name' => 'Duration Outlet',
+            'code' => 'DURATION-001',
+            'kd_id' => $kd->id,
+            'channel_type' => 'GT',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ]);
+        $user = User::create([
+            'name' => 'Duration Agent',
+            'email' => 'duration-agent@cmih.africa',
+            'contact_email' => 'duration-agent@personal.com',
+            'phone' => '12345678',
+            'date_of_birth' => '1995-05-05',
+            'password' => Hash::make('Pass123'),
+            'access_role' => 'merchandiser',
+            'status' => 'active',
+            'kd_id' => $kd->id,
+            'region_id' => $region->id,
+        ]);
+        $outlet->assignedMerchandisers()->attach($user->id, ['assigned_by' => 1, 'assigned_at' => now()]);
+        $assignment = MerchandiserOutletAssignment::create([
+            'user_id' => $user->id,
+            'outlet_id' => $outlet->id,
+            'assigned_date' => Carbon::today('Africa/Accra')->toDateString(),
+            'sequence' => 1,
+            'status' => 'planned',
+        ]);
+
+        $this->actingAs($user);
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(8, 30, 0));
+        $this->post(route('merchandisers.clock-in'), [
+            'outlet_id' => $outlet->id,
+            'clock_in_type' => 'outlet',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ])->assertRedirect(route('merchandisers.dashboard'));
+
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(8, 50, 0));
+        MerchandiserVisit::create([
+            'user_id' => $user->id,
+            'outlet_id' => $outlet->id,
+            'route_assignment_id' => $assignment->id,
+            'branded_shelf_available' => true,
+            'hangers_available' => true,
+        ]);
+
+        Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(9, 5, 0));
+        $this->post(route('merchandisers.clock-out'), [
+            'outlet_id' => $outlet->id,
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ])->assertRedirect(route('merchandisers.dashboard'));
+
+        $attendance = MerchandiserAttendance::where('user_id', $user->id)->where('outlet_id', $outlet->id)->first();
+        $this->assertNotNull($attendance->clock_out_time);
+        $this->assertSame(35, $attendance->visit_duration_minutes);
+        $this->assertDatabaseHas('merchandiser_outlet_assignments', [
+            'id' => $assignment->id,
+            'status' => 'visited',
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    #[Test]
     public function assigned_merchandiser_can_register_outlet_for_their_kd_and_then_clock_in()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -432,7 +584,7 @@ class MerchandiserPortalTest extends TestCase
 
         $response = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.6037,
             'longitude' => -0.1870
         ]);
@@ -441,13 +593,12 @@ class MerchandiserPortalTest extends TestCase
         $this->assertDatabaseHas('merchandiser_attendances', [
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning'
+            'clock_in_type' => 'outlet'
         ]);
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function clocked_in_merchandiser_can_work_without_identity_docs_for_now()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -489,7 +640,7 @@ class MerchandiserPortalTest extends TestCase
         MerchandiserAttendance::create([
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'clock_in_time' => now(),
             'latitude' => 5.6037,
             'longitude' => -0.1870,
@@ -504,9 +655,8 @@ class MerchandiserPortalTest extends TestCase
         $response->assertOk();
         $response->assertSessionHasNoErrors();
     }
-
-    /** @test */
-    public function assigned_merchandiser_can_clock_in_at_their_pcm_kd_before_outlets_exist()
+    #[Test]
+    public function assigned_merchandiser_sees_outlet_visit_window_before_outlets_exist()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
         $kd = KeyDistributor::create([
@@ -533,31 +683,16 @@ class MerchandiserPortalTest extends TestCase
 
         $dashboard = $this->actingAs($user)->get(route('merchandisers.dashboard'));
         $dashboard->assertOk();
-        $dashboard->assertSee('Clock in at KD / PCM');
+        $dashboard->assertSee('Outlet Visit Window');
+        $dashboard->assertDontSee('Clock in at KD / PCM');
         $dashboard->assertSee('Register an Outlet');
         $dashboard->assertSee('data-clock-in-form', false);
-        $dashboard->assertSee('data-clock-in-submit', false);
-        $dashboard->assertSee('Clocking In...', false);
-
-        $response = $this->post(route('merchandisers.pcm-clock-in'), [
-            'latitude' => 5.65000000,
-            'longitude' => -0.18000000,
-        ]);
-
-        $response->assertRedirect(route('merchandisers.dashboard'));
-        $this->assertDatabaseHas('merchandiser_pcm_clockins', [
-            'user_id' => $user->id,
-            'kd_id' => $kd->id,
-            'status' => 'verified',
-        ]);
-        $this->assertDatabaseHas('merchandiser_locations', [
-            'user_id' => $user->id,
-        ]);
+        $dashboard->assertSee('data-clock-submit', false);
+        $dashboard->assertDontSee('Clocking in...');
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_generate_daily_route_assignments_and_merchandiser_only_sees_todays_route()
     {
         $admin = User::findOrFail(1);
@@ -576,6 +711,8 @@ class MerchandiserPortalTest extends TestCase
             'region_id' => $region->id,
         ]);
 
+        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
+
         foreach (range(1, 5) as $index) {
             Outlet::create([
                 'name' => 'Route Outlet ' . $index,
@@ -588,15 +725,13 @@ class MerchandiserPortalTest extends TestCase
             ]);
         }
 
-        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
-
         $this->actingAs($admin)->post(route('merchandisers.admin.merchandisers.route-settings', $user), [
             'merchandiser_working_days' => [1],
             'merchandiser_daily_outlet_target' => 2,
             'merchandiser_outlet_frequency' => 'weekly',
         ])->assertRedirect();
 
-        $this->assertDatabaseCount('merchandiser_outlet_assignments', 2);
+        $this->assertDatabaseCount('merchandiser_outlet_assignments', 5);
         $assignment = MerchandiserOutletAssignment::where('user_id', $user->id)
             ->whereDate('assigned_date', '2026-07-20')
             ->firstOrFail();
@@ -606,15 +741,15 @@ class MerchandiserPortalTest extends TestCase
         $response = $this->actingAs($user)->get(route('merchandisers.dashboard'));
 
         $response->assertOk();
-        $response->assertSeeText("Today's Assigned Outlets", false);
+        $response->assertSeeText('Assigned Outlets', false);
         $response->assertSee('Route Outlet 1');
         $response->assertSee('Route Outlet 2');
-        $response->assertDontSee('Route Outlet 3');
+        $response->assertSee('Route Outlet 3');
+        $response->assertSee('Route Outlet 5');
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function admin_assigned_outlets_are_routeable_even_when_registered_by_someone_else()
     {
         $region = Region::create(['name' => 'ASSIGNED ROUTE ACCRA', 'timezone' => 'Africa/Accra']);
@@ -636,6 +771,8 @@ class MerchandiserPortalTest extends TestCase
             'merchandiser_outlet_frequency' => 'weekly',
         ]);
 
+        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
+
         $outlet = Outlet::create([
             'name' => 'Admin Assigned Outlet',
             'code' => 'ADMIN-ASSIGNED-OUTLET',
@@ -645,6 +782,8 @@ class MerchandiserPortalTest extends TestCase
             'latitude' => 5.60400000,
             'longitude' => -0.18700000,
         ]);
+
+        Carbon::setTestNow();
 
         $outlet->assignedMerchandisers()->attach($user->id, [
             'assigned_by' => 1,
@@ -661,8 +800,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertCount(1, $assignments);
         $this->assertSame($outlet->id, $assignments->first()->outlet_id);
     }
-
-    /** @test */
+    #[Test]
     public function legacy_default_route_target_auto_sizes_todays_closure_list_without_alphabetical_truncation()
     {
         $region = Region::create(['name' => 'AUTO ROUTE ACCRA', 'timezone' => 'Africa/Accra']);
@@ -698,6 +836,8 @@ class MerchandiserPortalTest extends TestCase
             'Lima Twelfth Outlet',
         ];
 
+        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
+
         foreach ($outletNames as $index => $name) {
             Outlet::create([
                 'name' => $name,
@@ -707,8 +847,6 @@ class MerchandiserPortalTest extends TestCase
                 'channel_type' => 'GT',
             ]);
         }
-
-        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
 
         app(MerchandiserRoutePlanner::class)->ensureWeek($user, Carbon::now('Africa/Accra'));
 
@@ -724,7 +862,7 @@ class MerchandiserPortalTest extends TestCase
         $response = $this->actingAs($user)->get(route('merchandisers.dashboard'));
 
         $response->assertOk();
-        $response->assertSeeText('12 pending of 12');
+        $response->assertSeeText('12 not covered of 12');
         $response->assertSeeInOrder([
             'Zebra First Outlet',
             'Alpha Second Outlet',
@@ -734,9 +872,8 @@ class MerchandiserPortalTest extends TestCase
 
         Carbon::setTestNow();
     }
-
-    /** @test */
-    public function route_generation_skips_configured_public_holiday_dates()
+    #[Test]
+    public function route_generation_skips_outlets_created_on_configured_public_holiday_dates()
     {
         Config::set('merchandiser.public_holidays', ['2026-07-20']);
 
@@ -757,6 +894,8 @@ class MerchandiserPortalTest extends TestCase
             'merchandiser_daily_outlet_target' => 1,
         ]);
 
+        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
+
         foreach (range(1, 2) as $index) {
             Outlet::create([
                 'name' => 'Holiday Outlet ' . $index,
@@ -767,14 +906,15 @@ class MerchandiserPortalTest extends TestCase
             ]);
         }
 
+        Carbon::setTestNow();
+
         app(MerchandiserRoutePlanner::class)->ensureWeek($user, Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
 
         $this->assertSame(0, MerchandiserOutletAssignment::where('user_id', $user->id)->whereDate('assigned_date', '2026-07-20')->count());
-        $this->assertSame(1, MerchandiserOutletAssignment::where('user_id', $user->id)->whereDate('assigned_date', '2026-07-21')->count());
+        $this->assertSame(0, MerchandiserOutletAssignment::where('user_id', $user->id)->whereDate('assigned_date', '2026-07-21')->count());
     }
-
-    /** @test */
-    public function route_generation_respects_frequency_and_sets_schedule_windows()
+    #[Test]
+    public function route_generation_uses_outlet_creation_dates_and_sets_schedule_windows()
     {
         $region = Region::create(['name' => 'FREQUENCY ACCRA', 'timezone' => 'Africa/Accra']);
         $kd = KeyDistributor::create(['name' => 'Frequency KD', 'region_id' => $region->id]);
@@ -794,7 +934,15 @@ class MerchandiserPortalTest extends TestCase
             'merchandiser_outlet_frequency' => 'weekly',
         ]);
 
-        foreach (range(1, 5) as $index) {
+        foreach ([
+            1 => '2026-07-20 08:15:00',
+            2 => '2026-07-20 09:20:00',
+            3 => '2026-07-21 08:30:00',
+            4 => '2026-07-21 11:45:00',
+            5 => '2026-07-22 12:00:00',
+        ] as $index => $createdAt) {
+            Carbon::setTestNow(Carbon::parse($createdAt, 'Africa/Accra'));
+
             Outlet::create([
                 'name' => 'Frequency Outlet ' . $index,
                 'code' => 'FREQ-' . $index,
@@ -803,6 +951,8 @@ class MerchandiserPortalTest extends TestCase
                 'channel_type' => 'GT',
             ]);
         }
+
+        Carbon::setTestNow();
 
         app(MerchandiserRoutePlanner::class)->ensurePeriod(
             $user,
@@ -819,8 +969,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame('2026-07-20 09:30:00', $firstAssignment->assigned_start_at->format('Y-m-d H:i:s'));
         $this->assertSame('2026-07-20 17:45:59', $firstAssignment->assigned_end_at->format('Y-m-d H:i:s'));
     }
-
-    /** @test */
+    #[Test]
     public function admin_route_planning_dashboard_filters_by_datetime_range_and_paginates_assignments()
     {
         $admin = User::findOrFail(1);
@@ -870,8 +1019,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSeeText('Showing 1-25 of 30 rows');
         $response->assertSee('route_page=2', false);
     }
-
-    /** @test */
+    #[Test]
     public function completing_google_form_marks_matching_route_assignment_completed()
     {
         $region = Region::create(['name' => 'FORM ROUTE ACCRA', 'timezone' => 'Africa/Accra']);
@@ -934,8 +1082,7 @@ class MerchandiserPortalTest extends TestCase
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function queued_clock_in_uses_client_recorded_time_and_sync_token_once()
     {
         $region = Region::create(['name' => 'SYNC ACCRA', 'timezone' => 'Africa/Accra']);
@@ -981,10 +1128,10 @@ class MerchandiserPortalTest extends TestCase
 
         $payload = [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.61745000,
             'longitude' => -0.16812000,
-            'client_recorded_at' => '2026-07-20T09:05:00+00:00',
+            'client_recorded_at' => '2026-07-20T08:55:00+00:00',
             'sync_token' => 'offline-sync-token-1',
             'sync_source' => 'offline_retry',
         ];
@@ -1007,8 +1154,7 @@ class MerchandiserPortalTest extends TestCase
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_can_complete_google_form_and_store_planogram_assessment_on_visit()
     {
         Storage::fake('public');
@@ -1072,6 +1218,8 @@ class MerchandiserPortalTest extends TestCase
             'outlet_id' => $outlet->id,
         ]);
 
+        $this->recordOutletClockIn($user, $outlet);
+
         $this->post(route('merchandisers.visit.store', $outlet), [
             'branded_shelf_available' => 1,
             'hangers_available' => 1,
@@ -1102,8 +1250,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'completed',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_can_submit_full_native_perfect_store_audit()
     {
         $region = Region::create(['name' => 'NATIVE ACCRA', 'timezone' => 'Africa/Accra']);
@@ -1179,8 +1326,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame(34, $submission->normalized_metrics['planogram']['compliant']);
         $this->assertSame(100.0, (float) $submission->normalized_metrics['planogram']['compliance_rate']);
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_assign_google_form_by_brand_category_and_campaign()
     {
         $admin = User::findOrFail(1);
@@ -1215,8 +1361,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'active',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function brands_admin_can_assign_supervisor_forward_pjp_and_log_compliance_query()
     {
         $admin = User::findOrFail(1);
@@ -1314,8 +1459,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'sent',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function brands_admin_can_assign_one_supervisor_to_multiple_kds_and_merchandisers()
     {
         $admin = User::findOrFail(1);
@@ -1410,8 +1554,7 @@ class MerchandiserPortalTest extends TestCase
         ]);
         $this->assertSame(4, MerchandiserSupervisorAssignment::where('supervisor_id', $supervisor->id)->count());
     }
-
-    /** @test */
+    #[Test]
     public function supervisor_admin_screen_uses_promoted_merchandiser_supervisors_and_lists_all_active_merchandisers()
     {
         $brandsAdmin = User::factory()->create([
@@ -1467,8 +1610,7 @@ class MerchandiserPortalTest extends TestCase
         $supervisorResponse->assertOk();
         $supervisorResponse->assertSee('PJP title / market route', false);
     }
-
-    /** @test */
+    #[Test]
     public function brands_admin_can_demote_a_supervisor_back_to_regular_merchandiser()
     {
         $admin = User::findOrFail(1);
@@ -1506,24 +1648,20 @@ class MerchandiserPortalTest extends TestCase
             'supervisor_id' => $supervisor->id,
         ]);
     }
-
-    /** @test */
-    public function admin_can_change_merchandiser_clock_windows_without_hard_coding()
+    #[Test]
+    public function admin_can_change_merchandiser_visit_window_without_hard_coding()
     {
         $admin = User::findOrFail(1);
 
         $response = $this->actingAs($admin)->post(route('merchandisers.admin.clock-settings.update'), [
-            'morning_start' => '08:00',
-            'morning_end' => '08:10',
-            'midday_start' => '12:15',
-            'midday_end' => '12:45',
-            'cob_start' => '17:00',
-            'cob_end' => '18:00',
+            'visit_start' => '08:00',
+            'visit_end' => '08:10',
+            'late_start' => '08:05',
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('site_contents', [
-            'key' => 'merchandiser_clock_morning_start',
+            'key' => 'merchandiser_visit_window_start',
             'value' => '08:00',
         ]);
 
@@ -1562,7 +1700,7 @@ class MerchandiserPortalTest extends TestCase
         Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(9, 30, 0));
         $this->actingAs($user)->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.6037,
             'longitude' => -0.1870,
         ])->assertStatus(403);
@@ -1570,7 +1708,7 @@ class MerchandiserPortalTest extends TestCase
         Carbon::setTestNow(Carbon::today('Africa/Accra')->setTime(8, 5, 0));
         $this->actingAs($user)->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.6037,
             'longitude' => -0.1870,
         ])->assertRedirect(route('merchandisers.dashboard'));
@@ -1578,13 +1716,12 @@ class MerchandiserPortalTest extends TestCase
         $this->assertDatabaseHas('merchandiser_attendances', [
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
         ]);
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function admin_dashboard_clock_in_filter_limits_clock_in_counts_to_selected_dates()
     {
         $admin = User::findOrFail(1);
@@ -1628,8 +1765,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('2 PCM', false);
         $response->assertDontSee('3 PCM', false);
     }
-
-    /** @test */
+    #[Test]
     public function admin_live_tracking_clock_in_filter_uses_selected_dates()
     {
         $admin = User::findOrFail(1);
@@ -1693,8 +1829,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('05 Aug 2026, 08:05 AM');
         $response->assertDontSee('01 Aug 2026, 08:05 AM');
     }
-
-    /** @test */
+    #[Test]
     public function brands_admin_can_see_merchandiser_registered_outlet_details()
     {
         $admin = User::findOrFail(1);
@@ -1736,8 +1871,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('Outlet Registrar');
         $response->assertSee('North Legon');
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_outlet_registration_always_uses_their_assigned_kd()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -1785,8 +1919,7 @@ class MerchandiserPortalTest extends TestCase
             'kd_id' => $otherKd->id,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_outlet_registration_assigns_and_locks_gps_coordinates()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -1828,8 +1961,7 @@ class MerchandiserPortalTest extends TestCase
             'outlet_id' => $outlet->id,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function route_generation_uses_registered_or_explicitly_assigned_outlets_only()
     {
         $region = Region::create(['name' => 'ROUTE OWNERSHIP', 'timezone' => 'Africa/Accra']);
@@ -1855,6 +1987,8 @@ class MerchandiserPortalTest extends TestCase
             'region_id' => $region->id,
         ]);
 
+        Carbon::setTestNow(Carbon::create(2026, 7, 20, 8, 0, 0, 'Africa/Accra'));
+
         $registeredOutlet = Outlet::create([
             'name' => 'Registered Route Outlet',
             'code' => 'OWN-001',
@@ -1869,6 +2003,8 @@ class MerchandiserPortalTest extends TestCase
             'registered_by' => $otherUser->id,
             'channel_type' => 'GT',
         ]);
+
+        Carbon::setTestNow();
         $unassignedOutlet = Outlet::create([
             'name' => 'Unassigned Same KD Outlet',
             'code' => 'OWN-003',
@@ -1893,9 +2029,8 @@ class MerchandiserPortalTest extends TestCase
         $this->assertContains($assignedOutlet->id, $assignedOutletIds);
         $this->assertNotContains($unassignedOutlet->id, $assignedOutletIds);
     }
-
-    /** @test */
-    public function admin_can_assign_registered_outlets_by_day_and_remove_assignment()
+    #[Test]
+    public function admin_can_assign_registered_outlets_by_creation_date_and_remove_assignment()
     {
         $admin = User::findOrFail(1);
         $region = Region::create(['name' => 'ADMIN ROUTE', 'timezone' => 'Africa/Accra']);
@@ -1932,7 +2067,8 @@ class MerchandiserPortalTest extends TestCase
         Carbon::setTestNow();
 
         $this->actingAs($admin)->post(route('merchandisers.admin.outlet-assignments.registered'), [
-            'outlet_day' => '1',
+            'outlet_created_from' => '2026-07-20',
+            'outlet_created_to' => '2026-07-20',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('merchandiser_outlet_user', [
@@ -1968,8 +2104,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'planned',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_assign_single_or_multiple_outlets_from_route_planning()
     {
         $admin = User::findOrFail(1);
@@ -2015,8 +2150,7 @@ class MerchandiserPortalTest extends TestCase
             'outlet_id' => $outletTwo->id,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function route_planning_assignment_requires_at_least_one_outlet()
     {
         $admin = User::findOrFail(1);
@@ -2033,8 +2167,7 @@ class MerchandiserPortalTest extends TestCase
             'user_id' => $merchandiser->id,
         ])->assertSessionHasErrors('outlet_ids');
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_can_capture_unlocked_existing_outlet_coordinates_once()
     {
         $region = Region::create(['name' => 'GPS RECAPTURE', 'timezone' => 'Africa/Accra']);
@@ -2072,8 +2205,7 @@ class MerchandiserPortalTest extends TestCase
 
         $this->assertEquals(5.6222, (float) $outlet->fresh()->latitude);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_visit_page_exposes_manual_and_ai_sku_entry_modes()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2114,8 +2246,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('capture="environment"', false);
         $response->assertSee('Pilot mode keeps manual fallback active');
     }
-
-    /** @test */
+    #[Test]
     public function manual_sku_entry_stores_visit_without_ai_photo()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2147,6 +2278,8 @@ class MerchandiserPortalTest extends TestCase
         ]);
         $sku = Sku::create(['name' => 'Guinness Smooth 330ml']);
 
+        $this->recordOutletClockIn($user, $outlet);
+
         $response = $this->actingAs($user)->post(route('merchandisers.visit.store', $outlet), [
             'branded_shelf_available' => 1,
             'hangers_available' => 1,
@@ -2176,7 +2309,161 @@ class MerchandiserPortalTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
+    public function visit_submission_rejects_sos_facings_that_exceed_total_category_facings()
+    {
+        $region = Region::create(['name' => 'ACCRA SOS', 'timezone' => 'Africa/Accra']);
+        $kd = KeyDistributor::create([
+            'name' => 'SOS Guard KD',
+            'region_id' => $region->id,
+            'address' => 'Accra',
+        ]);
+        $outlet = Outlet::create([
+            'name' => 'SOS Guard Outlet',
+            'code' => 'SOS-GUARD-001',
+            'kd_id' => $kd->id,
+            'channel_type' => 'GT',
+            'address' => 'Osu',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ]);
+        $user = User::create([
+            'name' => 'SOS Guard Agent',
+            'email' => 'sos-guard-agent@cmih.africa',
+            'contact_email' => 'sos-guard-agent@personal.com',
+            'phone' => '12345678',
+            'date_of_birth' => '1995-05-05',
+            'password' => Hash::make('Pass123'),
+            'access_role' => 'merchandiser',
+            'status' => 'active',
+            'kd_id' => $kd->id,
+            'region_id' => $region->id,
+        ]);
+        $sku = Sku::create([
+            'name' => 'Rexona Guard SKU',
+            'category' => 'Deodorants',
+            'facing_target' => 4,
+            'sos_target' => 60,
+        ]);
+
+        $this->recordOutletClockIn($user, $outlet);
+
+        $response = $this->actingAs($user)
+            ->from(route('merchandisers.visit', $outlet))
+            ->post(route('merchandisers.visit.store', $outlet), [
+                'branded_shelf_available' => 1,
+                'hangers_available' => 1,
+                'sku_entry_mode' => 'manual',
+                'skus' => [
+                    $sku->id => [
+                        'osa_quantity' => 12,
+                        'npd_present' => 1,
+                        'facing' => 4,
+                        'share_of_shelf' => 35,
+                        'category_unilever_facings' => 61,
+                        'category_total_facings' => 60,
+                        'planogram_compliant' => 1,
+                    ],
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('merchandisers.visit', $outlet))
+            ->assertSessionHasErrors("skus.{$sku->id}.category_unilever_facings");
+
+        $this->assertDatabaseCount('merchandiser_visits', 0);
+        $this->assertDatabaseCount('merchandiser_visit_skus', 0);
+    }
+
+    #[Test]
+    public function visit_submission_stores_share_of_shelf_once_per_category()
+    {
+        $region = Region::create(['name' => 'ACCRA CATEGORY SOS', 'timezone' => 'Africa/Accra']);
+        $kd = KeyDistributor::create([
+            'name' => 'Category SOS KD',
+            'region_id' => $region->id,
+            'address' => 'Accra',
+        ]);
+        $outlet = Outlet::create([
+            'name' => 'Category SOS Outlet',
+            'code' => 'CATEGORY-SOS-001',
+            'kd_id' => $kd->id,
+            'channel_type' => 'GT',
+            'address' => 'Osu',
+            'latitude' => 5.6037,
+            'longitude' => -0.1870,
+        ]);
+        $user = User::create([
+            'name' => 'Category SOS Agent',
+            'email' => 'category-sos-agent@cmih.africa',
+            'contact_email' => 'category-sos-agent@personal.com',
+            'phone' => '12345678',
+            'date_of_birth' => '1995-05-05',
+            'password' => Hash::make('Pass123'),
+            'access_role' => 'merchandiser',
+            'status' => 'active',
+            'kd_id' => $kd->id,
+            'region_id' => $region->id,
+        ]);
+        $firstSku = Sku::create([
+            'name' => 'Rexona Roll On',
+            'category' => 'Deodorants',
+            'facing_target' => 4,
+        ]);
+        $secondSku = Sku::create([
+            'name' => 'Rexona Spray',
+            'category' => 'Deodorants',
+            'facing_target' => 3,
+        ]);
+
+        $this->recordOutletClockIn($user, $outlet);
+
+        $response = $this->actingAs($user)->post(route('merchandisers.visit.store', $outlet), [
+            'branded_shelf_available' => 1,
+            'hangers_available' => 1,
+            'sku_entry_mode' => 'manual',
+            'category_sos' => [
+                'deodorants' => [
+                    'category' => 'Deodorants',
+                    'category_unilever_facings' => 30,
+                    'category_total_facings' => 50,
+                ],
+            ],
+            'skus' => [
+                $firstSku->id => [
+                    'osa_quantity' => 12,
+                    'npd_present' => 1,
+                    'facing' => 4,
+                    'share_of_shelf' => 0,
+                    'planogram_compliant' => 1,
+                ],
+                $secondSku->id => [
+                    'osa_quantity' => 8,
+                    'npd_present' => 1,
+                    'facing' => 3,
+                    'share_of_shelf' => 0,
+                    'planogram_compliant' => 1,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('merchandisers.dashboard'));
+
+        $visit = MerchandiserVisit::firstOrFail();
+        $rows = MerchandiserVisitSku::where('visit_id', $visit->id)->get();
+        $categoryRows = $rows->filter(fn (MerchandiserVisitSku $row) => $row->category_total_facings !== null);
+
+        $this->assertCount(1, $categoryRows);
+        $this->assertSame(30, (int) $categoryRows->first()->category_unilever_facings);
+        $this->assertSame(50, (int) $categoryRows->first()->category_total_facings);
+        $this->assertSame(60.0, (float) $rows->first()->share_of_shelf);
+        $this->assertSame(60.0, app(PerfectStoreKpiService::class)
+            ->categoryKpis(now()->startOfDay(), now()->endOfDay())
+            ->firstWhere('category', 'Deodorants')
+            ->sos_pct);
+    }
+
+    #[Test]
     public function ai_sku_entry_mode_captures_shelf_photo_and_keeps_manual_metrics()
     {
         Storage::fake('public');
@@ -2209,6 +2496,8 @@ class MerchandiserPortalTest extends TestCase
             'region_id' => $region->id,
         ]);
         $sku = Sku::create(['name' => 'Guinness Foreign Extra Stout']);
+
+        $this->recordOutletClockIn($user, $outlet);
 
         $response = $this->actingAs($user)->post(route('merchandisers.visit.store', $outlet), [
             'branded_shelf_available' => 1,
@@ -2244,8 +2533,7 @@ class MerchandiserPortalTest extends TestCase
             'facing' => 3,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function ai_sku_entry_requires_a_shelf_photo()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2296,8 +2584,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSessionHasErrors('ai_shelf_photo');
         $this->assertDatabaseCount('merchandiser_visits', 0);
     }
-
-    /** @test */
+    #[Test]
     public function ai_detection_endpoint_falls_back_to_manual_when_no_provider_is_configured()
     {
         config([
@@ -2346,8 +2633,7 @@ class MerchandiserPortalTest extends TestCase
             'review_required' => true,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function ai_detection_prefills_and_visit_submission_stores_predictions_with_corrections()
     {
         Storage::fake('public');
@@ -2416,6 +2702,8 @@ class MerchandiserPortalTest extends TestCase
             'aliases' => ['Smooth', 'Guinness Smooth'],
         ]);
 
+        $this->recordOutletClockIn($user, $outlet);
+
         $detectResponse = $this->actingAs($user)->postJson(route('merchandisers.visit.ai-detect', $outlet), [
             'ai_shelf_photo' => UploadedFile::fake()->create('shelf.jpg', 256, 'image/jpeg'),
         ]);
@@ -2467,8 +2755,7 @@ class MerchandiserPortalTest extends TestCase
             'ai_predicted_facing' => 5,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function ai_detection_uses_gemini_when_openai_fails()
     {
         Storage::fake('public');
@@ -2563,8 +2850,7 @@ class MerchandiserPortalTest extends TestCase
         $pollResponse->assertJsonPath('attempts.1.provider', 'gemini');
         $pollResponse->assertJsonPath('attempts.1.status', 'completed');
     }
-
-    /** @test */
+    #[Test]
     public function brands_admin_can_manage_sku_reference_images_for_ai_catalog()
     {
         Storage::fake('public');
@@ -2582,6 +2868,9 @@ class MerchandiserPortalTest extends TestCase
             'npd_drop_size' => '2',
             'track_mhs' => '1',
             'mhs_drop_size' => '4',
+            'facing_target' => '5',
+            'track_planogram' => '1',
+            'sos_target' => '62.5',
             'reference_image' => UploadedFile::fake()->create('product.jpg', 128, 'image/jpeg'),
             'aliases' => 'Catalog Alias, shelf short name',
             'ai_reference_notes' => 'Red label, bottle format.',
@@ -2600,6 +2889,9 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame(2, $sku->npd_drop_size);
         $this->assertTrue($sku->track_mhs);
         $this->assertSame(4, $sku->mhs_drop_size);
+        $this->assertSame(5, $sku->facing_target);
+        $this->assertTrue($sku->track_planogram);
+        $this->assertSame('62.50', $sku->sos_target);
 
         $updateResponse = $this->actingAs($admin)->put(route('merchandisers.admin.skus.update', $sku), [
             'name' => 'AI Catalog SKU Updated',
@@ -2608,6 +2900,8 @@ class MerchandiserPortalTest extends TestCase
             'track_osa' => '1',
             'osa_drop_size' => '7',
             'mhs_drop_size' => '5',
+            'facing_target' => '9',
+            'sos_target' => '55',
             'aliases' => 'Updated Alias',
             'ai_reference_notes' => 'Updated notes.',
         ]);
@@ -2624,9 +2918,80 @@ class MerchandiserPortalTest extends TestCase
         $this->assertFalse($sku->track_npd);
         $this->assertFalse($sku->track_mhs);
         $this->assertSame(5, $sku->mhs_drop_size);
+        $this->assertSame(9, $sku->facing_target);
+        $this->assertFalse($sku->track_planogram);
+        $this->assertSame('55.00', $sku->sos_target);
+
+        $targetResponse = $this->actingAs($admin)->post(route('merchandisers.admin.category-targets.store'), [
+            'category' => 'Home Care',
+            'sos_target' => '68.5',
+        ]);
+
+        $targetResponse->assertRedirect();
+        $target = \App\Models\PerfectStoreCategoryTarget::where('category', 'Home Care')->firstOrFail();
+        $this->assertSame('68.50', $target->sos_target);
+        $this->assertSame($admin->id, $target->created_by);
+        $this->assertSame($admin->id, $target->updated_by);
     }
 
-    /** @test */
+    #[Test]
+    public function category_kpi_tab_caps_facing_percentage_scores()
+    {
+        $admin = User::findOrFail(1);
+        $region = Region::create(['name' => 'FACING REGION', 'timezone' => 'Africa/Accra']);
+        $kd = KeyDistributor::create([
+            'name' => 'Facing KD',
+            'region_id' => $region->id,
+        ]);
+        $outlet = Outlet::create([
+            'name' => 'Facing Outlet',
+            'code' => 'FACING-OUTLET-001',
+            'kd_id' => $kd->id,
+        ]);
+        $merchandiser = User::create([
+            'name' => 'Facing Agent',
+            'email' => 'facing-agent@cmih.africa',
+            'contact_email' => 'facing-agent@cmih.africa',
+            'phone' => '12345678',
+            'date_of_birth' => '1995-05-05',
+            'password' => Hash::make('Pass123'),
+            'access_role' => User::MERCHANDISER_ROLE,
+            'status' => 'active',
+            'kd_id' => $kd->id,
+            'region_id' => $region->id,
+        ]);
+        $sku = Sku::create([
+            'name' => 'Runaway Facing SKU',
+            'category' => 'Facing Audit',
+            'track_osa' => false,
+            'facing_target' => 2,
+        ]);
+        $visit = MerchandiserVisit::create([
+            'user_id' => $merchandiser->id,
+            'outlet_id' => $outlet->id,
+        ]);
+        MerchandiserVisitSku::create([
+            'visit_id' => $visit->id,
+            'sku_id' => $sku->id,
+            'osa_quantity' => 0,
+            'npd_present' => false,
+            'facing' => 13,
+            'facing_target_snapshot' => 2,
+            'share_of_shelf' => 50,
+            'planogram_compliant' => true,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('merchandisers.admin.dashboard', [
+            'tab' => 'category-kpi',
+        ]));
+
+        $response->assertOk();
+        $response->assertSeeText('Facing Audit');
+        $response->assertSeeText('100%');
+        $response->assertDontSeeText('650%');
+    }
+
+    #[Test]
     public function brands_admin_can_add_new_brand_and_category_from_sku_catalog()
     {
         $admin = User::findOrFail(1);
@@ -2658,8 +3023,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertSame('Second Partner Brand', $sku->brand->name);
         $this->assertSame('Ready To Drink', $sku->category);
     }
-
-    /** @test */
+    #[Test]
     public function live_tracking_uses_latest_gps_ping_and_admin_rows_can_zoom_to_agent()
     {
         $admin = User::findOrFail(1);
@@ -2700,8 +3064,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('focusMerchandiserOnMap');
         $response->assertSee('setZoom(Math.max(googleMap.getZoom() || 0, 19))', false);
     }
-
-    /** @test */
+    #[Test]
     public function geofenced_radius_distance_enforced()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2746,7 +3109,7 @@ class MerchandiserPortalTest extends TestCase
         // Attempt clock-in from coordinates far away (e.g. 5.7000, -0.1000 is ~14 km away)
         $response = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.7000,
             'longitude' => -0.1000
         ]);
@@ -2759,8 +3122,7 @@ class MerchandiserPortalTest extends TestCase
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function key_distributor_deletion_triggers_wizard_when_dependents_exist()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2816,17 +3178,17 @@ class MerchandiserPortalTest extends TestCase
         $this->actingAs($admin);
 
         // Delete without reassign target -> fails with session show_reassign_wizard_for flag
-        $response = $this->delete(route('portal.merchandisers-admin.kds.destroy', $kd1));
+        $response = $this->delete(route('merchandisers.admin.kds.destroy', $kd1));
 
         $response->assertSessionHas('show_reassign_wizard_for', $kd1->id);
         $this->assertDatabaseHas('key_distributors', ['id' => $kd1->id]);
 
         // Delete with target reassign to KD2 -> reassigns outlets and users and deletes KD1
-        $response2 = $this->delete(route('portal.merchandisers-admin.kds.destroy', $kd1), [
+        $response2 = $this->delete(route('merchandisers.admin.kds.destroy', $kd1), [
             'reassign_kd_id' => $kd2->id
         ]);
 
-        $response2->assertRedirect(route('portal.merchandisers-admin.kds'));
+        $response2->assertRedirect(route('merchandisers.admin.tab', ['adminTab' => 'kds']));
         $this->assertDatabaseMissing('key_distributors', ['id' => $kd1->id]);
         
         $this->assertDatabaseHas('outlets', [
@@ -2838,8 +3200,7 @@ class MerchandiserPortalTest extends TestCase
             'kd_id' => $kd2->id
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_edit_kd_details_and_assigned_merchandisers_together()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -2940,8 +3301,7 @@ class MerchandiserPortalTest extends TestCase
             'status' => 'active',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function admin_cannot_save_a_key_distributor_without_pcm_coordinates()
     {
         $region = Region::create(['name' => 'NORTH', 'timezone' => 'Africa/Accra']);
@@ -2980,8 +3340,7 @@ class MerchandiserPortalTest extends TestCase
             'longitude' => null,
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function kd_coordinate_backfill_only_writes_explicit_kd_row_coordinates()
     {
         $region = Region::create(['name' => 'BACKFILL', 'timezone' => 'Africa/Accra']);
@@ -3037,8 +3396,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertNull($suggestedOnlyKd->fresh()->latitude);
         $this->assertNull($suggestedOnlyKd->fresh()->longitude);
     }
-
-    /** @test */
+    #[Test]
     public function clock_in_succeeds_well_inside_geofence_boundary()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -3082,7 +3440,7 @@ class MerchandiserPortalTest extends TestCase
         // 20 meters away (lat difference of 0.00018 degrees)
         $response = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.61763,
             'longitude' => -0.16812
         ]);
@@ -3091,13 +3449,12 @@ class MerchandiserPortalTest extends TestCase
         $this->assertDatabaseHas('merchandiser_attendances', [
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning'
+            'clock_in_type' => 'outlet'
         ]);
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function clock_in_fails_just_outside_geofence_boundary()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -3141,7 +3498,7 @@ class MerchandiserPortalTest extends TestCase
         // 40 meters away (lat difference of 0.00036 degrees, which is above the 30m geofence radius)
         $response = $this->post(route('merchandisers.clock-in'), [
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'latitude' => 5.61781,
             'longitude' => -0.16812
         ]);
@@ -3150,13 +3507,12 @@ class MerchandiserPortalTest extends TestCase
         $this->assertDatabaseMissing('merchandiser_attendances', [
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning'
+            'clock_in_type' => 'outlet'
         ]);
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function user_can_update_profile_and_banking()
     {
         $user = User::create([
@@ -3196,8 +3552,7 @@ class MerchandiserPortalTest extends TestCase
             'bank_account_number' => '1020304050'
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function user_can_submit_leave_application()
     {
         $supervisor = User::create([
@@ -3259,8 +3614,7 @@ class MerchandiserPortalTest extends TestCase
             'title' => 'Merchandiser Leave Cover Assigned',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function user_can_submit_petty_cash_claim()
     {
         $user = User::create([
@@ -3298,8 +3652,7 @@ class MerchandiserPortalTest extends TestCase
             'title' => 'Merchandiser Claim Approval Needed',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function user_can_submit_salary_advance_loan()
     {
         $user = User::create([
@@ -3345,8 +3698,7 @@ class MerchandiserPortalTest extends TestCase
             'title' => 'Merchandiser Salary Advance Approval Needed',
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function user_can_submit_quarterly_appraisal()
     {
         $user = User::create([
@@ -3379,8 +3731,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertEquals(9, $appraisal->self_assessment['scores']['attendance']);
         $this->assertEquals('Worked hard this quarter', $appraisal->self_assessment['feedback']);
     }
-
-    /** @test */
+    #[Test]
     public function user_can_checkout_posm_materials()
     {
         $user = User::create([
@@ -3424,8 +3775,7 @@ class MerchandiserPortalTest extends TestCase
             'image_path' => $ledger->image_path
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function lateness_deductions_applied_correctly_on_payroll()
     {
         $region = Region::create(['name' => 'ACCRA', 'timezone' => 'Africa/Accra']);
@@ -3460,29 +3810,35 @@ class MerchandiserPortalTest extends TestCase
             'salary' => 1000.00
         ]);
 
+        MerchandiserOutletAssignment::create([
+            'user_id' => $user->id,
+            'outlet_id' => $outlet->id,
+            'assigned_date' => '2026-06-01',
+            'sequence' => 1,
+            'status' => 'planned',
+        ]);
+        MerchandiserOutletAssignment::create([
+            'user_id' => $user->id,
+            'outlet_id' => $outlet->id,
+            'assigned_date' => '2026-06-02',
+            'sequence' => 1,
+            'status' => 'planned',
+        ]);
+
         Carbon::setTestNow(Carbon::create(2026, 6, 1, 9, 2, 0, 'Africa/Accra'));
 
         MerchandiserAttendance::create([
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'clock_in_time' => Carbon::now(),
             'latitude' => 5.6037,
             'longitude' => -0.1870,
-            'distance_from_outlet' => 5.2
+            'distance_from_outlet' => 5.2,
+            'status' => 'late-start',
         ]);
 
-        Carbon::setTestNow(Carbon::create(2026, 6, 1, 12, 15, 0, 'Africa/Accra'));
-        MerchandiserAttendance::create([
-            'user_id' => $user->id,
-            'outlet_id' => $outlet->id,
-            'clock_in_type' => 'midday',
-            'clock_in_time' => Carbon::now(),
-            'latitude' => 5.6037,
-            'longitude' => -0.1870,
-            'distance_from_outlet' => 5.2
-        ]);
-
+        Carbon::setTestNow(Carbon::create(2026, 6, 3, 10, 0, 0, 'Africa/Accra'));
         $payroll = \App\Http\Controllers\Merchandiser\MerchandiserController::calculatePayrollDetails($user, 2026, 6);
 
         $this->assertEquals(15.00, $payroll['deductions']);
@@ -3490,8 +3846,7 @@ class MerchandiserPortalTest extends TestCase
 
         Carbon::setTestNow();
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_can_create_administrative_survey()
     {
         $user = User::create([
@@ -3539,8 +3894,7 @@ class MerchandiserPortalTest extends TestCase
         $this->assertEquals('Rate stock availability', $survey->questions[0]->question_text);
         $this->assertEquals(['Low', 'Medium', 'High'], $survey->questions[0]->options);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_can_mark_notification_as_read()
     {
         $user = User::create([
@@ -3569,8 +3923,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertRedirect();
         $this->assertNotNull($notif->fresh()->read_at);
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_generate_client_share_link()
     {
         $admin = User::create([
@@ -3596,8 +3949,7 @@ class MerchandiserPortalTest extends TestCase
             'created_by' => $admin->id
         ]);
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_admin_dashboard_renders_active_share_links()
     {
         $admin = User::create([
@@ -3626,8 +3978,7 @@ class MerchandiserPortalTest extends TestCase
             ->assertSee('copyShareLink', false)
             ->assertDontSee("alert('Link copied!')", false);
     }
-
-    /** @test */
+    #[Test]
     public function client_can_view_shared_report()
     {
         $admin = User::create([
@@ -3653,8 +4004,7 @@ class MerchandiserPortalTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Unilever Client Dashboard');
     }
-
-    /** @test */
+    #[Test]
     public function merchandiser_dashboard_shows_real_outlet_and_clockin_metrics()
     {
         $region = Region::create(['name' => 'Greater Accra', 'timezone' => 'Africa/Accra']);
@@ -3690,7 +4040,7 @@ class MerchandiserPortalTest extends TestCase
         MerchandiserAttendance::create([
             'user_id' => $user->id,
             'outlet_id' => $outletOne->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'clock_in_time' => now(),
             'latitude' => 5.1,
             'longitude' => -0.1,
@@ -3701,13 +4051,12 @@ class MerchandiserPortalTest extends TestCase
         $response = $this->actingAs($user)->get(route('merchandisers.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Outlets Visited Today');
-        $response->assertSee('Pending Outlets');
-        $response->assertSee("Today's Clock-ins", false);
+        $response->assertSee('Outlets Clocked In');
+        $response->assertSee('Not Covered');
+        $response->assertSee('Scored Today');
         $response->assertSee('Monthly outlets covered');
     }
-
-    /** @test */
+    #[Test]
     public function shared_report_shows_agent_clockin_details_for_clients()
     {
         $admin = User::create([
@@ -3738,7 +4087,7 @@ class MerchandiserPortalTest extends TestCase
         MerchandiserAttendance::create([
             'user_id' => $agent->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => 'morning',
+            'clock_in_type' => 'outlet',
             'clock_in_time' => now(),
             'latitude' => 5.3,
             'longitude' => -0.3,
@@ -3760,11 +4109,10 @@ class MerchandiserPortalTest extends TestCase
         $response->assertSee('Field Agent Clock-In Detail');
         $response->assertSee('Client Visible Agent');
         $response->assertSee('Client KD');
-        $response->assertSee('MORNING');
+        $response->assertSee('OUTLET');
         $response->assertSee('Client Outlet');
     }
-
-    /** @test */
+    #[Test]
     public function client_cannot_view_expired_or_revoked_report()
     {
         $admin = User::create([
@@ -3801,8 +4149,7 @@ class MerchandiserPortalTest extends TestCase
         $response = $this->get(route('merchandisers.report.view', 'revoked-token'));
         $response->assertSee('Link Expired');
     }
-
-    /** @test */
+    #[Test]
     public function admin_can_export_operation_data()
     {
         $admin = User::create([

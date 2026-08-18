@@ -897,25 +897,12 @@
                         <textarea name="deliverables" rows="6" required class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('deliverables') }}</textarea>
                     </div>
                     <div>
-                        @if($isBrandsWeeklyDepartment)
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Priority</label>
-                            <select name="priority" class="mb-3 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                @foreach($weeklyPriorityOptions as $priority)
-                                    <option value="{{ $priority }}" @selected(old('priority', 'Medium') === $priority)>{{ $priority }}</option>
-                                @endforeach
-                            </select>
-                        @endif
                         <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Status</label>
                         <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
                             @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
                                 <option value="{{ $status }}" @selected(old('status', 'Planned') === $status)>{{ $status }}</option>
                             @endforeach
                         </select>
-                        @if($isBrandsWeeklyDepartment)
-                            <label class="mb-1 mt-3 block text-[10px] uppercase tracking-widest text-brand-ash">Progress %</label>
-                            <input type="number" name="progress_percent" min="0" max="100" value="{{ old('progress_percent', 0) }}"
-                                   class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                        @endif
                         <button type="submit" class="mt-3 w-full rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark">
                             Save Weekly Row
                         </button>
@@ -1184,16 +1171,6 @@
                                                     </div>
                                                 @endif
                                                 <div class="flex flex-wrap items-center gap-2">
-                                                    @if($isBrandsWeeklyDepartment)
-                                                        <select name="priority" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                            @foreach($weeklyPriorityOptions as $priority)
-                                                                <option value="{{ $priority }}" @selected(($item->priority ?: 'Medium') === $priority)>{{ $priority }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        <input type="number" name="progress_percent" min="0" max="100" value="{{ $itemProgress }}"
-                                                               class="w-28 rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white"
-                                                               placeholder="Progress %">
-                                                    @endif
                                                     <select name="status" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                         @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
                                                             <option value="{{ $status }}" @selected($item->status === $status)>{{ $status }}</option>

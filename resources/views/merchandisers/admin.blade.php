@@ -331,7 +331,7 @@
         <div class="flex min-h-0 flex-1 flex-col min-w-0">
 
             <!-- Top Header Bar -->
-            <header class="border-b border-brand-white/10 bg-brand-black/70 backdrop-blur-md px-6 py-4 sticky top-0 z-40">
+            <header class="shrink-0 border-b border-brand-white/10 bg-brand-black/95 px-6 py-4 relative z-40 w-full min-w-0">
                 <div class="flex items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <button type="button" @click.stop="sidebarOpen = true"

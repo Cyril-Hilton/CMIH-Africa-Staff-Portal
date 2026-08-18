@@ -158,9 +158,12 @@ class MerchandiserReportController extends Controller
         }
 
         if ($report->section('show_top_performers')) {
+            $currentMonthStart = now()->startOfMonth();
+            $currentMonthEnd = now()->endOfMonth();
+
             $data['top_performers'] = User::merchandisers()
                 ->where('status', 'active')
-                ->withCount(['merchandiserVisits' => fn($q) => $q->whereMonth('created_at', now()->month)])
+                ->withCount(['merchandiserVisits' => fn($q) => $q->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])])
                 ->orderByDesc('merchandiser_visits_count')
                 ->take(10)
                 ->get();
@@ -177,6 +180,124 @@ class MerchandiserReportController extends Controller
             $data['kds'] = KeyDistributor::with(['region', 'outlets'])->withCount('merchandisers')->get();
         }
 
+        $reportPeriodStart = Carbon::today()->subDays(6)->startOfDay();
+        $reportPeriodEnd = Carbon::today()->endOfDay();
+
+        // ── ShelfWatch Section: Executive Summary ──────────────────────────────
+        if ($report->section('show_exec_summary')) {
+            $scheduled = \App\Models\MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $reportPeriodStart->toDateString())
+                ->whereDate('assigned_date', '<=', $reportPeriodEnd->toDateString())
+                ->count();
+            $actual = \App\Models\MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $reportPeriodStart->toDateString())
+                ->whereDate('assigned_date', '<=', $reportPeriodEnd->toDateString())
+                ->where(fn ($query) => $query
+                    ->where('status', 'completed')
+                    ->orWhereNotNull('completed_at')
+                    ->orWhereNotNull('visit_id'))
+                ->count();
+            $data['exec_scheduled'] = $scheduled;
+            $data['exec_actual'] = $actual;
+            $data['exec_compliance'] = $this->boundedPercent($actual, $scheduled);
+            
+            $visitTrend = ['labels' => [], 'scheduled' => [], 'actual' => []];
+            for ($i = 6; $i >= 0; $i--) {
+                $day = Carbon::today()->subDays($i);
+                $visitTrend['labels'][] = $day->format('d M');
+                $visitTrend['scheduled'][] = \App\Models\MerchandiserOutletAssignment::whereDate('assigned_date', $day->toDateString())->count();
+                $visitTrend['actual'][] = \App\Models\MerchandiserOutletAssignment::whereDate('assigned_date', $day->toDateString())
+                    ->where(fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->orWhereNotNull('completed_at')
+                        ->orWhereNotNull('visit_id'))
+                    ->count();
+            }
+            $data['exec_visit_trend'] = $visitTrend;
+        }
+
+        // ── ShelfWatch Section: Category Level KPIs ─────────────────────────────
+        if ($report->section('show_category_kpi')) {
+            $data['category_kpis'] = app(PerfectStoreKpiService::class)->categoryKpis($reportPeriodStart, $reportPeriodEnd);
+        }
+
+        // ── ShelfWatch Section: User Performance ───────────────────────────────
+        if ($report->section('show_user_performance')) {
+            $data['user_performance'] = User::merchandisers()
+                ->where('status', 'active')
+                ->with(['merchandiserKd'])
+                ->withCount(['merchandiserVisits as total_visits' => fn($q) => $q->whereBetween('created_at', [$reportPeriodStart, $reportPeriodEnd])])
+                ->get()
+                ->map(function ($user) use ($reportPeriodStart, $reportPeriodEnd) {
+                    $scheduled = \App\Models\MerchandiserOutletAssignment::where('user_id', $user->id)
+                        ->whereDate('assigned_date', '>=', $reportPeriodStart->toDateString())
+                        ->whereDate('assigned_date', '<=', $reportPeriodEnd->toDateString())
+                        ->count();
+                    $completedAssignments = \App\Models\MerchandiserOutletAssignment::where('user_id', $user->id)
+                        ->whereDate('assigned_date', '>=', $reportPeriodStart->toDateString())
+                        ->whereDate('assigned_date', '<=', $reportPeriodEnd->toDateString())
+                        ->where(fn ($query) => $query
+                            ->where('status', 'completed')
+                            ->orWhereNotNull('completed_at')
+                            ->orWhereNotNull('visit_id'))
+                        ->count();
+                    $images = \Illuminate\Support\Facades\DB::table('merchandiser_visit_skus as vs')
+                        ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                        ->where('v.user_id', $user->id)
+                        ->whereNotNull('vs.photo_path')
+                        ->whereBetween('v.created_at', [$reportPeriodStart, $reportPeriodEnd])
+                        ->count();
+                    $user->scheduled_visits = $scheduled;
+                    $user->completed_assignments = $completedAssignments;
+                    $user->coverage_pct = $this->boundedPercent($completedAssignments, $scheduled);
+                    $user->images_uploaded = $images;
+                    return $user;
+                })
+                ->sortByDesc('coverage_pct');
+        }
+
+        // ── ShelfWatch Section: Image Gallery ──────────────────────────────────
+        if ($report->section('show_gallery')) {
+            $data['gallery_photos'] = \Illuminate\Support\Facades\DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->join('outlets as o', 'o.id', '=', 'v.outlet_id')
+                ->join('users as u', 'u.id', '=', 'v.user_id')
+                ->join('skus as s', 's.id', '=', 'vs.sku_id')
+                ->whereNotNull('vs.photo_path')
+                ->select('vs.photo_path', 'vs.created_at', 'o.name as outlet_name', 'u.name as user_name', 's.name as sku_name')
+                ->orderByDesc('vs.created_at')
+                ->take(24)
+                ->get();
+        }
+
+        // ── ShelfWatch Section: Price & Promo ─────────────────────────────────
+        if ($report->section('show_price_promo')) {
+            $totalVisits = \App\Models\MerchandiserVisit::whereBetween('created_at', [$reportPeriodStart, $reportPeriodEnd])->count();
+            $withPosm = \Illuminate\Support\Facades\DB::table('merchandiser_visits as v')
+                ->whereExists(fn($q) => $q->from('merchandiser_visit_skus as vs')->whereColumn('vs.visit_id', 'v.id')->whereNotNull('vs.photo_path'))
+                ->whereBetween('v.created_at', [$reportPeriodStart, $reportPeriodEnd])
+                ->count();
+            $data['posm_compliance'] = $this->boundedPercent($withPosm, $totalVisits);
+            
+            $withPrice = \Illuminate\Support\Facades\DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->whereNotNull('vs.shelf_price')
+                ->whereBetween('v.created_at', [$reportPeriodStart, $reportPeriodEnd])
+                ->count();
+            $totalSkuChecks = \Illuminate\Support\Facades\DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->whereBetween('v.created_at', [$reportPeriodStart, $reportPeriodEnd])
+                ->count();
+            $data['price_compliance'] = $this->boundedPercent($withPrice, $totalSkuChecks);
+        }
+
         return view('merchandisers.report', compact('report', 'data'));
+    }
+
+    private function boundedPercent(int|float $part, int|float $total): float
+    {
+        if ((float) $total <= 0.0) {
+            return 0.0;
+        }
+
+        return min(100.0, max(0.0, round(((float) $part / (float) $total) * 100, 1)));
     }
 }

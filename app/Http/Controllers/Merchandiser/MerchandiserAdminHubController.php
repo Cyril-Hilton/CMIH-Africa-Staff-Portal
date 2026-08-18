@@ -114,16 +114,36 @@ class MerchandiserAdminHubController extends Controller
         $perfectStoreMilestones = collect();
         $categorySosData = collect();
 
-        if (in_array($activeTab, ['overview', 'perfect-store', 'executive', 'category-kpi', 'user-performance'], true)) {
+        if ($activeTab === 'overview') {
             $currentMonthStart = now()->startOfMonth();
             $currentMonthEnd = now()->endOfMonth();
             $perfectStoreSummary = app(PerfectStoreKpiService::class)->summary($clockFrom, $clockTo);
 
-            // Compute Perfect Store KPI Calculator Breakdown
+            $chartStart = $clockFrom->copy()->startOfDay();
+            $chartEnd = $clockTo->copy()->startOfDay();
+            if ($chartStart->diffInDays($chartEnd) > 30) {
+                $chartStart = $chartEnd->copy()->subDays(30);
+            }
+
+            for ($date = $chartStart->copy(); $date->lte($chartEnd); $date->addDay()) {
+                $attendanceChart[$date->format('D d')] = MerchandiserAttendance::whereDate('clock_in_time', $date)->count()
+                    + MerchandiserPcmClockin::whereDate('clocked_in_at', $date)->count()
+                    + MerchandiserPjpClockin::whereDate('clocked_in_at', $date)->count();
+            }
+
+            $topPerformers = User::merchandisers()
+                ->where('status', 'active')
+                ->withCount(['merchandiserVisits' => fn($q) => $q->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])])
+                ->orderByDesc('merchandiser_visits_count')
+                ->take(10)
+                ->get();
+        } elseif ($activeTab === 'perfect-store') {
+            $perfectStoreSummary = app(PerfectStoreKpiService::class)->summary($clockFrom, $clockTo);
             $allKds = KeyDistributor::orderBy('name')->get();
             $recentVisits = MerchandiserVisit::with(['outlet.keyDistributor', 'visitSkus.sku', 'user.supervisor', 'user.merchandiserKd'])
                 ->whereBetween('created_at', [$clockFrom->copy()->startOfDay(), $clockTo->copy()->endOfDay()])
                 ->latest()
+                ->take(500)
                 ->get();
 
             $visitsByKdId = $recentVisits->groupBy(fn($v) => (int) ($v->outlet?->kd_id ?? 0));
@@ -161,27 +181,10 @@ class MerchandiserAdminHubController extends Controller
                     'target_facings' => $metrics['target_facings'],
                 ];
             })->values();
-
+        } elseif ($activeTab === 'category-kpi') {
             $categorySosData = app(PerfectStoreKpiService::class)->categoryKpis($clockFrom, $clockTo);
-
-            $chartStart = $clockFrom->copy()->startOfDay();
-            $chartEnd = $clockTo->copy()->startOfDay();
-            if ($chartStart->diffInDays($chartEnd) > 30) {
-                $chartStart = $chartEnd->copy()->subDays(30);
-            }
-
-            for ($date = $chartStart->copy(); $date->lte($chartEnd); $date->addDay()) {
-                $attendanceChart[$date->format('D d')] = MerchandiserAttendance::whereDate('clock_in_time', $date)->count()
-                    + MerchandiserPcmClockin::whereDate('clocked_in_at', $date)->count()
-                    + MerchandiserPjpClockin::whereDate('clocked_in_at', $date)->count();
-            }
-
-            $topPerformers = User::merchandisers()
-                ->where('status', 'active')
-                ->withCount(['merchandiserVisits' => fn($q) => $q->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])])
-                ->orderByDesc('merchandiser_visits_count')
-                ->take(10)
-                ->get();
+        } elseif ($activeTab === 'executive') {
+            $perfectStoreSummary = app(PerfectStoreKpiService::class)->summary($clockFrom, $clockTo);
         }
 
         [$outletCreatedFrom, $outletCreatedTo] = $this->outletCreatedRange($request);

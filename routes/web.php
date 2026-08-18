@@ -49,11 +49,25 @@ Route::post('/surveys/{survey:slug}/submit', [\App\Http\Controllers\SiteControll
 
 Route::prefix('brands')->name('brands-platform.')->group(function () {
     Route::get('/', [BrandsPlatformController::class, 'index'])->name('index');
+    Route::get('/notifications', [BrandsPlatformController::class, 'notifications'])
+        ->middleware(['auth', 'active'])
+        ->name('notifications');
+    Route::post('/notifications/read-all', [BrandsPlatformController::class, 'markAllNotificationsAsRead'])
+        ->middleware(['auth', 'active'])
+        ->name('notifications.readAll');
+    Route::get('/notifications/{notification}/read', [BrandsPlatformController::class, 'markNotificationAsRead'])
+        ->middleware(['auth', 'active'])
+        ->name('notifications.read');
     Route::get('/gallery', [BrandsPlatformController::class, 'gallery'])
         ->middleware(['auth', 'active'])
         ->name('gallery');
     Route::get('/client/report/{token}', [BrandsPlatformController::class, 'clientReport'])->name('client-report');
+    Route::get('/{brand}/publications', [BrandsPlatformController::class, 'publications'])->name('publications');
+    Route::get('/{brand}/activation', [BrandsPlatformController::class, 'activation'])->name('activation');
+    Route::get('/{brand}/consumer', [BrandsPlatformController::class, 'consumer'])->name('consumer');
     Route::get('/{brand}', [BrandsPlatformController::class, 'show'])->name('show');
+    Route::get('/{brand}/support-login', [BrandsPlatformController::class, 'showSupportLogin'])->name('support-login');
+    Route::get('/{brand}/agency-login', [BrandsPlatformController::class, 'showAgencyLogin'])->name('agency-login');
     Route::post('/{brand}/consumer-entry', [BrandsPlatformController::class, 'storeConsumerEntry'])
         ->middleware('throttle:30,1')
         ->name('consumer-entry.store');
@@ -75,21 +89,34 @@ Route::middleware(['auth', 'active'])->prefix('brands')->name('brands-platform.'
     Route::delete('/admin/assignments/{assignment}', [BrandsPlatformController::class, 'destroyAssignment'])->name('admin.assignments.destroy');
     Route::get('/{brand}/gallery', [BrandsPlatformController::class, 'gallery'])->name('brand-gallery');
     Route::get('/{brand}/agency', [BrandsPlatformController::class, 'agency'])->name('agency');
+    Route::post('/{brand}/agency/publications', [BrandsPlatformController::class, 'storeAgencyPublication'])->name('agency.publications.store');
     Route::get('/{brand}/support', [BrandsPlatformController::class, 'support'])->name('support');
     Route::get('/{brand}/retail', [BrandsPlatformController::class, 'retail'])->name('retail');
     Route::get('/{brand}/export/{type}', [BrandsPlatformController::class, 'exportReport'])
         ->whereIn('type', ['current', 'daily', 'weekly', 'retail', 'promoter', 'consumer-insights', 'closeout'])
         ->name('export');
     Route::post('/{brand}/field-activity', [BrandsPlatformController::class, 'storeFieldActivity'])->name('field-activity.store');
+    Route::post('/{brand}/clock-in', [BrandsPlatformController::class, 'clockIn'])->name('clock-in');
+    Route::post('/{brand}/break-start', [BrandsPlatformController::class, 'startBreak'])->name('break-start');
+    Route::post('/{brand}/break-end', [BrandsPlatformController::class, 'endBreak'])->name('break-end');
+    Route::post('/{brand}/clock-out', [BrandsPlatformController::class, 'clockOut'])->name('clock-out');
+    // Staff enrollment (CMIH API import)
+    Route::post('/{brand}/team', [BrandsPlatformController::class, 'storeAgencyTeamMember'])->name('team.store');
+    Route::put('/{brand}/team/{assignment}', [BrandsPlatformController::class, 'updateAgencyTeamMember'])->name('team.update');
+    Route::delete('/{brand}/team/{assignment}', [BrandsPlatformController::class, 'archiveAgencyTeamMember'])->name('team.destroy');
+    // Manual staff enrollment (promoters & retail terminal)
+    Route::post('/{brand}/staff/enroll', [BrandsPlatformController::class, 'enrollStaff'])->name('staff.enroll');
+    // Venue change (preserves history)
+    Route::put('/{brand}/staff/{assignment}/venue', [BrandsPlatformController::class, 'updateStaffVenue'])->name('staff.update-venue');
+    // Shift time adjustment (in-place update, no history row needed)
+    Route::patch('/{brand}/staff/{assignment}/shift', [BrandsPlatformController::class, 'updateStaffShift'])->name('staff.update-shift');
+    // Venue history (JSON endpoint for modal)
+    Route::get('/{brand}/staff/{assignment}/history', [BrandsPlatformController::class, 'staffVenueHistory'])->name('staff.venue-history');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'active', 'clocked_in'])
     ->name('dashboard');
-
-Route::get('/portal/payroll/payslips/{payslip}/download', [\App\Http\Controllers\Portal\PayrollController::class, 'downloadPayslip'])
-    ->middleware(['signed', 'throttle:20,1'])
-    ->name('portal.payroll.payslip.signed');
 
 Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/updates', [UpdateController::class, 'index'])->name('updates');
@@ -126,13 +153,6 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/assets', [AssetController::class, 'index'])->name('assets');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
-    Route::get('/assets/warehouse/export/{format?}', [AssetController::class, 'exportWarehouse'])
-        ->whereIn('format', ['csv', 'xls', 'excel', 'pdf', 'print'])
-        ->name('assets.warehouse.export');
-    Route::post('/assets/{asset}/warehouse-requests', [AssetController::class, 'requestWarehouseAsset'])->name('assets.warehouse.request');
-    Route::patch('/assets/warehouse-requests/{assetWarehouseRequest}', [AssetController::class, 'correctWarehouseRequest'])->name('assets.warehouse.correct');
-    Route::post('/assets/warehouse-requests/{assetWarehouseRequest}/evidence', [AssetController::class, 'updateWarehouseEvidence'])->name('assets.warehouse.evidence');
-    Route::post('/assets/warehouse-requests/{assetWarehouseRequest}/action', [AssetController::class, 'warehouseAction'])->name('assets.warehouse.action');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
     Route::match(['put', 'patch'], '/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
@@ -345,7 +365,9 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
         
         Route::redirect('/skus', '/merchandisers/admin/hub/skus')->name('skus');
         Route::post('/skus', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'storeSku'])->name('skus.store');
+        Route::put('/skus/{sku}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'updateSku'])->name('skus.update');
         Route::delete('/skus/{sku}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'destroySku'])->name('skus.destroy');
+
         
         Route::redirect('/kds', '/merchandisers/admin/hub/kds')->name('kds');
         Route::post('/kds', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'storeKd'])->name('kds.store');
@@ -427,7 +449,6 @@ Route::middleware(['auth', 'active', 'role:admin,super_admin', 'clocked_in'])
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::get('/profile-photos/{user}', [ProfileController::class, 'photo'])->name('profile.photo');
 });
 
 // Merchandisers sub-portal client routes
@@ -446,6 +467,7 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
         Route::patch('/outlets/{outlet}/coordinates', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'updateOutletCoordinates'])->name('outlets.coordinates.update');
         Route::post('/pcm-clock-in', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'clockInPcm'])->name('pcm-clock-in');
         Route::post('/clock-in', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'clockIn'])->name('clock-in');
+        Route::post('/clock-out', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'clockOut'])->name('clock-out');
         Route::get('/visit/{outlet}', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'visit'])->name('visit');
         Route::post('/visit/{outlet}/ai-detect', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'analyzeVisitShelf'])->name('visit.ai-detect');
         Route::get('/visit/{outlet}/ai-detect/{token}', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'aiDetectionStatus'])->name('visit.ai-detect.status');
@@ -471,7 +493,7 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
         Route::middleware(['role:admin,super_admin'])->prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'dashboard'])->name('dashboard');
             Route::get('/hub/{adminTab}', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'dashboard'])
-                ->whereIn('adminTab', ['overview', 'tracking', 'kds', 'routes', 'skus', 'forms', 'merchandisers', 'supervisors', 'assets', 'notifications', 'settings'])
+                ->whereIn('adminTab', ['overview', 'tracking', 'kds', 'routes', 'skus', 'forms', 'merchandisers', 'supervisors', 'assets', 'notifications', 'settings', 'gallery', 'executive', 'category-kpi', 'user-performance', 'price-promo'])
                 ->name('tab');
             Route::get('/merchandisers', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'merchandisers'])->name('merchandisers');
             Route::post('/merchandisers/{user}/suspend', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'suspendMerchandiser'])->name('merchandisers.suspend');
@@ -497,6 +519,7 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
             Route::post('/skus', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'storeSku'])->name('skus.store');
             Route::put('/skus/{sku}', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'updateSku'])->name('skus.update');
             Route::delete('/skus/{sku}', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'destroySku'])->name('skus.destroy');
+            Route::post('/category-targets', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'storeCategoryTarget'])->name('category-targets.store');
             Route::post('/pairings/{user}', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'pairMerchandiser'])->name('pairings.pair');
             Route::post('/routes/generate', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'generateRoutes'])->name('routes.generate');
             Route::post('/merchandisers/{user}/route-settings', [\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class, 'updateRouteSettings'])->name('merchandisers.route-settings');
