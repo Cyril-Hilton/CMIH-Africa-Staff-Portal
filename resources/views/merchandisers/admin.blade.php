@@ -3733,36 +3733,36 @@
                     </div>
 
                     {{-- KPI Bar --}}
-                    <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-blue-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Scheduled Visits</p>
-                            <p class="text-4xl font-display text-blue-400 font-bold">{{ number_format($execScheduled) }}</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3 sm:gap-4">
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-blue-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">Scheduled Visits</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-blue-400 font-bold truncate">{{ number_format($execScheduled) }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-emerald-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Completed Visits</p>
-                            <p class="text-4xl font-display text-emerald-400 font-bold">{{ number_format($execActual) }}</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-emerald-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">Completed Visits</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-emerald-400 font-bold truncate">{{ number_format($execActual) }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-amber-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Audit Compliance</p>
-                            <p class="text-4xl font-display text-amber-400 font-bold">{{ $execCompliance }}%</p>
-                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium">Target: 100%</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-amber-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">Audit Compliance</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-amber-400 font-bold truncate">{{ $execCompliance }}%</p>
+                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium truncate">Target: 100%</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-green-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">% Active Users</p>
-                            <p class="text-4xl font-display text-green-300 font-bold">{{ $execActiveRate }}%</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-green-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">% Active Users</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-green-300 font-bold truncate">{{ $execActiveRate }}%</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-sky-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Total Images</p>
-                            <p class="text-4xl font-display text-sky-400 font-bold">{{ number_format($totalImagesCount) }}</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-sky-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">Total Images</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-sky-400 font-bold truncate">{{ number_format($totalImagesCount) }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-purple-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">SKU Count</p>
-                            <p class="text-4xl font-display text-purple-400 font-bold">{{ $execSkuCount }}</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-purple-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">SKU Count</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-purple-400 font-bold truncate">{{ $execSkuCount }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-brand-red border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Active Merchandisers</p>
-                            <p class="text-4xl font-display text-white font-bold">{{ $activeMerchandisers }}</p>
-                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium">of {{ $totalMerchandisers }} active</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border-t-2 border-t-brand-red border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2 truncate">Active Merchandisers</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-white font-bold truncate">{{ $activeMerchandisers }}</p>
+                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium truncate">of {{ $totalMerchandisers }} active</p>
                         </div>
                     </div>
 
@@ -3834,18 +3834,18 @@
                         </div>
                     </div>
 
-                    <div id="category-targets" class="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-                        <form method="POST" action="{{ route('merchandisers.admin.category-targets.store') }}" class="glass-panel rounded-2xl border border-pink-400/15 bg-pink-500/[0.04] p-5">
+                    <div id="category-targets" class="mb-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                        <form method="POST" action="{{ route('merchandisers.admin.category-targets.store') }}" class="glass-panel min-w-0 rounded-2xl border border-pink-400/15 bg-pink-500/[0.04] p-4 sm:p-5">
                             @csrf
                             <p class="text-xs uppercase tracking-widest text-brand-ash">Share of Shelf Targets</p>
                             <h3 class="mt-1 text-xl font-display tracking-wider text-brand-white">Category Target Setup</h3>
                             <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
-                                <label class="block">
-                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Category</span>
+                                <label class="block min-w-0">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash truncate">Category</span>
                                     <input name="category" list="sku-category-options" required placeholder="e.g. Deodorants" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                 </label>
-                                <label class="block">
-                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">SOS Target %</span>
+                                <label class="block min-w-0">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash truncate">SOS Target %</span>
                                     <input name="sos_target" type="number" min="0" max="100" step="0.01" required placeholder="60" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                 </label>
                                 <button type="submit" class="self-end rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-red-700 transition">Save Target</button>
@@ -3853,13 +3853,13 @@
                             <p class="mt-3 text-[11px] leading-relaxed text-brand-white/45">SOS targets are defined at category level, then compared against Unilever facings divided by total category facings from completed outlet visits.</p>
                         </form>
 
-                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-black/35 p-5">
+                        <div class="glass-panel min-w-0 rounded-2xl border border-brand-white/10 bg-brand-black/35 p-4 sm:p-5">
                             <p class="text-xs uppercase tracking-widest text-brand-ash">Configured Targets</p>
                             <div class="mt-4 max-h-48 space-y-2 overflow-y-auto pr-1">
                                 @forelse(($categoryTargets ?? collect()) as $target)
-                                    <div class="flex items-center justify-between gap-3 rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-2">
-                                        <span class="text-sm font-semibold text-brand-white">{{ $target->category }}</span>
-                                        <span class="rounded-full border border-pink-400/20 bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-200">{{ number_format((float) $target->sos_target, 1) }}%</span>
+                                    <div class="flex items-center justify-between gap-3 rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-2 min-w-0">
+                                        <span class="text-sm font-semibold text-brand-white truncate">{{ $target->category }}</span>
+                                        <span class="rounded-full border border-pink-400/20 bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-200 shrink-0">{{ number_format((float) $target->sos_target, 1) }}%</span>
                                     </div>
                                 @empty
                                     <p class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-4 text-sm text-brand-ash">No category targets configured yet.</p>
@@ -3874,22 +3874,22 @@
                         $categoriesBelowSosTarget = $categoryKpis->filter(fn($row) => $row->sos_pct !== null && $row->sos_target !== null && $row->sos_pct < $row->sos_target)->count();
                         $capturedCategoryFacings = $categoryKpis->sum('category_facings');
                     @endphp
-                    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                        <div class="glass-panel rounded-2xl border border-lime-400/15 bg-lime-500/[0.05] p-5">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Avg Facing</p>
-                            <p class="mt-1 text-3xl font-display text-lime-300">{{ $categoryAverageFacing !== null ? number_format($categoryAverageFacing, 1).'%' : 'N/A' }}</p>
+                    <div class="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+                        <div class="glass-panel min-w-0 rounded-2xl border border-lime-400/15 bg-lime-500/[0.05] p-4 sm:p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash truncate">Avg Facing</p>
+                            <p class="mt-1 text-2xl sm:text-3xl font-display text-lime-300 truncate">{{ $categoryAverageFacing !== null ? number_format($categoryAverageFacing, 1).'%' : 'N/A' }}</p>
                         </div>
-                        <div class="glass-panel rounded-2xl border border-pink-400/15 bg-pink-500/[0.05] p-5">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Avg SOS</p>
-                            <p class="mt-1 text-3xl font-display text-pink-300">{{ $categoryAverageSos !== null ? number_format($categoryAverageSos, 1).'%' : 'N/A' }}</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-pink-400/15 bg-pink-500/[0.05] p-4 sm:p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash truncate">Avg SOS</p>
+                            <p class="mt-1 text-2xl sm:text-3xl font-display text-pink-300 truncate">{{ $categoryAverageSos !== null ? number_format($categoryAverageSos, 1).'%' : 'N/A' }}</p>
                         </div>
-                        <div class="glass-panel rounded-2xl border border-amber-400/15 bg-amber-500/[0.05] p-5">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Below SOS Target</p>
-                            <p class="mt-1 text-3xl font-display text-amber-300">{{ number_format($categoriesBelowSosTarget) }}</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-amber-400/15 bg-amber-500/[0.05] p-4 sm:p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash truncate">Below SOS Target</p>
+                            <p class="mt-1 text-2xl sm:text-3xl font-display text-amber-300 truncate">{{ number_format($categoriesBelowSosTarget) }}</p>
                         </div>
-                        <div class="glass-panel rounded-2xl border border-sky-400/15 bg-sky-500/[0.05] p-5">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Category Facings</p>
-                            <p class="mt-1 text-3xl font-display text-sky-300">{{ number_format($capturedCategoryFacings) }}</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-sky-400/15 bg-sky-500/[0.05] p-4 sm:p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash truncate">Category Facings</p>
+                            <p class="mt-1 text-2xl sm:text-3xl font-display text-sky-300 truncate">{{ number_format($capturedCategoryFacings) }}</p>
                         </div>
                     </div>
 
@@ -4018,29 +4018,29 @@
                     </div>
 
                     <!-- Summary Scorecards -->
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="glass-panel rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-lg">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Merchandisers Tracked</p>
-                            <p class="text-3xl font-display text-brand-white mt-1">{{ count($userPerformance) }}</p>
-                            <p class="text-[10px] text-brand-white/45 mt-1">{{ ucfirst($perfPeriod) }} Evaluation</p>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+                        <div class="glass-panel min-w-0 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 truncate">Merchandisers Tracked</p>
+                            <p class="text-2xl sm:text-3xl font-display text-brand-white mt-1 truncate">{{ count($userPerformance) }}</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1 truncate">{{ ucfirst($perfPeriod) }} Evaluation</p>
                         </div>
 
-                        <div class="glass-panel rounded-2xl border border-lime-500/20 bg-lime-500/5 p-4 shadow-lg">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-lime-300">Avg Facing Compliance</p>
-                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('facing_pct') ?? 0, 1) }}%</p>
-                            <p class="text-[10px] text-brand-white/45 mt-1">95% Target Standard</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-lime-500/20 bg-lime-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-lime-300 truncate">Avg Facing Compliance</p>
+                            <p class="text-2xl sm:text-3xl font-display text-brand-white mt-1 truncate">{{ number_format($userPerformance->avg('facing_pct') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1 truncate">95% Target Standard</p>
                         </div>
 
-                        <div class="glass-panel rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 shadow-lg">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Avg Planogram Alignment</p>
-                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('planogram_pct') ?? 0, 1) }}%</p>
-                            <p class="text-[10px] text-brand-white/45 mt-1">100% Target Standard</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-300 truncate">Avg Planogram Alignment</p>
+                            <p class="text-2xl sm:text-3xl font-display text-brand-white mt-1 truncate">{{ number_format($userPerformance->avg('planogram_pct') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1 truncate">100% Target Standard</p>
                         </div>
 
-                        <div class="glass-panel rounded-2xl border border-brand-red/30 bg-brand-red/10 p-4 shadow-lg">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-red-300">Overall Rating Score</p>
-                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('overall_score') ?? 0, 1) }}%</p>
-                            <p class="text-[10px] text-brand-white/45 mt-1">Composite KPI Average</p>
+                        <div class="glass-panel min-w-0 rounded-2xl border border-brand-red/30 bg-brand-red/10 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-red-300 truncate">Overall Rating Score</p>
+                            <p class="text-2xl sm:text-3xl font-display text-brand-white mt-1 truncate">{{ number_format($userPerformance->avg('overall_score') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1 truncate">Composite KPI Average</p>
                         </div>
                     </div>
 
@@ -4111,24 +4111,24 @@
                 ════════════════════════════════════════════════════ --}}
                 <div x-show="activeTab === 'price-promo'" x-transition>
                     {{-- KPI cards --}}
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">POSM Compliance</p>
-                            <p class="text-4xl font-display text-emerald-400">{{ $posmCompliance }}%</p>
-                            <p class="text-xs text-brand-ash mt-1">Visits with photos</p>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 mb-6">
+                        <div class="stat-card kpi-glow-green glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2 truncate">POSM Compliance</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-emerald-400 truncate">{{ $posmCompliance }}%</p>
+                            <p class="text-xs text-brand-ash mt-1 truncate">Visits with photos</p>
                         </div>
-                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Price Tag Compliance</p>
-                            <p class="text-4xl font-display text-sky-400">{{ $pricingCompliance }}%</p>
-                            <p class="text-xs text-brand-ash mt-1">SKU checks with price</p>
+                        <div class="stat-card kpi-glow-blue glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2 truncate">Price Tag Compliance</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-sky-400 truncate">{{ $pricingCompliance }}%</p>
+                            <p class="text-xs text-brand-ash mt-1 truncate">SKU checks with price</p>
                         </div>
-                        <div class="stat-card kpi-glow-amber glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Total Images</p>
-                            <p class="text-4xl font-display text-amber-400">{{ number_format($totalImagesCount) }}</p>
+                        <div class="stat-card kpi-glow-amber glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2 truncate">Total Images</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-amber-400 truncate">{{ number_format($totalImagesCount) }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">KDs Tracked</p>
-                            <p class="text-4xl font-display text-violet-400">{{ $pricePromoData->count() }}</p>
+                        <div class="stat-card glass-panel min-w-0 rounded-2xl p-4 sm:p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2 truncate">KDs Tracked</p>
+                            <p class="text-2xl sm:text-3xl xl:text-4xl font-display text-violet-400 truncate">{{ $pricePromoData->count() }}</p>
                         </div>
                     </div>
 
