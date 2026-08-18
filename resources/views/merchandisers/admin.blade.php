@@ -331,7 +331,7 @@
         <div class="flex h-full max-h-screen min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
 
             <!-- Top Header Bar -->
-            <header class="shrink-0 border-b border-brand-white/10 bg-brand-black/95 px-6 py-4 relative z-40 w-full min-w-0">
+            <header class="shrink-0 border-b border-brand-white/10 bg-[#09090b] px-6 py-3.5 relative z-40 w-full min-w-0 shadow-lg">
                 <div class="flex items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <button type="button" @click.stop="sidebarOpen = true"
@@ -344,8 +344,12 @@
                             </svg>
                         </button>
                         <div>
-                            <p class="text-xs uppercase tracking-[0.2em] font-semibold text-brand-ash hidden sm:block">Merchandiser Admin Hub</p>
-                            <p class="text-base font-display text-brand-white" x-text="{
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] uppercase font-bold tracking-[0.25em] text-brand-red bg-brand-red/10 border border-brand-red/20 px-2 py-0.5 rounded-md hidden sm:inline-block">Merchandiser Admin Hub</span>
+                                <span class="text-xs text-brand-white/40 hidden sm:inline-block">/</span>
+                                <span class="text-xs text-brand-ash font-medium hidden sm:inline-block" x-text="activeTab.replace('-', ' ').toUpperCase()"></span>
+                            </div>
+                            <h1 class="text-lg font-display text-brand-white tracking-wide mt-0.5" x-text="{
                                 overview: '🏠 Dashboard Overview',
                                 'perfect-store': '🎯 Perfect Store KPI Command Center',
                                 tracking: '🗺️ Live Field Tracking',
@@ -363,10 +367,13 @@
                                 'category-kpi': '🏷️ Category Level KPIs',
                                 'user-performance': '👤 User Performance',
                                 'price-promo': '💰 Price & Promo Compliance'
-                            }[activeTab]"></p>
+                            }[activeTab]"></h1>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hidden lg:inline-flex">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live System
+                        </span>
                         <!-- Pending badge -->
                         @if($totalPending > 0)
                         <button @click="window.location.href = @js($adminTabUrl('notifications'))" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-red/15 border border-brand-red/30 text-brand-red text-xs font-bold animate-pulse hover:bg-brand-red/25 transition">
@@ -374,7 +381,7 @@
                         </button>
                         @endif
                         <!-- Date/time -->
-                        <span class="text-xs text-brand-ash hidden md:block">{{ now()->format('D, d M Y') }}</span>
+                        <span class="text-xs text-brand-white/60 font-medium hidden md:block border-l border-brand-white/10 pl-3">{{ now()->format('D, d M Y') }}</span>
                         <!-- Theme toggle -->
                         <button type="button" data-theme-toggle class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-brand-white/20 text-brand-white/70 transition hover:text-brand-white" aria-pressed="false">
                             <span class="sr-only">Toggle theme</span>
@@ -3570,9 +3577,20 @@
                 {{-- ═══════════════════════════════════════════════════
                      TAB: IMAGE GALLERY (ShelfWatch)
                 ════════════════════════════════════════════════════ --}}
-                <div x-show="activeTab === 'gallery'" x-transition>
-                    {{-- Filters Bar --}}
-                    <div class="mb-5 rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                <div x-show="activeTab === 'gallery'" x-transition class="space-y-6">
+                    {{-- Gallery Hero Banner --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-brand-white/10 bg-gradient-to-r from-[#121215] via-[#141b24] to-[#121215] p-6 shadow-2xl">
+                        <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <div class="inline-flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-sky-400 mb-2">
+                                    <span class="h-2 w-2 rounded-full bg-sky-400 animate-pulse"></span> Photo Evidence
+                                </div>
+                                <h2 class="text-2xl md:text-3xl font-display text-white tracking-wide">📸 Merchandiser Shelf Photo Gallery Catalog</h2>
+                                <p class="text-xs text-brand-white/60 mt-1">Browse, filter, and audit store shelf images captured by field merchandisers across Key Distributors.</p>
+                            </div>
+                        </div>
+                    </div>
                         <form method="GET" action="{{ $adminTabUrl('gallery') }}" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                             <input type="hidden" name="adminTab" value="gallery">
                             <label class="col-span-2 md:col-span-1 block">
@@ -3678,38 +3696,52 @@
                 {{-- ═══════════════════════════════════════════════════
                      TAB: EXECUTIVE SUMMARY (ShelfWatch)
                 ════════════════════════════════════════════════════ --}}
-                <div x-show="activeTab === 'executive'" x-transition>
+                <div x-show="activeTab === 'executive'" x-transition class="space-y-6">
+                    {{-- Executive Hero Banner --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-brand-white/10 bg-gradient-to-r from-[#121215] via-[#1a1a20] to-[#121215] p-6 shadow-2xl">
+                        <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <div class="inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-blue-400 mb-2">
+                                    <span class="h-2 w-2 rounded-full bg-blue-400 animate-pulse"></span> Executive Control Center
+                                </div>
+                                <h2 class="text-2xl md:text-3xl font-display text-white tracking-wide">📊 Executive Performance Summary</h2>
+                                <p class="text-xs text-brand-white/60 mt-1">High-level field execution metrics, audit compliance, visit trends, and team achievements.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- KPI Bar --}}
-                    <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Scheduled Visits</p>
-                            <p class="text-4xl font-display text-blue-400">{{ number_format($execScheduled) }}</p>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-blue-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Scheduled Visits</p>
+                            <p class="text-4xl font-display text-blue-400 font-bold">{{ number_format($execScheduled) }}</p>
                         </div>
-                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Completed Visits</p>
-                            <p class="text-4xl font-display text-green-400">{{ number_format($execActual) }}</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-emerald-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Completed Visits</p>
+                            <p class="text-4xl font-display text-emerald-400 font-bold">{{ number_format($execActual) }}</p>
                         </div>
-                        <div class="stat-card kpi-glow-amber glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Audit Compliance</p>
-                            <p class="text-4xl font-display text-amber-400">{{ $execCompliance }}%</p>
-                            <p class="text-xs text-brand-ash mt-1">Target 100%</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-amber-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Audit Compliance</p>
+                            <p class="text-4xl font-display text-amber-400 font-bold">{{ $execCompliance }}%</p>
+                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium">Target: 100%</p>
                         </div>
-                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">% Active Users</p>
-                            <p class="text-4xl font-display text-emerald-400">{{ $execActiveRate }}%</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-green-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">% Active Users</p>
+                            <p class="text-4xl font-display text-green-300 font-bold">{{ $execActiveRate }}%</p>
                         </div>
-                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Total Images</p>
-                            <p class="text-4xl font-display text-sky-400">{{ number_format($totalImagesCount) }}</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-sky-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Total Images</p>
+                            <p class="text-4xl font-display text-sky-400 font-bold">{{ number_format($totalImagesCount) }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">SKU Count</p>
-                            <p class="text-4xl font-display text-violet-400">{{ $execSkuCount }}</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-purple-500 border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">SKU Count</p>
+                            <p class="text-4xl font-display text-purple-400 font-bold">{{ $execSkuCount }}</p>
                         </div>
-                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
-                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Active Merchandisers</p>
-                            <p class="text-4xl font-display text-brand-white">{{ $activeMerchandisers }}</p>
-                            <p class="text-xs text-brand-ash mt-1">of {{ $totalMerchandisers }}</p>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border-t-2 border-t-brand-red border border-brand-white/10 bg-[#121215] shadow-xl hover:-translate-y-1 transition-all">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash/70 font-semibold mb-2">Active Merchandisers</p>
+                            <p class="text-4xl font-display text-white font-bold">{{ $activeMerchandisers }}</p>
+                            <p class="text-[10px] text-brand-ash/60 mt-1 font-medium">of {{ $totalMerchandisers }} active</p>
                         </div>
                     </div>
 
@@ -3766,9 +3798,19 @@
                 {{-- ═══════════════════════════════════════════════════
                      TAB: CATEGORY LEVEL KPIs (ShelfWatch)
                 ════════════════════════════════════════════════════ --}}
-                <div x-show="activeTab === 'category-kpi'" x-transition>
-                    <div class="mb-5 glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
-                        <p class="text-xs text-brand-ash mb-1">Category-level KPI aggregation — OSA, NPD, MHS scored per product category based on all field visit SKU checks in the selected period.</p>
+                <div x-show="activeTab === 'category-kpi'" x-transition class="space-y-6">
+                    {{-- Category Hero Banner --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-brand-white/10 bg-gradient-to-r from-[#121215] via-[#1c1424] to-[#121215] p-6 shadow-2xl">
+                        <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-pink-500/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <div class="inline-flex items-center gap-2 rounded-full border border-pink-500/30 bg-pink-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-pink-400 mb-2">
+                                    <span class="h-2 w-2 rounded-full bg-pink-400 animate-pulse"></span> Category Analytics
+                                </div>
+                                <h2 class="text-2xl md:text-3xl font-display text-white tracking-wide">🏷️ Category Level KPIs & Share of Shelf</h2>
+                                <p class="text-xs text-brand-white/60 mt-1">Category-level KPI aggregation — OSA, NPD, MHS scored per product category based on all field visit SKU checks.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="category-targets" class="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
@@ -3932,19 +3974,25 @@
                      TAB: MERCHANDISER PERFORMANCE TRACKING (Daily, Weekly, Monthly, Yearly)
                 ════════════════════════════════════════════════════════════ -->
                 <div x-show="activeTab === 'user-performance'" x-transition class="space-y-6">
-                    <!-- Period Filter Controls -->
-                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <h3 class="text-lg font-display text-brand-white tracking-wide uppercase">👤 Field Merchandiser Performance Tracking</h3>
-                            <p class="text-xs text-brand-white/50">Track individual merchandiser metrics over Daily, Weekly, Monthly, and Yearly time frames.</p>
-                        </div>
-                        <div class="flex items-center gap-1.5 bg-brand-black/60 p-1.5 rounded-xl border border-brand-white/10 overflow-x-auto">
-                            @foreach(['daily' => '📅 Daily', 'weekly' => '📆 Weekly', 'monthly' => '📊 Monthly', 'yearly' => '🏆 Yearly'] as $pKey => $pLabel)
-                                <a href="{{ route('merchandisers.admin.tab', ['adminTab' => 'user-performance', 'perf_period' => $pKey]) }}"
-                                   class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 {{ $perfPeriod === $pKey ? 'bg-brand-red text-white shadow-lg' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/10' }}">
-                                    {{ $pLabel }}
-                                </a>
-                            @endforeach
+                    {{-- User Performance Hero Banner --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-brand-white/10 bg-gradient-to-r from-[#121215] via-[#1a1418] to-[#121215] p-6 shadow-2xl">
+                        <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-400 mb-2">
+                                    <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Team Analytics
+                                </div>
+                                <h2 class="text-2xl md:text-3xl font-display text-white tracking-wide">👤 Merchandiser & Supervisor Performance Tracking</h2>
+                                <p class="text-xs text-brand-white/60 mt-1">Decoupled performance tracking for field merchandisers and supervisor team accountability.</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-brand-black/80 p-1.5 rounded-xl border border-brand-white/10 overflow-x-auto">
+                                @foreach(['daily' => '📅 Daily', 'weekly' => '📆 Weekly', 'monthly' => '📊 Monthly', 'yearly' => '🏆 Yearly'] as $pKey => $pLabel)
+                                    <a href="{{ route('merchandisers.admin.tab', ['adminTab' => 'user-performance', 'perf_period' => $pKey]) }}"
+                                       class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 {{ $perfPeriod === $pKey ? 'bg-brand-red text-white shadow-lg' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/10' }}">
+                                        {{ $pLabel }}
+                                    </a>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
 
