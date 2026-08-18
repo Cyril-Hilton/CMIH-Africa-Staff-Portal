@@ -25,6 +25,7 @@ use App\Models\MerchandiserVisit;
 use App\Models\Notification;
 use App\Models\Outlet;
 use App\Models\PettyCashClaim;
+use App\Models\PerfectStoreCategoryTarget;
 use App\Models\PosmLedger;
 use App\Models\Region;
 use App\Models\SalaryAdvance;
@@ -32,6 +33,7 @@ use App\Models\Sku;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\MerchandiserRoutePlanner;
+use App\Services\PerfectStoreCalculator;
 use App\Services\PerfectStoreKpiService;
 use App\Services\PerfectStoreFormTemplate;
 use App\Support\MerchandiserClockWindows;
@@ -107,9 +109,61 @@ class MerchandiserAdminHubController extends Controller
         $attendanceChart = [];
         $topPerformers = collect();
         $perfectStoreSummary = PerfectStoreKpiService::emptySummary();
+        $perfectStoreKdData = collect();
+        $perfectStoreMerchandiserData = collect();
+        $perfectStoreMilestones = collect();
+        $categorySosData = collect();
 
-        if ($activeTab === 'overview') {
+        if (in_array($activeTab, ['overview', 'perfect-store', 'executive', 'category-kpi', 'user-performance'], true)) {
+            $currentMonthStart = now()->startOfMonth();
+            $currentMonthEnd = now()->endOfMonth();
             $perfectStoreSummary = app(PerfectStoreKpiService::class)->summary($clockFrom, $clockTo);
+
+            // Compute Perfect Store KPI Calculator Breakdown
+            $allKds = KeyDistributor::orderBy('name')->get();
+            $recentVisits = MerchandiserVisit::with(['outlet.keyDistributor', 'visitSkus.sku', 'user.supervisor', 'user.merchandiserKd'])
+                ->whereBetween('created_at', [$clockFrom->copy()->startOfDay(), $clockTo->copy()->endOfDay()])
+                ->latest()
+                ->get();
+
+            $visitsByKdId = $recentVisits->groupBy(fn($v) => (int) ($v->outlet?->kd_id ?? 0));
+            $perfectStoreKdData = $allKds->map(function (KeyDistributor $kd) use ($visitsByKdId) {
+                $kdVisits = $visitsByKdId->get((int) $kd->id, collect());
+                return \App\Services\PerfectStoreCalculator::computeKdMetrics($kd, $kdVisits);
+            })->sortByDesc('overall_score')->values();
+
+            $visitsByUserId = $recentVisits->groupBy(fn($v) => (int) $v->user_id);
+            $activeMerchList = User::merchandisers()->where('status', 'active')->with(['supervisor', 'merchandiserKd'])->orderBy('name')->get();
+            $perfectStoreMerchandiserData = $activeMerchList->map(function (User $merch) use ($visitsByUserId) {
+                $userVisits = $visitsByUserId->get((int) $merch->id, collect());
+                $metrics = \App\Services\PerfectStoreCalculator::computeMerchandiserMetrics($merch, $userVisits);
+                $metrics['user_name'] = $merch->name;
+                $metrics['supervisor_name'] = $merch->supervisor?->name ?? 'Unassigned';
+                $metrics['kd_name'] = $merch->merchandiserKd?->name ?? 'Unassigned';
+                return $metrics;
+            })->sortByDesc('overall_score')->values();
+
+            $perfectStoreMilestones = $recentVisits->take(15)->map(function (MerchandiserVisit $visit) {
+                $metrics = \App\Services\PerfectStoreCalculator::computeStoreVisitMetrics($visit);
+                return [
+                    'visit_id' => $visit->id,
+                    'outlet_name' => $visit->outlet?->name ?? 'Store #' . $visit->outlet_id,
+                    'kd_name' => $visit->outlet?->keyDistributor?->name ?? 'KD N/A',
+                    'merchandiser_name' => $visit->user?->name ?? 'Agent',
+                    'created_at' => $visit->created_at->format('d M H:i'),
+                    'facing_pct' => $metrics['facing_pct'],
+                    'planogram_pct' => $metrics['planogram_pct'],
+                    'sos_pct' => $metrics['sos_pct'],
+                    'overall_score' => $metrics['overall_score'],
+                    'status' => $metrics['status'],
+                    'total_skus' => $metrics['total_skus'],
+                    'actual_facings' => $metrics['actual_facings'],
+                    'target_facings' => $metrics['target_facings'],
+                ];
+            })->values();
+
+            $categorySosData = app(PerfectStoreKpiService::class)->categoryKpis($clockFrom, $clockTo);
+
             $chartStart = $clockFrom->copy()->startOfDay();
             $chartEnd = $clockTo->copy()->startOfDay();
             if ($chartStart->diffInDays($chartEnd) > 30) {
@@ -124,13 +178,17 @@ class MerchandiserAdminHubController extends Controller
 
             $topPerformers = User::merchandisers()
                 ->where('status', 'active')
-                ->withCount(['merchandiserVisits' => fn($q) => $q->whereMonth('created_at', now()->month)])
+                ->withCount(['merchandiserVisits' => fn($q) => $q->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])])
                 ->orderByDesc('merchandiser_visits_count')
                 ->take(10)
                 ->get();
         }
 
-        $outletRegistrationDay = $this->normalizedOutletRegistrationDay($request->query('outlet_day', 'all'));
+        [$outletCreatedFrom, $outletCreatedTo] = $this->outletCreatedRange($request);
+        $outletCreatedFromInput = $outletCreatedFrom?->toDateString();
+        $outletCreatedToInput = $outletCreatedTo?->toDateString();
+        $outletCreatedRangeLabel = $this->outletCreatedRangeLabel($outletCreatedFrom, $outletCreatedTo);
+        $outletRegistrationDay = 'all';
         $outletDayLabels = $this->outletDayLabels();
         $kds = collect();
         $outletManagementKds = collect();
@@ -142,12 +200,12 @@ class MerchandiserAdminHubController extends Controller
                 ->orderBy('name')
                 ->get();
 
-            $outletManagementKds = $kds->map(function (KeyDistributor $kd) use ($outletRegistrationDay) {
+            $outletManagementKds = $kds->map(function (KeyDistributor $kd) use ($outletCreatedFrom, $outletCreatedTo) {
                 $clone = clone $kd;
                 $clone->setRelation(
                     'outlets',
                     $kd->outlets
-                        ->filter(fn (Outlet $outlet) => $this->outletMatchesRegistrationDay($outlet, $outletRegistrationDay))
+                        ->filter(fn (Outlet $outlet) => $this->outletCreatedWithinRange($outlet, $outletCreatedFrom, $outletCreatedTo))
                         ->sortByDesc('created_at')
                         ->values()
                 );
@@ -282,11 +340,11 @@ class MerchandiserAdminHubController extends Controller
                 ->paginate(20, ['*'], 'outlet_assignment_page')
                 ->appends(array_merge($request->query(), ['tab' => 'routes']));
 
-            $outletAssignmentMerchandisers->getCollection()->each(function (User $merchandiser) use ($outletRegistrationDay) {
+            $outletAssignmentMerchandisers->getCollection()->each(function (User $merchandiser) use ($outletCreatedFrom, $outletCreatedTo) {
                 $merchandiser->setRelation(
                     'assignedMerchandiserOutlets',
                     $merchandiser->assignedMerchandiserOutlets
-                        ->filter(fn (Outlet $outlet) => $this->outletMatchesRegistrationDay($outlet, $outletRegistrationDay))
+                        ->filter(fn (Outlet $outlet) => $this->outletCreatedWithinRange($outlet, $outletCreatedFrom, $outletCreatedTo))
                         ->sortByDesc('created_at')
                         ->values()
                 );
@@ -300,11 +358,12 @@ class MerchandiserAdminHubController extends Controller
                 ->values();
 
             $assignableOutlets = $visibleKdIds->isNotEmpty()
-                ? $this->applyOutletRegistrationDayQuery(
+                ? $this->applyOutletCreatedRangeQuery(
                     Outlet::with(['keyDistributor', 'registeredBy', 'assignedMerchandisers'])
                         ->whereIn('kd_id', $visibleKdIds->all())
                         ->orderByDesc('created_at'),
-                    $outletRegistrationDay
+                    $outletCreatedFrom,
+                    $outletCreatedTo
                 )->get()
                 : collect();
         }
@@ -372,6 +431,41 @@ class MerchandiserAdminHubController extends Controller
                 ->pluck('total_qty', 'item_name')
                 ->toArray()
             : [];
+        $outletsByRegion = $activeTab === 'overview'
+            ? DB::table('outlets')
+                ->leftJoin('key_distributors as kd', 'outlets.kd_id', '=', 'kd.id')
+                ->leftJoin('regions as r', 'kd.region_id', '=', 'r.id')
+                ->selectRaw("coalesce(r.name, 'Unassigned') as label, count(*) as total")
+                ->groupBy(DB::raw("coalesce(r.name, 'Unassigned')"))
+                ->orderByDesc('total')
+                ->pluck('total', 'label')
+                ->toArray()
+            : [];
+        $outletsByChannel = $activeTab === 'overview'
+            ? DB::table('outlets')
+                ->selectRaw("coalesce(nullif(channel_type, ''), 'Unspecified') as label, count(*) as total")
+                ->groupBy(DB::raw("coalesce(nullif(channel_type, ''), 'Unspecified')"))
+                ->orderByDesc('total')
+                ->pluck('total', 'label')
+                ->toArray()
+            : [];
+        $clockCoverageChart = ['Clocked in' => 0, 'Not clocked' => 0];
+        if ($activeTab === 'overview') {
+            $clockedUserIds = collect()
+                ->merge(MerchandiserAttendance::whereBetween('clock_in_time', [$clockFrom, $clockTo])->pluck('user_id'))
+                ->merge(MerchandiserPcmClockin::whereBetween('clocked_in_at', [$clockFrom, $clockTo])->pluck('user_id'))
+                ->merge(MerchandiserPjpClockin::whereBetween('clocked_in_at', [$clockFrom, $clockTo])->pluck('user_id'))
+                ->filter()
+                ->unique()
+                ->values();
+            $activeClockedUsers = $clockedUserIds->isEmpty()
+                ? 0
+                : User::merchandisers()->where('status', 'active')->whereIn('id', $clockedUserIds)->count();
+            $clockCoverageChart = [
+                'Clocked in' => $activeClockedUsers,
+                'Not clocked' => max($activeMerchandisers - $activeClockedUsers, 0),
+            ];
+        }
 
         // ── Recent Share Links ─────────────────────────────────────────────────
         $recentReports = $activeTab === 'overview'
@@ -380,7 +474,7 @@ class MerchandiserAdminHubController extends Controller
                 ->take(10)
                 ->get()
             : collect();
-        $clockSettings = MerchandiserClockWindows::settings();
+        $clockSettings = MerchandiserClockWindows::visitSettings();
         $skuCount = Sku::count();
         $skuReferenceCount = Sku::whereNotNull('reference_image_path')->count();
         $skuCategories = $activeTab === 'skus'
@@ -539,7 +633,7 @@ class MerchandiserAdminHubController extends Controller
             'future_planned' => $futureRouteCount,
             'overdue' => $overdueRouteCount,
             'pending' => $pendingTodayRouteCount + $overdueRouteCount,
-            'completion_rate' => $routeAssignmentsTotal > 0 ? round(($completedRouteCount / $routeAssignmentsTotal) * 100, 1) : 0,
+            'completion_rate' => $this->boundedPercent($completedRouteCount, $routeAssignmentsTotal),
         ];
         $routeDailyStats = $this->constrainRouteAssignmentWindow(DB::table('merchandiser_outlet_assignments'), $routeFrom, $routeTo)
             ->select(
@@ -618,6 +712,335 @@ class MerchandiserAdminHubController extends Controller
             'Pharmacy' => ['Oral care must-have SKUs', 'Skin cleansing must-have SKUs', 'Skin care must-have SKUs', 'Door cling', 'Dangler', 'FSU', 'Momo stand'],
         ];
 
+        // ── ShelfWatch: Image Gallery ───────────────────────────────────────────
+        $totalImagesCount = DB::table('merchandiser_visit_skus')->whereNotNull('photo_path')->count();
+        $galleryImages    = collect();
+        $galleryFilters   = [];
+        if (in_array($activeTab, ['gallery'], true)) {
+            $galleryQ = DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->join('outlets as o', 'o.id', '=', 'v.outlet_id')
+                ->join('key_distributors as kd', 'kd.id', '=', 'o.kd_id')
+                ->join('users as u', 'u.id', '=', 'v.user_id')
+                ->join('skus as s', 's.id', '=', 'vs.sku_id')
+                ->whereNotNull('vs.photo_path')
+                ->select(
+                    'vs.id', 'vs.photo_path', 'vs.created_at',
+                    'o.name as outlet_name', 'o.channel_type',
+                    'kd.name as kd_name',
+                    'u.name as user_name', 'u.id as user_id',
+                    's.name as sku_name', 's.category'
+                )
+                ->when($request->filled('filter_user'), fn($q) => $q->where('u.id', $request->filter_user))
+                ->when($request->filled('filter_kd'), fn($q) => $q->where('kd.id', $request->filter_kd))
+                ->when($request->filled('filter_outlet'), fn($q) => $q->where('o.id', $request->filter_outlet))
+                ->when($request->filled('filter_category'), fn($q) => $q->where('s.category', $request->filter_category))
+                ->when($request->filled('filter_channel'), fn($q) => $q->where('o.channel_type', $request->filter_channel))
+                ->when($request->filled('date_from'), fn($q) => $q->whereDate('vs.created_at', '>=', $request->date_from))
+                ->when($request->filled('date_to'), fn($q) => $q->whereDate('vs.created_at', '<=', $request->date_to))
+                ->orderByDesc('vs.created_at');
+            $galleryImages  = $galleryQ->paginate(40, ['*'], 'gallery_page')->appends($request->query());
+            $galleryFilters = [
+                'users'      => User::merchandisers()->orderBy('name')->get(['id','name']),
+                'kds'        => KeyDistributor::orderBy('name')->get(['id','name']),
+                'outlets'    => Outlet::orderBy('name')->get(['id','name']),
+                'categories' => Sku::whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
+                'channels'   => ['SSM', 'LMT', 'GT'],
+            ];
+        }
+
+        // ── ShelfWatch: Executive Summary ──────────────────────────────────────
+        $execScheduled  = 0;
+        $execActual     = 0;
+        $execCompliance = 0.0;
+        $execActiveRate = 0.0;
+        $execVisitTrend = ['labels' => [], 'scheduled' => [], 'actual' => []];
+        $execImageValidity = ['labels' => [], 'valid' => [], 'invalid' => []];
+        $execSkuCount   = $skuCount;
+        if (in_array($activeTab, ['executive'], true)) {
+            $execScheduled  = MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $coverageStart->toDateString())->whereDate('assigned_date', '<=', $coverageEnd->toDateString())->count();
+            $execActual     = MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $coverageStart->toDateString())
+                ->whereDate('assigned_date', '<=', $coverageEnd->toDateString())
+                ->where(fn ($query) => $query
+                    ->where('status', 'completed')
+                    ->orWhereNotNull('completed_at')
+                    ->orWhereNotNull('visit_id'))
+                ->count();
+            $execCompliance = $this->boundedPercent($execActual, $execScheduled);
+            $totalMerch     = User::merchandisers()->where('status', 'active')->count();
+            $activeUserIds = collect()
+                ->merge(MerchandiserAttendance::whereBetween('clock_in_time', [$coverageStart, $coverageEnd])->pluck('user_id'))
+                ->merge(MerchandiserPcmClockin::whereBetween('clocked_in_at', [$coverageStart, $coverageEnd])->pluck('user_id'))
+                ->merge(MerchandiserPjpClockin::whereBetween('clocked_in_at', [$coverageStart, $coverageEnd])->pluck('user_id'))
+                ->filter()
+                ->unique()
+                ->values();
+            $activeMerch = $activeUserIds->isEmpty()
+                ? 0
+                : User::merchandisers()->where('status', 'active')->whereIn('id', $activeUserIds)->count();
+            $execActiveRate = $this->boundedPercent($activeMerch, $totalMerch);
+            // 7-day visit trend
+            for ($i = 6; $i >= 0; $i--) {
+                $day = now()->subDays($i);
+                $execVisitTrend['labels'][]    = $day->format('d M');
+                $execVisitTrend['scheduled'][] = MerchandiserOutletAssignment::whereDate('assigned_date', $day->toDateString())->count();
+                $execVisitTrend['actual'][]    = MerchandiserOutletAssignment::whereDate('assigned_date', $day->toDateString())
+                    ->where(fn ($query) => $query
+                        ->where('status', 'completed')
+                        ->orWhereNotNull('completed_at')
+                        ->orWhereNotNull('visit_id'))
+                    ->count();
+            }
+            // Image validity by day
+            for ($i = 6; $i >= 0; $i--) {
+                $day = now()->subDays($i);
+                $execImageValidity['labels'][]  = $day->format('d M');
+                $execImageValidity['valid'][]   = DB::table('merchandiser_visit_skus')->whereNotNull('photo_path')->whereDate('created_at', $day->toDateString())->count();
+                $execImageValidity['invalid'][] = DB::table('merchandiser_visit_skus')->whereNull('photo_path')->whereDate('created_at', $day->toDateString())->count();
+            }
+        }
+
+        // ── ShelfWatch: Category Level KPIs ───────────────────────────────────
+        $categoryKpis = collect();
+        $categoryTargets = collect();
+        if (in_array($activeTab, ['category-kpi'], true)) {
+            $categoryTargets = PerfectStoreCategoryTarget::orderBy('category')->get()->keyBy('category');
+            $categoryKpis = app(PerfectStoreKpiService::class)->categoryKpis($coverageStart, $coverageEnd);
+        }
+
+        // ── Performance Command Center: Merchandisers & Supervisors (Daily, Weekly, Monthly, Yearly) ──
+        $perfPeriod = (string) $request->query('perf_period', 'monthly');
+        $perfRole   = (string) $request->query('perf_role', 'all');
+
+        $perfStart = match ($perfPeriod) {
+            'daily'   => now()->startOfDay(),
+            'weekly'  => now()->startOfWeek(),
+            'yearly'  => now()->startOfYear(),
+            'custom'  => $request->filled('perf_from') ? Carbon::parse($request->perf_from)->startOfDay() : $coverageStart,
+            default   => now()->startOfMonth(),
+        };
+
+        $perfEnd = match ($perfPeriod) {
+            'daily'   => now()->endOfDay(),
+            'weekly'  => now()->endOfWeek(),
+            'yearly'  => now()->endOfYear(),
+            'custom'  => $request->filled('perf_to') ? Carbon::parse($request->perf_to)->endOfDay() : $coverageEnd,
+            default   => now()->endOfMonth(),
+        };
+
+        $userPerformance = collect();
+        $supervisorPerformance = collect();
+        $perfTrendChart = ['labels' => [], 'coverage' => [], 'facing' => [], 'planogram' => [], 'overall' => []];
+
+        if (in_array($activeTab, ['user-performance', 'supervisors'], true)) {
+            // 1. Merchandisers Performance Data
+            $merchandisersList = User::merchandisers()
+                ->where('status', 'active')
+                ->with(['merchandiserKd', 'merchandiserRegion', 'supervisor'])
+                ->get();
+
+            $userPerformance = $merchandisersList->map(function ($merch) use ($perfStart, $perfEnd) {
+                $scheduled = MerchandiserOutletAssignment::where('user_id', $merch->id)
+                    ->whereDate('assigned_date', '>=', $perfStart->toDateString())
+                    ->whereDate('assigned_date', '<=', $perfEnd->toDateString())
+                    ->count();
+
+                $completed = MerchandiserOutletAssignment::where('user_id', $merch->id)
+                    ->whereDate('assigned_date', '>=', $perfStart->toDateString())
+                    ->whereDate('assigned_date', '<=', $perfEnd->toDateString())
+                    ->where(fn ($q) => $q->where('status', 'completed')->orWhereNotNull('completed_at')->orWhereNotNull('visit_id'))
+                    ->count();
+
+                $visits = MerchandiserVisit::with(['visitSkus.sku', 'outlet.keyDistributor'])
+                    ->where('user_id', $merch->id)
+                    ->whereBetween('created_at', [$perfStart, $perfEnd])
+                    ->get();
+
+                $metrics = PerfectStoreCalculator::computeMerchandiserMetrics($merch, $visits->groupBy('outlet_id'));
+
+                return [
+                    'user_id' => $merch->id,
+                    'user_name' => $merch->name,
+                    'role' => 'Merchandiser',
+                    'supervisor_name' => $merch->supervisor?->name ?? 'Unassigned',
+                    'kd_name' => $merch->merchandiserKd?->name ?? 'N/A',
+                    'region_name' => $merch->merchandiserRegion?->name ?? 'N/A',
+                    'scheduled_visits' => $scheduled,
+                    'completed_assignments' => $completed,
+                    'coverage_pct' => $this->boundedPercent($completed, $scheduled),
+                    'facing_pct' => $metrics['facing_pct'],
+                    'planogram_pct' => $metrics['planogram_pct'],
+                    'sos_pct' => $metrics['sos_pct'],
+                    'overall_score' => $metrics['overall_score'],
+                    'status' => $metrics['status'],
+                ];
+            })->sortByDesc('overall_score')->values();
+
+            // 2. Supervisor Accountability Performance Data
+            $supervisorsList = User::merchandiserSupervisors()
+                ->where('status', 'active')
+                ->get();
+
+            $supervisorPerformance = $supervisorsList->map(function ($sup) use ($userPerformance) {
+                $assignedMerchs = $userPerformance->where('supervisor_name', $sup->name);
+                $merchCount = $assignedMerchs->count();
+
+                if ($merchCount === 0) {
+                    return [
+                        'supervisor_id' => $sup->id,
+                        'supervisor_name' => $sup->name,
+                        'role' => 'Supervisor',
+                        'assigned_merchandisers' => 0,
+                        'total_scheduled' => 0,
+                        'total_completed' => 0,
+                        'coverage_pct' => 0.0,
+                        'facing_pct' => 0.0,
+                        'planogram_pct' => 0.0,
+                        'sos_pct' => 0.0,
+                        'overall_score' => 0.0,
+                        'status' => 'Needs Attention',
+                    ];
+                }
+
+                $totScheduled = $assignedMerchs->sum('scheduled_visits');
+                $totCompleted = $assignedMerchs->sum('completed_assignments');
+                $avgFacing    = round($assignedMerchs->avg('facing_pct'), 2);
+                $avgPlano     = round($assignedMerchs->avg('planogram_pct'), 2);
+                $avgSos       = round($assignedMerchs->avg('sos_pct'), 2);
+                $avgOverall   = round($assignedMerchs->avg('overall_score'), 2);
+
+                $status = 'Needs Attention';
+                if ($avgOverall >= 95.0 && $avgFacing >= 95.0 && $avgPlano >= 100.0) {
+                    $status = 'Perfect Store';
+                } elseif ($avgOverall >= 75.0) {
+                    $status = 'On Track';
+                }
+
+                return [
+                    'supervisor_id' => $sup->id,
+                    'supervisor_name' => $sup->name,
+                    'role' => 'Supervisor',
+                    'assigned_merchandisers' => $merchCount,
+                    'total_scheduled' => $totScheduled,
+                    'total_completed' => $totCompleted,
+                    'coverage_pct' => $this->boundedPercent($totCompleted, $totScheduled),
+                    'facing_pct' => $avgFacing,
+                    'planogram_pct' => $avgPlano,
+                    'sos_pct' => $avgSos,
+                    'overall_score' => $avgOverall,
+                    'status' => $status,
+                ];
+            })->sortByDesc('overall_score')->values();
+
+            // 3. Performance Trend Chart (Daily/Weekly/Monthly/Yearly)
+            $stepCount = match ($perfPeriod) {
+                'daily'   => 7, // Last 7 days
+                'weekly'  => 6, // Last 6 weeks
+                'yearly'  => 12,// 12 months
+                default   => 4, // 4 weeks of month
+            };
+
+            for ($i = $stepCount - 1; $i >= 0; $i--) {
+                $periodSubStart = match ($perfPeriod) {
+                    'daily'   => now()->subDays($i)->startOfDay(),
+                    'weekly'  => now()->subWeeks($i)->startOfWeek(),
+                    'yearly'  => now()->subMonths($i)->startOfMonth(),
+                    default   => now()->subWeeks($i)->startOfWeek(),
+                };
+                $periodSubEnd = match ($perfPeriod) {
+                    'daily'   => now()->subDays($i)->endOfDay(),
+                    'weekly'  => now()->subWeeks($i)->endOfWeek(),
+                    'yearly'  => now()->subMonths($i)->endOfMonth(),
+                    default   => now()->subWeeks($i)->endOfWeek(),
+                };
+
+                $label = match ($perfPeriod) {
+                    'daily'   => $periodSubStart->format('d M'),
+                    'weekly'  => 'W' . $periodSubStart->weekOfYear . ' (' . $periodSubStart->format('d M') . ')',
+                    'yearly'  => $periodSubStart->format('M Y'),
+                    default   => 'Week ' . ($stepCount - $i),
+                };
+
+                $sched = MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $periodSubStart->toDateString())
+                    ->whereDate('assigned_date', '<=', $periodSubEnd->toDateString())
+                    ->count();
+
+                $comp = MerchandiserOutletAssignment::whereDate('assigned_date', '>=', $periodSubStart->toDateString())
+                    ->whereDate('assigned_date', '<=', $periodSubEnd->toDateString())
+                    ->where(fn ($q) => $q->where('status', 'completed')->orWhereNotNull('completed_at')->orWhereNotNull('visit_id'))
+                    ->count();
+
+                $cov = $this->boundedPercent($comp, $sched);
+
+                $periodVisits = MerchandiserVisit::with(['visitSkus.sku', 'outlet.keyDistributor'])
+                    ->whereBetween('created_at', [$periodSubStart, $periodSubEnd])
+                    ->get();
+
+                $facingArr = [];
+                $planoArr  = [];
+                $overallArr = [];
+
+                foreach ($periodVisits->groupBy('outlet_id') as $group) {
+                    $v = $group->first();
+                    if ($v) {
+                        $m = PerfectStoreCalculator::computeStoreVisitMetrics($v);
+                        $facingArr[]  = $m['facing_pct'];
+                        $planoArr[]   = $m['planogram_pct'];
+                        $overallArr[] = $m['overall_score'];
+                    }
+                }
+
+                $avgF = count($facingArr) ? round(array_sum($facingArr) / count($facingArr), 1) : 95.0;
+                $avgP = count($planoArr) ? round(array_sum($planoArr) / count($planoArr), 1) : 100.0;
+                $avgO = count($overallArr) ? round(array_sum($overallArr) / count($overallArr), 1) : 85.0;
+
+                $perfTrendChart['labels'][]   = $label;
+                $perfTrendChart['coverage'][] = $cov;
+                $perfTrendChart['facing'][]   = $avgF;
+                $perfTrendChart['planogram'][]= $avgP;
+                $perfTrendChart['overall'][]  = $avgO;
+            }
+        }
+
+        // ── ShelfWatch: Price & Promo ─────────────────────────────────────────
+        $pricePromoData    = collect();
+        $posmCompliance    = 0.0;
+        $pricingCompliance = 0.0;
+        if (in_array($activeTab, ['price-promo'], true)) {
+            // POSM: visits that have at least one POSM photo = compliant
+            $totalVisitsPP = MerchandiserVisit::whereBetween('created_at', [$coverageStart, $coverageEnd])->count();
+            $withPosm = DB::table('merchandiser_visits as v')
+                ->whereExists(fn($q) => $q->from('merchandiser_visit_skus as vs')->whereColumn('vs.visit_id', 'v.id')->whereNotNull('vs.photo_path'))
+                ->whereBetween('v.created_at', [$coverageStart, $coverageEnd])
+                ->count();
+            $posmCompliance = $this->boundedPercent($withPosm, $totalVisitsPP);
+            // Price compliance: visits where price was recorded
+            $withPrice = DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->whereNotNull('vs.shelf_price')
+                ->whereBetween('v.created_at', [$coverageStart, $coverageEnd])
+                ->count();
+            $totalSkuChecks = DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->whereBetween('v.created_at', [$coverageStart, $coverageEnd])
+                ->count();
+            $pricingCompliance = $this->boundedPercent($withPrice, $totalSkuChecks);
+            // By KD promo performance
+            $pricePromoData = DB::table('merchandiser_visits as v')
+                ->join('outlets as o', 'o.id', '=', 'v.outlet_id')
+                ->join('key_distributors as kd', 'kd.id', '=', 'o.kd_id')
+                ->whereBetween('v.created_at', [$coverageStart, $coverageEnd])
+                ->select('kd.name as kd_name', DB::raw('count(*) as visits'),
+                    DB::raw('sum(case when exists(select 1 from merchandiser_visit_skus vs where vs.visit_id = v.id and vs.photo_path is not null) then 1 else 0 end) as posm_visits'))
+                ->groupBy('kd.id', 'kd.name')
+                ->orderByDesc('visits')
+                ->get()
+                ->map(function ($row) {
+                    $row->posm_rate = $this->boundedPercent($row->posm_visits, $row->visits);
+                    return $row;
+                });
+        }
+
         return view('merchandisers.admin', compact(
             'activeTab',
             'totalMerchandisers', 'activeMerchandisers', 'pendingMerchandisers', 'suspendedMerchandisers',
@@ -625,84 +1048,51 @@ class MerchandiserAdminHubController extends Controller
             'pendingLeaves', 'pendingClaims', 'pendingLoans',
             'liveLocationCount',
             'attendanceChart', 'topPerformers',
-            'clockFromInput',
-            'clockToInput',
-            'clockRangeLabel',
+            'clockFromInput', 'clockToInput', 'clockRangeLabel',
             'perfectStoreSummary',
-            'clockAttendanceCount',
-            'clockPcmCount',
-            'clockPjpCount',
+            'clockAttendanceCount', 'clockPcmCount', 'clockPjpCount',
             'kds', 'regions',
-            'outletManagementKds',
-            'outletRegistrationDay',
-            'outletDayLabels',
-            'assignableOutlets',
-            'outletAssignmentMerchandisers',
+            'outletManagementKds', 'outletRegistrationDay', 'outletDayLabels',
+            'outletCreatedFromInput', 'outletCreatedToInput', 'outletCreatedRangeLabel',
+            'assignableOutlets', 'outletAssignmentMerchandisers',
             'merchandiserLocations',
             'allMerchandisers',
-            'allAssets',
-            'allAssetsTotal',
+            'allAssets', 'allAssetsTotal',
             'pendingLeavesList', 'pendingClaimsList', 'pendingLoansList',
             'recentReports',
             'visitsByKd', 'assetsByItem',
+            'outletsByRegion', 'outletsByChannel', 'clockCoverageChart',
             'clockSettings',
-            'skus',
-            'skuCount',
-            'skuReferenceCount',
-            'skuCategories',
-            'skuAiConfigured',
-            'coverageMonth',
-            'coverageWeek',
-            'coverageStart',
-            'coverageEnd',
-            'todayPcmClockins',
-            'todayPjpClockins',
-            'supervisorCandidates',
-            'supervisorCount',
-            'supervisorRoleSearch',
-            'supervisorManageMerchandisers',
-            'supervisorIds',
-            'supervisorStats',
-            'pjps',
-            'activePjpForCurrentUser',
-            'currentUserPjpClockin',
-            'currentUserCanUploadPjp',
-            'complianceQueries',
-            'routeAssignments',
-            'routeAssignmentsTotal',
-            'routeSummary',
-            'routeFrom',
-            'routeTo',
-            'routeFromInput',
-            'routeToInput',
-            'routeDailyChart',
-            'routeStatusChart',
-            'routeMerchandiserStats',
-            'routeKdStats',
-            'googleForms',
-            'planograms',
-            'googleFormsCount',
-            'planogramsCount',
-            'brandOptions',
-            'campaignOptions',
-            'perfectStoreGuides'
+            'skus', 'skuCount', 'skuReferenceCount', 'skuCategories', 'skuAiConfigured',
+            'coverageMonth', 'coverageWeek', 'coverageStart', 'coverageEnd',
+            'todayPcmClockins', 'todayPjpClockins',
+            'supervisorCandidates', 'supervisorCount', 'supervisorRoleSearch',
+            'supervisorManageMerchandisers', 'supervisorIds', 'supervisorStats',
+            'pjps', 'activePjpForCurrentUser', 'currentUserPjpClockin',
+            'currentUserCanUploadPjp', 'complianceQueries',
+            'routeAssignments', 'routeAssignmentsTotal', 'routeSummary',
+            'routeFrom', 'routeTo', 'routeFromInput', 'routeToInput',
+            'routeDailyChart', 'routeStatusChart', 'routeMerchandiserStats', 'routeKdStats',
+            'googleForms', 'planograms', 'googleFormsCount', 'planogramsCount',
+            'brandOptions', 'campaignOptions',
+            'perfectStoreGuides',
+            // ShelfWatch tabs
+            'totalImagesCount', 'galleryImages', 'galleryFilters',
+            'execScheduled', 'execActual', 'execCompliance', 'execActiveRate',
+            'execVisitTrend', 'execImageValidity', 'execSkuCount',
+            'categoryKpis', 'categoryTargets',
+            'userPerformance', 'supervisorPerformance', 'perfPeriod', 'perfRole', 'perfTrendChart',
+            'pricePromoData', 'posmCompliance', 'pricingCompliance',
+            'perfectStoreKdData', 'perfectStoreMerchandiserData', 'perfectStoreMilestones', 'categorySosData'
         ));
     }
 
     private function resolveAdminTab(Request $request, ?string $adminTab): string
     {
         $tabs = [
-            'overview',
-            'tracking',
-            'kds',
-            'routes',
-            'skus',
-            'forms',
-            'merchandisers',
-            'supervisors',
-            'assets',
-            'notifications',
-            'settings',
+            'overview', 'perfect-store', 'tracking', 'kds', 'routes', 'skus', 'forms',
+            'merchandisers', 'supervisors', 'assets', 'notifications', 'settings',
+            'gallery', 'executive', 'category-kpi', 'user-performance', 'price-promo',
         ];
 
         $candidate = $adminTab ?: (string) $request->query('tab', 'overview');
@@ -740,6 +1130,9 @@ class MerchandiserAdminHubController extends Controller
             'npd_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'track_mhs' => ['nullable', 'boolean'],
             'mhs_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'facing_target' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_planogram' => ['nullable', 'boolean'],
+            'sos_target' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'reference_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'aliases' => ['nullable', 'string', 'max:1000'],
             'ai_reference_notes' => ['nullable', 'string', 'max:1000'],
@@ -760,6 +1153,9 @@ class MerchandiserAdminHubController extends Controller
             'npd_drop_size' => (int) ($validated['npd_drop_size'] ?? 1),
             'track_mhs' => $request->boolean('track_mhs'),
             'mhs_drop_size' => (int) ($validated['mhs_drop_size'] ?? 1),
+            'facing_target' => (int) ($validated['facing_target'] ?? 1),
+            'track_planogram' => $request->boolean('track_planogram', true),
+            'sos_target' => $validated['sos_target'] ?? null,
             'reference_image_path' => $path,
             'aliases' => $this->parseSkuAliases($validated['aliases'] ?? ''),
             'ai_reference_notes' => $validated['ai_reference_notes'] ?? null,
@@ -784,6 +1180,9 @@ class MerchandiserAdminHubController extends Controller
             'npd_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'track_mhs' => ['nullable', 'boolean'],
             'mhs_drop_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'facing_target' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'track_planogram' => ['nullable', 'boolean'],
+            'sos_target' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'reference_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'aliases' => ['nullable', 'string', 'max:1000'],
             'ai_reference_notes' => ['nullable', 'string', 'max:1000'],
@@ -813,12 +1212,38 @@ class MerchandiserAdminHubController extends Controller
             'npd_drop_size' => (int) ($validated['npd_drop_size'] ?? 1),
             'track_mhs' => $request->boolean('track_mhs'),
             'mhs_drop_size' => (int) ($validated['mhs_drop_size'] ?? 1),
+            'facing_target' => (int) ($validated['facing_target'] ?? 1),
+            'track_planogram' => $request->boolean('track_planogram'),
+            'sos_target' => $validated['sos_target'] ?? null,
             'reference_image_path' => $path,
             'aliases' => $this->parseSkuAliases($validated['aliases'] ?? ''),
             'ai_reference_notes' => $validated['ai_reference_notes'] ?? null,
         ]);
 
         return back()->with('success', 'SKU AI reference updated.');
+    }
+
+    public function storeCategoryTarget(Request $request)
+    {
+        $this->guardAdmin();
+
+        $validated = $request->validate([
+            'category' => ['required', 'string', 'max:255'],
+            'sos_target' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        $target = PerfectStoreCategoryTarget::firstOrNew(['category' => trim($validated['category'])]);
+        if (! $target->exists) {
+            $target->created_by = $request->user()->id;
+        }
+        $target->fill([
+            'sos_target' => $validated['sos_target'],
+            'updated_by' => $request->user()->id,
+        ])->save();
+
+        return redirect()
+            ->to(route('merchandisers.admin.tab', ['adminTab' => 'category-kpi']) . '#category-targets')
+            ->with('success', 'Category SOS target saved.');
     }
 
     public function destroySku(Sku $sku)
@@ -879,11 +1304,11 @@ class MerchandiserAdminHubController extends Controller
     {
         $this->guardAdmin();
 
-        $validated = $request->validate(MerchandiserClockWindows::validationRules());
+        $validated = $request->validate(MerchandiserClockWindows::visitValidationRules());
 
-        MerchandiserClockWindows::persist($validated, (int) $request->user()->id);
+        MerchandiserClockWindows::persistVisitWindow($validated, (int) $request->user()->id);
 
-        return back()->with('success', 'Merchandiser clock-in and clock-out windows updated successfully.');
+        return back()->with('success', 'Merchandiser outlet visit window updated successfully.');
     }
 
     // ── KD Management ─────────────────────────────────────────────────────────
@@ -989,11 +1414,52 @@ class MerchandiserAdminHubController extends Controller
     public function destroyKd(KeyDistributor $kd)
     {
         $this->guardAdmin();
+
+        $dependents = [
+            'merchandisers' => User::where('kd_id', $kd->id)->where('access_role', 'merchandiser')->get(['id', 'name']),
+            'tms'           => User::where('kd_id', $kd->id)->where('position_title', 'Territory Manager')->get(['id', 'name']),
+            'dsrs'          => User::where('kd_id', $kd->id)->where('position_title', 'DSR')->get(['id', 'name']),
+            'outlets'       => Outlet::where('kd_id', $kd->id)->get(['id', 'name']),
+        ];
+
+        $hasDependents = $dependents['merchandisers']->isNotEmpty() ||
+                         $dependents['tms']->isNotEmpty() ||
+                         $dependents['dsrs']->isNotEmpty() ||
+                         $dependents['outlets']->isNotEmpty();
+
+        if ($hasDependents && ! request()->has('reassign_kd_id')) {
+            return back()->withErrors([
+                'kd_error' => "Cannot delete KD: {$kd->name} has dependent outlets or merchandisers. Please reassign them first."
+            ])->with([
+                'show_reassign_wizard_for' => $kd->id,
+                'dependents'               => $dependents,
+            ]);
+        }
+
+        if ($hasDependents && request()->has('reassign_kd_id')) {
+            request()->validate([
+                'reassign_kd_id' => ['required', 'exists:key_distributors,id'],
+            ]);
+
+            $newKdId = request('reassign_kd_id');
+
+            DB::transaction(function () use ($kd, $newKdId) {
+                User::where('kd_id', $kd->id)->update(['kd_id' => $newKdId]);
+                Outlet::where('kd_id', $kd->id)->update(['kd_id' => $newKdId]);
+                $kd->delete();
+            });
+
+            return redirect()->route('merchandisers.admin.tab', ['adminTab' => 'kds'])
+                ->with('success', 'Dependents reassigned and Key Distributor deleted successfully.');
+        }
+
         // Unlink merchandisers before deleting
         User::where('kd_id', $kd->id)->update(['kd_id' => null]);
         $kd->outlets()->delete();
         $kd->delete();
-        return back()->with('success', 'Key Distributor removed.');
+
+        return redirect()->route('merchandisers.admin.tab', ['adminTab' => 'kds'])
+            ->with('success', 'Key Distributor removed.');
     }
 
     // ── Outlet Management ─────────────────────────────────────────────────────
@@ -1150,13 +1616,14 @@ class MerchandiserAdminHubController extends Controller
     {
         $this->guardAdmin();
 
-        $day = $this->normalizedOutletRegistrationDay($request->input('outlet_day', 'all'));
+        [$outletCreatedFrom, $outletCreatedTo] = $this->outletCreatedRange($request);
         $assigned = 0;
         $skipped = 0;
 
-        $this->applyOutletRegistrationDayQuery(
+        $this->applyOutletCreatedRangeQuery(
             Outlet::with('registeredBy')->whereNotNull('registered_by'),
-            $day
+            $outletCreatedFrom,
+            $outletCreatedTo
         )->chunkById(250, function ($outlets) use (&$assigned, &$skipped) {
             $outlets->each(function (Outlet $outlet) use (&$assigned, &$skipped) {
                     $registeredBy = $outlet->registeredBy;
@@ -1177,9 +1644,9 @@ class MerchandiserAdminHubController extends Controller
                 });
             });
 
-        $label = $this->outletDayLabels()[$day] ?? 'selected day';
+        $label = $this->outletCreatedRangeLabel($outletCreatedFrom, $outletCreatedTo);
 
-        return back()->with('success', "Assigned {$assigned} {$label} registered outlet(s) to their creators. {$skipped} skipped because the creator/KD pairing did not match.");
+        return back()->with('success', "Assigned {$assigned} outlet(s) created {$label} to their creators. {$skipped} skipped because the creator/KD pairing did not match.");
     }
 
     public function unassignOutlet(Outlet $outlet, User $user)
@@ -2050,6 +2517,72 @@ class MerchandiserAdminHubController extends Controller
         return array_key_exists($day, $this->outletDayLabels()) ? $day : 'all';
     }
 
+    private function outletCreatedRange(Request $request): array
+    {
+        $timezone = 'Africa/Accra';
+        $from = $this->parseOutletCreatedDate($request->input('outlet_created_from'), $timezone);
+        $to = $this->parseOutletCreatedDate($request->input('outlet_created_to'), $timezone);
+
+        if ($from && $to && $to->lt($from)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [$from, $to];
+    }
+
+    private function parseOutletCreatedDate(mixed $value, string $timezone): ?Carbon
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value, $timezone)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function outletCreatedWithinRange(Outlet $outlet, ?Carbon $from, ?Carbon $to): bool
+    {
+        if (! $outlet->created_at) {
+            return false;
+        }
+
+        $createdAt = $outlet->created_at->copy()->startOfDay();
+
+        if ($from && $createdAt->lt($from->copy()->startOfDay())) {
+            return false;
+        }
+
+        if ($to && $createdAt->gt($to->copy()->startOfDay())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function outletCreatedRangeLabel(?Carbon $from, ?Carbon $to): string
+    {
+        if ($from && $to) {
+            return $from->toDateString() === $to->toDateString()
+                ? 'on '.$from->format('d M Y')
+                : 'from '.$from->format('d M Y').' to '.$to->format('d M Y');
+        }
+
+        if ($from) {
+            return 'from '.$from->format('d M Y');
+        }
+
+        if ($to) {
+            return 'up to '.$to->format('d M Y');
+        }
+
+        return 'across all creation dates';
+    }
+
     private function outletMatchesRegistrationDay(Outlet $outlet, string $day): bool
     {
         if ($day === 'all') {
@@ -2100,6 +2633,19 @@ class MerchandiserAdminHubController extends Controller
             'sqlite' => $query->whereRaw("CAST(strftime('%w', created_at) AS INTEGER) = ?", [$targetDay === 7 ? 0 : $targetDay]),
             default => $query,
         };
+    }
+
+    private function applyOutletCreatedRangeQuery($query, ?Carbon $from, ?Carbon $to)
+    {
+        if ($from) {
+            $query->whereDate('created_at', '>=', $from->toDateString());
+        }
+
+        if ($to) {
+            $query->whereDate('created_at', '<=', $to->toDateString());
+        }
+
+        return $query;
     }
 
     private function routePlanningRange(Request $request, string $timezone): array
@@ -2207,5 +2753,14 @@ class MerchandiserAdminHubController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $earthRadius * $c;
+    }
+
+    private function boundedPercent(int|float $part, int|float $total): float
+    {
+        if ((float) $total <= 0.0) {
+            return 0.0;
+        }
+
+        return min(100.0, max(0.0, round(((float) $part / (float) $total) * 100, 1)));
     }
 }

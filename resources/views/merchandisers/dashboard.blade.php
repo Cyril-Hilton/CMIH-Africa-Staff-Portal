@@ -277,12 +277,48 @@
 
                             <!-- TAB 1: OUTLETS & VISITS -->
                             <div x-show="activeTab === 'outlets'" x-data="{ outletSearch: '' }" style="display: none;">
+                                <!-- Perfect Store Personal Scorecard -->
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+                                    <div class="glass-panel rounded-2xl border border-lime-500/20 bg-lime-500/5 p-4 flex items-center justify-between shadow-lg">
+                                        <div>
+                                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-lime-300">My Facing Score</p>
+                                            <p class="text-2xl font-display text-brand-white mt-1">{{ number_format($merchMetrics['facing_pct'] ?? 95, 1) }}%</p>
+                                            <p class="text-[10px] text-brand-white/50 mt-0.5">Target: 95% Overall</p>
+                                        </div>
+                                        <div class="w-10 h-10 rounded-full bg-lime-500/20 border border-lime-500/40 flex items-center justify-center text-lime-300 text-sm font-bold">
+                                            📐
+                                        </div>
+                                    </div>
+
+                                    <div class="glass-panel rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 flex items-center justify-between shadow-lg">
+                                        <div>
+                                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Planogram Alignment</p>
+                                            <p class="text-2xl font-display text-brand-white mt-1">{{ number_format($merchMetrics['planogram_pct'] ?? 100, 1) }}%</p>
+                                            <p class="text-[10px] text-brand-white/50 mt-0.5">Target: 100% Alignment</p>
+                                        </div>
+                                        <div class="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 text-sm font-bold">
+                                            🖼️
+                                        </div>
+                                    </div>
+
+                                    <div class="glass-panel rounded-2xl border border-pink-500/20 bg-pink-500/5 p-4 flex items-center justify-between shadow-lg">
+                                        <div>
+                                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-pink-300">Share of Shelf (SOS)</p>
+                                            <p class="text-2xl font-display text-brand-white mt-1">{{ number_format($merchMetrics['sos_pct'] ?? 0, 1) }}%</p>
+                                            <p class="text-[10px] text-brand-white/50 mt-0.5">Category Unilever Share</p>
+                                        </div>
+                                        <div class="w-10 h-10 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-300 text-sm font-bold">
+                                            🏷️
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div class="lg:col-span-2 space-y-4">
                                         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                             <div>
-                                                <h2 class="text-xl font-display text-brand-white tracking-wider">🏬 Today's Assigned Outlets ({{ $dayLabels[$selectedDay] ?? 'Selected Day' }})</h2>
-                                                <p class="mt-1 text-xs text-brand-white/45">{{ $merchMetrics['assigned_outlets_today'] }} planned today, {{ $merchMetrics['completed_assignments_today'] }} completed, {{ $merchMetrics['pending_outlets_today'] }} remaining.</p>
+                                                <h2 class="text-xl font-display text-brand-white tracking-wider">🏬 Assigned Outlets ({{ $scheduleLabel ?? ($dayLabels[$selectedDay] ?? 'Selected Day') }})</h2>
+                                                <p class="mt-1 text-xs text-brand-white/45">{{ $merchMetrics['assigned_outlets_today'] }} planned for this view, {{ $merchMetrics['clockins_today'] }} clocked in, {{ $merchMetrics['outlets_scored_today'] }} scored, {{ $merchMetrics['not_covered_today'] }} not covered.</p>
                                             </div>
                                             <div class="w-full sm:w-80">
                                                 <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Search outlets</label>
@@ -311,35 +347,26 @@
                                             @endforeach
                                         </div>
 
-                                        <div class="glass-panel rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 space-y-4">
+                                        <div class="glass-panel rounded-2xl p-5 border border-emerald-500/20 bg-emerald-500/5 space-y-4">
                                             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div>
-                                                    <p class="text-xs uppercase tracking-[0.2em] text-amber-300">PCM / KD Day Clock-In</p>
-                                                    <h3 class="mt-1 text-lg font-bold text-brand-white">{{ auth()->user()->merchandiserKd->name ?? 'Assigned KD' }}</h3>
-                                                    <p class="mt-1 text-xs text-brand-white/55">Use this when you report to your PCM/KD location before proceeding to outlets. It is geofenced to the KD location.</p>
-                                                    @if(auth()->user()->merchandiserKd?->address)
-                                                        <p class="mt-1 text-[11px] text-brand-white/45">{{ auth()->user()->merchandiserKd->address }}</p>
-                                                    @endif
+                                                    <p class="text-xs uppercase tracking-[0.2em] text-emerald-300">Outlet Visit Window</p>
+                                                    <h3 class="mt-1 text-lg font-bold text-brand-white">{{ $clockWindow['start_at']->format('g:i A') }} - {{ $clockWindow['end_at']->format('g:i A') }}</h3>
+                                                    <p class="mt-1 text-xs text-brand-white/55">Clock in and clock out at every assigned outlet during this window. Perfect Store entry becomes available after the outlet clock-in.</p>
                                                 </div>
-                                                <div class="w-full sm:w-auto">
-                                                    @if($pcmClockinToday)
-                                                        <div class="rounded-xl border border-green-500/25 bg-green-500/10 px-4 py-3 text-center text-xs font-bold text-green-400">
-                                                            PCM clocked at {{ $pcmClockinToday->clocked_in_at->timezone(auth()->user()->merchandiserRegion->timezone ?? 'Africa/Accra')->format('H:i') }}
-                                                        </div>
-                                                    @elseif(is_null(auth()->user()->merchandiserKd?->latitude) || is_null(auth()->user()->merchandiserKd?->longitude))
-                                                        <div class="rounded-xl border border-brand-red/25 bg-brand-red/10 px-4 py-3 text-xs text-brand-red">
-                                                            KD coordinates are missing. Ask Brands Team to edit this KD before PCM clock-in.
-                                                        </div>
-                                                    @else
-                                                        <form method="POST" action="{{ route('merchandisers.pcm-clock-in') }}" class="min-w-[14rem]" data-clock-in-form>
-                                                            @csrf
-                                                            <input type="hidden" name="latitude" class="user-lat-input">
-                                                            <input type="hidden" name="longitude" class="user-lng-input">
-                                                            <button type="submit" data-clock-in-submit class="w-full rounded-xl bg-amber-500 px-5 py-3 text-xs font-black uppercase tracking-wider text-black transition hover:bg-amber-400">
-                                                                Clock in at KD / PCM
-                                                            </button>
-                                                        </form>
-                                                    @endif
+                                                <div class="grid w-full grid-cols-3 gap-2 sm:w-auto sm:min-w-[22rem]">
+                                                    <div class="rounded-xl border border-brand-white/10 bg-brand-black/30 px-3 py-2 text-center">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Scheduled</p>
+                                                        <p class="mt-1 text-lg font-black text-brand-white">{{ $merchMetrics['total_outlets'] }}</p>
+                                                    </div>
+                                                    <div class="rounded-xl border border-brand-white/10 bg-brand-black/30 px-3 py-2 text-center">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Clocked In</p>
+                                                        <p class="mt-1 text-lg font-black text-sky-300">{{ $merchMetrics['clockins_today'] }}</p>
+                                                    </div>
+                                                    <div class="rounded-xl border border-brand-white/10 bg-brand-black/30 px-3 py-2 text-center">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Scored</p>
+                                                        <p class="mt-1 text-lg font-black text-emerald-300">{{ $merchMetrics['outlets_scored_today'] }}</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -392,11 +419,11 @@
                                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40">
                                             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                                 <div>
-                                                    <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Today’s outlet closure list</p>
-                                                    <h3 class="mt-1 text-lg font-bold text-brand-white">{{ $merchMetrics['pending_outlets_today'] }} pending of {{ $merchMetrics['total_outlets'] }}</h3>
+                                                    <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Outlet closure list</p>
+                                                    <h3 class="mt-1 text-lg font-bold text-brand-white">{{ $merchMetrics['not_covered_today'] }} not covered of {{ $merchMetrics['total_outlets'] }}</h3>
                                                 </div>
                                                 <span class="inline-flex w-fit rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-green-400">
-                                                    {{ $merchMetrics['outlets_visited_today'] }} visited today
+                                                    {{ $merchMetrics['coverage_today'] }}% scored coverage
                                                 </span>
                                             </div>
                                             <div class="mt-4 grid gap-2 sm:grid-cols-2">
@@ -414,7 +441,7 @@
                                                     </a>
                                                 @empty
                                                     <div class="rounded-xl border border-green-500/20 bg-green-500/10 px-3 py-3 text-xs font-semibold text-green-400 sm:col-span-2">
-                                                        All registered outlets have visit entries for today.
+                                                        Every listed outlet has been clocked in today.
                                                     </div>
                                                 @endforelse
                                             </div>
@@ -428,17 +455,26 @@
                                             @php
                                                 $timezone = auth()->user()->merchandiserRegion->timezone ?? 'Africa/Accra';
                                                 $localNow = \Carbon\Carbon::now($timezone);
-                                                $morningWindow = $clockWindows['morning'];
-                                                $middayWindow = $clockWindows['midday'];
-                                                $cobWindow = $clockWindows['cob'];
                                                 $routeAssignment = $assignmentsByOutlet->get($outlet->id);
-
-                                                $morningOpen = $localNow->betweenIncluded($morningWindow['start_at'], $morningWindow['end_at']);
-                                                $middayOpen = $localNow->betweenIncluded($middayWindow['start_at'], $middayWindow['end_at']);
-                                                $cobOpen = $localNow->betweenIncluded($cobWindow['start_at'], $cobWindow['end_at']);
+                                                $attendance = $outletAttendanceByOutlet->get($outlet->id);
+                                                $hasClockedIn = (bool) $attendance;
+                                                $hasClockedOut = (bool) ($attendance?->clock_out_time);
+                                                $hasScored = $routeAssignment?->status === 'completed'
+                                                    || (bool) ($routeAssignment?->visit_id)
+                                                    || $scoredOutletIdsToday->contains($outlet->id);
+                                                $visitOpen = $localNow->betweenIncluded($clockWindow['start_at'], $clockWindow['end_at']);
+                                                $searchText = strtolower($outlet->name . ' ' . $outlet->code . ' ' . $outlet->address);
+                                                $statusLabel = $hasScored ? 'Scored' : ($hasClockedOut ? 'Visited' : ($hasClockedIn ? 'Clocked In' : 'Not Covered'));
+                                                $statusClass = $hasScored
+                                                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                                    : ($hasClockedOut
+                                                        ? 'bg-sky-500/10 text-sky-300 border-sky-500/20'
+                                                        : ($hasClockedIn
+                                                            ? 'bg-amber-500/10 text-amber-200 border-amber-500/20'
+                                                            : 'bg-brand-red/10 text-brand-red border-brand-red/20'));
                                             @endphp
                                             
-                                            <div id="outlet-card-{{ $outlet->id }}" x-show="outletSearch === '' || '{{ strtolower($outlet->name . ' ' . $outlet->code . ' ' . $outlet->address) }}'.includes(outletSearch.toLowerCase())" class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.05)] transition-all duration-300 space-y-4">
+                                            <div id="outlet-card-{{ $outlet->id }}" x-show="outletSearch === '' || @js($searchText).includes(outletSearch.toLowerCase())" class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.05)] transition-all duration-300 space-y-4">
                                                 <div class="flex items-start justify-between gap-3 flex-wrap">
                                                     <div>
                                                         <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-brand-red/10 text-brand-red border border-brand-red/20 mb-2">
@@ -449,6 +485,9 @@
                                                                 Stop {{ $routeAssignment->sequence }} / {{ $routeAssignment->status }}
                                                             </span>
                                                         @endif
+                                                        <span class="ml-2 inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border {{ $statusClass }}">
+                                                            {{ $statusLabel }}
+                                                        </span>
                                                         <h3 class="text-lg font-bold text-brand-white">{{ $outlet->name }}</h3>
                                                         <p class="text-xs text-brand-white/50 mt-1">
                                                             Code: {{ $outlet->code }}
@@ -480,96 +519,78 @@
                                                         </div>
                                                     </div>
                                                     
-                                                    <a href="{{ route('merchandisers.visit', $outlet) }}" class="px-4 py-2 bg-brand-red hover:bg-red-600 text-white text-xs uppercase tracking-wider font-bold rounded-xl transition-all shadow-lg hover:shadow-red-500/20 flex items-center gap-1.5">
-                                                        📊 Report Store Visit
-                                                    </a>
+                                                    <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-4 py-2 text-xs text-brand-white/60">
+                                                        PJP outlet visit
+                                                    </div>
                                                 </div>
 
-                                                <!-- Clock In Grid -->
+                                                <!-- Outlet Visit Controls -->
                                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-brand-white/5">
-                                                    <!-- Morning Clock-In -->
-                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3 flex flex-col justify-between gap-3">
-                                                        <div class="flex flex-col gap-0.5">
-                                                            <span class="text-xs text-brand-white/70 font-semibold">🌅 Morning</span>
-                                                            <span class="text-[10px] text-brand-white/40">{{ $morningWindow['range'] }}</span>
-                                                        </div>
-                                                        @if($attendances->has('morning'))
-                                                            <div class="text-xs text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-lg p-2 flex items-center gap-1.5 justify-center">
-                                                                ✔ Check-in ({{ $attendances->get('morning')->clock_in_time->timezone($timezone)->format('H:i') }})
-                                                            </div>
-                                                        @elseif($morningOpen)
-                                                            <form method="POST" action="{{ route('merchandisers.clock-in') }}" data-clock-in-form>
-                                                                @csrf
-                                                                <input type="hidden" name="outlet_id" value="{{ $outlet->id }}">
-                                                                <input type="hidden" name="clock_in_type" value="morning">
-                                                                <input type="hidden" name="latitude" class="user-lat-input">
-                                                                <input type="hidden" name="longitude" class="user-lng-input">
-                                                                <button type="submit" data-clock-in-submit class="w-full py-2 bg-brand-red hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md">
-                                                                    Clock-In
-                                                                </button>
-                                                            </form>
-                                                        @else
-                                                            <div class="text-xs text-brand-white/30 bg-brand-white/5 border border-brand-white/5 rounded-lg py-2 text-center font-medium">
-                                                                🔒 Closed
-                                                            </div>
-                                                        @endif
+                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Clock-in</p>
+                                                        <p class="mt-1 text-sm font-bold text-brand-white">
+                                                            {{ $attendance?->clock_in_time ? $attendance->clock_in_time->timezone($timezone)->format('H:i') : 'Not started' }}
+                                                        </p>
                                                     </div>
+                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Clock-out</p>
+                                                        <p class="mt-1 text-sm font-bold text-brand-white">
+                                                            {{ $attendance?->clock_out_time ? $attendance->clock_out_time->timezone($timezone)->format('H:i') : 'Pending' }}
+                                                        </p>
+                                                    </div>
+                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3">
+                                                        <p class="text-[10px] uppercase tracking-wider text-brand-white/40">Visit Time</p>
+                                                        <p class="mt-1 text-sm font-bold text-brand-white">
+                                                            {{ $attendance?->visit_duration_minutes !== null ? $attendance->visit_duration_minutes.' min' : 'Calculates at clock-out' }}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                                    <!-- Midday Clock-In -->
-                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3 flex flex-col justify-between gap-3">
-                                                        <div class="flex flex-col gap-0.5">
-                                                            <span class="text-xs text-brand-white/70 font-semibold">☀ Midday</span>
-                                                            <span class="text-[10px] text-brand-white/40">{{ $middayWindow['range'] }}</span>
-                                                        </div>
-                                                        @if($attendances->has('midday'))
-                                                            <div class="text-xs text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-lg p-2 flex items-center gap-1.5 justify-center">
-                                                                ✔ Check-in ({{ $attendances->get('midday')->clock_in_time->timezone($timezone)->format('H:i') }})
-                                                            </div>
-                                                        @elseif($middayOpen)
-                                                            <form method="POST" action="{{ route('merchandisers.clock-in') }}" data-clock-in-form>
+                                                <div class="flex flex-col gap-2 border-t border-brand-white/5 pt-3 sm:flex-row sm:items-center">
+                                                    @if(! $hasClockedIn)
+                                                        @if($visitOpen)
+                                                            <form method="POST" action="{{ route('merchandisers.clock-in') }}" class="sm:w-48" data-clock-form data-clock-verb="Clocking in">
                                                                 @csrf
                                                                 <input type="hidden" name="outlet_id" value="{{ $outlet->id }}">
-                                                                <input type="hidden" name="clock_in_type" value="midday">
+                                                                <input type="hidden" name="clock_in_type" value="outlet">
                                                                 <input type="hidden" name="latitude" class="user-lat-input">
                                                                 <input type="hidden" name="longitude" class="user-lng-input">
-                                                                <button type="submit" data-clock-in-submit class="w-full py-2 bg-brand-red hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md">
-                                                                    Clock-In
+                                                                <button type="submit" data-clock-submit class="w-full py-2.5 bg-brand-red hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md">
+                                                                    Clock In
                                                                 </button>
                                                             </form>
                                                         @else
-                                                            <div class="text-xs text-brand-white/30 bg-brand-white/5 border border-brand-white/5 rounded-lg py-2 text-center font-medium">
-                                                                🔒 Closed
+                                                            <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-brand-white/35 sm:w-48">
+                                                                Window Closed
                                                             </div>
                                                         @endif
-                                                    </div>
+                                                    @else
+                                                        <a href="{{ route('merchandisers.visit', $outlet) }}" class="inline-flex justify-center rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-red-600 sm:w-56">
+                                                            Perfect Store Entry
+                                                        </a>
+                                                    @endif
 
-                                                    <!-- COB Clock-In -->
-                                                    <div class="rounded-xl border border-brand-white/5 bg-brand-black/20 p-3 flex flex-col justify-between gap-3">
-                                                        <div class="flex flex-col gap-0.5">
-                                                            <span class="text-xs text-brand-white/70 font-semibold">🌇 COB</span>
-                                                            <span class="text-[10px] text-brand-white/40">{{ $cobWindow['range'] }}</span>
-                                                        </div>
-                                                        @if($attendances->has('cob'))
-                                                            <div class="text-xs text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-lg p-2 flex items-center gap-1.5 justify-center">
-                                                                ✔ Check-out ({{ $attendances->get('cob')->clock_in_time->timezone($timezone)->format('H:i') }})
-                                                            </div>
-                                                        @elseif($cobOpen)
-                                                            <form method="POST" action="{{ route('merchandisers.clock-in') }}" data-clock-in-form>
+                                                    @if($hasClockedIn && ! $hasClockedOut)
+                                                        @if($hasScored)
+                                                            <form method="POST" action="{{ route('merchandisers.clock-out') }}" class="sm:w-48" data-clock-form data-clock-verb="Clocking out">
                                                                 @csrf
                                                                 <input type="hidden" name="outlet_id" value="{{ $outlet->id }}">
-                                                                <input type="hidden" name="clock_in_type" value="cob">
                                                                 <input type="hidden" name="latitude" class="user-lat-input">
                                                                 <input type="hidden" name="longitude" class="user-lng-input">
-                                                                <button type="submit" data-clock-in-submit class="w-full py-2 bg-brand-red hover:bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md">
-                                                                    Clock-Out
+                                                                <button type="submit" data-clock-submit class="w-full py-2.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-xs font-bold uppercase tracking-wider rounded-xl transition hover:bg-emerald-500/20">
+                                                                    Clock Out
                                                                 </button>
                                                             </form>
                                                         @else
-                                                            <div class="text-xs text-brand-white/30 bg-brand-white/5 border border-brand-white/5 rounded-lg py-2 text-center font-medium">
-                                                                🔒 Closed
+                                                            <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-100">
+                                                                Complete the Perfect Store entry before clock-out.
                                                             </div>
                                                         @endif
-                                                    </div>
+                                                    @elseif($hasClockedOut)
+                                                        <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-emerald-300 sm:w-48 text-center">
+                                                            Clocked Out
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div>
                                         @empty
@@ -598,24 +619,24 @@
                                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-6">
                                             <div class="grid grid-cols-2 gap-3 text-center">
                                                 <div class="p-3 bg-brand-white/5 rounded-xl border border-brand-white/5">
-                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Outlets Visited Today</p>
+                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Outlets Clocked In</p>
                                                     <p class="text-xl font-bold text-green-400 mt-1">{{ $merchMetrics['outlets_visited_today'] }}</p>
                                                     <p class="text-[10px] text-brand-white/35">of {{ $merchMetrics['total_outlets'] }}</p>
                                                 </div>
                                                 <div class="p-3 bg-brand-white/5 rounded-xl border border-brand-white/5">
-                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Pending Outlets</p>
-                                                    <p class="text-xl font-bold text-amber-400 mt-1">{{ $merchMetrics['pending_outlets_today'] }}</p>
-                                                    <p class="text-[10px] text-brand-white/35">remaining today</p>
+                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Not Covered</p>
+                                                    <p class="text-xl font-bold text-amber-400 mt-1">{{ $merchMetrics['not_covered_today'] }}</p>
+                                                    <p class="text-[10px] text-brand-white/35">by outlet clock-in</p>
                                                 </div>
                                                 <div class="p-3 bg-brand-white/5 rounded-xl border border-brand-white/5">
-                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Today's Clock-ins</p>
-                                                    <p class="text-xl font-bold text-blue-400 mt-1">{{ $merchMetrics['clockins_today'] }}</p>
-                                                    <p class="text-[10px] text-brand-white/35">morning / midday / COB</p>
+                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Scored Today</p>
+                                                    <p class="text-xl font-bold text-blue-400 mt-1">{{ $merchMetrics['outlets_scored_today'] }}</p>
+                                                    <p class="text-[10px] text-brand-white/35">{{ $merchMetrics['coverage_today'] }}% coverage</p>
                                                 </div>
                                                 <div class="p-3 bg-brand-white/5 rounded-xl border border-brand-white/5">
-                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Monthly On-Time</p>
-                                                    <p class="text-xl font-bold text-emerald-400 mt-1">{{ $merchMetrics['on_time_rate'] }}%</p>
-                                                    <p class="text-[10px] text-brand-white/35">{{ $merchMetrics['clockins_month'] }} clock-ins</p>
+                                                    <p class="text-[10px] text-brand-white/40 uppercase tracking-wider">Visit Time Today</p>
+                                                    <p class="text-xl font-bold text-emerald-400 mt-1">{{ $merchMetrics['total_visit_minutes_today'] }} min</p>
+                                                    <p class="text-[10px] text-brand-white/35">tracked visit duration</p>
                                                 </div>
                                             </div>
                                             <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] p-4">
@@ -625,10 +646,11 @@
                                                 </div>
                                                 <div class="mt-3 h-2 overflow-hidden rounded-full bg-brand-white/10">
                                                     @php
-                                                        $coveragePercent = $merchMetrics['total_outlets'] > 0 ? min(100, round(($merchMetrics['outlets_covered_month'] / $merchMetrics['total_outlets']) * 100)) : 0;
+                                                        $coveragePercent = (float) ($merchMetrics['monthly_coverage_rate'] ?? 0);
                                                     @endphp
                                                     <div class="h-full rounded-full bg-brand-red" style="width: {{ $coveragePercent }}%"></div>
                                                 </div>
+                                                <p class="mt-2 text-[10px] text-brand-white/35">{{ $coveragePercent }}% of {{ $merchMetrics['registered_outlets'] }} registered outlets this month</p>
                                             </div>
                                             <div class="space-y-2">
                                                 <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">Outlet coverage snapshot</h4>
@@ -637,9 +659,33 @@
                                                 </div>
                                             </div>
                                             <div class="space-y-2">
-                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">🕒 Daily Punctuality Velocity</h4>
+                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">7-day route execution</h4>
                                                 <div class="h-[120px]">
                                                     <canvas id="punctualityChart"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">7-day coverage trend</h4>
+                                                <div class="h-[120px]">
+                                                    <canvas id="dailyCoverageTrendChart"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">Today's execution funnel</h4>
+                                                <div class="h-[130px]">
+                                                    <canvas id="visitFunnelChart"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">Live visit state</h4>
+                                                <div class="h-[130px]">
+                                                    <canvas id="visitStateChart"></canvas>
+                                                </div>
+                                            </div>
+                                            <div class="space-y-2">
+                                                <h4 class="text-[10px] uppercase tracking-wider text-brand-white/60 font-semibold">7-day visit minutes</h4>
+                                                <div class="h-[120px]">
+                                                    <canvas id="visitMinutesChart"></canvas>
                                                 </div>
                                             </div>
                                         </div>
@@ -1549,8 +1595,13 @@
         document.addEventListener("DOMContentLoaded", function () {
             var ctxPunctual = document.getElementById('punctualityChart');
             var ctxOutletCoverage = document.getElementById('outletCoverageChart');
+            var ctxDailyCoverageTrend = document.getElementById('dailyCoverageTrendChart');
+            var ctxVisitFunnel = document.getElementById('visitFunnelChart');
+            var ctxVisitState = document.getElementById('visitStateChart');
+            var ctxVisitMinutes = document.getElementById('visitMinutesChart');
+            var dailyPerformance = @json($dailyPerformanceChart);
 
-            if (!ctxPunctual && !ctxOutletCoverage) {
+            if (!ctxPunctual && !ctxOutletCoverage && !ctxDailyCoverageTrend && !ctxVisitFunnel && !ctxVisitState && !ctxVisitMinutes) {
                 return;
             }
 
@@ -1564,24 +1615,66 @@
                 new Chart(ctxPunctual, {
                     type: 'bar',
                     data: {
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-                        datasets: [{
-                            data: [15, -5, 8, 20, 10],
-                            backgroundColor: function(context) {
-                                var val = context.raw;
-                                return val >= 0 ? '#10b981' : '#e21c1e';
+                        labels: dailyPerformance.labels || [],
+                        datasets: [
+                            {
+                                label: 'Scheduled',
+                                data: dailyPerformance.scheduled || [],
+                                backgroundColor: 'rgba(148,163,184,.42)',
+                                borderColor: 'rgba(148,163,184,.8)',
+                                borderWidth: 1,
+                                borderRadius: 4
                             },
-                            borderRadius: 4
-                        }]
+                            {
+                                label: 'Clocked',
+                                data: dailyPerformance.clocked || [],
+                                backgroundColor: 'rgba(16,185,129,.55)',
+                                borderColor: '#10b981',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'Scored',
+                                data: dailyPerformance.scored || [],
+                                backgroundColor: 'rgba(56,189,248,.55)',
+                                borderColor: '#38bdf8',
+                                borderWidth: 1,
+                                borderRadius: 4
+                            },
+                            {
+                                type: 'line',
+                                label: 'Coverage %',
+                                data: dailyPerformance.coverage || [],
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245,158,11,.14)',
+                                borderWidth: 2,
+                                tension: .35,
+                                yAxisID: 'percentage'
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 10, font: { size: 9 } }
+                            }
+                        },
                         scales: {
                             y: {
+                                beginAtZero: true,
                                 grid: { color: 'rgba(128, 128, 128, 0.1)' },
+                                precision: 0,
                                 ticks: { font: { size: 9 } }
+                            },
+                            percentage: {
+                                beginAtZero: true,
+                                max: 100,
+                                position: 'right',
+                                grid: { drawOnChartArea: false },
+                                ticks: { font: { size: 9 }, callback: value => value + '%' }
                             },
                             x: { grid: { display: false }, ticks: { font: { size: 9 } } }
                         }
@@ -1593,14 +1686,14 @@
                 new Chart(ctxOutletCoverage, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Visited today', 'Pending outlets', 'Clock-ins today'],
+                        labels: ['Scored', 'Clocked not scored', 'Not covered'],
                         datasets: [{
                             data: [
-                                {{ (int) ($merchMetrics['outlets_visited_today'] ?? 0) }},
-                                {{ (int) ($merchMetrics['pending_outlets_today'] ?? 0) }},
-                                {{ (int) ($merchMetrics['clockins_today'] ?? 0) }}
+                                {{ (int) ($merchMetrics['outlets_scored_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['clocked_not_scored_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['not_covered_today'] ?? 0) }}
                             ],
-                            backgroundColor: ['#10b981', '#f59e0b', '#38bdf8'],
+                            backgroundColor: ['#38bdf8', '#10b981', '#f59e0b'],
                             borderColor: 'rgba(255,255,255,0.08)',
                             borderWidth: 1
                         }]
@@ -1615,6 +1708,119 @@
                             }
                         },
                         cutout: '62%'
+                    }
+                });
+            }
+
+            if (ctxDailyCoverageTrend) {
+                new Chart(ctxDailyCoverageTrend, {
+                    type: 'line',
+                    data: {
+                        labels: dailyPerformance.labels || [],
+                        datasets: [{
+                            label: 'Coverage %',
+                            data: dailyPerformance.coverage || [],
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239,68,68,.16)',
+                            fill: true,
+                            tension: .35,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#ef4444'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, max: 100, ticks: { font: { size: 9 }, callback: value => value + '%' } },
+                            x: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            if (ctxVisitFunnel) {
+                new Chart(ctxVisitFunnel, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Assigned', 'Clocked', 'Scored', 'Not covered'],
+                        datasets: [{
+                            label: 'Outlets',
+                            data: [
+                                {{ (int) ($merchMetrics['assigned_outlets_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['outlets_visited_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['outlets_scored_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['not_covered_today'] ?? 0) }}
+                            ],
+                            backgroundColor: ['rgba(148,163,184,.62)', 'rgba(16,185,129,.62)', 'rgba(56,189,248,.62)', 'rgba(245,158,11,.62)'],
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, precision: 0, ticks: { font: { size: 9 } } },
+                            x: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            if (ctxVisitState) {
+                new Chart(ctxVisitState, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Active visits', 'Clocked out', 'Not covered'],
+                        datasets: [{
+                            data: [
+                                {{ (int) ($merchMetrics['active_outlet_clockins_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['closed_outlet_clockins_today'] ?? 0) }},
+                                {{ (int) ($merchMetrics['not_covered_today'] ?? 0) }}
+                            ],
+                            backgroundColor: ['#f59e0b', '#10b981', 'rgba(148,163,184,.5)'],
+                            borderColor: 'rgba(255,255,255,0.08)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 10, font: { size: 10 } }
+                            }
+                        },
+                        cutout: '62%'
+                    }
+                });
+            }
+
+            if (ctxVisitMinutes) {
+                new Chart(ctxVisitMinutes, {
+                    type: 'bar',
+                    data: {
+                        labels: dailyPerformance.labels || [],
+                        datasets: [{
+                            label: 'Visit minutes',
+                            data: dailyPerformance.visit_minutes || [],
+                            backgroundColor: 'rgba(239,68,68,.58)',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { font: { size: 9 } } },
+                            x: { grid: { display: false }, ticks: { font: { size: 9 } } }
+                        }
                     }
                 });
             }
@@ -1760,24 +1966,25 @@
                 }
             };
 
-            document.querySelectorAll('[data-clock-in-form]').forEach((form) => {
+            document.querySelectorAll('[data-clock-form], [data-clock-in-form]').forEach((form) => {
                 form.addEventListener('submit', (event) => {
                     const token = `clock-${Date.now()}-${Math.random().toString(36).slice(2)}`;
                     ensureHidden(form, 'client_recorded_at', new Date().toISOString());
                     ensureHidden(form, 'sync_token', token);
                     ensureHidden(form, 'sync_source', navigator.onLine ? 'live' : 'queued');
 
-                    const button = form.querySelector('[data-clock-in-submit]');
+                    const button = form.querySelector('[data-clock-submit], [data-clock-in-submit]');
                     if (button) {
                         button.disabled = true;
                         button.classList.add('opacity-60', 'cursor-not-allowed');
-                        button.innerHTML = navigator.onLine ? 'Clocking In...' : 'Saved Offline';
+                        const verb = form.dataset.clockVerb || 'Clocking in';
+                        button.innerHTML = navigator.onLine ? `${verb}...` : 'Saved Offline';
                     }
 
                     if (!navigator.onLine) {
                         event.preventDefault();
                         queueClockIn(form);
-                        alert('Clock-in saved on this device. It will sync automatically when your internet connection returns.');
+                        alert('Outlet clock action saved on this device. It will sync automatically when your internet connection returns.');
                     }
                 });
             });

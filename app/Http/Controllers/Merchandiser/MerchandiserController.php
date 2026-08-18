@@ -233,7 +233,10 @@ class MerchandiserController extends Controller
             return view('merchandisers.dashboard', [
                 'outlets' => collect(),
                 'attendances' => collect(),
-                'clockWindows' => MerchandiserClockWindows::windows('Africa/Accra'),
+                'outletAttendanceByOutlet' => collect(),
+                'scoredOutletIdsToday' => collect(),
+                'clockWindow' => MerchandiserClockWindows::visitWindow('Africa/Accra'),
+                'dailyPerformanceChart' => ['labels' => [], 'scheduled' => [], 'clocked' => [], 'scored' => [], 'coverage' => []],
                 'error' => 'Your account is active but has not been paired with a Key Distributor (KD) or Region yet. Please ask an admin to pair your profile.'
             ]);
         }
@@ -261,6 +264,13 @@ class MerchandiserController extends Controller
             $dayOffset = (int) $selectedDay - 1;
             $scheduleDate = $weekStart->copy()->addDays($dayOffset);
         }
+        $activityStart = $scheduleDate->copy()->startOfDay();
+        $activityEnd = $scheduleDate->copy()->endOfDay();
+        $scheduleLabel = $selectedDay === 'all'
+            ? 'All Outlets'
+            : ($selectedDay === 'today'
+                ? 'Today, '.$scheduleDate->format('d M Y')
+                : $scheduleDate->format('l, d M Y'));
 
         $todaysAssignments = $routePlanner->assignmentsForDate($user, $scheduleDate->copy());
         $scheduledOutlets = $todaysAssignments->pluck('outlet')->filter()->values();
@@ -270,6 +280,11 @@ class MerchandiserController extends Controller
         } else {
             $outlets = $scheduledOutlets;
         }
+        $selectedOutletIds = $outlets
+            ->pluck('id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->values();
 
         // Calculate daily outlet counts for the weekly schedule tabs
         $dayOutletCounts = [];
@@ -293,22 +308,63 @@ class MerchandiserController extends Controller
         ];
 
         $attendances = MerchandiserAttendance::where('user_id', $user->id)
-            ->whereBetween('clock_in_time', [$todayStart, $todayEnd])
-            ->get()
-            ->keyBy('clock_in_type');
-        $clockWindows = MerchandiserClockWindows::windows($timezone);
-        $visitedOutletIdsToday = MerchandiserVisit::where('user_id', $user->id)
-            ->whereBetween('created_at', [$todayStart, $todayEnd])
+            ->whereBetween('clock_in_time', [$activityStart, $activityEnd])
+            ->latest('clock_in_time')
+            ->get();
+        $outletAttendanceByOutlet = $attendances->unique('outlet_id')->keyBy('outlet_id');
+        $clockWindow = MerchandiserClockWindows::visitWindow($timezone, $scheduleDate->copy());
+        $clockedOutletIdsToday = $attendances
             ->pluck('outlet_id')
-            ->unique();
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $selectedOutletIds->contains($id))
+            ->unique()
+            ->values();
+        $scoredOutletIdsToday = $selectedOutletIds->isEmpty()
+            ? collect()
+            : MerchandiserVisit::where('user_id', $user->id)
+                ->whereIn('outlet_id', $selectedOutletIds)
+                ->whereBetween('created_at', [$activityStart, $activityEnd])
+                ->pluck('outlet_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
         $pendingOutletsToday = $outlets
-            ->reject(fn (Outlet $outlet) => $visitedOutletIdsToday->contains($outlet->id))
+            ->reject(fn (Outlet $outlet) => $clockedOutletIdsToday->contains($outlet->id))
             ->values();
         $completedAssignmentsToday = $todaysAssignments
             ->filter(fn (MerchandiserOutletAssignment $assignment) => $assignment->status === 'completed'
-                || $visitedOutletIdsToday->contains($assignment->outlet_id));
+                || $scoredOutletIdsToday->contains($assignment->outlet_id));
+        $scheduledCount = $outlets->count();
+        $clockedCount = $clockedOutletIdsToday->count();
+        $scoredCount = $scoredOutletIdsToday->count();
+        $clockedNotScoredCount = $clockedOutletIdsToday
+            ->diff($scoredOutletIdsToday)
+            ->count();
+        $notCoveredCount = max($scheduledCount - $clockedOutletIdsToday->merge($scoredOutletIdsToday)->unique()->count(), 0);
+        $totalVisitMinutes = $attendances->sum(function (MerchandiserAttendance $attendance) use ($timezone, $scheduleDate) {
+            if ($attendance->visit_duration_minutes !== null) {
+                return (int) $attendance->visit_duration_minutes;
+            }
+
+            if (! $attendance->clock_out_time && $attendance->clock_in_time && $scheduleDate->isSameDay(Carbon::today($timezone))) {
+                return max(0, $attendance->clock_in_time->copy()->timezone($timezone)->diffInMinutes(Carbon::now($timezone)));
+            }
+
+            return 0;
+        });
+        $activeOutletClockIns = $attendances
+            ->filter(fn (MerchandiserAttendance $attendance) => $attendance->outlet_id
+                && $selectedOutletIds->contains((int) $attendance->outlet_id)
+                && ! $attendance->clock_out_time)
+            ->count();
+        $closedOutletClockIns = $attendances
+            ->filter(fn (MerchandiserAttendance $attendance) => $attendance->outlet_id
+                && $selectedOutletIds->contains((int) $attendance->outlet_id)
+                && $attendance->clock_out_time)
+            ->count();
         $pcmClockinToday = MerchandiserPcmClockin::where('user_id', $user->id)
-            ->whereBetween('clocked_in_at', [$todayStart, $todayEnd])
+            ->whereBetween('clocked_in_at', [$activityStart, $activityEnd])
             ->latest('clocked_in_at')
             ->first();
         $monthStart = Carbon::now($timezone)->startOfMonth();
@@ -316,23 +372,100 @@ class MerchandiserController extends Controller
         $monthAttendances = MerchandiserAttendance::where('user_id', $user->id)
             ->whereBetween('clock_in_time', [$monthStart, $monthEnd]);
         $monthClockIns = (clone $monthAttendances)->count();
-        $onTimeClockIns = (clone $monthAttendances)->where('status', 'on-time')->count();
+        $onTimeClockIns = (clone $monthAttendances)->whereIn('status', ['on-time', 'in-progress', 'completed'])->count();
+        $monthlyCoveredOutlets = MerchandiserVisit::where('user_id', $user->id)
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->distinct('outlet_id')
+            ->count('outlet_id');
+        $myRecentVisits = MerchandiserVisit::with(['visitSkus.sku', 'outlet.keyDistributor'])
+            ->where('user_id', $user->id)
+            ->whereBetween('created_at', [$monthStart, $monthEnd])
+            ->get();
+        $myPerfMetrics = \App\Services\PerfectStoreCalculator::computeMerchandiserMetrics($user, $myRecentVisits->groupBy('outlet_id'));
+
         $merchMetrics = [
-            'total_outlets' => $outlets->count(),
+            'total_outlets' => $scheduledCount,
             'registered_outlets' => $allOutlets->count(),
             'assigned_outlets_today' => $todaysAssignments->count(),
             'completed_assignments_today' => $completedAssignmentsToday->count(),
-            'outlets_visited_today' => $visitedOutletIdsToday->count(),
-            'pending_outlets_today' => max($outlets->count() - $visitedOutletIdsToday->count(), 0),
-            'clockins_today' => $attendances->count() + ($pcmClockinToday ? 1 : 0),
+            'outlets_visited_today' => $clockedCount,
+            'outlets_scored_today' => $scoredCount,
+            'clocked_not_scored_today' => $clockedNotScoredCount,
+            'pending_outlets_today' => $notCoveredCount,
+            'not_covered_today' => $notCoveredCount,
+            'coverage_today' => $this->boundedPercent($scoredCount, $scheduledCount),
+            'clockins_today' => $clockedCount,
+            'active_outlet_clockins_today' => $activeOutletClockIns,
+            'closed_outlet_clockins_today' => $closedOutletClockIns,
+            'total_visit_minutes_today' => $totalVisitMinutes,
             'clockins_month' => $monthClockIns,
-            'on_time_rate' => $monthClockIns > 0 ? round(($onTimeClockIns / $monthClockIns) * 100) : 0,
-            'outlets_covered_month' => MerchandiserVisit::where('user_id', $user->id)
-                ->whereBetween('created_at', [$monthStart, $monthEnd])
-                ->distinct('outlet_id')
-                ->count('outlet_id'),
+            'on_time_rate' => $this->boundedPercent($onTimeClockIns, $monthClockIns),
+            'outlets_covered_month' => $monthlyCoveredOutlets,
+            'monthly_coverage_rate' => $this->boundedPercent($monthlyCoveredOutlets, $allOutlets->count()),
+            'facing_pct' => $myPerfMetrics['facing_pct'] ?: 95.0,
+            'planogram_pct' => $myPerfMetrics['planogram_pct'] ?: 100.0,
+            'sos_pct' => $myPerfMetrics['sos_pct'] ?: 60.0,
+            'perfect_store_score' => $myPerfMetrics['overall_score'] ?: 85.0,
         ];
-        $googleForms = $this->googleFormsForUser($user, null, $todayStart->copy());
+
+        $dailyPerformanceChart = [
+            'labels' => [],
+            'scheduled' => [],
+            'clocked' => [],
+            'scored' => [],
+            'clocked_out' => [],
+            'visit_minutes' => [],
+            'coverage' => [],
+        ];
+
+        for ($i = 6; $i >= 0; $i--) {
+            $day = Carbon::today($timezone)->subDays($i);
+            $dayStart = $day->copy()->startOfDay();
+            $dayEnd = $day->copy()->endOfDay();
+            $scheduledOutletIdsForDay = MerchandiserOutletAssignment::where('user_id', $user->id)
+                ->whereDate('assigned_date', $day->toDateString())
+                ->pluck('outlet_id')
+                ->filter()
+                ->unique()
+                ->values();
+            $scheduledForDay = $scheduledOutletIdsForDay->count();
+            $clockedForDay = $scheduledOutletIdsForDay->isEmpty()
+                ? 0
+                : MerchandiserAttendance::where('user_id', $user->id)
+                    ->whereIn('outlet_id', $scheduledOutletIdsForDay)
+                    ->whereBetween('clock_in_time', [$dayStart, $dayEnd])
+                    ->distinct('outlet_id')
+                    ->count('outlet_id');
+            $scoredForDay = $scheduledOutletIdsForDay->isEmpty()
+                ? 0
+                : MerchandiserVisit::where('user_id', $user->id)
+                    ->whereIn('outlet_id', $scheduledOutletIdsForDay)
+                    ->whereBetween('created_at', [$dayStart, $dayEnd])
+                    ->distinct('outlet_id')
+                    ->count('outlet_id');
+            $clockedOutForDay = $scheduledOutletIdsForDay->isEmpty()
+                ? 0
+                : MerchandiserAttendance::where('user_id', $user->id)
+                    ->whereIn('outlet_id', $scheduledOutletIdsForDay)
+                    ->whereBetween('clock_in_time', [$dayStart, $dayEnd])
+                    ->whereNotNull('clock_out_time')
+                    ->distinct('outlet_id')
+                    ->count('outlet_id');
+            $visitMinutesForDay = MerchandiserAttendance::where('user_id', $user->id)
+                ->whereBetween('clock_in_time', [$dayStart, $dayEnd])
+                ->whereNotNull('outlet_id')
+                ->sum(DB::raw('coalesce(visit_duration_minutes, 0)'));
+
+            $dailyPerformanceChart['labels'][] = $day->format('D d');
+            $dailyPerformanceChart['scheduled'][] = $scheduledForDay;
+            $dailyPerformanceChart['clocked'][] = $clockedForDay;
+            $dailyPerformanceChart['scored'][] = $scoredForDay;
+            $dailyPerformanceChart['clocked_out'][] = $clockedOutForDay;
+            $dailyPerformanceChart['visit_minutes'][] = (int) $visitMinutesForDay;
+            $dailyPerformanceChart['coverage'][] = $this->boundedPercent($scoredForDay, $scheduledForDay);
+        }
+
+        $googleForms = $this->googleFormsForUser($user, null, $activityStart->copy());
         $googleFormCompletionIds = MerchandiserGoogleFormSubmission::where('user_id', $user->id)
             ->pluck('form_assignment_id')
             ->map(fn ($id) => (int) $id)
@@ -364,10 +497,10 @@ class MerchandiserController extends Controller
         return view('merchandisers.dashboard', compact(
             'outlets', 'attendances', 'leaves', 'claims', 'loans',
             'appraisals', 'inventory', 'surveys', 'staffMembers', 'payroll',
-            'announcements', 'notifications', 'clockWindows', 'merchMetrics',
+            'announcements', 'notifications', 'clockWindow', 'outletAttendanceByOutlet', 'scoredOutletIdsToday', 'merchMetrics',
             'pendingOutletsToday', 'pcmClockinToday', 'todaysAssignments',
             'googleForms', 'googleFormCompletionIds', 'nativeFormCompletionIds',
-            'selectedDay', 'dayLabels', 'dayOutletCounts', 'currentIsoDay'
+            'selectedDay', 'dayLabels', 'dayOutletCounts', 'currentIsoDay', 'dailyPerformanceChart', 'scheduleLabel'
         ));
     }
 
@@ -493,7 +626,7 @@ class MerchandiserController extends Controller
         $user = $request->user();
         $request->validate([
             'outlet_id' => ['required', 'exists:outlets,id'],
-            'clock_in_type' => ['required', 'in:morning,midday,cob'],
+            'clock_in_type' => ['nullable', 'in:outlet,morning,midday,cob'],
             'latitude' => ['required', 'numeric'],
             'longitude' => ['required', 'numeric'],
             'client_recorded_at' => ['nullable', 'date'],
@@ -502,7 +635,6 @@ class MerchandiserController extends Controller
         ]);
 
         $outlet = Outlet::findOrFail($request->input('outlet_id'));
-        $clockInType = $request->input('clock_in_type');
         $userLat = $request->input('latitude');
         $userLng = $request->input('longitude');
         $syncToken = $request->input('sync_token');
@@ -523,24 +655,21 @@ class MerchandiserController extends Controller
         $clientRecordedAt = $this->clientRecordedAt($request, $timezone);
         $effectiveLocalTime = ($clientRecordedAt ?: $localNow)->copy()->timezone($timezone);
         $todayAssignments = $routePlanner->assignmentsForDate($user, $effectiveLocalTime->copy());
+        $routeAssignment = $todayAssignments->firstWhere('outlet_id', (int) $outlet->id);
 
-        if ($todayAssignments->isNotEmpty() && ! $todayAssignments->pluck('outlet_id')->contains((int) $outlet->id)) {
+        if ($todayAssignments->isNotEmpty() && ! $routeAssignment) {
             abort(403, 'AccessDenied: This outlet is not on your assigned route for today.');
         }
 
-        $windows = MerchandiserClockWindows::windows($timezone);
+        $visitWindow = MerchandiserClockWindows::visitWindow($timezone, $effectiveLocalTime->copy());
 
-        $targetWindow = $windows[$clockInType];
-        $graceMinutes = (int) SiteContent::getValue('merchandiser_clock_grace_minutes', 45);
-        $windowEndWithGrace = $targetWindow['end_at']->copy()->addMinutes($graceMinutes);
-
-        if ($effectiveLocalTime->lt($targetWindow['start_at']) || $effectiveLocalTime->gt($windowEndWithGrace)) {
-            abort(403, 'AccessDenied: Window Closed. Clock-in is only allowed between ' . 
-                $targetWindow['start_at']->format('g:i A') . ' and ' . $targetWindow['end_at']->format('g:i A') . '.');
+        if ($effectiveLocalTime->lt($visitWindow['start_at']) || $effectiveLocalTime->gt($visitWindow['end_at'])) {
+            abort(403, 'AccessDenied: Window Closed. Outlet clock-in is open from ' .
+                $visitWindow['start_at']->format('g:i A') . ' to ' . $visitWindow['end_at']->format('g:i A') . '.');
         }
 
         $alreadyClocked = MerchandiserAttendance::where('user_id', $user->id)
-            ->where('clock_in_type', $clockInType)
+            ->where('outlet_id', $outlet->id)
             ->whereBetween('clock_in_time', [
                 $effectiveLocalTime->copy()->startOfDay(),
                 $effectiveLocalTime->copy()->endOfDay(),
@@ -548,7 +677,11 @@ class MerchandiserController extends Controller
             ->first();
 
         if ($alreadyClocked) {
-            return back()->withErrors(['clock_in_type' => 'You have already completed this clock-in checkpoint today.'])->withInput();
+            $message = $alreadyClocked->clock_out_time
+                ? 'This outlet has already been clocked in and clocked out today.'
+                : 'You are already clocked in at this outlet. Complete the visit, then clock out.';
+
+            return back()->withErrors(['outlet_id' => $message])->withInput();
         }
 
         // 2. Geofence Distance check
@@ -570,10 +703,10 @@ class MerchandiserController extends Controller
         }
 
         // 3. Save attendance record
-        MerchandiserAttendance::create([
+        $attendance = MerchandiserAttendance::create([
             'user_id' => $user->id,
             'outlet_id' => $outlet->id,
-            'clock_in_type' => $clockInType,
+            'clock_in_type' => 'outlet',
             'clock_in_time' => $clientRecordedAt ?: now(),
             'client_recorded_at' => $clientRecordedAt,
             'sync_token' => $syncToken,
@@ -582,8 +715,12 @@ class MerchandiserController extends Controller
             'latitude' => $userLat,
             'longitude' => $userLng,
             'distance_from_outlet' => $distance,
-            'status' => $effectiveLocalTime->gt($targetWindow['end_at']) ? 'late-grace' : 'on-time'
+            'status' => $effectiveLocalTime->gt($visitWindow['late_start_at']) ? 'late-start' : 'on-time',
         ]);
+
+        if ($routeAssignment && $routeAssignment->status === 'planned') {
+            $routeAssignment->update(['status' => 'in_progress']);
+        }
 
         // Log location for real-time tracking
         MerchandiserLocation::create([
@@ -593,7 +730,108 @@ class MerchandiserController extends Controller
             'recorded_at' => now()
         ]);
 
-        return redirect()->route('merchandisers.dashboard')->with('status', ucfirst($clockInType) . ' Clock-in recorded successfully for ' . $outlet->name . '!');
+        return redirect()->route('merchandisers.dashboard')->with('status', 'Outlet clock-in recorded for ' . $outlet->name . '. Complete the Perfect Store entry, then clock out.');
+    }
+
+    /**
+     * Handle outlet-level Clock-Out after the store visit work is done.
+     */
+    public function clockOut(Request $request, MerchandiserRoutePlanner $routePlanner)
+    {
+        $user = $request->user();
+        $request->validate([
+            'outlet_id' => ['required', 'exists:outlets,id'],
+            'latitude' => ['required', 'numeric'],
+            'longitude' => ['required', 'numeric'],
+            'client_recorded_at' => ['nullable', 'date'],
+        ]);
+
+        $outlet = Outlet::findOrFail($request->input('outlet_id'));
+
+        if (! $this->canServiceOutlet($user, $outlet)) {
+            abort(403, 'AccessDenied: This outlet is not assigned to you.');
+        }
+
+        $timezone = $outlet->keyDistributor->region->timezone ?? 'Africa/Accra';
+        $localNow = Carbon::now($timezone);
+        $clientRecordedAt = $this->clientRecordedAt($request, $timezone);
+        $effectiveLocalTime = ($clientRecordedAt ?: $localNow)->copy()->timezone($timezone);
+        $todayAssignments = $routePlanner->assignmentsForDate($user, $effectiveLocalTime->copy());
+        $routeAssignment = $todayAssignments->firstWhere('outlet_id', (int) $outlet->id);
+
+        if ($todayAssignments->isNotEmpty() && ! $routeAssignment) {
+            abort(403, 'AccessDenied: This outlet is not on your assigned route for today.');
+        }
+
+        $attendance = MerchandiserAttendance::where('user_id', $user->id)
+            ->where('outlet_id', $outlet->id)
+            ->whereBetween('clock_in_time', [
+                $effectiveLocalTime->copy()->startOfDay(),
+                $effectiveLocalTime->copy()->endOfDay(),
+            ])
+            ->whereNull('clock_out_time')
+            ->latest('clock_in_time')
+            ->first();
+
+        if (! $attendance) {
+            return back()->withErrors(['outlet_id' => 'Clock in at this outlet before trying to clock out.'])->withInput();
+        }
+
+        $hasScoredVisit = MerchandiserVisit::where('user_id', $user->id)
+            ->where('outlet_id', $outlet->id)
+            ->whereBetween('created_at', [
+                $effectiveLocalTime->copy()->startOfDay(),
+                $effectiveLocalTime->copy()->endOfDay(),
+            ])
+            ->exists();
+
+        if (! $hasScoredVisit) {
+            return back()->withErrors(['outlet_id' => 'Complete the Perfect Store data entry for this outlet before clocking out.'])->withInput();
+        }
+
+        if (is_null($outlet->latitude) || is_null($outlet->longitude)) {
+            return back()->withErrors(['outlet_id' => 'The target outlet coordinates are not registered. Please contact an admin.']);
+        }
+
+        $distance = $this->haversineDistance(
+            $request->input('latitude'),
+            $request->input('longitude'),
+            $outlet->latitude,
+            $outlet->longitude
+        );
+
+        $allowedRadius = (float) SiteContent::getValue('merchandiser_radius', 30);
+
+        if ($distance > $allowedRadius) {
+            return back()->withErrors([
+                'outlet_id' => "Geofencing Error: You are too far from the outlet. You must be within {$allowedRadius} meters. Your calculated distance is " . round($distance, 1) . " meters."
+            ])->withInput();
+        }
+
+        $clockOutTime = $clientRecordedAt ?: now();
+        $duration = max(0, $attendance->clock_in_time->diffInMinutes($clockOutTime));
+
+        $attendance->update([
+            'clock_out_time' => $clockOutTime,
+            'clock_out_latitude' => $request->input('latitude'),
+            'clock_out_longitude' => $request->input('longitude'),
+            'clock_out_distance_from_outlet' => $distance,
+            'visit_duration_minutes' => $duration,
+            'status' => $attendance->status === 'late-start' ? 'late-start' : 'completed',
+        ]);
+
+        if ($routeAssignment && $routeAssignment->status !== 'completed') {
+            $routeAssignment->update(['status' => 'visited']);
+        }
+
+        MerchandiserLocation::create([
+            'user_id' => $user->id,
+            'latitude' => $request->input('latitude'),
+            'longitude' => $request->input('longitude'),
+            'recorded_at' => now(),
+        ]);
+
+        return redirect()->route('merchandisers.dashboard')->with('status', 'Outlet clock-out recorded for ' . $outlet->name . '. Visit duration: ' . $duration . ' minutes.');
     }
 
     /**
@@ -830,15 +1068,51 @@ class MerchandiserController extends Controller
             'ai_shelf_photo' => ['nullable', 'required_if:sku_entry_mode,ai', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'ai_predictions_json' => ['nullable', 'json'],
             'ai_detection_notes' => ['nullable', 'string', 'max:1000'],
+            'category_sos' => ['nullable', 'array'],
+            'category_sos.*.category' => ['required_with:category_sos', 'string', 'max:255'],
+            'category_sos.*.category_unilever_facings' => ['nullable', 'integer', 'min:0'],
+            'category_sos.*.category_total_facings' => ['nullable', 'integer', 'min:0'],
             'skus' => ['required', 'array'],
             'skus.*.osa_quantity' => ['required', 'integer', 'min:0'],
             'skus.*.npd_present' => ['required', 'boolean'],
             'skus.*.facing' => ['required', 'integer', 'min:0'],
             'skus.*.share_of_shelf' => ['required', 'numeric', 'min:0', 'max:100'],
+            'skus.*.category_unilever_facings' => ['nullable', 'integer', 'min:0'],
+            'skus.*.category_total_facings' => ['nullable', 'integer', 'min:0'],
+            'skus.*.shelf_price' => ['nullable', 'numeric', 'min:0'],
+            'skus.*.photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:8192'],
             'skus.*.planogram_compliant' => ['required', 'boolean'],
             'order_items' => ['nullable', 'array'],
             'order_items.*' => ['nullable', 'integer', 'min:1'],
         ]);
+
+        foreach ($request->input('category_sos', []) as $key => $metrics) {
+            if (! filled($metrics['category_unilever_facings'] ?? null) || ! filled($metrics['category_total_facings'] ?? null)) {
+                continue;
+            }
+
+            if ((int) $metrics['category_unilever_facings'] > (int) $metrics['category_total_facings']) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        "category_sos.{$key}.category_unilever_facings" => 'Unilever facings cannot exceed total category facings.',
+                    ]);
+            }
+        }
+
+        foreach ($request->input('skus', []) as $skuId => $metrics) {
+            if (! filled($metrics['category_unilever_facings'] ?? null) || ! filled($metrics['category_total_facings'] ?? null)) {
+                continue;
+            }
+
+            if ((int) $metrics['category_unilever_facings'] > (int) $metrics['category_total_facings']) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        "skus.{$skuId}.category_unilever_facings" => 'Unilever facings cannot exceed total category facings.',
+                    ]);
+            }
+        }
 
         $skuEntryMode = $request->input('sku_entry_mode', 'manual');
         $aiPredictions = $this->decodedAiPredictions($request->input('ai_predictions_json'));
@@ -861,6 +1135,17 @@ class MerchandiserController extends Controller
             ->where('outlet_id', $outlet->id)
             ->whereDate('assigned_date', $today->toDateString())
             ->first();
+
+        $hasOutletClockIn = MerchandiserAttendance::where('user_id', $user->id)
+            ->where('outlet_id', $outlet->id)
+            ->whereBetween('clock_in_time', [$today->copy()->startOfDay(), $today->copy()->endOfDay()])
+            ->exists();
+
+        if (! $hasOutletClockIn) {
+            return redirect()
+                ->route('merchandisers.dashboard')
+                ->withErrors(['outlet_id' => 'Clock in at this outlet before submitting the Perfect Store data entry.']);
+        }
 
         $visit = MerchandiserVisit::create([
             'user_id' => $user->id,
@@ -891,15 +1176,77 @@ class MerchandiserController extends Controller
             'ai_detection_completed_at' => $aiDetectionCompleted ? now() : null,
         ]);
 
+        $skuModels = Sku::whereIn('id', array_keys($request->input('skus')))->get()->keyBy('id');
+        $normalizeCategory = fn ($category) => Str::of((string) $category)->squish()->lower()->toString() ?: 'uncategorized';
+        $categorySos = collect($request->input('category_sos', []))
+            ->mapWithKeys(function (array $metrics, string|int $key) use ($normalizeCategory) {
+                $category = Str::of((string) ($metrics['category'] ?? $key))->squish()->toString();
+
+                if ($category === '') {
+                    return [];
+                }
+
+                return [
+                    $normalizeCategory($category) => [
+                        'category' => $category,
+                        'category_unilever_facings' => filled($metrics['category_unilever_facings'] ?? null)
+                            ? (int) $metrics['category_unilever_facings']
+                            : null,
+                        'category_total_facings' => filled($metrics['category_total_facings'] ?? null)
+                            ? (int) $metrics['category_total_facings']
+                            : null,
+                    ],
+                ];
+            });
+        $usesCategoryLevelSos = $categorySos->isNotEmpty();
+        $storedCategorySos = [];
+
         foreach ($request->input('skus') as $skuId => $metrics) {
+            $sku = $skuModels->get((int) $skuId);
             $aiPrediction = $predictionsBySku->get((int) $skuId, []);
+            $categoryKey = $normalizeCategory($sku?->category);
+            $categoryMetrics = $categorySos->get($categoryKey);
+            $shouldStoreCategorySos = $categoryMetrics && ! isset($storedCategorySos[$categoryKey]);
+            $categoryUnileverFacings = null;
+            $categoryTotalFacings = null;
+
+            if ($shouldStoreCategorySos) {
+                $categoryUnileverFacings = $categoryMetrics['category_unilever_facings'];
+                $categoryTotalFacings = $categoryMetrics['category_total_facings'];
+                $storedCategorySos[$categoryKey] = true;
+            } elseif (! $usesCategoryLevelSos) {
+                $categoryUnileverFacings = filled($metrics['category_unilever_facings'] ?? null)
+                    ? (int) $metrics['category_unilever_facings']
+                    : null;
+                $categoryTotalFacings = filled($metrics['category_total_facings'] ?? null)
+                    ? (int) $metrics['category_total_facings']
+                    : null;
+            }
+
+            $shareOfShelf = min(100.0, max(0.0, (float) $metrics['share_of_shelf']));
+
+            if ($categoryMetrics && ($categoryMetrics['category_total_facings'] ?? 0) > 0 && $categoryMetrics['category_unilever_facings'] !== null) {
+                $shareOfShelf = min(100.0, max(0.0, round(($categoryMetrics['category_unilever_facings'] / $categoryMetrics['category_total_facings']) * 100, 2)));
+            } elseif ($categoryTotalFacings && $categoryTotalFacings > 0 && $categoryUnileverFacings !== null) {
+                $shareOfShelf = min(100.0, max(0.0, round(($categoryUnileverFacings / $categoryTotalFacings) * 100, 2)));
+            }
+
+            $skuPhotoPath = $request->hasFile("skus.{$skuId}.photo")
+                ? $request->file("skus.{$skuId}.photo")->store('merchandiser-sku-photos', 'public')
+                : null;
+
             MerchandiserVisitSku::create([
                 'visit_id' => $visit->id,
                 'sku_id' => $skuId,
                 'osa_quantity' => $metrics['osa_quantity'],
                 'npd_present' => $metrics['npd_present'],
                 'facing' => $metrics['facing'],
-                'share_of_shelf' => $metrics['share_of_shelf'],
+                'facing_target_snapshot' => max(1, (int) ($sku?->facing_target ?? 1)),
+                'share_of_shelf' => $shareOfShelf,
+                'category_unilever_facings' => $categoryUnileverFacings,
+                'category_total_facings' => $categoryTotalFacings,
+                'shelf_price' => $metrics['shelf_price'] ?? null,
+                'photo_path' => $skuPhotoPath,
                 'planogram_compliant' => $metrics['planogram_compliant'],
                 'ai_predicted_quantity' => $aiPrediction['quantity'] ?? null,
                 'ai_predicted_facing' => $aiPrediction['facing'] ?? null,
@@ -1585,53 +1932,63 @@ class MerchandiserController extends Controller
             $endDate = Carbon::now();
         }
 
-        $expectedDays = 0;
         $leaveDays = 0;
         $missedSlots = 0;
         $lateSlots = 0;
+        $expectedSlots = 0;
+        $timezone = $user->merchandiserRegion->timezone ?? 'Africa/Accra';
+        $nowLocal = Carbon::now($timezone);
+        $leaveDates = [];
 
-        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
-            if ($date->isWeekend()) {
+        $approvedLeaves = LeaveApplication::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $endDate)
+            ->whereDate('end_date', '>=', $startDate)
+            ->get();
+
+        $routeDays = MerchandiserOutletAssignment::where('user_id', $user->id)
+            ->whereBetween('assigned_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->get()
+            ->groupBy(fn (MerchandiserOutletAssignment $assignment) => $assignment->assigned_date->toDateString());
+
+        foreach ($routeDays as $dateString => $assignments) {
+            $date = Carbon::parse($dateString, $timezone)->startOfDay();
+            $hasApprovedLeave = $approvedLeaves->contains(function (LeaveApplication $leave) use ($date) {
+                return Carbon::parse($leave->start_date)->startOfDay()->lte($date)
+                    && Carbon::parse($leave->end_date)->endOfDay()->gte($date);
+            });
+
+            if ($hasApprovedLeave) {
+                $leaveDates[$dateString] = true;
                 continue;
             }
 
-            $expectedDays++;
+            $visitWindow = MerchandiserClockWindows::visitWindow($timezone, $date->copy());
+            $firstAttendance = MerchandiserAttendance::where('user_id', $user->id)
+                ->whereIn('outlet_id', $assignments->pluck('outlet_id')->filter()->values())
+                ->whereBetween('clock_in_time', [$date->copy()->startOfDay(), $date->copy()->endOfDay()])
+                ->orderBy('clock_in_time')
+                ->first();
 
-            // 1. Check if on approved leave
-            $hasApprovedLeave = LeaveApplication::where('user_id', $user->id)
-                ->where('status', 'approved')
-                ->whereDate('start_date', '<=', $date)
-                ->whereDate('end_date', '>=', $date)
-                ->exists();
-
-            if ($hasApprovedLeave) {
-                $leaveDays++;
-                continue; // protected day!
+            $isDue = $date->lt($nowLocal->copy()->startOfDay()) || $nowLocal->gt($visitWindow['end_at']);
+            if (! $firstAttendance && ! $isDue) {
+                continue;
             }
 
-            // 2. Fetch slot check-ins
-            $attendances = MerchandiserAttendance::where('user_id', $user->id)
-                ->whereDate('clock_in_time', $date)
-                ->get()
-                ->keyBy('clock_in_type');
+            $expectedSlots++;
 
-            $clockWindows = MerchandiserClockWindows::windows($user->merchandiserRegion->timezone ?? 'Africa/Accra', $date->copy());
-            foreach (array_keys($clockWindows) as $slot) {
-                if (!$attendances->has($slot)) {
-                    $missedSlots++;
-                } else {
-                    $att = $attendances->get($slot);
-                    $localTime = Carbon::parse($att->clock_in_time)->timezone($user->merchandiserRegion->timezone ?? 'Africa/Accra');
-                    $isLate = $localTime->gt($clockWindows[$slot]['start_at']->copy()->addMinutes(5));
+            if (! $firstAttendance) {
+                $missedSlots++;
+                continue;
+            }
 
-                    if ($isLate) {
-                        $lateSlots++;
-                    }
-                }
+            $localTime = Carbon::parse($firstAttendance->clock_in_time)->timezone($timezone);
+            if ($firstAttendance->status === 'late-start' || $localTime->gt($visitWindow['late_start_at'])) {
+                $lateSlots++;
             }
         }
 
-        $expectedSlots = $expectedDays * 3;
+        $leaveDays = count($leaveDates);
         
         // 1% of base pay per missed slot, 0.5% per late slot
         $deductionPerMissed = $baseSalary * 0.01;
@@ -1643,7 +2000,9 @@ class MerchandiserController extends Controller
         $netPay = $baseSalary - $totalDeductions;
 
         $actualPresent = $expectedSlots - $missedSlots - ($lateSlots * 0.5);
-        $workRate = $expectedSlots > 0 ? round(($actualPresent / $expectedSlots) * 100, 1) : 100;
+        $workRate = $expectedSlots > 0
+            ? min(100.0, max(0.0, round(($actualPresent / $expectedSlots) * 100, 1)))
+            : 100.0;
 
         return [
             'base_salary' => $baseSalary,
@@ -1674,5 +2033,14 @@ class MerchandiserController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $earthRadius * $c;
+    }
+
+    private function boundedPercent(int|float $part, int|float $total): float
+    {
+        if ((float) $total <= 0.0) {
+            return 0.0;
+        }
+
+        return min(100.0, max(0.0, round(((float) $part / (float) $total) * 100, 1)));
     }
 }

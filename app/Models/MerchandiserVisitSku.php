@@ -14,7 +14,9 @@ class MerchandiserVisitSku extends Model
 
     protected $fillable = [
         'visit_id', 'sku_id', 'osa_quantity', 'npd_present',
-        'facing', 'share_of_shelf', 'planogram_compliant',
+        'facing', 'facing_target_snapshot', 'share_of_shelf',
+        'category_unilever_facings', 'category_total_facings',
+        'shelf_price', 'photo_path', 'planogram_compliant',
         'ai_predicted_quantity', 'ai_predicted_facing',
         'ai_predicted_share_of_shelf', 'ai_predicted_planogram_compliant',
         'ai_confidence', 'ai_detection_boxes', 'ai_raw_detection',
@@ -23,7 +25,11 @@ class MerchandiserVisitSku extends Model
     protected $casts = [
         'npd_present' => 'boolean',
         'planogram_compliant' => 'boolean',
+        'facing_target_snapshot' => 'integer',
         'share_of_shelf' => 'decimal:2',
+        'category_unilever_facings' => 'integer',
+        'category_total_facings' => 'integer',
+        'shelf_price' => 'decimal:2',
         'ai_predicted_planogram_compliant' => 'boolean',
         'ai_predicted_share_of_shelf' => 'decimal:2',
         'ai_confidence' => 'decimal:2',

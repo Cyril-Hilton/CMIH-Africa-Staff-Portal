@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @if(in_array($activeAdminTab, ['overview', 'routes'], true))
+    @if(in_array($activeAdminTab, ['overview', 'routes', 'executive', 'category-kpi', 'user-performance', 'price-promo'], true))
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     @endif
     @if($activeAdminTab === 'tracking')
@@ -263,6 +263,54 @@
                     <span class="text-lg w-6 text-center">⏱️</span>
                     <span>Clock Settings</span>
                 </button>
+
+                <button @click="window.location.href = @js($adminTabUrl('perfect-store')); sidebarOpen = false"
+                    :class="activeTab === 'perfect-store' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">🎯</span>
+                    <span>Perfect Store KPIs</span>
+                    <span class="ml-auto text-[10px] text-lime-300 font-bold">95% Target</span>
+                </button>
+
+                <div class="px-4 pt-5 pb-1">
+                    <p class="text-[9px] font-bold uppercase tracking-[0.3em] text-brand-ash/60">ShelfWatch Analytics</p>
+                </div>
+
+                <button @click="window.location.href = @js($adminTabUrl('gallery')); sidebarOpen = false"
+                    :class="activeTab === 'gallery' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">📸</span>
+                    <span>Image Gallery</span>
+                    <span class="ml-auto text-[10px] text-brand-ash">{{ $totalImagesCount ?? 0 }}</span>
+                </button>
+
+                <button @click="window.location.href = @js($adminTabUrl('executive')); sidebarOpen = false"
+                    :class="activeTab === 'executive' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">📊</span>
+                    <span>Executive Summary</span>
+                </button>
+
+                <button @click="window.location.href = @js($adminTabUrl('category-kpi')); sidebarOpen = false"
+                    :class="activeTab === 'category-kpi' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">🏷️</span>
+                    <span>Category KPIs</span>
+                </button>
+
+                <button @click="window.location.href = @js($adminTabUrl('user-performance')); sidebarOpen = false"
+                    :class="activeTab === 'user-performance' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">👤</span>
+                    <span>User Performance</span>
+                </button>
+
+                <button @click="window.location.href = @js($adminTabUrl('price-promo')); sidebarOpen = false"
+                    :class="activeTab === 'price-promo' ? 'active' : ''"
+                    class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-sm text-brand-white/70 font-medium">
+                    <span class="text-lg w-6 text-center">💰</span>
+                    <span>Price &amp; Promo</span>
+                </button>
             </nav>
 
             <!-- Logout -->
@@ -299,6 +347,7 @@
                             <p class="text-xs uppercase tracking-[0.2em] font-semibold text-brand-ash hidden sm:block">Merchandiser Admin Hub</p>
                             <p class="text-base font-display text-brand-white" x-text="{
                                 overview: '🏠 Dashboard Overview',
+                                'perfect-store': '🎯 Perfect Store KPI Command Center',
                                 tracking: '🗺️ Live Field Tracking',
                                 kds: '🏢 Key Distributors',
                                 routes: 'Route Planning',
@@ -308,7 +357,12 @@
                                 forms: 'Forms & Planograms',
                                 assets: '📁 Asset Management',
                                 notifications: '🔔 Notifications & Approvals',
-                                settings: '⏱️ Clock Window Settings'
+                                settings: '⏱️ Clock Window Settings',
+                                gallery: '📸 Image Gallery',
+                                executive: '📊 Executive Summary',
+                                'category-kpi': '🏷️ Category Level KPIs',
+                                'user-performance': '👤 User Performance',
+                                'price-promo': '💰 Price & Promo Compliance'
                             }[activeTab]"></p>
                         </div>
                     </div>
@@ -349,6 +403,221 @@
                         </ul>
                     </div>
                 @endif
+
+                <!-- ═══════════════════════════════════════════════════════════
+                     TAB: PERFECT STORE KPI COMMAND CENTER
+                ════════════════════════════════════════════════════════════ -->
+                <div x-show="activeTab === 'perfect-store'" x-transition class="space-y-6">
+                    <!-- KPI Header Cards -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="glass-panel rounded-2xl border border-lime-500/30 bg-lime-500/10 p-5 shadow-xl backdrop-blur-xl">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-lime-300">Facings Compliance</p>
+                                <span class="rounded-full border border-lime-400/30 bg-lime-500/20 px-2.5 py-0.5 text-[9px] font-bold text-lime-200">Target 95%</span>
+                            </div>
+                            <p class="mt-3 text-3xl font-display text-brand-white">{{ number_format($perfectOverview['facing'] ?? 0, 1) }}%</p>
+                            <div class="mt-3 h-2 w-full rounded-full bg-brand-black/60 overflow-hidden border border-brand-white/10">
+                                <div class="h-full bg-lime-400 transition-all duration-500" style="width: {{ min(100, $perfectOverview['facing'] ?? 0) }}%"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-brand-white/60">Actual vs target facings recorded per SKU</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 shadow-xl backdrop-blur-xl">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">Planogram Alignment</p>
+                                <span class="rounded-full border border-cyan-400/30 bg-cyan-500/20 px-2.5 py-0.5 text-[9px] font-bold text-cyan-200">Target 100%</span>
+                            </div>
+                            <p class="mt-3 text-3xl font-display text-brand-white">{{ number_format($perfectOverview['planogram'] ?? 0, 1) }}%</p>
+                            <div class="mt-3 h-2 w-full rounded-full bg-brand-black/60 overflow-hidden border border-brand-white/10">
+                                <div class="h-full bg-cyan-400 transition-all duration-500" style="width: {{ min(100, $perfectOverview['planogram'] ?? 0) }}%"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-brand-white/60">Compliant SKUs vs total planogram tracked</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-pink-500/30 bg-pink-500/10 p-5 shadow-xl backdrop-blur-xl">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-pink-300">Share of Shelf (SOS)</p>
+                                <span class="rounded-full border border-pink-400/30 bg-pink-500/20 px-2.5 py-0.5 text-[9px] font-bold text-pink-200">Category Share</span>
+                            </div>
+                            <p class="mt-3 text-3xl font-display text-brand-white">{{ number_format($perfectOverview['sos'] ?? 0, 1) }}%</p>
+                            <div class="mt-3 h-2 w-full rounded-full bg-brand-black/60 overflow-hidden border border-brand-white/10">
+                                <div class="h-full bg-pink-400 transition-all duration-500" style="width: {{ min(100, $perfectOverview['sos'] ?? 0) }}%"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-brand-white/60">Unilever facings vs category total facings</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-xl backdrop-blur-xl">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-300">Perfect Store Rating</p>
+                                <span class="rounded-full border border-emerald-400/30 bg-emerald-500/20 px-2.5 py-0.5 text-[9px] font-bold text-emerald-200">Composite</span>
+                            </div>
+                            <p class="mt-3 text-3xl font-display text-brand-white">{{ number_format($perfectOverview['perfect_store_score'] ?? 0, 1) }}%</p>
+                            <div class="mt-3 h-2 w-full rounded-full bg-brand-black/60 overflow-hidden border border-brand-white/10">
+                                <div class="h-full bg-emerald-400 transition-all duration-500" style="width: {{ min(100, $perfectOverview['perfect_store_score'] ?? 0) }}%"></div>
+                            </div>
+                            <p class="mt-2 text-xs text-brand-white/60">Weighted execution across {{ $perfectOverview['visits'] ?? 0 }} audits</p>
+                        </div>
+                    </div>
+
+                    <!-- Delivery/Transport-Style Milestone Trackers -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 border-b border-brand-white/10 pb-4">
+                            <div>
+                                <h3 class="text-lg font-display text-brand-white tracking-wide uppercase">🚚 Delivery-Style Store Milestone Audit Trackers</h3>
+                                <p class="text-xs text-brand-white/50">Real-time audit progression and compliance checkpoints for store visits.</p>
+                            </div>
+                            <span class="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">
+                                {{ count($perfectStoreMilestones) }} Recent Audits
+                            </span>
+                        </div>
+
+                        <div class="space-y-4">
+                            @forelse($perfectStoreMilestones as $milestone)
+                                @php
+                                    $statusColor = match($milestone['status']) {
+                                        'Perfect Store' => 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+                                        'On Track' => 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+                                        default => 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+                                    };
+                                @endphp
+                                <div class="rounded-xl border border-brand-white/10 bg-brand-black/60 p-4 transition-all duration-200 hover:border-brand-white/20">
+                                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-bold text-brand-white">{{ $milestone['outlet_name'] }}</span>
+                                                <span class="rounded-md border border-brand-white/10 bg-brand-white/5 px-2 py-0.5 text-[10px] text-brand-white/60">{{ $milestone['kd_name'] }}</span>
+                                            </div>
+                                            <p class="text-xs text-brand-white/40 mt-0.5">Field Agent: <strong class="text-brand-white/70">{{ $milestone['merchandiser_name'] }}</strong> &bull; Audited on: {{ $milestone['created_at'] }}</p>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider {{ $statusColor }}">
+                                                {{ $milestone['status'] }}
+                                            </span>
+                                            <span class="text-lg font-bold text-brand-white font-mono">{{ number_format($milestone['overall_score'], 1) }}%</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Milestone Steps Line -->
+                                    <div class="grid grid-cols-5 gap-2 relative border-t border-brand-white/10 pt-4">
+                                        <!-- Step 1: Clock In -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-300 text-xs font-bold mb-1 shadow-lg">✓</div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-white">1. Clock In</span>
+                                            <span class="text-[9px] text-emerald-300">Verified</span>
+                                        </div>
+
+                                        <!-- Step 2: Facings Audit -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div class="w-8 h-8 rounded-full {{ $milestone['facing_pct'] >= 95 ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300' : 'bg-amber-500/20 border-amber-500/50 text-amber-300' }} border flex items-center justify-center text-xs font-bold mb-1 shadow-lg">
+                                                {{ number_format($milestone['facing_pct'], 0) }}%
+                                            </div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-white">2. Facings</span>
+                                            <span class="text-[9px] {{ $milestone['facing_pct'] >= 95 ? 'text-emerald-300' : 'text-amber-300' }}">Target 95%</span>
+                                        </div>
+
+                                        <!-- Step 3: Planogram Check -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div class="w-8 h-8 rounded-full {{ $milestone['planogram_pct'] >= 100 ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-amber-500/20 border-amber-500/50 text-amber-300' }} border flex items-center justify-center text-xs font-bold mb-1 shadow-lg">
+                                                {{ number_format($milestone['planogram_pct'], 0) }}%
+                                            </div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-white">3. Planogram</span>
+                                            <span class="text-[9px] {{ $milestone['planogram_pct'] >= 100 ? 'text-cyan-300' : 'text-amber-300' }}">Target 100%</span>
+                                        </div>
+
+                                        <!-- Step 4: SOS Share -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div class="w-8 h-8 rounded-full bg-pink-500/20 border border-pink-500/50 flex items-center justify-center text-pink-300 text-xs font-bold mb-1 shadow-lg">
+                                                {{ number_format($milestone['sos_pct'], 0) }}%
+                                            </div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-white">4. Share of Shelf</span>
+                                            <span class="text-[9px] text-pink-300">Category Share</span>
+                                        </div>
+
+                                        <!-- Step 5: Sign-Off -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div class="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/50 flex items-center justify-center text-purple-300 text-xs font-bold mb-1 shadow-lg">🏁</div>
+                                            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-white">5. Sign-Off</span>
+                                            <span class="text-[9px] text-purple-300">Recorded</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="py-12 text-center">
+                                    <p class="text-sm text-brand-white/50">No store milestone audits recorded yet for this date range.</p>
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- KD Level Performance Bar Chart -->
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl lg:col-span-2">
+                            <h4 class="text-sm font-bold uppercase tracking-wider text-brand-white mb-1">Key Distributor (KD) Performance Comparison</h4>
+                            <p class="text-xs text-brand-white/50 mb-4">Facings % vs Planogram Compliance % across KDs.</p>
+                            <div class="h-80">
+                                <canvas id="perfectStoreKdBarChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Category SOS Doughnut Chart -->
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+                            <h4 class="text-sm font-bold uppercase tracking-wider text-brand-white mb-1">Category Share of Shelf (SOS)</h4>
+                            <p class="text-xs text-brand-white/50 mb-4">Unilever vs Total Category Facings.</p>
+                            <div class="h-80 flex items-center justify-center">
+                                <canvas id="categorySosDoughnutChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Merchandiser & Supervisor Performance Ranking Table -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+                        <div class="flex items-center justify-between mb-4 border-b border-brand-white/10 pb-3">
+                            <h4 class="text-sm font-bold uppercase tracking-wider text-brand-white">Merchandiser & Supervisor Performance Rankings</h4>
+                            <span class="text-xs text-brand-white/50">{{ count($perfectStoreMerchandiserData) }} Field Agents</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-wider text-brand-ash">
+                                    <tr>
+                                        <th class="pb-3">Merchandiser</th>
+                                        <th class="pb-3">Supervisor</th>
+                                        <th class="pb-3">Key Distributor</th>
+                                        <th class="pb-3 text-center">Stores Audited</th>
+                                        <th class="pb-3 text-right">Facing % (95% Target)</th>
+                                        <th class="pb-3 text-right">Planogram % (100% Target)</th>
+                                        <th class="pb-3 text-right">SOS %</th>
+                                        <th class="pb-3 text-right">Overall Score</th>
+                                        <th class="pb-3 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-brand-white/5">
+                                    @forelse($perfectStoreMerchandiserData as $m)
+                                        <tr class="hover:bg-brand-white/[0.03] transition-colors">
+                                            <td class="py-3 font-semibold text-brand-white">{{ $m['user_name'] }}</td>
+                                            <td class="py-3 text-brand-white/70">{{ $m['supervisor_name'] }}</td>
+                                            <td class="py-3 text-brand-white/70">{{ $m['kd_name'] }}</td>
+                                            <td class="py-3 text-center font-mono font-bold text-brand-white">{{ $m['store_count'] }}</td>
+                                            <td class="py-3 text-right font-mono {{ $m['facing_pct'] >= 95 ? 'text-lime-300 font-bold' : 'text-amber-300' }}">{{ number_format($m['facing_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono {{ $m['planogram_pct'] >= 100 ? 'text-cyan-300 font-bold' : 'text-amber-300' }}">{{ number_format($m['planogram_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono text-pink-300">{{ number_format($m['sos_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono font-bold text-brand-white text-sm">{{ number_format($m['overall_score'], 1) }}%</td>
+                                            <td class="py-3 text-center">
+                                                <span class="rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider {{ match($m['status']) { 'Perfect Store' => 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', 'On Track' => 'border-sky-500/40 bg-sky-500/10 text-sky-300', default => 'border-amber-500/40 bg-amber-500/10 text-amber-300' } }}">
+                                                    {{ $m['status'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="9" class="py-8 text-center text-brand-white/40">No field merchandiser data available for this range.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- ═══════════════════════════════════════════════════════════
                      TAB: OVERVIEW DASHBOARD
@@ -449,6 +718,21 @@
                             <p class="text-3xl font-display text-violet-300">{{ $metricLabel($perfectOverview['mhs'] ?? null) }}</p>
                             <p class="text-xs text-brand-ash mt-1">Must-have SKU compliance</p>
                         </div>
+                        <div class="glass-panel rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Planogram</p>
+                            <p class="text-3xl font-display text-cyan-300">{{ $metricLabel($perfectOverview['planogram'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">Target {{ $perfectTargets['planogram'] ?? 100 }}%</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-lime-500/20 bg-lime-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Facings</p>
+                            <p class="text-3xl font-display text-lime-300">{{ $metricLabel($perfectOverview['facing'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">Target {{ $perfectTargets['facing'] ?? 95 }}%</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-pink-500/20 bg-pink-500/5 p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Share of Shelf</p>
+                            <p class="text-3xl font-display text-pink-300">{{ $metricLabel($perfectOverview['sos'] ?? null) }}</p>
+                            <p class="text-xs text-brand-ash mt-1">Unilever facings vs category</p>
+                        </div>
                         <div class="glass-panel rounded-2xl border border-brand-red/25 bg-brand-red/10 p-5">
                             <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Perfect Store Score</p>
                             <p class="text-3xl font-display text-brand-white">{{ $metricLabel($perfectOverview['perfect_store_score'] ?? 0) }}</p>
@@ -483,7 +767,7 @@
                                 <p class="text-xs uppercase tracking-widest text-brand-ash">Merchandiser Perfect Store Roll-up</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[720px] text-sm">
+                                <table class="w-full min-w-[980px] text-sm">
                                     <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
                                         <tr>
                                             <th class="px-5 py-3 text-left">Name</th>
@@ -491,6 +775,9 @@
                                             <th class="px-5 py-3 text-right">OSA</th>
                                             <th class="px-5 py-3 text-right">NPD</th>
                                             <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Planogram</th>
+                                            <th class="px-5 py-3 text-right">Facings</th>
+                                            <th class="px-5 py-3 text-right">SOS</th>
                                             <th class="px-5 py-3 text-right">Score</th>
                                         </tr>
                                     </thead>
@@ -502,10 +789,13 @@
                                                 <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
                                                 <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
                                                 <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right text-cyan-300">{{ $metricLabel($rollup['planogram']) }}</td>
+                                                <td class="px-5 py-3 text-right text-orange-300">{{ $metricLabel($rollup['facing']) }}</td>
+                                                <td class="px-5 py-3 text-right text-pink-300">{{ $metricLabel($rollup['sos']) }}</td>
                                                 <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No Perfect Store KPI activity in this range yet.</td></tr>
+                                            <tr><td colspan="9" class="px-5 py-8 text-center text-sm text-brand-ash">No Perfect Store KPI activity in this range yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -516,7 +806,7 @@
                                 <p class="text-xs uppercase tracking-widest text-brand-ash">KD Perfect Store Roll-up</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[720px] text-sm">
+                                <table class="w-full min-w-[980px] text-sm">
                                     <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
                                         <tr>
                                             <th class="px-5 py-3 text-left">Key Distributor</th>
@@ -524,6 +814,9 @@
                                             <th class="px-5 py-3 text-right">OSA</th>
                                             <th class="px-5 py-3 text-right">NPD</th>
                                             <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Planogram</th>
+                                            <th class="px-5 py-3 text-right">Facings</th>
+                                            <th class="px-5 py-3 text-right">SOS</th>
                                             <th class="px-5 py-3 text-right">Score</th>
                                         </tr>
                                     </thead>
@@ -535,10 +828,13 @@
                                                 <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
                                                 <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
                                                 <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right text-cyan-300">{{ $metricLabel($rollup['planogram']) }}</td>
+                                                <td class="px-5 py-3 text-right text-orange-300">{{ $metricLabel($rollup['facing']) }}</td>
+                                                <td class="px-5 py-3 text-right text-pink-300">{{ $metricLabel($rollup['sos']) }}</td>
                                                 <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No KD Perfect Store KPI activity in this range yet.</td></tr>
+                                            <tr><td colspan="9" class="px-5 py-8 text-center text-sm text-brand-ash">No KD Perfect Store KPI activity in this range yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -552,7 +848,7 @@
                                 <p class="text-xs uppercase tracking-widest text-brand-ash">Regional KPI Roll-up</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[720px] text-sm">
+                                <table class="w-full min-w-[980px] text-sm">
                                     <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
                                         <tr>
                                             <th class="px-5 py-3 text-left">Region</th>
@@ -560,6 +856,9 @@
                                             <th class="px-5 py-3 text-right">OSA</th>
                                             <th class="px-5 py-3 text-right">NPD</th>
                                             <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Planogram</th>
+                                            <th class="px-5 py-3 text-right">Facings</th>
+                                            <th class="px-5 py-3 text-right">SOS</th>
                                             <th class="px-5 py-3 text-right">Score</th>
                                         </tr>
                                     </thead>
@@ -571,10 +870,13 @@
                                                 <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
                                                 <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
                                                 <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right text-cyan-300">{{ $metricLabel($rollup['planogram']) }}</td>
+                                                <td class="px-5 py-3 text-right text-orange-300">{{ $metricLabel($rollup['facing']) }}</td>
+                                                <td class="px-5 py-3 text-right text-pink-300">{{ $metricLabel($rollup['sos']) }}</td>
                                                 <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No regional Perfect Store activity in this range yet.</td></tr>
+                                            <tr><td colspan="9" class="px-5 py-8 text-center text-sm text-brand-ash">No regional Perfect Store activity in this range yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -586,13 +888,15 @@
                                 <p class="text-xs uppercase tracking-widest text-brand-ash">Brand KPI Roll-up</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full min-w-[720px] text-sm">
+                                <table class="w-full min-w-[900px] text-sm">
                                     <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
                                         <tr>
                                             <th class="px-5 py-3 text-left">Brand</th>
                                             <th class="px-5 py-3 text-right">OSA</th>
                                             <th class="px-5 py-3 text-right">NPD</th>
                                             <th class="px-5 py-3 text-right">MHS</th>
+                                            <th class="px-5 py-3 text-right">Planogram</th>
+                                            <th class="px-5 py-3 text-right">Facings</th>
                                             <th class="px-5 py-3 text-right">SOS</th>
                                             <th class="px-5 py-3 text-right">Score</th>
                                         </tr>
@@ -604,11 +908,13 @@
                                                 <td class="px-5 py-3 text-right text-sky-300">{{ $metricLabel($rollup['osa']) }}</td>
                                                 <td class="px-5 py-3 text-right text-amber-300">{{ $metricLabel($rollup['npd']) }}</td>
                                                 <td class="px-5 py-3 text-right text-violet-300">{{ $metricLabel($rollup['mhs']) }}</td>
+                                                <td class="px-5 py-3 text-right text-cyan-300">{{ $metricLabel($rollup['planogram']) }}</td>
+                                                <td class="px-5 py-3 text-right text-orange-300">{{ $metricLabel($rollup['facing']) }}</td>
                                                 <td class="px-5 py-3 text-right text-pink-300">{{ $metricLabel($rollup['sos']) }}</td>
                                                 <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $metricLabel($rollup['perfect_store_score']) }}</td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-brand-ash">No brand-level SKU scoring in this range yet.</td></tr>
+                                            <tr><td colspan="8" class="px-5 py-8 text-center text-sm text-brand-ash">No brand-level SKU scoring in this range yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -711,6 +1017,30 @@
                             <div class="h-64 relative flex-1">
                                 <canvas id="assetsChart"></canvas>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+                        <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 flex flex-col">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">🗺️ Outlets by Region</p>
+                            <div class="h-64 relative flex-1">
+                                <canvas id="outletsRegionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 flex flex-col">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">🏪 Outlet Channel Mix</p>
+                            <div class="h-64 relative flex-1">
+                                <canvas id="outletsChannelChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 flex flex-col">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">📍 Clock-In Coverage</p>
+                            <div class="h-64 relative flex-1">
+                                <canvas id="clockCoverageChart"></canvas>
+                            </div>
+                            <p class="mt-3 text-[10px] text-brand-ash">Selected period: {{ $clockRangeLabel }}</p>
                         </div>
                     </div>
 
@@ -840,6 +1170,26 @@
                                         <input type="checkbox" name="show_kds" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
                                         <span>Show Key Distributors</span>
                                     </label>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" name="show_exec_summary" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                        <span>Show Executive Summary</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" name="show_category_kpi" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                        <span>Show Category KPIs</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" name="show_user_performance" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                        <span>Show User Performance</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" name="show_gallery" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                        <span>Show Image Gallery</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" name="show_price_promo" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                        <span>Show Price &amp; Promo</span>
+                                    </label>
                                 </div>
 
                                 <button type="submit" class="w-full py-2 bg-brand-red text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-red-700 transition">
@@ -907,9 +1257,9 @@
                         <div class="xl:col-span-2 glass-panel rounded-2xl p-5 border border-brand-white/10">
                             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-5">
                                 <div>
-                                    <p class="text-xs uppercase tracking-widest text-brand-ash">Merchandiser attendance windows</p>
-                                    <h3 class="text-xl font-display text-brand-white mt-1">Clock-in / Clock-out Times</h3>
-                                    <p class="text-xs text-brand-ash mt-1">Update these anytime when company attendance windows change. The field dashboard and clock-in validation use these values immediately.</p>
+                                    <p class="text-xs uppercase tracking-widest text-brand-ash">Merchandiser outlet visits</p>
+                                    <h3 class="text-xl font-display text-brand-white mt-1">Open Visit Window</h3>
+                                    <p class="text-xs text-brand-ash mt-1">Set the daily outlet clock-in window. Merchandisers can clock in and clock out at every assigned outlet during this period.</p>
                                 </div>
                                 <span class="inline-flex w-fit rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                                     No code deploy needed
@@ -919,29 +1269,25 @@
                             <form method="POST" action="{{ route('merchandisers.admin.clock-settings.update') }}" class="space-y-4">
                                 @csrf
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    @foreach($clockSettings as $slot => $setting)
-                                        <div class="rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
-                                            <div class="mb-4">
-                                                <p class="text-lg">{{ $setting['icon'] }}</p>
-                                                <p class="mt-1 text-sm font-bold text-brand-white">{{ $setting['label'] }}</p>
-                                                <p class="text-[10px] uppercase tracking-wider text-brand-ash">{{ $setting['range'] }}</p>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-3">
-                                                <label class="space-y-1">
-                                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Start</span>
-                                                    <input type="time" name="{{ $slot }}_start" value="{{ old($slot.'_start', $setting['start']) }}" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
-                                                </label>
-                                                <label class="space-y-1">
-                                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">End</span>
-                                                    <input type="time" name="{{ $slot }}_end" value="{{ old($slot.'_end', $setting['end']) }}" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
-                                                </label>
-                                            </div>
-                                        </div>
-                                    @endforeach
+                                    <div class="rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
+                                        <p class="text-[10px] uppercase tracking-wider text-brand-ash">Window Start</p>
+                                        <p class="mt-1 text-sm font-bold text-brand-white">{{ $clockSettings['label'] }}</p>
+                                        <input type="time" name="visit_start" value="{{ old('visit_start', $clockSettings['start']) }}" required class="mt-4 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </div>
+                                    <div class="rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
+                                        <p class="text-[10px] uppercase tracking-wider text-brand-ash">Window End</p>
+                                        <p class="mt-1 text-sm font-bold text-brand-white">{{ $clockSettings['range'] }}</p>
+                                        <input type="time" name="visit_end" value="{{ old('visit_end', $clockSettings['end']) }}" required class="mt-4 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </div>
+                                    <div class="rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
+                                        <p class="text-[10px] uppercase tracking-wider text-brand-ash">Late Start Flag</p>
+                                        <p class="mt-1 text-sm font-bold text-brand-white">After this time, first outlet starts are flagged late.</p>
+                                        <input type="time" name="late_start" value="{{ old('late_start', $clockSettings['late_start']) }}" required class="mt-4 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                    </div>
                                 </div>
                                 <div class="flex justify-end">
                                     <button type="submit" class="rounded-xl bg-brand-red px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-red-700 transition">
-                                        Save Clock Windows
+                                        Save Visit Window
                                     </button>
                                 </div>
                             </form>
@@ -950,9 +1296,9 @@
                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
                             <p class="text-xs uppercase tracking-widest text-brand-ash">How this works</p>
                             <div class="mt-4 space-y-3 text-sm text-brand-white/70 leading-relaxed">
-                                <p>Morning and midday are normal check-in windows.</p>
-                                <p>Clock-out / COB controls the final end-of-day clock-out window, so changing it to 17:00 or 18:00 is handled here.</p>
-                                <p>Payroll lateness uses each configured start time plus the existing 5-minute grace period.</p>
+                                <p>The PJP assigns the outlets for the day. Each assigned outlet gets its own Clock In and Clock Out controls on the merchandiser dashboard.</p>
+                                <p>Clock-in verifies physical presence and unlocks the Perfect Store entry for that outlet. Clock-out records the visit duration after execution is scored.</p>
+                                <p>Coverage is calculated as scored outlets divided by scheduled outlets, while missed outlets remain Not Covered after the visit window closes.</p>
                             </div>
                         </div>
                     </div>
@@ -1025,6 +1371,25 @@
                                         <input name="mhs_drop_size" type="number" min="1" value="1" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                     </label>
                                 </div>
+                                <div class="grid gap-3 rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3 sm:grid-cols-3">
+                                    <label class="block">
+                                        <span class="text-[10px] uppercase tracking-wider text-brand-ash">Facing Target</span>
+                                        <input name="facing_target" type="number" min="1" value="1" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                        <span class="mt-1 block text-[10px] text-brand-white/40">Required visible fronts for this SKU.</span>
+                                    </label>
+                                    <label class="block rounded-xl border border-brand-white/10 bg-brand-black/35 p-3">
+                                        <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                            <input type="checkbox" name="track_planogram" value="1" checked class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                            Planogram
+                                        </span>
+                                        <span class="mt-2 block text-[10px] text-brand-white/40">Count this SKU in approved planogram compliance.</span>
+                                    </label>
+                                    <label class="block">
+                                        <span class="text-[10px] uppercase tracking-wider text-brand-ash">SOS Target %</span>
+                                        <input name="sos_target" type="number" min="0" max="100" step="0.01" placeholder="Optional category target" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                        <span class="mt-1 block text-[10px] text-brand-white/40">Legacy per-SKU fallback. Prefer category targets below.</span>
+                                    </label>
+                                </div>
                                 <label class="block">
                                     <span class="text-[10px] uppercase tracking-wider text-brand-ash">Reference Image</span>
                                     <input name="reference_image" type="file" accept="image/*" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white file:mr-3 file:rounded-lg file:border-0 file:bg-brand-red file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white">
@@ -1093,6 +1458,15 @@
                                                         @endif
                                                         @if($sku->track_mhs)
                                                             <span class="rounded-full border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">MHS {{ $sku->mhs_drop_size }}</span>
+                                                        @endif
+                                                        <span class="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-200">Facing target {{ $sku->facing_target ?: 1 }}</span>
+                                                        @if($sku->track_planogram ?? true)
+                                                            <span class="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200">Planogram tracked</span>
+                                                        @else
+                                                            <span class="rounded-full border border-brand-white/10 bg-brand-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-ash">Planogram excluded</span>
+                                                        @endif
+                                                        @if($sku->sos_target !== null)
+                                                            <span class="rounded-full border border-pink-400/20 bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-200">SOS {{ number_format((float) $sku->sos_target, 1) }}%</span>
                                                         @endif
                                                     </div>
                                                     <p class="mt-1 text-xs text-brand-ash">
@@ -1172,6 +1546,23 @@
                                                         MHS
                                                     </span>
                                                     <input name="mhs_drop_size" type="number" min="1" value="{{ $sku->mhs_drop_size ?: 1 }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                                </label>
+                                            </div>
+                                            <div class="grid gap-3 rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3 md:col-span-2 sm:grid-cols-3">
+                                                <label class="block">
+                                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Facing Target</span>
+                                                    <input name="facing_target" type="number" min="1" value="{{ $sku->facing_target ?: 1 }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                                </label>
+                                                <label class="block rounded-xl border border-brand-white/10 bg-brand-black/35 p-3">
+                                                    <span class="flex items-center gap-2 text-[10px] uppercase tracking-wider text-brand-ash">
+                                                        <input type="checkbox" name="track_planogram" value="1" @checked($sku->track_planogram ?? true) class="rounded border-brand-white/20 bg-brand-black text-brand-red focus:ring-0">
+                                                        Planogram
+                                                    </span>
+                                                    <span class="mt-2 block text-[10px] text-brand-white/40">Include this SKU in planogram compliance.</span>
+                                                </label>
+                                                <label class="block">
+                                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">SOS Target %</span>
+                                                    <input name="sos_target" type="number" min="0" max="100" step="0.01" value="{{ $sku->sos_target }}" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                                                 </label>
                                             </div>
                                             <label class="block">
@@ -1510,15 +1901,18 @@
                                     <p class="text-xs uppercase tracking-widest text-brand-ash">Add Outlet to KD</p>
                                     <p class="mt-1 text-xs text-brand-white/45">Admin-created coordinates are locked immediately. Staff-created outlets can be captured once by GPS, then only admins can correct them.</p>
                                 </div>
-                                <form method="GET" action="{{ route('merchandisers.admin.dashboard') }}" class="flex flex-col gap-1 sm:min-w-[190px]">
+                                <form method="GET" action="{{ route('merchandisers.admin.dashboard') }}" class="grid gap-2 sm:grid-cols-2">
                                     <input type="hidden" name="tab" value="kds">
                                     <input type="hidden" name="kd_subtab" value="outlets">
-                                    <span class="text-[10px] uppercase tracking-widest text-brand-ash">Registered Day</span>
-                                    <select name="outlet_day" onchange="this.form.submit()" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
-                                        @foreach($outletDayLabels as $dayValue => $dayLabel)
-                                            <option value="{{ $dayValue }}" {{ $outletRegistrationDay === (string) $dayValue ? 'selected' : '' }}>{{ $dayLabel }}</option>
-                                        @endforeach
-                                    </select>
+                                    <label class="flex flex-col gap-1">
+                                        <span class="text-[10px] uppercase tracking-widest text-brand-ash">Created From</span>
+                                        <input type="date" name="outlet_created_from" value="{{ $outletCreatedFromInput }}" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <label class="flex flex-col gap-1">
+                                        <span class="text-[10px] uppercase tracking-widest text-brand-ash">Created To</span>
+                                        <input type="date" name="outlet_created_to" value="{{ $outletCreatedToInput }}" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <button type="submit" class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-brand-white hover:bg-brand-white/10 transition sm:col-span-2">Filter Created Dates</button>
                                 </form>
                             </div>
                             <form method="POST" action="{{ route('merchandisers.admin.outlets.store') }}" class="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" data-gps-coordinate-scope>
@@ -1844,23 +2238,30 @@
                                 <p class="mt-1 text-xs text-brand-white/45">Assign outlets by merchandiser ownership. Registered outlets are tied back to the staff member who created them.</p>
                             </div>
                             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
-                                <form method="GET" action="{{ route('merchandisers.admin.dashboard') }}" class="flex flex-col gap-1 sm:min-w-[180px]">
+                                <form method="GET" action="{{ route('merchandisers.admin.dashboard') }}" class="grid gap-2 sm:grid-cols-2">
                                     <input type="hidden" name="tab" value="routes">
-                                    <span class="text-[10px] uppercase tracking-widest text-brand-ash">Registered Day</span>
-                                    <select name="outlet_day" onchange="this.form.submit()" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
-                                        @foreach($outletDayLabels as $dayValue => $dayLabel)
-                                            <option value="{{ $dayValue }}" {{ $outletRegistrationDay === (string) $dayValue ? 'selected' : '' }}>{{ $dayLabel }}</option>
-                                        @endforeach
-                                    </select>
+                                    <label class="flex flex-col gap-1">
+                                        <span class="text-[10px] uppercase tracking-widest text-brand-ash">Created From</span>
+                                        <input type="date" name="outlet_created_from" value="{{ $outletCreatedFromInput }}" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <label class="flex flex-col gap-1">
+                                        <span class="text-[10px] uppercase tracking-widest text-brand-ash">Created To</span>
+                                        <input type="date" name="outlet_created_to" value="{{ $outletCreatedToInput }}" class="rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    </label>
+                                    <button type="submit" class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-brand-white hover:bg-brand-white/10 transition sm:col-span-2">Filter Created Dates</button>
                                 </form>
                                 <form method="POST" action="{{ route('merchandisers.admin.outlet-assignments.registered') }}">
                                     @csrf
-                                    <input type="hidden" name="outlet_day" value="{{ $outletRegistrationDay }}">
+                                    <input type="hidden" name="outlet_created_from" value="{{ $outletCreatedFromInput }}">
+                                    <input type="hidden" name="outlet_created_to" value="{{ $outletCreatedToInput }}">
                                     <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-red-700 transition">
-                                        Assign All Registered
+                                        Assign All In Range
                                     </button>
                                 </form>
                             </div>
+                        </div>
+                        <div class="px-5 pb-4 text-[11px] uppercase tracking-wider text-brand-white/45">
+                            Outlet creation filter: {{ $outletCreatedRangeLabel }}
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm min-w-[1050px]">
@@ -2792,38 +3193,67 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                        <div class="glass-panel rounded-2xl border border-brand-white/10 overflow-hidden">
-                            <div class="px-5 py-4 border-b border-brand-white/10">
-                                <p class="text-xs uppercase tracking-widest text-brand-ash font-bold">Supervisor performance metrics</p>
+                    <!-- Supervisor Accountability Performance Command Center (Daily, Weekly, Monthly, Yearly) -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-brand-white/10 pb-4">
+                            <div>
+                                <h3 class="text-lg font-display text-brand-white tracking-wide uppercase">🧭 Supervisor Accountability & Team Performance</h3>
+                                <p class="text-xs text-brand-white/50">Performance tracking for field supervisors aggregating team merchandiser metrics.</p>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full min-w-[760px] text-sm">
-                                    <thead>
-                                        <tr class="border-b border-brand-white/10 bg-brand-white/3">
-                                            <th class="px-5 py-3 text-left text-[10px] uppercase tracking-widest text-brand-ash">Supervisor</th>
-                                            <th class="px-5 py-3 text-center text-[10px] uppercase tracking-widest text-brand-ash">Merchs</th>
-                                            <th class="px-5 py-3 text-center text-[10px] uppercase tracking-widest text-brand-ash">KDs</th>
-                                            <th class="px-5 py-3 text-center text-[10px] uppercase tracking-widest text-brand-ash">Clockins</th>
-                                            <th class="px-5 py-3 text-center text-[10px] uppercase tracking-widest text-brand-ash">Outlets Covered</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($supervisorStats as $stat)
-                                            <tr class="border-b border-brand-white/5">
-                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $stat['user']->name }}</td>
-                                                <td class="px-5 py-3 text-center text-blue-300 font-bold">{{ $stat['assigned_merchandisers'] }}</td>
-                                                <td class="px-5 py-3 text-center text-amber-300 font-bold">{{ $stat['assigned_kds'] }}</td>
-                                                <td class="px-5 py-3 text-center text-green-300 font-bold">{{ $stat['clockins'] }}</td>
-                                                <td class="px-5 py-3 text-center text-brand-white font-bold">{{ $stat['outlets_covered'] }}</td>
-                                            </tr>
-                                        @empty
-                                            <tr><td colspan="5" class="px-5 py-8 text-center text-brand-ash text-sm">No supervisor metrics yet.</td></tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                            <div class="flex items-center gap-1.5 bg-brand-black/60 p-1.5 rounded-xl border border-brand-white/10 overflow-x-auto">
+                                @foreach(['daily' => '📅 Daily', 'weekly' => '📆 Weekly', 'monthly' => '📊 Monthly', 'yearly' => '🏆 Yearly'] as $pKey => $pLabel)
+                                    <a href="{{ route('merchandisers.admin.tab', ['adminTab' => 'supervisors', 'perf_period' => $pKey]) }}"
+                                       class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 {{ $perfPeriod === $pKey ? 'bg-brand-red text-white shadow-lg' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/10' }}">
+                                        {{ $pLabel }}
+                                    </a>
+                                @endforeach
                             </div>
                         </div>
+
+                        <!-- Supervisor Detail Performance Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-wider text-brand-ash">
+                                    <tr>
+                                        <th class="pb-3">Supervisor</th>
+                                        <th class="pb-3 text-center">Team Size (Merchs)</th>
+                                        <th class="pb-3 text-center">Team Scheduled</th>
+                                        <th class="pb-3 text-center">Team Completed</th>
+                                        <th class="pb-3 text-right">Team Coverage %</th>
+                                        <th class="pb-3 text-right">Team Facing % (95% Target)</th>
+                                        <th class="pb-3 text-right">Team Planogram % (100% Target)</th>
+                                        <th class="pb-3 text-right">Team SOS %</th>
+                                        <th class="pb-3 text-right">Supervisor Rating</th>
+                                        <th class="pb-3 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-brand-white/5">
+                                    @forelse($supervisorPerformance as $sup)
+                                        <tr class="hover:bg-brand-white/[0.03] transition-colors">
+                                            <td class="py-3 font-semibold text-brand-white">{{ $sup['supervisor_name'] }}</td>
+                                            <td class="py-3 text-center font-mono font-bold text-sky-300">{{ $sup['assigned_merchandisers'] }}</td>
+                                            <td class="py-3 text-center font-mono text-brand-white">{{ $sup['total_scheduled'] }}</td>
+                                            <td class="py-3 text-center font-mono font-bold text-emerald-300">{{ $sup['total_completed'] }}</td>
+                                            <td class="py-3 text-right font-mono font-bold text-sky-300">{{ number_format($sup['coverage_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono {{ $sup['facing_pct'] >= 95 ? 'text-lime-300 font-bold' : 'text-amber-300' }}">{{ number_format($sup['facing_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono {{ $sup['planogram_pct'] >= 100 ? 'text-cyan-300 font-bold' : 'text-amber-300' }}">{{ number_format($sup['planogram_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono text-pink-300">{{ number_format($sup['sos_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono font-bold text-brand-white text-sm">{{ number_format($sup['overall_score'], 1) }}%</td>
+                                            <td class="py-3 text-center">
+                                                <span class="rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider {{ match($sup['status']) { 'Perfect Store' => 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', 'On Track' => 'border-sky-500/40 bg-sky-500/10 text-sky-300', default => 'border-amber-500/40 bg-amber-500/10 text-amber-300' } }}">
+                                                    {{ $sup['status'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="10" class="py-8 text-center text-brand-white/40">No supervisor performance metrics available for this {{ $perfPeriod }} period.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10">
                             <p class="text-xs uppercase tracking-widest text-brand-ash font-bold mb-4">Send compliance query</p>
@@ -3137,7 +3567,554 @@
                     </div>
                 </div>
 
+                {{-- ═══════════════════════════════════════════════════
+                     TAB: IMAGE GALLERY (ShelfWatch)
+                ════════════════════════════════════════════════════ --}}
+                <div x-show="activeTab === 'gallery'" x-transition>
+                    {{-- Filters Bar --}}
+                    <div class="mb-5 rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                        <form method="GET" action="{{ $adminTabUrl('gallery') }}" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
+                            <input type="hidden" name="adminTab" value="gallery">
+                            <label class="col-span-2 md:col-span-1 block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Date From</span>
+                                <input type="date" name="date_from" value="{{ request('date_from') }}" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                            </label>
+                            <label class="col-span-2 md:col-span-1 block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Date To</span>
+                                <input type="date" name="date_to" value="{{ request('date_to') }}" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                            </label>
+                            <label class="block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Merchandiser</span>
+                                <select name="filter_user" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    <option value="">All Users</option>
+                                    @foreach($galleryFilters['users'] ?? [] as $u)
+                                        <option value="{{ $u->id }}" @selected(request('filter_user') == $u->id)>{{ $u->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Key Distributor</span>
+                                <select name="filter_kd" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    <option value="">All KDs</option>
+                                    @foreach($galleryFilters['kds'] ?? [] as $kd)
+                                        <option value="{{ $kd->id }}" @selected(request('filter_kd') == $kd->id)>{{ $kd->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Category</span>
+                                <select name="filter_category" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    <option value="">All Categories</option>
+                                    @foreach($galleryFilters['categories'] ?? [] as $cat)
+                                        <option value="{{ $cat }}" @selected(request('filter_category') === $cat)>{{ $cat }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="block">
+                                <span class="text-[10px] uppercase tracking-wider text-brand-ash">Channel</span>
+                                <select name="filter_channel" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
+                                    <option value="">All Channels</option>
+                                    @foreach($galleryFilters['channels'] ?? [] as $ch)
+                                        <option value="{{ $ch }}" @selected(request('filter_channel') === $ch)>{{ $ch }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <div class="flex gap-2">
+                                <button type="submit" class="flex-1 rounded-xl bg-brand-red px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-red-700 transition">Apply</button>
+                                <a href="{{ $adminTabUrl('gallery') }}" class="flex-1 rounded-xl border border-brand-white/10 bg-brand-white/5 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/10 transition">Reset</a>
+                            </div>
+                        </form>
+                    </div>
+
+                    {{-- Stats bar --}}
+                    <div class="mb-4 flex items-center gap-4">
+                        <p class="text-xs text-brand-ash">Showing <span class="text-brand-white font-bold">{{ method_exists($galleryImages, 'total') ? $galleryImages->total() : $galleryImages->count() }}</span> images</p>
+                        <span class="text-brand-ash/40">|</span>
+                        <p class="text-xs text-brand-ash">Total in system: <span class="text-brand-white font-bold">{{ number_format($totalImagesCount ?? 0) }}</span></p>
+                    </div>
+
+                    {{-- Image grid --}}
+                    @if($galleryImages->isEmpty())
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 p-16 text-center">
+                            <p class="text-4xl mb-3">📸</p>
+                            <p class="text-brand-white font-semibold">No images found</p>
+                            <p class="text-xs text-brand-ash mt-1">Try adjusting your filters or check that field teams have submitted visits with photos.</p>
+                        </div>
+                    @else
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 mb-5">
+                            @foreach($galleryImages as $img)
+                                <div class="group relative overflow-hidden rounded-2xl border border-brand-white/10 bg-brand-black aspect-square cursor-pointer"
+                                     x-data="{ open: false }" @click="open = true">
+                                    <img src="{{ Storage::url($img->photo_path) }}"
+                                         alt="{{ $img->sku_name }}"
+                                         class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                         loading="lazy">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+                                        <p class="text-[11px] font-semibold text-white leading-tight truncate">{{ $img->sku_name }}</p>
+                                        <p class="text-[10px] text-white/70 truncate">{{ $img->outlet_name }}</p>
+                                        <p class="text-[9px] text-white/50">{{ $img->user_name }} · {{ \Carbon\Carbon::parse($img->created_at)->format('d M H:i') }}</p>
+                                    </div>
+                                    {{-- Lightbox --}}
+                                    <div x-show="open" x-cloak @click.stop="open = false"
+                                         class="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
+                                         x-transition>
+                                        <div @click.stop class="max-w-3xl w-full">
+                                            <img src="{{ Storage::url($img->photo_path) }}" alt="{{ $img->sku_name }}" class="rounded-2xl max-h-[70vh] mx-auto object-contain">
+                                            <div class="mt-4 text-center">
+                                                <p class="text-white font-semibold">{{ $img->sku_name }}</p>
+                                                <p class="text-white/60 text-sm">{{ $img->outlet_name }} · {{ $img->kd_name }}</p>
+                                                <p class="text-white/40 text-xs mt-1">{{ $img->user_name }} · {{ \Carbon\Carbon::parse($img->created_at)->format('d M Y H:i') }}</p>
+                                            </div>
+                                            <button @click="open = false" class="mt-4 mx-auto block px-6 py-2 rounded-full border border-white/20 text-white text-sm hover:bg-white/10 transition">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @if(method_exists($galleryImages, 'links'))<div>{{ $galleryImages->links() }}</div>@endif
+                    @endif
+                </div>
+
+                {{-- ═══════════════════════════════════════════════════
+                     TAB: EXECUTIVE SUMMARY (ShelfWatch)
+                ════════════════════════════════════════════════════ --}}
+                <div x-show="activeTab === 'executive'" x-transition>
+                    {{-- KPI Bar --}}
+                    <div class="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
+                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Scheduled Visits</p>
+                            <p class="text-4xl font-display text-blue-400">{{ number_format($execScheduled) }}</p>
+                        </div>
+                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Completed Visits</p>
+                            <p class="text-4xl font-display text-green-400">{{ number_format($execActual) }}</p>
+                        </div>
+                        <div class="stat-card kpi-glow-amber glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Audit Compliance</p>
+                            <p class="text-4xl font-display text-amber-400">{{ $execCompliance }}%</p>
+                            <p class="text-xs text-brand-ash mt-1">Target 100%</p>
+                        </div>
+                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">% Active Users</p>
+                            <p class="text-4xl font-display text-emerald-400">{{ $execActiveRate }}%</p>
+                        </div>
+                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Total Images</p>
+                            <p class="text-4xl font-display text-sky-400">{{ number_format($totalImagesCount) }}</p>
+                        </div>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">SKU Count</p>
+                            <p class="text-4xl font-display text-violet-400">{{ $execSkuCount }}</p>
+                        </div>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Active Merchandisers</p>
+                            <p class="text-4xl font-display text-brand-white">{{ $activeMerchandisers }}</p>
+                            <p class="text-xs text-brand-ash mt-1">of {{ $totalMerchandisers }}</p>
+                        </div>
+                    </div>
+
+                    {{-- Charts --}}
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-6">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Scheduled vs Completed Visits (7-Day Trend)</p>
+                            <div class="h-64"><canvas id="execVisitTrendChart"></canvas></div>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Image Capture by Day</p>
+                            <div class="h-64"><canvas id="execImageValidityChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    {{-- Merchandiser summary table --}}
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 overflow-hidden">
+                        <div class="border-b border-brand-white/10 px-5 py-4 flex items-center justify-between">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash">Field Team Summary</p>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[640px] text-sm">
+                                <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                    <tr>
+                                        <th class="px-5 py-3 text-left">Merchandiser</th>
+                                        <th class="px-5 py-3 text-left">KD</th>
+                                        <th class="px-5 py-3 text-right">Clock-ins</th>
+                                        <th class="px-5 py-3 text-right">Visits</th>
+                                        <th class="px-5 py-3 text-right">Coverage</th>
+                                        <th class="px-5 py-3 text-right">OSA</th>
+                                        <th class="px-5 py-3 text-right">Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse(($perfectStoreSummary['merchandisers'] ?? collect())->take(12) as $row)
+                                        <tr class="border-b border-brand-white/5">
+                                            <td class="px-5 py-3 font-semibold text-brand-white">{{ $row['name'] }}</td>
+                                            <td class="px-5 py-3 text-brand-ash text-xs">{{ $row['kd'] ?? '—' }}</td>
+                                            <td class="px-5 py-3 text-right text-brand-ash">{{ $row['clockins'] ?? '—' }}</td>
+                                            <td class="px-5 py-3 text-right text-blue-300">{{ $row['visits'] ?? '—' }}</td>
+                                            <td class="px-5 py-3 text-right text-emerald-300">{{ $row['coverage'] !== null ? number_format((float)$row['coverage'],1).'%' : 'N/A' }}</td>
+                                            <td class="px-5 py-3 text-right text-sky-300">{{ $row['osa'] !== null ? number_format((float)$row['osa'],1).'%' : 'N/A' }}</td>
+                                            <td class="px-5 py-3 text-right font-bold text-brand-white">{{ $row['perfect_store_score'] !== null ? number_format((float)$row['perfect_store_score'],1).'%' : 'N/A' }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="7" class="px-5 py-10 text-center text-sm text-brand-ash">No data for this period yet.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ═══════════════════════════════════════════════════
+                     TAB: CATEGORY LEVEL KPIs (ShelfWatch)
+                ════════════════════════════════════════════════════ --}}
+                <div x-show="activeTab === 'category-kpi'" x-transition>
+                    <div class="mb-5 glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                        <p class="text-xs text-brand-ash mb-1">Category-level KPI aggregation — OSA, NPD, MHS scored per product category based on all field visit SKU checks in the selected period.</p>
+                    </div>
+
+                    <div id="category-targets" class="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                        <form method="POST" action="{{ route('merchandisers.admin.category-targets.store') }}" class="glass-panel rounded-2xl border border-pink-400/15 bg-pink-500/[0.04] p-5">
+                            @csrf
+                            <p class="text-xs uppercase tracking-widest text-brand-ash">Share of Shelf Targets</p>
+                            <h3 class="mt-1 text-xl font-display tracking-wider text-brand-white">Category Target Setup</h3>
+                            <div class="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
+                                <label class="block">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">Category</span>
+                                    <input name="category" list="sku-category-options" required placeholder="e.g. Deodorants" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                </label>
+                                <label class="block">
+                                    <span class="text-[10px] uppercase tracking-wider text-brand-ash">SOS Target %</span>
+                                    <input name="sos_target" type="number" min="0" max="100" step="0.01" required placeholder="60" class="mt-2 w-full rounded-xl border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                                </label>
+                                <button type="submit" class="self-end rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-red-700 transition">Save Target</button>
+                            </div>
+                            <p class="mt-3 text-[11px] leading-relaxed text-brand-white/45">SOS targets are defined at category level, then compared against Unilever facings divided by total category facings from completed outlet visits.</p>
+                        </form>
+
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-black/35 p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash">Configured Targets</p>
+                            <div class="mt-4 max-h-48 space-y-2 overflow-y-auto pr-1">
+                                @forelse(($categoryTargets ?? collect()) as $target)
+                                    <div class="flex items-center justify-between gap-3 rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-2">
+                                        <span class="text-sm font-semibold text-brand-white">{{ $target->category }}</span>
+                                        <span class="rounded-full border border-pink-400/20 bg-pink-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-200">{{ number_format((float) $target->sos_target, 1) }}%</span>
+                                    </div>
+                                @empty
+                                    <p class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-4 text-sm text-brand-ash">No category targets configured yet.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+
+                    @php
+                        $categoryAverageFacing = $categoryKpis->whereNotNull('facing_pct')->avg('facing_pct');
+                        $categoryAverageSos = $categoryKpis->whereNotNull('sos_pct')->avg('sos_pct');
+                        $categoriesBelowSosTarget = $categoryKpis->filter(fn($row) => $row->sos_pct !== null && $row->sos_target !== null && $row->sos_pct < $row->sos_target)->count();
+                        $capturedCategoryFacings = $categoryKpis->sum('category_facings');
+                    @endphp
+                    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+                        <div class="glass-panel rounded-2xl border border-lime-400/15 bg-lime-500/[0.05] p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Avg Facing</p>
+                            <p class="mt-1 text-3xl font-display text-lime-300">{{ $categoryAverageFacing !== null ? number_format($categoryAverageFacing, 1).'%' : 'N/A' }}</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-pink-400/15 bg-pink-500/[0.05] p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Avg SOS</p>
+                            <p class="mt-1 text-3xl font-display text-pink-300">{{ $categoryAverageSos !== null ? number_format($categoryAverageSos, 1).'%' : 'N/A' }}</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-amber-400/15 bg-amber-500/[0.05] p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Below SOS Target</p>
+                            <p class="mt-1 text-3xl font-display text-amber-300">{{ number_format($categoriesBelowSosTarget) }}</p>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-sky-400/15 bg-sky-500/[0.05] p-5">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash">Category Facings</p>
+                            <p class="mt-1 text-3xl font-display text-sky-300">{{ number_format($capturedCategoryFacings) }}</p>
+                        </div>
+                    </div>
+
+                    @if($categoryKpis->isEmpty())
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 p-16 text-center">
+                            <p class="text-4xl mb-3">🏷️</p>
+                            <p class="text-brand-white font-semibold">No category KPI data yet</p>
+                            <p class="text-xs text-brand-ash mt-1">Field teams need to complete SKU visits with scoring before category roll-ups appear.</p>
+                        </div>
+                    @else
+                        {{-- Charts --}}
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5 mb-6">
+                            <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">OSA by Category</p>
+                                <div class="h-56"><canvas id="catOsaChart"></canvas></div>
+                            </div>
+                            <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">NPD by Category</p>
+                                <div class="h-56"><canvas id="catNpdChart"></canvas></div>
+                            </div>
+                            <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">MHS by Category</p>
+                                <div class="h-56"><canvas id="catMhsChart"></canvas></div>
+                            </div>
+                            <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">Facings by Category</p>
+                                <div class="h-56"><canvas id="catFacingChart"></canvas></div>
+                            </div>
+                            <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">SOS by Category</p>
+                                <div class="h-56"><canvas id="catSosChart"></canvas></div>
+                            </div>
+                        </div>
+
+                        {{-- Table --}}
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">Category KPI Detail</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[1080px] text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-5 py-3 text-left">Category</th>
+                                            <th class="px-5 py-3 text-right">Visits</th>
+                                            <th class="px-5 py-3 text-right">OSA %</th>
+                                            <th class="px-5 py-3 text-right">OSA Pass/Total</th>
+                                            <th class="px-5 py-3 text-right">NPD %</th>
+                                            <th class="px-5 py-3 text-right">MHS %</th>
+                                            <th class="px-5 py-3 text-right">Facing %</th>
+                                            <th class="px-5 py-3 text-right">SOS %</th>
+                                            <th class="px-5 py-3 text-right">SOS Target</th>
+                                            <th class="px-5 py-3 text-right">Total Facings</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($categoryKpis as $row)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-5 py-3 font-semibold text-brand-white">{{ $row->category }}</td>
+                                                <td class="px-5 py-3 text-right text-brand-ash">{{ number_format($row->visit_count) }}</td>
+                                                <td class="px-5 py-3 text-right">
+                                                    @if($row->osa_pct !== null)
+                                                        <span class="{{ $row->osa_pct >= 95 ? 'text-emerald-400' : ($row->osa_pct >= 80 ? 'text-amber-400' : 'text-red-400') }} font-semibold">{{ $row->osa_pct }}%</span>
+                                                    @else <span class="text-brand-ash">N/A</span> @endif
+                                                </td>
+                                                <td class="px-5 py-3 text-right text-brand-ash text-xs">{{ $row->osa_pass }}/{{ $row->osa_total }}</td>
+                                                <td class="px-5 py-3 text-right">
+                                                    @if($row->npd_pct !== null)
+                                                        <span class="{{ $row->npd_pct >= 100 ? 'text-emerald-400' : ($row->npd_pct >= 75 ? 'text-amber-400' : 'text-red-400') }} font-semibold">{{ $row->npd_pct }}%</span>
+                                                    @else <span class="text-brand-ash">N/A</span> @endif
+                                                </td>
+                                                <td class="px-5 py-3 text-right">
+                                                    @if($row->mhs_pct !== null)
+                                                        <span class="{{ $row->mhs_pct >= 100 ? 'text-emerald-400' : ($row->mhs_pct >= 80 ? 'text-amber-400' : 'text-red-400') }} font-semibold">{{ $row->mhs_pct }}%</span>
+                                                    @else <span class="text-brand-ash">N/A</span> @endif
+                                                </td>
+                                                <td class="px-5 py-3 text-right">
+                                                    @if($row->facing_pct !== null)
+                                                        <span class="{{ $row->facing_pct >= 95 ? 'text-emerald-400' : ($row->facing_pct >= 80 ? 'text-amber-400' : 'text-red-400') }} font-semibold">{{ $row->facing_pct }}%</span>
+                                                    @else <span class="text-brand-ash">N/A</span> @endif
+                                                </td>
+                                                <td class="px-5 py-3 text-right">
+                                                    @if($row->sos_pct !== null)
+                                                        @php $sosTarget = $row->sos_target ?? 60; @endphp
+                                                        <span class="{{ $row->sos_pct >= $sosTarget ? 'text-emerald-400' : ($row->sos_pct >= ($sosTarget * 0.8) ? 'text-amber-400' : 'text-red-400') }} font-semibold">{{ $row->sos_pct }}%</span>
+                                                    @else <span class="text-brand-ash">N/A</span> @endif
+                                                </td>
+                                                <td class="px-5 py-3 text-right text-brand-ash">{{ $row->sos_target !== null ? $row->sos_target.'%' : 'Not set' }}</td>
+                                                <td class="px-5 py-3 text-right text-brand-ash">{{ number_format($row->total_facings) }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- ═══════════════════════════════════════════════════
+                     TAB: USER PERFORMANCE (ShelfWatch)
+                ════════════════════════════════════════════════════ --}}
+                <!-- ═══════════════════════════════════════════════════════════
+                     TAB: MERCHANDISER PERFORMANCE TRACKING (Daily, Weekly, Monthly, Yearly)
+                ════════════════════════════════════════════════════════════ -->
+                <div x-show="activeTab === 'user-performance'" x-transition class="space-y-6">
+                    <!-- Period Filter Controls -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-display text-brand-white tracking-wide uppercase">👤 Field Merchandiser Performance Tracking</h3>
+                            <p class="text-xs text-brand-white/50">Track individual merchandiser metrics over Daily, Weekly, Monthly, and Yearly time frames.</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-brand-black/60 p-1.5 rounded-xl border border-brand-white/10 overflow-x-auto">
+                            @foreach(['daily' => '📅 Daily', 'weekly' => '📆 Weekly', 'monthly' => '📊 Monthly', 'yearly' => '🏆 Yearly'] as $pKey => $pLabel)
+                                <a href="{{ route('merchandisers.admin.tab', ['adminTab' => 'user-performance', 'perf_period' => $pKey]) }}"
+                                   class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 {{ $perfPeriod === $pKey ? 'bg-brand-red text-white shadow-lg' : 'text-brand-white/60 hover:text-white hover:bg-brand-white/10' }}">
+                                    {{ $pLabel }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <!-- Summary Scorecards -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="glass-panel rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Merchandisers Tracked</p>
+                            <p class="text-3xl font-display text-brand-white mt-1">{{ count($userPerformance) }}</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1">{{ ucfirst($perfPeriod) }} Evaluation</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-lime-500/20 bg-lime-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-lime-300">Avg Facing Compliance</p>
+                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('facing_pct') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1">95% Target Standard</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Avg Planogram Alignment</p>
+                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('planogram_pct') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1">100% Target Standard</p>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl border border-brand-red/30 bg-brand-red/10 p-4 shadow-lg">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-red-300">Overall Rating Score</p>
+                            <p class="text-3xl font-display text-brand-white mt-1">{{ number_format($userPerformance->avg('overall_score') ?? 0, 1) }}%</p>
+                            <p class="text-[10px] text-brand-white/45 mt-1">Composite KPI Average</p>
+                        </div>
+                    </div>
+
+                    <!-- Performance Trend Chart -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-brand-white mb-1">Merchandiser Performance Trend ({{ ucfirst($perfPeriod) }})</h4>
+                        <p class="text-xs text-brand-white/50 mb-4">Progression of Coverage %, Facing %, Planogram %, and Overall Score.</p>
+                        <div class="h-72">
+                            <canvas id="merchPerfTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Merchandiser Detail Performance Table -->
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+                        <div class="flex items-center justify-between mb-4 border-b border-brand-white/10 pb-3">
+                            <h4 class="text-sm font-bold uppercase tracking-wider text-brand-white">Merchandiser Performance Rankings ({{ ucfirst($perfPeriod) }})</h4>
+                            <span class="text-xs text-brand-white/50">{{ count($userPerformance) }} Field Promoters</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-wider text-brand-ash">
+                                    <tr>
+                                        <th class="pb-3">Merchandiser</th>
+                                        <th class="pb-3">Supervisor</th>
+                                        <th class="pb-3">Key Distributor</th>
+                                        <th class="pb-3 text-center">Scheduled</th>
+                                        <th class="pb-3 text-center">Completed</th>
+                                        <th class="pb-3 text-right">Coverage %</th>
+                                        <th class="pb-3 text-right">Facing % (95% Target)</th>
+                                        <th class="pb-3 text-right">Planogram % (100% Target)</th>
+                                        <th class="pb-3 text-right">SOS %</th>
+                                        <th class="pb-3 text-right">Overall Rating</th>
+                                        <th class="pb-3 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-brand-white/5">
+                                    @forelse($userPerformance as $m)
+                                        <tr class="hover:bg-brand-white/[0.03] transition-colors">
+                                            <td class="py-3 font-semibold text-brand-white">{{ $m['user_name'] }}</td>
+                                            <td class="py-3 text-brand-white/70">{{ $m['supervisor_name'] }}</td>
+                                            <td class="py-3 text-brand-white/70">{{ $m['kd_name'] }}</td>
+                                            <td class="py-3 text-center font-mono font-bold text-brand-white">{{ $m['scheduled_visits'] }}</td>
+                                            <td class="py-3 text-center font-mono font-bold text-emerald-300">{{ $m['completed_assignments'] }}</td>
+                                            <td class="py-3 text-right font-mono font-bold text-sky-300">{{ number_format($m['coverage_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono {{ $m['facing_pct'] >= 95 ? 'text-lime-300 font-bold' : 'text-amber-300' }}">{{ number_format($m['facing_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono {{ $m['planogram_pct'] >= 100 ? 'text-cyan-300 font-bold' : 'text-amber-300' }}">{{ number_format($m['planogram_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono text-pink-300">{{ number_format($m['sos_pct'], 1) }}%</td>
+                                            <td class="py-3 text-right font-mono font-bold text-brand-white text-sm">{{ number_format($m['overall_score'], 1) }}%</td>
+                                            <td class="py-3 text-center">
+                                                <span class="rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider {{ match($m['status']) { 'Perfect Store' => 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', 'On Track' => 'border-sky-500/40 bg-sky-500/10 text-sky-300', default => 'border-amber-500/40 bg-amber-500/10 text-amber-300' } }}">
+                                                    {{ $m['status'] }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="11" class="py-8 text-center text-brand-white/40">No merchandiser performance data recorded for this {{ $perfPeriod }} period.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ═══════════════════════════════════════════════════
+                     TAB: PRICE & PROMO COMPLIANCE (ShelfWatch)
+                ════════════════════════════════════════════════════ --}}
+                <div x-show="activeTab === 'price-promo'" x-transition>
+                    {{-- KPI cards --}}
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="stat-card kpi-glow-green glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">POSM Compliance</p>
+                            <p class="text-4xl font-display text-emerald-400">{{ $posmCompliance }}%</p>
+                            <p class="text-xs text-brand-ash mt-1">Visits with photos</p>
+                        </div>
+                        <div class="stat-card kpi-glow-blue glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Price Tag Compliance</p>
+                            <p class="text-4xl font-display text-sky-400">{{ $pricingCompliance }}%</p>
+                            <p class="text-xs text-brand-ash mt-1">SKU checks with price</p>
+                        </div>
+                        <div class="stat-card kpi-glow-amber glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">Total Images</p>
+                            <p class="text-4xl font-display text-amber-400">{{ number_format($totalImagesCount) }}</p>
+                        </div>
+                        <div class="stat-card glass-panel rounded-2xl p-5 border border-brand-white/10">
+                            <p class="text-[10px] uppercase tracking-widest text-brand-ash mb-2">KDs Tracked</p>
+                            <p class="text-4xl font-display text-violet-400">{{ $pricePromoData->count() }}</p>
+                        </div>
+                    </div>
+
+                    {{-- POSM chart + table --}}
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-6">
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.04] p-5">
+                            <p class="text-xs uppercase tracking-widest text-brand-ash mb-4">POSM Compliance by KD</p>
+                            <div class="h-64"><canvas id="posmComplianceChart"></canvas></div>
+                        </div>
+                        <div class="glass-panel rounded-2xl border border-brand-white/10 overflow-hidden">
+                            <div class="border-b border-brand-white/10 px-5 py-4">
+                                <p class="text-xs uppercase tracking-widest text-brand-ash">KD Promo Performance</p>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="border-b border-brand-white/10 text-[10px] uppercase tracking-widest text-brand-ash">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">Key Distributor</th>
+                                            <th class="px-4 py-3 text-right">Visits</th>
+                                            <th class="px-4 py-3 text-right">POSM Visits</th>
+                                            <th class="px-4 py-3 text-right">POSM Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($pricePromoData as $row)
+                                            <tr class="border-b border-brand-white/5">
+                                                <td class="px-4 py-3 font-semibold text-brand-white">{{ $row->kd_name }}</td>
+                                                <td class="px-4 py-3 text-right text-brand-ash">{{ number_format($row->visits) }}</td>
+                                                <td class="px-4 py-3 text-right text-sky-300">{{ number_format($row->posm_visits) }}</td>
+                                                <td class="px-4 py-3 text-right">
+                                                    <span class="{{ $row->posm_rate >= 90 ? 'text-emerald-400' : ($row->posm_rate >= 70 ? 'text-amber-400' : 'text-red-400') }} font-bold">{{ $row->posm_rate }}%</span>
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-brand-ash">No promo data for this period.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Guidance panel --}}
+                    <div class="glass-panel rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-amber-400 mb-3">📌 POSM Compliance Definition</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-brand-ash">
+                            <div><p class="font-semibold text-brand-white mb-1">POSM Compliance</p><p>% of store visits where at least one shelf/POSM photo was captured by the merchandiser during the visit.</p></div>
+                            <div><p class="font-semibold text-brand-white mb-1">Price Tag Compliance</p><p>% of SKU checks where a shelf price was recorded. Enables price monitoring and competitive intelligence.</p></div>
+                            <div><p class="font-semibold text-brand-white mb-1">Target</p><p>POSM: 100% · Price Recording: 100%. Both are set as mandatory execution standards for all field visits.</p></div>
+                        </div>
+                    </div>
+                </div>
+
             </main>
+
         </div><!-- /main -->
     </div><!-- /layout -->
 </div><!-- /app -->
@@ -3470,6 +4447,87 @@ if (assetsCtx && adminChartsAvailable) {
 }
 
 // ── Live Tracking Map (Google Maps) ───────────────────────────────────────
+const regionCtx = document.getElementById('outletsRegionChart');
+if (regionCtx && adminChartsAvailable) {
+    new Chart(regionCtx, {
+        type: 'bar',
+        data: {
+            labels: @json(array_keys($outletsByRegion)),
+            datasets: [{
+                label: 'Outlets',
+                data: @json(array_values($outletsByRegion)),
+                backgroundColor: 'rgba(14,165,233,0.62)',
+                borderColor: '#0ea5e9',
+                borderWidth: 1.5,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, stepSize: 1 }, beginAtZero: true },
+                y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.55)', font: { size: 9 } } }
+            }
+        }
+    });
+}
+
+const channelCtx = document.getElementById('outletsChannelChart');
+if (channelCtx && adminChartsAvailable) {
+    new Chart(channelCtx, {
+        type: 'doughnut',
+        data: {
+            labels: @json(array_keys($outletsByChannel)),
+            datasets: [{
+                data: @json(array_values($outletsByChannel)),
+                backgroundColor: ['#22c55e', '#38bdf8', '#f59e0b', '#a78bfa', '#ef4444', '#14b8a6'],
+                borderColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1.5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 10, font: { size: 10 } }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
+const clockCoverageCtx = document.getElementById('clockCoverageChart');
+if (clockCoverageCtx && adminChartsAvailable) {
+    new Chart(clockCoverageCtx, {
+        type: 'pie',
+        data: {
+            labels: @json(array_keys($clockCoverageChart)),
+            datasets: [{
+                data: @json(array_values($clockCoverageChart)),
+                backgroundColor: ['rgba(34,197,94,0.68)', 'rgba(239,68,68,0.58)'],
+                borderColor: ['#22c55e', '#ef4444'],
+                borderWidth: 1.5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: 'rgba(255,255,255,0.7)', boxWidth: 10, font: { size: 10 } }
+                }
+            }
+        }
+    });
+}
+
 let googleMap = null;
 let mapInitialized = false;
 let merchandiserMapMarkers = {};
@@ -3734,6 +4792,234 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
+
+@if($activeAdminTab === 'executive')
+<script>
+(function () {
+    const chartDefaults = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: 'rgba(255,255,255,.65)', font: { size: 11 } } } },
+        scales: {
+            x: { grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)' } },
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)' } }
+        }
+    };
+    const visitTrend = document.getElementById('execVisitTrendChart');
+    if (visitTrend) {
+        new Chart(visitTrend, {
+            type: 'bar',
+            data: {
+                labels: @json($execVisitTrend['labels']),
+                datasets: [
+                    { label: 'Scheduled', data: @json($execVisitTrend['scheduled']), backgroundColor: 'rgba(59,130,246,.55)', borderColor: '#3b82f6', borderWidth: 1.5, borderRadius: 5 },
+                    { label: 'Completed Visits', data: @json($execVisitTrend['actual']), backgroundColor: 'rgba(34,197,94,.55)', borderColor: '#22c55e', borderWidth: 1.5, borderRadius: 5 }
+                ]
+            },
+            options: chartDefaults
+        });
+    }
+    const imgValidity = document.getElementById('execImageValidityChart');
+    if (imgValidity) {
+        new Chart(imgValidity, {
+            type: 'bar',
+            data: {
+                labels: @json($execImageValidity['labels']),
+                datasets: [
+                    { label: 'Images Captured', data: @json($execImageValidity['valid']), backgroundColor: 'rgba(14,165,233,.65)', borderColor: '#0ea5e9', borderWidth: 1.5, borderRadius: 5 },
+                    { label: 'Missing Photos', data: @json($execImageValidity['invalid']), backgroundColor: 'rgba(239,68,68,.45)', borderColor: '#ef4444', borderWidth: 1.5, borderRadius: 5 }
+                ]
+            },
+            options: chartDefaults
+        });
+    }
+})();
+</script>
+@endif
+
+@if($activeAdminTab === 'category-kpi')
+<script>
+(function () {
+    const labels = @json($categoryKpis->pluck('category')->values());
+    const osaPct  = @json($categoryKpis->map(fn($r) => $r->osa_pct)->values());
+    const npdPct  = @json($categoryKpis->map(fn($r) => $r->npd_pct)->values());
+    const mhsPct  = @json($categoryKpis->map(fn($r) => $r->mhs_pct)->values());
+    const facingPct = @json($categoryKpis->map(fn($r) => $r->facing_pct)->values());
+    const sosPct = @json($categoryKpis->map(fn($r) => $r->sos_pct)->values());
+    const sosTargetPct = @json($categoryKpis->map(fn($r) => $r->sos_target)->values());
+    const defOpts = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)', font: { size: 10 } } },
+            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)', callback: v => v + '%' } }
+        }
+    };
+    const makeBar = (id, data, color) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        new Chart(el, { type: 'bar', data: { labels, datasets: [{ data, backgroundColor: color, borderRadius: 5 }] }, options: defOpts });
+    };
+    makeBar('catOsaChart', osaPct, 'rgba(14,165,233,.7)');
+    makeBar('catNpdChart', npdPct, 'rgba(245,158,11,.7)');
+    makeBar('catMhsChart', mhsPct, 'rgba(167,139,250,.7)');
+    makeBar('catFacingChart', facingPct, 'rgba(132,204,22,.7)');
+    const sosEl = document.getElementById('catSosChart');
+    if (sosEl) {
+        new Chart(sosEl, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { type: 'bar', label: 'SOS %', data: sosPct, backgroundColor: 'rgba(236,72,153,.7)', borderRadius: 5 },
+                    { type: 'line', label: 'Target %', data: sosTargetPct, borderColor: 'rgba(255,255,255,.86)', backgroundColor: 'rgba(255,255,255,.18)', borderWidth: 2, pointRadius: 3, tension: 0.35 }
+                ]
+            },
+            options: { ...defOpts, plugins: { legend: { display: true, labels: { boxWidth: 10, color: 'rgba(255,255,255,.72)' } } } }
+        });
+    }
+})();
+</script>
+@endif
+
+@if($activeAdminTab === 'user-performance')
+<script>
+(function () {
+    const el = document.getElementById('userPerfCoverageChart');
+    if (!el) return;
+    const top10 = @json($userPerformance->take(10)->map(fn($u) => ['name' => $u['user_name'] ?? '', 'cov' => $u['coverage_pct'] ?? 0])->values());
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: top10.map(u => u.name),
+            datasets: [{
+                label: 'Coverage %',
+                data: top10.map(u => u.cov),
+                backgroundColor: top10.map(u => u.cov >= 90 ? 'rgba(34,197,94,.7)' : u.cov >= 70 ? 'rgba(245,158,11,.7)' : 'rgba(239,68,68,.7)'),
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)', callback: v => v + '%' } },
+                y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,.75)', font: { size: 11 } } }
+            }
+        }
+    });
+})();
+</script>
+@endif
+@if($activeAdminTab === 'user-performance')
+<script>
+(function () {
+    const el = document.getElementById('merchPerfTrendChart');
+    if (!el) return;
+    const chartData = @json($perfTrendChart);
+    new Chart(el, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                { label: 'Coverage %', data: chartData.coverage, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', borderWidth: 2.5, tension: 0.35 },
+                { label: 'Facing % (95% Target)', data: chartData.facing, borderColor: '#a3e635', backgroundColor: 'rgba(163,230,53,0.1)', borderWidth: 2.5, tension: 0.35 },
+                { label: 'Planogram % (100% Target)', data: chartData.planogram, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.1)', borderWidth: 2.5, tension: 0.35 },
+                { label: 'Overall Score %', data: chartData.overall, borderColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.15)', borderWidth: 3, tension: 0.35 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.7)', font: { size: 11 } } } },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.6)' } },
+                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.6)', callback: v => v + '%' } }
+            }
+        }
+    });
+})();
+</script>
+@endif
+
+@if($activeAdminTab === 'price-promo')
+<script>
+(function () {
+    const el = document.getElementById('posmComplianceChart');
+    if (!el) return;
+    const data = @json($pricePromoData->values());
+    new Chart(el, {
+        type: 'bar',
+        data: {
+            labels: data.map(r => r.kd_name),
+            datasets: [{
+                label: 'POSM Rate %',
+                data: data.map(r => r.posm_rate),
+                backgroundColor: data.map(r => r.posm_rate >= 90 ? 'rgba(34,197,94,.7)' : r.posm_rate >= 70 ? 'rgba(245,158,11,.7)' : 'rgba(239,68,68,.7)'),
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)', font: { size: 10 } } },
+                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,.07)' }, ticks: { color: 'rgba(255,255,255,.55)', callback: v => v + '%' } }
+            }
+        }
+    });
+})();
+</script>
+@endif
+@if($activeAdminTab === 'perfect-store' || $activeAdminTab === 'overview')
+<script>
+(function() {
+    const kdData = @json($perfectStoreKdData);
+    const kdCanvas = document.getElementById('perfectStoreKdBarChart');
+    if (kdCanvas && kdData.length) {
+        new Chart(kdCanvas, {
+            type: 'bar',
+            data: {
+                labels: kdData.map(d => d.kd_name),
+                datasets: [
+                    { label: 'Facing % (Target 95%)', data: kdData.map(d => d.facing_pct), backgroundColor: 'rgba(132, 204, 22, 0.75)', borderRadius: 6 },
+                    { label: 'Planogram % (Target 100%)', data: kdData.map(d => d.planogram_pct), backgroundColor: 'rgba(6, 182, 212, 0.75)', borderRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, labels: { color: 'rgba(255,255,255,0.7)' } } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.07)' }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.07)' }, ticks: { color: 'rgba(255,255,255,0.6)', callback: v => v + '%' } }
+                }
+            }
+        });
+    }
+
+    const sosData = @json($categorySosData);
+    const sosCanvas = document.getElementById('categorySosDoughnutChart');
+    if (sosCanvas && sosData.length) {
+        new Chart(sosCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: sosData.map(c => c.category),
+                datasets: [{
+                    data: sosData.map(c => c.unilever_facings || c.total_facings || 10),
+                    backgroundColor: ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'bottom', labels: { color: 'rgba(255,255,255,0.7)', font: { size: 10 } } } }
+            }
+        });
+    }
+})();
+</script>
+@endif
 
 </body>
 </html>
