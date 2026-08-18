@@ -3591,6 +3591,8 @@
                             </div>
                         </div>
                     </div>
+                    {{-- Filters --}}
+                    <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-5 shadow-xl">
                         <form method="GET" action="{{ $adminTabUrl('gallery') }}" class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                             <input type="hidden" name="adminTab" value="gallery">
                             <label class="col-span-2 md:col-span-1 block">
