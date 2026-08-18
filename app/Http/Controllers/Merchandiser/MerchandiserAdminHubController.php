@@ -811,6 +811,26 @@ class MerchandiserAdminHubController extends Controller
             $categoryKpis = app(PerfectStoreKpiService::class)->categoryKpis($coverageStart, $coverageEnd);
         }
 
+        // ── ShelfWatch: Price & Promo Compliance ─────────────────────────────
+        $pricePromoData = collect();
+        if (in_array($activeTab, ['price-promo'], true)) {
+            $pricePromoData = DB::table('merchandiser_visit_skus as vs')
+                ->join('merchandiser_visits as v', 'v.id', '=', 'vs.visit_id')
+                ->join('outlets as o', 'o.id', '=', 'v.outlet_id')
+                ->join('users as u', 'u.id', '=', 'v.user_id')
+                ->join('skus as s', 's.id', '=', 'vs.sku_id')
+                ->select(
+                    's.name as sku_name', 's.category', 's.rsp',
+                    'vs.price_found', 'vs.promo_active', 'vs.promo_price',
+                    'o.name as outlet_name', 'u.name as merchandiser_name',
+                    'vs.created_at'
+                )
+                ->whereBetween('vs.created_at', [$coverageStart, $coverageEnd])
+                ->latest('vs.created_at')
+                ->take(100)
+                ->get();
+        }
+
         // ── Performance Command Center: Merchandisers & Supervisors (Daily, Weekly, Monthly, Yearly) ──
         $perfPeriod = (string) $request->query('perf_period', 'monthly');
         $perfRole   = (string) $request->query('perf_role', 'all');
