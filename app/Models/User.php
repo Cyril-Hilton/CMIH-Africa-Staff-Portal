@@ -618,13 +618,18 @@ class User extends Authenticatable
         return in_array($this->access_role, $roleList, true) || $this->access_role === 'super_admin';
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->access_role === 'super_admin'
+            || strtolower(trim((string) $this->job_level)) === 'super_admin';
+    }
+
     public function isCvoOrSuperAdmin(): bool
     {
         $position = strtolower(trim((string) $this->position_title));
         $level = strtolower(trim((string) $this->job_level));
 
-        return $this->access_role === 'super_admin'
-            || $level === 'super_admin'
+        return $this->isSuperAdmin()
             || $position === 'cvo'
             || $level === 'cvo';
     }
@@ -684,7 +689,7 @@ class User extends Authenticatable
 
     public function canEditWarehouseAssets(): bool
     {
-        if ($this->isOperationsDepartmentLead() || $this->isActingForOperationsDepartmentLead()) {
+        if ($this->isSuperAdmin() || $this->isOperationsDepartmentLead() || $this->isActingForOperationsDepartmentLead()) {
             return true;
         }
 

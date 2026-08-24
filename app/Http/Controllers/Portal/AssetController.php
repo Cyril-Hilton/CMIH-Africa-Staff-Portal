@@ -151,7 +151,7 @@ class AssetController extends Controller
         $this->authorizeAssetManagement($request, $asset);
 
         if (! $asset->is_warehouse_tracked && $request->boolean('is_warehouse_tracked') && ! $request->user()->canOwnWarehouseAssets()) {
-            abort(403, 'Only the Operations HOD, active acting Operations HOD, or appointed Warehouse Assets collaborator can move assets into the warehouse manager.');
+            abort(403, 'Only Super Admin, the Operations HOD, an active acting Operations HOD, or an appointed Warehouse Assets collaborator can move assets into the warehouse manager.');
         }
 
         $validated = $request->validate([
@@ -253,7 +253,7 @@ class AssetController extends Controller
         }
 
         if ($asset->is_warehouse_tracked && ! $user->canOwnWarehouseAssets()) {
-            abort(403, 'Only the Operations HOD, an active acting Operations HOD, or an appointed Warehouse Assets collaborator can edit warehouse assets.');
+            abort(403, 'Only Super Admin, the Operations HOD, an active acting Operations HOD, or an appointed Warehouse Assets collaborator can edit warehouse assets.');
         }
 
         $department = strtolower(trim((string) $user->department));

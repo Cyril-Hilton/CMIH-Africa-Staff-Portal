@@ -159,7 +159,7 @@
                 @if($canGrantWarehouseCollaborators)
                     <div class="glass-panel rounded-2xl p-5 sm:p-6">
                         <h3 class="text-lg font-semibold text-brand-white">Warehouse Collaborators</h3>
-                        <p class="mt-1 text-sm text-brand-white/55">Operations HOD owns this space. Appointed collaborators can help edit, import, and process warehouse requests until rights are revoked.</p>
+                        <p class="mt-1 text-sm text-brand-white/55">Operations HOD and Super Admin own this space. Appointed collaborators can help edit, import, and process warehouse requests until rights are revoked.</p>
 
                         <form method="POST" action="{{ route('portal.assets.warehouse.collaborators.store') }}" class="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                             @csrf

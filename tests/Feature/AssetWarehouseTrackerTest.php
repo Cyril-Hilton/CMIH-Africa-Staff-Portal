@@ -282,6 +282,41 @@ class AssetWarehouseTrackerTest extends TestCase
         $this->assertStringContainsString('Counter Top', $posmExport->streamedContent());
     }
 
+    public function test_super_admin_can_edit_import_approve_and_manage_warehouse_assets(): void
+    {
+        $superAdmin = User::factory()->create([
+            'access_role' => 'super_admin',
+            'job_level' => 'super_admin',
+            'status' => 'active',
+            'department' => 'creatives',
+            'position_title' => 'Executive',
+        ]);
+
+        $response = $this->actingAs($superAdmin)
+            ->get(route('portal.assets.warehouse.index'));
+
+        $response->assertOk();
+        $response->assertSee('Master Asset Database');
+        $response->assertSee('Bulk Import Assets');
+        $response->assertSee('Warehouse Collaborators');
+
+        $this->actingAs($superAdmin)
+            ->post(route('portal.assets.warehouse.store'), [
+                'name' => 'Super Admin Warehouse Tent',
+                'warehouse_quantity' => 4,
+                'type' => 'Other',
+                'status' => 'Available',
+                'condition' => 'Good',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('assets', [
+            'name' => 'Super Admin Warehouse Tent',
+            'is_warehouse_tracked' => true,
+            'warehouse_quantity' => 4,
+        ]);
+    }
+
     public function test_warehouse_rejection_and_correction_return_require_notes(): void
     {
         $manager = User::factory()->create([

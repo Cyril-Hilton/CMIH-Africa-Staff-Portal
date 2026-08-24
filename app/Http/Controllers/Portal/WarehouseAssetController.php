@@ -1092,7 +1092,7 @@ class WarehouseAssetController extends Controller
             return false;
         }
 
-        if ($user->isOperationsDepartmentLead() || $user->isActingForOperationsDepartmentLead()) {
+        if ($user->isSuperAdmin() || $user->isOperationsDepartmentLead() || $user->isActingForOperationsDepartmentLead()) {
             return true;
         }
 
@@ -1120,7 +1120,8 @@ class WarehouseAssetController extends Controller
     private function canGrantWarehouseCollaborators(?User $user): bool
     {
         return $user?->isActive()
-            && ($user->isOperationsDepartmentLead()
+            && ($user->isSuperAdmin()
+                || $user->isOperationsDepartmentLead()
                 || $user->isActingForOperationsDepartmentLead());
     }
 
