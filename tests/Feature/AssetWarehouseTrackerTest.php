@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Asset;
 use App\Models\AssetWarehouseRequest;
+use App\Models\PosmLedger;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -14,12 +15,65 @@ class AssetWarehouseTrackerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_asset_page_filters_by_brand_condition_status_and_staff(): void
+    public function test_office_asset_page_filters_office_assets_and_excludes_warehouse_assets(): void
     {
         $viewer = User::factory()->create([
             'access_role' => 'staff',
             'status' => 'active',
             'department' => 'operations_projects',
+        ]);
+
+        $assignedStaff = User::factory()->create([
+            'access_role' => 'staff',
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+
+        Asset::create([
+            'name' => 'Rexona Office Tablet',
+            'description' => 'Office item',
+            'type' => 'Hardware',
+            'status' => 'Available',
+            'condition' => 'Good',
+            'brand' => 'Rexona',
+            'assigned_to' => $assignedStaff->id,
+            'added_by' => $viewer->id,
+            'is_warehouse_tracked' => false,
+        ]);
+
+        Asset::create([
+            'name' => 'Rexona Tent',
+            'description' => 'Warehouse item',
+            'type' => 'Other',
+            'status' => 'Available',
+            'condition' => 'Good',
+            'brand' => 'Rexona',
+            'assigned_to' => $assignedStaff->id,
+            'added_by' => $viewer->id,
+            'is_warehouse_tracked' => true,
+            'warehouse_quantity' => 2,
+        ]);
+
+        $response = $this->actingAs($viewer)->get(route('portal.assets', [
+            'brand' => 'Rexona',
+            'condition' => 'Good',
+            'status' => 'Available',
+            'staff' => $assignedStaff->id,
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Rexona Office Tablet');
+        $response->assertDontSee('Rexona Tent');
+    }
+
+    public function test_warehouse_asset_page_filters_by_brand_condition_status_and_staff(): void
+    {
+        $viewer = User::factory()->create([
+            'access_role' => 'manager',
+            'status' => 'active',
+            'department' => 'operations_projects',
+            'position_title' => 'Department Head',
+            'job_level' => 'manager',
         ]);
 
         $assignedStaff = User::factory()->create([
@@ -53,7 +107,7 @@ class AssetWarehouseTrackerTest extends TestCase
             'warehouse_quantity' => 1,
         ]);
 
-        $response = $this->actingAs($viewer)->get(route('portal.assets', [
+        $response = $this->actingAs($viewer)->get(route('portal.assets.warehouse.index', [
             'brand' => 'Rexona',
             'condition' => 'Good',
             'status' => 'Available',
@@ -62,7 +116,8 @@ class AssetWarehouseTrackerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Rexona Tent');
-        $response->assertDontSee('Guinness Cooler');
+        $response->assertSee('Warehouse item');
+        $response->assertDontSee('Different brand item');
     }
 
     public function test_staff_can_request_correct_and_upload_warehouse_evidence(): void
@@ -195,9 +250,79 @@ class AssetWarehouseTrackerTest extends TestCase
         $this->assertNull($asset->assigned_to);
         $this->assertSame(AssetWarehouseRequest::STATUS_CLOSED, $request->status);
 
-        $export = $this->actingAs($manager)->get(route('portal.assets.warehouse.export', ['format' => 'csv']));
+        $export = $this->actingAs($manager)->get(route('portal.assets.warehouse.export', [
+            'scope' => 'requests',
+            'format' => 'csv',
+        ]));
         $export->assertOk();
         $this->assertStringContainsString('AWR-202608-0001', $export->streamedContent());
+
+        $inventoryExport = $this->actingAs($manager)->get(route('portal.assets.warehouse.export', [
+            'scope' => 'inventory',
+            'format' => 'csv',
+        ]));
+        $inventoryExport->assertOk();
+        $this->assertStringContainsString('Activation Booth', $inventoryExport->streamedContent());
+
+        PosmLedger::create([
+            'created_by' => $manager->id,
+            'item_name' => 'Counter Top',
+            'item_type' => 'POSM',
+            'client_brand' => 'Rexona',
+            'quantity_in' => 4,
+            'quantity_out' => 1,
+            'location' => 'Rack B',
+        ]);
+
+        $posmExport = $this->actingAs($manager)->get(route('portal.assets.warehouse.export', [
+            'scope' => 'posm',
+            'format' => 'csv',
+        ]));
+        $posmExport->assertOk();
+        $this->assertStringContainsString('Counter Top', $posmExport->streamedContent());
+    }
+
+    public function test_warehouse_rejection_and_correction_return_require_notes(): void
+    {
+        $manager = User::factory()->create([
+            'access_role' => 'manager',
+            'status' => 'active',
+            'department' => 'operations_projects',
+            'position_title' => 'Department Head',
+            'job_level' => 'manager',
+        ]);
+
+        $staff = User::factory()->create([
+            'access_role' => 'staff',
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+
+        $request = AssetWarehouseRequest::create([
+            'request_code' => 'AWR-202608-0003',
+            'asset_id' => $this->warehouseAsset()->id,
+            'requested_by' => $staff->id,
+            'requested_quantity' => 1,
+            'destination_location' => 'North Legon',
+            'purpose' => 'Field use',
+            'status' => AssetWarehouseRequest::STATUS_PENDING_CHECK,
+        ]);
+
+        $this->actingAs($manager)->post(route('portal.assets.warehouse.action', $request), [
+            'action' => 'reject',
+        ])->assertSessionHasErrors('note');
+
+        $this->actingAs($manager)->post(route('portal.assets.warehouse.action', $request), [
+            'action' => 'return_correction',
+        ])->assertSessionHasErrors('note');
+
+        $this->actingAs($manager)->post(route('portal.assets.warehouse.action', $request), [
+            'action' => 'return_correction',
+            'note' => 'Asset is already booked; add a different date.',
+        ])->assertRedirect();
+
+        $this->assertSame(AssetWarehouseRequest::STATUS_RETURNED_FOR_CORRECTION, $request->fresh()->status);
+        $this->assertSame('Asset is already booked; add a different date.', $request->fresh()->review_note);
     }
 
     public function test_regular_staff_cannot_approve_warehouse_requests(): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Asset;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -18,16 +19,24 @@ class AssetController extends Controller
         $type = $request->string('type')->toString();
         $status = $request->string('status')->toString();
         $condition = $request->string('condition')->toString();
+        $brand = $request->string('brand')->toString();
+        $staffFilter = $request->string('staff')->toString();
         $sort = $request->string('sort')->toString();
         $direction = $request->string('direction')->toString() === 'asc' ? 'asc' : 'desc';
 
-        $assetsQuery = Asset::query();
+        $assetsQuery = Asset::query()
+            ->where(function ($query) {
+                $query->where('is_warehouse_tracked', false)
+                    ->orWhereNull('is_warehouse_tracked');
+            });
 
         if ($search !== '') {
             $assetsQuery->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('assigned_to', 'like', "%{$search}%")
-                    ->orWhere('location', 'like', "%{$search}%");
+                    ->orWhere('location', 'like', "%{$search}%")
+                    ->orWhere('brand', 'like', "%{$search}%")
+                    ->orWhere('warehouse_location', 'like', "%{$search}%");
             });
         }
 
@@ -46,6 +55,18 @@ class AssetController extends Controller
 
         if ($condition !== '') {
             $assetsQuery->where('condition', $condition);
+        }
+
+        if ($brand !== '') {
+            $assetsQuery->where('brand', $brand);
+        }
+
+        if ($staffFilter !== '') {
+            $assetsQuery->where(function ($query) use ($staffFilter) {
+                $query->where('assigned_to', $staffFilter)
+                    ->orWhere('added_by', $staffFilter)
+                    ->orWhere('last_handled_by', $staffFilter);
+            });
         }
 
         switch ($sort) {
@@ -68,11 +89,17 @@ class AssetController extends Controller
         $assets = $assetsQuery->paginate(10, ['*'], 'asset_page')->withQueryString();
         $staff = \App\Models\User::internalStaff()->where('status', 'active')->orderBy('name')->get();
         $canCreateAssets = $request->user()?->isActive() ?? false;
+        $brands = Asset::where(function ($query) {
+                $query->where('is_warehouse_tracked', false)
+                    ->orWhereNull('is_warehouse_tracked');
+            })
+            ->whereNotNull('brand')
+            ->select('brand')
+            ->distinct()
+            ->orderBy('brand')
+            ->pluck('brand');
 
-        $posmEntries = \App\Models\PosmLedger::with('creator')->latest()->paginate(10, ['*'], 'pe_page')->withQueryString();
-        $activeTab = $request->string('tab')->toString() ?: 'it-assets';
-
-        return view('portal.assets', compact('assets', 'search', 'type', 'status', 'condition', 'sort', 'direction', 'staff', 'canCreateAssets', 'posmEntries', 'activeTab'));
+        return view('portal.assets', compact('assets', 'search', 'type', 'status', 'condition', 'brand', 'staffFilter', 'sort', 'direction', 'staff', 'canCreateAssets', 'brands'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -100,6 +127,7 @@ class AssetController extends Controller
             'assigned_to' => $validated['assigned_to'] ?? null,
             'image_path' => $imagePath,
             'added_by' => $request->user()->id,
+            'is_warehouse_tracked' => false,
         ]);
 
         return back()->with('status', 'Asset added successfully.');
@@ -118,19 +146,38 @@ class AssetController extends Controller
         return view('portal.assets-edit', compact('asset', 'staff'));
     }
 
-    public function update(Request $request, Asset $asset): RedirectResponse
+    public function update(Request $request, Asset $asset): RedirectResponse|JsonResponse
     {
         $this->authorizeAssetManagement($request, $asset);
+
+        if (! $asset->is_warehouse_tracked && $request->boolean('is_warehouse_tracked') && ! $request->user()->canOwnWarehouseAssets()) {
+            abort(403, 'Only the Operations HOD, active acting Operations HOD, or appointed Warehouse Assets collaborator can move assets into the warehouse manager.');
+        }
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'condition' => ['required', 'string', 'in:New,Good,Fair,Poor'],
-            'type' => ['required', 'string', 'in:Hardware,Software,Vehicle,Other'],
-            'status' => ['required', 'string', 'in:Available,In Use,Maintenance,Retired'], // Expanded status options
+            'condition' => ['required', 'string', 'in:New,Excellent,Good,Fair,Poor'],
+            'type' => ['required', 'string', 'max:80'],
+            'status' => ['required', 'string', 'max:80'],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'location' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'brand' => ['nullable', 'string', 'max:120'],
+            'asset_tag' => ['nullable', 'string', 'max:100'],
+            'serial_number' => ['nullable', 'string', 'max:120'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'asset_value' => ['nullable', 'numeric', 'min:0'],
+            'po_quantity' => ['nullable', 'integer', 'min:0'],
+            'quantity_procured' => ['nullable', 'integer', 'min:0'],
+            'owner' => ['nullable', 'string', 'max:120'],
+            'asset_use_type' => ['nullable', 'string', 'max:80'],
+            'warehouse_location' => ['nullable', 'string', 'max:255'],
+            'warehouse_quantity' => ['nullable', 'integer', 'min:0'],
+            'warehouse_notes' => ['nullable', 'string', 'max:3000'],
+            'is_warehouse_tracked' => ['nullable', 'boolean'],
+            'remodel_status' => ['nullable', 'string', 'max:120'],
+            'remodel_notes' => ['nullable', 'string', 'max:3000'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:10240'],
         ]);
 
@@ -153,9 +200,35 @@ class AssetController extends Controller
             'assigned_to' => $validated['assigned_to'] ?? null,
             'location' => $validated['location'] ?? null,
             'notes' => $validated['notes'] ?? null,
+            'brand' => $validated['brand'] ?? null,
+            'asset_tag' => $validated['asset_tag'] ?? null,
+            'serial_number' => $validated['serial_number'] ?? null,
+            'category' => $validated['category'] ?? null,
+            'asset_value' => $validated['asset_value'] ?? null,
+            'po_quantity' => $validated['po_quantity'] ?? 0,
+            'quantity_procured' => $validated['quantity_procured'] ?? 0,
+            'owner' => $validated['owner'] ?? null,
+            'asset_use_type' => $validated['asset_use_type'] ?? null,
+            'warehouse_location' => $validated['warehouse_location'] ?? null,
+            'warehouse_quantity' => $validated['warehouse_quantity'] ?? $asset->warehouse_quantity,
+            'warehouse_notes' => $validated['warehouse_notes'] ?? null,
+            'is_warehouse_tracked' => $request->user()->canOwnWarehouseAssets()
+                ? $request->boolean('is_warehouse_tracked')
+                : (bool) $asset->is_warehouse_tracked,
+            'remodel_status' => $validated['remodel_status'] ?? null,
+            'remodel_notes' => $validated['remodel_notes'] ?? null,
         ])->save();
 
-        return redirect()->route('portal.assets')->with('status', 'Asset updated.');
+        $route = $asset->is_warehouse_tracked ? 'portal.assets.warehouse.index' : 'portal.assets';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Asset updated.',
+                'redirect_url' => route($route),
+            ]);
+        }
+
+        return redirect()->route($route)->with('status', 'Asset updated.');
     }
 
     public function destroy(Asset $asset): RedirectResponse
@@ -177,6 +250,10 @@ class AssetController extends Controller
 
         if (!$user || !$user->isActive()) {
             abort(403, 'You must be an active staff member to manage assets.');
+        }
+
+        if ($asset->is_warehouse_tracked && ! $user->canOwnWarehouseAssets()) {
+            abort(403, 'Only the Operations HOD, an active acting Operations HOD, or an appointed Warehouse Assets collaborator can edit warehouse assets.');
         }
 
         $department = strtolower(trim((string) $user->department));

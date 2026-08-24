@@ -212,6 +212,7 @@ class DashboardController extends Controller
                 $megaSortDirection
             )
                 ->paginate($megaPerPage, ['*'], "mega_{$key}_page")
+                ->withPath(route('dashboard', [], false))
                 ->withQueryString();
             $departmentColumns[$key] = DashboardColumn::forDepartment($key);
         }
@@ -257,6 +258,7 @@ class DashboardController extends Controller
                 $weeklySortDirection
             )
                 ->paginate(8, ['*'], 'weekly_page')
+                ->withPath(route('dashboard', [], false))
                 ->withQueryString();
 
             $weeklyDepartmentHasBreakdown = $isAllWeeklyDepartments

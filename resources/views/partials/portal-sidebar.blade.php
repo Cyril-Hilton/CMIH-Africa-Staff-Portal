@@ -76,7 +76,8 @@
         ['label' => 'Leaves & Absences',   'route' => 'portal.leaves'],
         ['label' => 'Fleet Requests',      'route' => 'portal.fleet-requests'],
         ['label' => 'Appraisals',          'route' => 'portal.appraisals.index'],
-        ['label' => 'DAM & Inventory',     'route' => 'portal.assets'],
+        ['label' => 'Office Asset Manager', 'route' => 'portal.assets'],
+        ['label' => 'Warehouse Assets Manager', 'route' => 'portal.assets.warehouse.index'],
         ['label' => 'Visitor Management',  'route' => 'portal.visitors'],
         ['label' => 'Surveys',             'route' => 'portal.surveys.index'],
     ];
@@ -225,6 +226,8 @@
                     $isActive = false;
                     if ($link['route'] === 'portal.surveys.index') {
                         $isActive = request()->routeIs('portal.surveys.*');
+                    } elseif ($link['route'] === 'portal.assets.warehouse.index') {
+                        $isActive = request()->routeIs('portal.assets.warehouse.*');
                     } else {
                         $isActive = request()->routeIs($link['route']);
                     }

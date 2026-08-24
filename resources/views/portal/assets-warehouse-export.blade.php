@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Asset Warehouse Tracker Export</title>
+    <title>{{ $title ?? 'Warehouse Asset Export' }}</title>
     <style>
         body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
         .letterhead { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #d71920; padding-bottom: 16px; margin-bottom: 22px; }
@@ -19,7 +19,7 @@
     <div class="letterhead">
         <div>
             <div class="brand">CMIH AFRICA</div>
-            <div class="subtitle">Asset Warehouse Tracker</div>
+            <div class="subtitle">{{ $title ?? 'Warehouse Asset Export' }}</div>
         </div>
         <div class="meta">
             Printed {{ $printedAt->format('M d, Y H:i') }}<br>
@@ -31,7 +31,7 @@
     <table>
         <thead>
             <tr>
-                @foreach(array_keys($rows[0] ?? ['Notice' => 'No warehouse requests found']) as $heading)
+                @foreach(array_keys($rows[0] ?? ['Notice' => 'No warehouse records found']) as $heading)
                     <th>{{ $heading }}</th>
                 @endforeach
             </tr>
@@ -45,7 +45,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td>No warehouse requests found.</td>
+                    <td>No warehouse records found.</td>
                 </tr>
             @endforelse
         </tbody>

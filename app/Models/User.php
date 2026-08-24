@@ -648,6 +648,77 @@ class User extends Authenticatable
             || $this->subordinates()->exists();
     }
 
+    public function isOperationsDepartmentLead(): bool
+    {
+        if (! $this->isActive()) {
+            return false;
+        }
+
+        $department = self::normalizeDepartmentKey($this->department);
+
+        if (! in_array($department, ['operations_projects', 'operations'], true)) {
+            return false;
+        }
+
+        $title = strtolower(trim(implode(' ', array_filter([
+            (string) $this->job_title,
+            (string) $this->position_title,
+            (string) $this->job_level,
+        ]))));
+
+        $isExplicitHead = str_contains($title, 'hod')
+            || str_contains($title, 'head')
+            || str_contains($title, 'lead')
+            || str_contains($title, 'operations manager')
+            || $this->position_title === 'Department Head';
+
+        return $isExplicitHead && $this->isLineManager();
+    }
+
+    public function isWarehouseAssetCollaborator(): bool
+    {
+        return WarehouseAssetCollaborator::where('user_id', $this->id)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function canEditWarehouseAssets(): bool
+    {
+        if ($this->isOperationsDepartmentLead() || $this->isActingForOperationsDepartmentLead()) {
+            return true;
+        }
+
+        return WarehouseAssetCollaborator::where('user_id', $this->id)
+            ->where('is_active', true)
+            ->where('can_edit', true)
+            ->exists();
+    }
+
+    public function isActingForOperationsDepartmentLead(): bool
+    {
+        $delegatedManagerIds = $this->activeDelegatedManagerIds();
+
+        if ($delegatedManagerIds === []) {
+            return false;
+        }
+
+        return static::whereIn('id', $delegatedManagerIds)
+            ->get()
+            ->contains(fn (User $manager) => $manager->isOperationsDepartmentLead());
+    }
+
+    public function canOwnWarehouseAssets(): bool
+    {
+        return $this->canEditWarehouseAssets();
+    }
+
+    public function canExportWarehouseAssets(): bool
+    {
+        return $this->canOwnWarehouseAssets()
+            || $this->isWarehouseAssetCollaborator()
+            || $this->isCvoOrSuperAdmin();
+    }
+
     /**
      * Get active approved leave application for this user if currently on leave today with a delegate line manager.
      */
@@ -670,14 +741,16 @@ class User extends Authenticatable
         $query = LeaveApplication::where('delegate_line_manager_id', $this->id)
             ->where('status', 'approved')
             ->whereDate('start_date', '<=', today())
-            ->whereDate('end_date', '>=', today());
+            ->whereDate('end_date', '>=', today())
+            ->with('user');
 
         if ($manager !== null) {
             $managerId = $manager instanceof User ? $manager->id : (int) $manager;
             $query->where('user_id', $managerId);
         }
 
-        return $query->exists();
+        return $query->get()
+            ->contains(fn (LeaveApplication $leave) => $leave->user?->isLineManager());
     }
 
     /**
@@ -689,6 +762,9 @@ class User extends Authenticatable
             ->where('status', 'approved')
             ->whereDate('start_date', '<=', today())
             ->whereDate('end_date', '>=', today())
+            ->with('user')
+            ->get()
+            ->filter(fn (LeaveApplication $leave) => $leave->user?->isLineManager())
             ->pluck('user_id')
             ->map(fn ($id) => (int) $id)
             ->unique()

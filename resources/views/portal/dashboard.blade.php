@@ -1181,7 +1181,7 @@
                                             </form>
                                             </div>
                                         </details>
-                                        <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.destroy', $item) }}" onsubmit="return confirm('Remove this weekly consolidated row?')">
+                                        <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.destroy', $item) }}" data-confirm="Remove this weekly consolidated row?">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="weekly-consolidated-action-button weekly-consolidated-action-button--danger border border-brand-red/30 bg-brand-red/10 hover:border-brand-red/50 hover:bg-brand-red/20">
@@ -1343,7 +1343,7 @@
                                                     <button type="submit" class="rounded-lg bg-brand-red px-3 py-1.5 text-[10px] font-bold uppercase text-white hover:bg-brand-red-dark">Update</button>
                                                 </div>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" onsubmit="return confirm('Delete this action point?')" class="mt-2 text-right">
+                                            <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" data-confirm="Delete this action point?" class="mt-2 text-right">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-[10px] text-red-400 hover:underline">Delete Action Point</button>
@@ -2017,7 +2017,7 @@
                         : 'border-emerald-500/30 bg-emerald-950/90 text-emerald-200'
                 }`;
 
-                const icon = type === 'error' ? '⚠️' : '✓';
+                const icon = type === 'error' ? '!' : 'OK';
                 toast.innerHTML = `<span class="text-sm">${icon}</span><span>${message}</span>`;
 
                 toastContainer.appendChild(toast);
@@ -2043,6 +2043,11 @@
                     action.includes('action-points');
 
                 if (!isTargetForm || form.hasAttribute('data-no-ajax')) return;
+
+                if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+                    event.preventDefault();
+                    return;
+                }
 
                 event.preventDefault();
                 event.stopPropagation();
@@ -2089,8 +2094,10 @@
                         const details = form.closest('details');
                         if (details) details.removeAttribute('open');
 
+                        const refreshTarget = new URL(weeklyConsolidatedRegion?.dataset?.refreshUrl || window.location.href, window.location.origin);
+
                         // Refresh region silently
-                        await loadWeeklyConsolidatedUrl(weeklyConsolidatedRegion?.dataset?.refreshUrl || window.location.href, {
+                        await loadWeeklyConsolidatedUrl(refreshTarget.toString(), {
                             preserveScroll: true,
                             weeklyDepartment: getPreferredWeeklyDepartment(),
                         });
@@ -2261,10 +2268,19 @@
             }
 
             window.refreshWeeklyConsolidatedSilently = refreshWeeklyConsolidatedSilently;
+
+            let lastDashboardInteractionAt = Date.now();
+            ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((eventName) => {
+                document.addEventListener(eventName, () => {
+                    lastDashboardInteractionAt = Date.now();
+                }, { passive: true });
+            });
+
             setInterval(() => {
+                if (Date.now() - lastDashboardInteractionAt < 20000) return;
                 refreshMegaTableSilently();
                 refreshWeeklyConsolidatedSilently();
-            }, 45000);
+            }, 90000);
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
                     refreshMegaTableSilently();

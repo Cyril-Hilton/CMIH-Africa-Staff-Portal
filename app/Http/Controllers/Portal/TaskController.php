@@ -605,8 +605,6 @@ class TaskController extends Controller
             if ($designatedManager) {
                 if ($user->isActingLineManagerFor($designatedId)) {
                     $onBehalfLabel = " (Acting Line Manager on behalf of {$designatedManager->name})";
-                } elseif ($user->isPeerLineManagerOf($designatedId)) {
-                    $onBehalfLabel = " (on behalf of Line Manager {$designatedManager->name})";
                 }
             }
         }
@@ -912,28 +910,22 @@ class TaskController extends Controller
             return true;
         }
 
-        // Peer line manager in same department as the assignee's line manager
-        if ($assigneeLineManagerId > 0 && $user->isPeerLineManagerOf($assigneeLineManagerId)) {
-            return true;
-        }
-
         // Acting relief line manager for custom completion manager, assigner, or copied manager
         $customCompletionManagerId = (int) ($task->custom_fields['completion_manager_id'] ?? 0);
         if ($customCompletionManagerId > 0) {
             if ((int) $user->id === $customCompletionManagerId
-                || $user->isActingLineManagerFor($customCompletionManagerId)
-                || $user->isPeerLineManagerOf($customCompletionManagerId)) {
+                || $user->isActingLineManagerFor($customCompletionManagerId)) {
                 return true;
             }
         }
 
         $assignedById = (int) $task->assigned_by;
-        if ($assignedById > 0 && ($user->isActingLineManagerFor($assignedById) || $user->isPeerLineManagerOf($assignedById))) {
+        if ($assignedById > 0 && $user->isActingLineManagerFor($assignedById)) {
             return true;
         }
 
         foreach ($copiedManagerIds as $copiedManagerId) {
-            if ($user->isActingLineManagerFor($copiedManagerId) || $user->isPeerLineManagerOf($copiedManagerId)) {
+            if ($user->isActingLineManagerFor($copiedManagerId)) {
                 return true;
             }
         }

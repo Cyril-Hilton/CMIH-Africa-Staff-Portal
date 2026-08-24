@@ -15,6 +15,7 @@
             'pending_hr' => 'border-sky-500/30 bg-sky-500/10 text-sky-400',
             'returned_for_correction' => 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',
         ];
+        $editableLeaveStatuses = ['pending_manager', 'pending_cvo', 'pending_hr', 'returned_for_correction'];
     @endphp
 
     <div x-data="{
@@ -99,7 +100,7 @@
                             <div class="min-w-[16rem] flex-1 space-y-3">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <p class="text-sm font-semibold text-brand-white">{{ $approval->user->name }}</p>
-                                    @if($approval->lineManager && $approval->line_manager_id !== $user->id && $user->isPeerLineManagerOf((int) $approval->line_manager_id))
+                                    @if($approval->lineManager && $approval->line_manager_id !== $user->id && $user->isActingLineManagerFor((int) $approval->line_manager_id))
                                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-amber-400/30 bg-amber-400/10 text-amber-300">
                                             ↗ On behalf of {{ $approval->lineManager->name }}
                                         </span>
@@ -220,16 +221,6 @@
                                 @endforeach
                             </select>
                         </div>
-                    @else
-                        <div>
-                            <x-input-label for="delegate_line_manager_id" :value="__('Appoint Relief / Acting Line Manager (Optional)')" />
-                            <select id="delegate_line_manager_id" name="delegate_line_manager_id" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2.5 text-sm text-brand-white focus:border-brand-red focus:ring-brand-red">
-                                <option value="">Optional Relief Line Manager</option>
-                                @foreach($colleagues as $colleague)
-                                    <option value="{{ $colleague->id }}" {{ old('delegate_line_manager_id') == $colleague->id ? 'selected' : '' }}>{{ $colleague->name }} ({{ ucfirst($colleague->department) }})</option>
-                                @endforeach
-                            </select>
-                        </div>
                     @endif
 
                     <div>
@@ -295,7 +286,7 @@
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border {{ $statusStyles[$leave->status] ?? 'border-brand-white/20' }}">
                                             {{ ucwords(str_replace('_', ' ', $leave->status)) }}
                                         </span>
-                                        @if($leave->status === 'returned_for_correction')
+                                        @if(in_array($leave->status, $editableLeaveStatuses, true))
                                             @php
                                                 $resubmitPayload = [
                                                     'id' => $leave->id,
@@ -310,8 +301,12 @@
                                             @endphp
                                             <button type="button" x-on:click="triggerResubmit({{ \Illuminate\Support\Js::from($resubmitPayload) }})"
                                                     class="px-2 py-0.5 rounded bg-cyan-500 text-brand-black text-[10px] font-bold hover:bg-cyan-400 transition uppercase tracking-wider">
-                                                ✏️ Correct
+                                                {{ $leave->status === 'returned_for_correction' ? 'Correct' : 'Edit Pending' }}
                                             </button>
+                                        @elseif(in_array($leave->status, ['approved', 'rejected'], true))
+                                            <span class="max-w-[12rem] text-right text-[10px] leading-snug text-brand-white/35">
+                                                Finalized leaves are locked. Submit a new request for extra days or changes.
+                                            </span>
                                         @endif
                                     </td>
                                 </tr>
@@ -353,8 +348,8 @@
                 ✕
             </button>
             
-            <h3 class="text-lg font-semibold text-brand-white mb-2">Correct & Resubmit Leave Request</h3>
-            <p class="text-xs text-brand-ash mb-4">Modify and correct your leave request details below.</p>
+            <h3 class="text-lg font-semibold text-brand-white mb-2">Edit Leave Request</h3>
+            <p class="text-xs text-brand-ash mb-4">You can only update requests that are still pending or returned for correction. Approved leave is locked, so extra days require a new request.</p>
             
             <form :action="resubmitActionUrl || '#'" method="POST" class="space-y-4">
                 @csrf
@@ -406,16 +401,6 @@
                             @endforeach
                         </select>
                     </div>
-                @else
-                    <div>
-                        <x-input-label for="resubmit_delegate_line_manager_id" :value="__('Appoint Relief / Acting Line Manager (Optional)')" />
-                        <select id="resubmit_delegate_line_manager_id" name="delegate_line_manager_id" x-model="resubmitForm.delegate_line_manager_id" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:outline-none focus:border-brand-red">
-                            <option value="">Optional Relief Line Manager</option>
-                            @foreach($colleagues as $colleague)
-                                <option value="{{ $colleague->id }}">{{ $colleague->name }} ({{ ucfirst($colleague->department) }})</option>
-                            @endforeach
-                        </select>
-                    </div>
                 @endif
 
                 <div>
@@ -438,7 +423,7 @@
                         Cancel
                     </button>
                     <button type="submit" :disabled="!resubmitActionUrl" class="px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-brand-white bg-brand-red hover:bg-brand-red-dark transition shadow-lg shadow-brand-red/20 disabled:cursor-not-allowed disabled:opacity-50">
-                        Resubmit Request
+                        Save & Route Request
                     </button>
                 </div>
             </form>

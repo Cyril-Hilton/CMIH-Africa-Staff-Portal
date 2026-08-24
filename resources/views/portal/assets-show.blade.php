@@ -6,10 +6,10 @@
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
             <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">DAM & Inventory</p>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">{{ $asset->is_warehouse_tracked ? 'Warehouse Assets Manager' : 'Office Asset Manager' }}</p>
                 <h2 class="text-3xl font-display text-brand-white">{{ $asset->name }}</h2>
             </div>
-            <a href="{{ route('portal.assets') }}" class="text-sm text-brand-ash hover:text-white transition">Back to Assets</a>
+            <a href="{{ $asset->is_warehouse_tracked ? route('portal.assets.warehouse.index') : route('portal.assets') }}" class="text-sm text-brand-ash hover:text-white transition">Back to Assets</a>
         </div>
     </x-slot>
 

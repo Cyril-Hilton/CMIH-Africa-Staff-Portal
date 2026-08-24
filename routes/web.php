@@ -11,6 +11,7 @@ use App\Http\Controllers\Brands\BrandsPlatformController;
 use App\Http\Controllers\Admin\PortfolioController as AdminPortfolioController;
 use App\Http\Controllers\Portal\AnnouncementController;
 use App\Http\Controllers\Portal\AssetController;
+use App\Http\Controllers\Portal\WarehouseAssetController;
 use App\Http\Controllers\Portal\DashboardController;
 use App\Http\Controllers\Portal\DirectoryController;
 use App\Http\Controllers\Portal\MessageController;
@@ -153,12 +154,25 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/assets', [AssetController::class, 'index'])->name('assets');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
-    Route::post('/assets/warehouse-posm', [\App\Http\Controllers\Portal\DepartmentController::class, 'storePosmEntry'])->name('assets.posm.store');
-    Route::delete('/assets/warehouse-posm/{entry}', [\App\Http\Controllers\Portal\DepartmentController::class, 'destroyPosmEntry'])->name('assets.posm.destroy');
+    Route::post('/assets/warehouse-posm', [WarehouseAssetController::class, 'storePosm'])->name('assets.posm.store');
+    Route::delete('/assets/warehouse-posm/{entry}', [WarehouseAssetController::class, 'destroyPosm'])->name('assets.posm.destroy');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');
     Route::get('/assets/{asset}/edit', [AssetController::class, 'edit'])->name('assets.edit');
     Route::match(['put', 'patch'], '/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
     Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.destroy');
+
+    Route::get('/warehouse-assets', [WarehouseAssetController::class, 'index'])->name('assets.warehouse.index');
+    Route::post('/warehouse-assets', [WarehouseAssetController::class, 'store'])->name('assets.warehouse.store');
+    Route::post('/warehouse-assets/import', [WarehouseAssetController::class, 'import'])->name('assets.warehouse.import');
+    Route::get('/warehouse-assets/export', [WarehouseAssetController::class, 'export'])->name('assets.warehouse.export');
+    Route::post('/warehouse-assets/collaborators', [WarehouseAssetController::class, 'grantCollaborator'])->name('assets.warehouse.collaborators.store');
+    Route::delete('/warehouse-assets/collaborators/{collaborator}', [WarehouseAssetController::class, 'revokeCollaborator'])->name('assets.warehouse.collaborators.destroy');
+    Route::post('/warehouse-assets/{asset}/request', [WarehouseAssetController::class, 'requestAsset'])->name('assets.warehouse.request');
+    Route::patch('/warehouse-assets/requests/{warehouseRequest}/correct', [WarehouseAssetController::class, 'correct'])->name('assets.warehouse.correct');
+    Route::post('/warehouse-assets/requests/{warehouseRequest}/evidence', [WarehouseAssetController::class, 'evidence'])->name('assets.warehouse.evidence');
+    Route::post('/warehouse-assets/requests/{warehouseRequest}/action', [WarehouseAssetController::class, 'action'])->name('assets.warehouse.action');
+    Route::post('/warehouse-assets/posm', [WarehouseAssetController::class, 'storePosm'])->name('assets.warehouse.posm.store');
+    Route::delete('/warehouse-assets/posm/{entry}', [WarehouseAssetController::class, 'destroyPosm'])->name('assets.warehouse.posm.destroy');
 
     Route::get('/messages', [MessageController::class, 'index'])->name('messages');
     Route::get('/messages/attachments/{message}', [MessageController::class, 'downloadAttachment'])->name('messages.attachment');

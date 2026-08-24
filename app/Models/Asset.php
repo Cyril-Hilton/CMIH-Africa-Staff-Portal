@@ -23,6 +23,16 @@ class Asset extends Model
         'image_path',
         'added_by',
         'brand',
+        'asset_tag',
+        'serial_number',
+        'category',
+        'asset_value',
+        'po_quantity',
+        'quantity_procured',
+        'owner',
+        'asset_use_type',
+        'remodel_status',
+        'remodel_notes',
         'warehouse_location',
         'warehouse_quantity',
         'is_warehouse_tracked',
@@ -36,6 +46,9 @@ class Asset extends Model
         return [
             'is_warehouse_tracked' => 'boolean',
             'warehouse_quantity' => 'integer',
+            'asset_value' => 'decimal:2',
+            'po_quantity' => 'integer',
+            'quantity_procured' => 'integer',
             'last_handled_at' => 'datetime',
         ];
     }

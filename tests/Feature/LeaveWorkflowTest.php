@@ -93,7 +93,7 @@ class LeaveWorkflowTest extends TestCase
         $page = $this->actingAs($staff)->get(route('portal.leaves'));
         $page->assertOk();
         $page->assertSee('triggerResubmit', false);
-        $page->assertSeeText('Correct & Resubmit Leave Request', false);
+        $page->assertSeeText('Edit Leave Request', false);
 
         $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
             'leave_type' => 'annual',
@@ -117,7 +117,7 @@ class LeaveWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_non_returned_leave_cannot_be_resubmitted(): void
+    public function test_pending_leave_can_be_updated_before_approval(): void
     {
         $staff = User::factory()->create([
             'status' => 'active',
@@ -151,10 +151,200 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(12)->toDateString(),
             'line_manager_id' => $manager->id,
             'covering_staff_id' => $cover->id,
+            'comments' => 'Updated before manager review.',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $leave->refresh();
+        $this->assertSame('pending_manager', $leave->status);
+        $this->assertEquals(now()->addDays(10)->toDateString(), $leave->start_date->toDateString());
+        $this->assertEquals(now()->addDays(12)->toDateString(), $leave->end_date->toDateString());
+        $this->assertSame('Updated before manager review.', $leave->comments);
+    }
+
+    public function test_approved_leave_cannot_be_extended_in_place(): void
+    {
+        $staff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'executive',
+            'leave_balance' => 30,
+        ]);
+        $manager = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'manager',
+        ]);
+        $cover = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+        ]);
+
+        $leave = LeaveApplication::create([
+            'user_id' => $staff->id,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDay(),
+            'leave_type' => 'annual',
+            'status' => 'approved',
+            'line_manager_id' => $manager->id,
+            'covering_staff_id' => $cover->id,
+        ]);
+
+        $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
+            'leave_type' => 'annual',
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addDays(4)->toDateString(),
+            'line_manager_id' => $manager->id,
+            'covering_staff_id' => $cover->id,
         ]);
 
         $response->assertSessionHasErrors('leave');
-        $this->assertSame('pending_manager', $leave->fresh()->status);
+        $this->assertSame('approved', $leave->fresh()->status);
+        $this->assertEquals(now()->addDay()->toDateString(), $leave->fresh()->end_date->toDateString());
+    }
+
+    public function test_finalized_leave_cannot_be_rejected_or_returned_for_correction(): void
+    {
+        $staff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'executive',
+            'leave_balance' => 30,
+        ]);
+        $superAdmin = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'super_admin',
+        ]);
+        $cover = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+        ]);
+
+        $approvedLeave = LeaveApplication::create([
+            'user_id' => $staff->id,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDay(),
+            'leave_type' => 'annual',
+            'status' => 'approved',
+            'covering_staff_id' => $cover->id,
+        ]);
+
+        $rejectResponse = $this->actingAs($superAdmin)->post(route('portal.leaves.reject', $approvedLeave), [
+            'rejection_comments' => 'Trying to mutate finalized leave.',
+        ]);
+        $rejectResponse->assertSessionHasErrors('leave');
+        $this->assertSame('approved', $approvedLeave->fresh()->status);
+
+        $returnResponse = $this->actingAs($superAdmin)->post(route('portal.leaves.return', $approvedLeave), [
+            'rejection_comments' => 'Trying to send back finalized leave.',
+        ]);
+        $returnResponse->assertSessionHasErrors('leave');
+        $this->assertSame('approved', $approvedLeave->fresh()->status);
+    }
+
+    public function test_pending_hr_leave_can_be_updated_before_final_approval(): void
+    {
+        $staff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'executive',
+            'leave_balance' => 30,
+        ]);
+        $manager = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'manager',
+        ]);
+        $cover = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+        ]);
+
+        $leave = LeaveApplication::create([
+            'user_id' => $staff->id,
+            'start_date' => now()->addDays(5),
+            'end_date' => now()->addDays(6),
+            'leave_type' => 'annual',
+            'status' => 'pending_hr',
+            'line_manager_id' => $manager->id,
+            'covering_staff_id' => $cover->id,
+        ]);
+
+        $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
+            'leave_type' => 'annual',
+            'start_date' => now()->addDays(7)->toDateString(),
+            'end_date' => now()->addDays(8)->toDateString(),
+            'line_manager_id' => $manager->id,
+            'covering_staff_id' => $cover->id,
+            'comments' => 'Adjusted before final approval.',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $leave->refresh();
+        $this->assertSame('pending_manager', $leave->status);
+        $this->assertEquals(now()->addDays(7)->toDateString(), $leave->start_date->toDateString());
+    }
+
+    public function test_acting_line_manager_rights_ignore_future_pending_rejected_and_non_manager_leave(): void
+    {
+        $lineManager = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'manager',
+            'job_level' => 'manager',
+        ]);
+        $nonManager = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+            'job_level' => 'executive',
+        ]);
+        $actingLM = User::factory()->create(['status' => 'active']);
+        $cover = User::factory()->create(['status' => 'active']);
+
+        LeaveApplication::create([
+            'user_id' => $lineManager->id,
+            'start_date' => now()->addDays(2),
+            'end_date' => now()->addDays(5),
+            'leave_type' => 'annual',
+            'status' => 'approved',
+            'covering_staff_id' => $cover->id,
+            'delegate_line_manager_id' => $actingLM->id,
+        ]);
+
+        LeaveApplication::create([
+            'user_id' => $lineManager->id,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDays(2),
+            'leave_type' => 'annual',
+            'status' => 'pending_hr',
+            'covering_staff_id' => $cover->id,
+            'delegate_line_manager_id' => $actingLM->id,
+        ]);
+
+        LeaveApplication::create([
+            'user_id' => $lineManager->id,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDays(2),
+            'leave_type' => 'annual',
+            'status' => 'rejected',
+            'covering_staff_id' => $cover->id,
+            'delegate_line_manager_id' => $actingLM->id,
+        ]);
+
+        LeaveApplication::create([
+            'user_id' => $nonManager->id,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDays(2),
+            'leave_type' => 'annual',
+            'status' => 'approved',
+            'covering_staff_id' => $cover->id,
+            'delegate_line_manager_id' => $actingLM->id,
+        ]);
+
+        $this->assertFalse($actingLM->isActingLineManagerFor($lineManager->id));
+        $this->assertFalse($actingLM->isActingLineManagerFor($nonManager->id));
+        $this->assertEmpty($actingLM->activeDelegatedManagerIds());
     }
 
     public function test_tier1_staff_leave_workflow(): void
@@ -740,4 +930,3 @@ class LeaveWorkflowTest extends TestCase
         $this->assertEmpty($actingLM->activeDelegatedManagerIds());
     }
 }
-

@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class LeaveController extends Controller
@@ -75,19 +76,6 @@ class LeaveController extends Controller
                 })->where('status', 'pending_manager');
 
                 // 1b. Peer line manager — same department, can see pending requests for their dept colleagues
-                if ($user->isLineManager() && $user->department) {
-                    $userDept = User::normalizeDepartmentKey((string) $user->department);
-                    if ($userDept !== '') {
-                        $q->orWhere(function ($peerQuery) use ($user, $userDept) {
-                            $peerQuery->where('status', 'pending_manager')
-                                ->whereHas('lineManager', function ($lmq) use ($userDept) {
-                                    $lmq->whereRaw('LOWER(department) LIKE ?', ["%{$userDept}%"]);
-                                })
-                                ->where('line_manager_id', '!=', $user->id);
-                        });
-                    }
-                }
-
                 // 2. Legacy CVO-stage requests
                 if ($isCvoApprover) {
                     $q->orWhere('status', 'pending_cvo');
@@ -112,6 +100,14 @@ class LeaveController extends Controller
 
         $requiresLineManager = $this->requiresLineManagerApproval($user);
         $isLineManagerApplicant = $user->isLineManager();
+        $activeInternalStaffRule = Rule::exists('users', 'id')->where(function ($query) {
+            $query->where('status', 'active')
+                ->whereNotIn('access_role', [
+                    User::MERCHANDISER_ROLE,
+                    User::MERCHANDISER_SUPERVISOR_ROLE,
+                    User::BRAND_PROMOTER_ROLE,
+                ]);
+        });
 
         $rules = [
             'start_date' => ['required', 'date', 'after_or_equal:today'],
@@ -120,7 +116,7 @@ class LeaveController extends Controller
             'covering_staff_id' => ['required', 'exists:users,id', 'different:line_manager_id', 'not_in:' . $user->id],
             'delegate_line_manager_id' => [
                 $isLineManagerApplicant ? 'required' : 'nullable',
-                'exists:users,id',
+                $activeInternalStaffRule,
                 'different:line_manager_id',
                 'not_in:' . $user->id,
             ],
@@ -155,7 +151,7 @@ class LeaveController extends Controller
             'leave_type' => $validated['leave_type'],
             'line_manager_id' => $validated['line_manager_id'] ?? null,
             'covering_staff_id' => $validated['covering_staff_id'],
-            'delegate_line_manager_id' => $validated['delegate_line_manager_id'] ?? null,
+            'delegate_line_manager_id' => $isLineManagerApplicant ? ($validated['delegate_line_manager_id'] ?? null) : null,
             'status' => $status,
             'comments' => $validated['comments'] ?? null,
         ]);
@@ -175,17 +171,13 @@ class LeaveController extends Controller
         $designatedLmId = (int) $leave->line_manager_id;
         $isLineManagerOrDelegate = ($designatedLmId > 0 && (int) $approver->id === $designatedLmId)
             || $approver->isActingLineManagerFor($designatedLmId);
-        $isPeerLineManager = $designatedLmId > 0
-            && (int) $approver->id !== $designatedLmId
-            && ! $isLineManagerOrDelegate
-            && $approver->isPeerLineManagerOf($designatedLmId);
 
-        // Line Manager (or acting relief / peer) approval -> routes to HR / CVO / Super Admin final sign-off.
-        if ($leave->status === 'pending_manager' && ($isLineManagerOrDelegate || $isPeerLineManager)) {
+        // Line Manager or active acting relief approval routes to HR / CVO / Super Admin final sign-off.
+        if ($leave->status === 'pending_manager' && $isLineManagerOrDelegate) {
             $leave->update(['status' => 'pending_hr']);
             $this->notifyLeaveApprovalNeeded($leave->fresh());
-            $onBehalf = $isPeerLineManager && $leave->lineManager
-                ? " (on behalf of Line Manager {$leave->lineManager->name})"
+            $onBehalf = $designatedLmId > 0 && (int) $approver->id !== $designatedLmId && $leave->lineManager
+                ? " (Acting Line Manager on behalf of {$leave->lineManager->name})"
                 : '';
             return back()->with('status', "Leave approved{$onBehalf}. Routed to HR / CVO / Super Admin for final sign-off.");
         }
@@ -211,19 +203,21 @@ class LeaveController extends Controller
      */
     public function reject(Request $request, LeaveApplication $leave): RedirectResponse
     {
+        if (! in_array($leave->status, $this->reviewableLeaveStatuses(), true)) {
+            return back()->withErrors([
+                'leave' => 'This leave request is already finalized and can no longer be rejected. Ask the staff member to submit a new request if more changes are needed.',
+            ]);
+        }
+
         $approver = $request->user();
         $authorized = false;
         $designatedLmId = (int) $leave->line_manager_id;
         $isLineManagerOrDelegate = ($designatedLmId > 0 && (int) $approver->id === $designatedLmId)
             || $approver->isActingLineManagerFor($designatedLmId);
-        $isPeerLineManager = $designatedLmId > 0
-            && (int) $approver->id !== $designatedLmId
-            && ! $isLineManagerOrDelegate
-            && $approver->isPeerLineManagerOf($designatedLmId);
 
         if ($approver->access_role === 'super_admin') {
             $authorized = true;
-        } elseif ($leave->status === 'pending_manager' && ($isLineManagerOrDelegate || $isPeerLineManager)) {
+        } elseif ($leave->status === 'pending_manager' && $isLineManagerOrDelegate) {
             $authorized = true;
         } elseif ($leave->status === 'pending_cvo' && $approver->id !== $leave->user_id && $this->isLeaveCvoApprover($approver)) {
             $authorized = true;
@@ -289,19 +283,21 @@ class LeaveController extends Controller
      */
     public function returnForCorrection(Request $request, LeaveApplication $leave): RedirectResponse
     {
+        if (! in_array($leave->status, $this->reviewableLeaveStatuses(), true)) {
+            return back()->withErrors([
+                'leave' => 'This leave request is already finalized and can no longer be returned for correction. Ask the staff member to submit a new request if more changes are needed.',
+            ]);
+        }
+
         $approver = $request->user();
         $authorized = false;
         $designatedLmId = (int) $leave->line_manager_id;
         $isLineManagerOrDelegate = ($designatedLmId > 0 && (int) $approver->id === $designatedLmId)
             || $approver->isActingLineManagerFor($designatedLmId);
-        $isPeerLineManager = $designatedLmId > 0
-            && (int) $approver->id !== $designatedLmId
-            && ! $isLineManagerOrDelegate
-            && $approver->isPeerLineManagerOf($designatedLmId);
 
         if ($approver->access_role === 'super_admin') {
             $authorized = true;
-        } elseif ($leave->status === 'pending_manager' && ($isLineManagerOrDelegate || $isPeerLineManager)) {
+        } elseif ($leave->status === 'pending_manager' && $isLineManagerOrDelegate) {
             $authorized = true;
         } elseif ($leave->status === 'pending_cvo' && $approver->id !== $leave->user_id && $this->isLeaveCvoApprover($approver)) {
             $authorized = true;
@@ -329,16 +325,26 @@ class LeaveController extends Controller
     public function resubmit(Request $request, LeaveApplication $leave): RedirectResponse
     {
         $user = $request->user();
-        if ($leave->user_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ((int) $leave->user_id !== (int) $user->id) {
             abort(403);
         }
 
-        if ($leave->status !== 'returned_for_correction') {
-            return back()->withErrors(['leave' => 'Only leave requests returned for correction can be resubmitted.']);
+        if (! in_array($leave->status, $this->editableLeaveStatuses(), true)) {
+            return back()->withErrors([
+                'leave' => 'This leave request can no longer be edited because it has already been finalized. Please submit a new leave request for any extra days or changes.',
+            ]);
         }
 
         $requiresLineManager = $this->requiresLineManagerApproval($user);
         $isLineManagerApplicant = $user->isLineManager();
+        $activeInternalStaffRule = Rule::exists('users', 'id')->where(function ($query) {
+            $query->where('status', 'active')
+                ->whereNotIn('access_role', [
+                    User::MERCHANDISER_ROLE,
+                    User::MERCHANDISER_SUPERVISOR_ROLE,
+                    User::BRAND_PROMOTER_ROLE,
+                ]);
+        });
 
         $rules = [
             'start_date' => ['required', 'date', 'after_or_equal:today'],
@@ -347,7 +353,7 @@ class LeaveController extends Controller
             'covering_staff_id' => ['required', 'exists:users,id', 'different:line_manager_id', 'not_in:' . $user->id],
             'delegate_line_manager_id' => [
                 $isLineManagerApplicant ? 'required' : 'nullable',
-                'exists:users,id',
+                $activeInternalStaffRule,
                 'different:line_manager_id',
                 'not_in:' . $user->id,
             ],
@@ -379,7 +385,7 @@ class LeaveController extends Controller
             'leave_type' => $validated['leave_type'],
             'line_manager_id' => $validated['line_manager_id'] ?? null,
             'covering_staff_id' => $validated['covering_staff_id'],
-            'delegate_line_manager_id' => $validated['delegate_line_manager_id'] ?? null,
+            'delegate_line_manager_id' => $isLineManagerApplicant ? ($validated['delegate_line_manager_id'] ?? null) : null,
             'status' => $status,
             'comments' => $validated['comments'] ?? null,
         ]);
@@ -388,7 +394,26 @@ class LeaveController extends Controller
         $this->notifyLeaveApprovalNeeded($leave);
         $this->notifyLeaveCoverSelected($leave);
 
-        return back()->with('status', '📤 Leave request successfully corrected and resubmitted.');
+        return back()->with('status', 'Leave request updated and routed for approval.');
+    }
+
+    protected function editableLeaveStatuses(): array
+    {
+        return [
+            'pending_manager',
+            'pending_cvo',
+            'pending_hr',
+            'returned_for_correction',
+        ];
+    }
+
+    protected function reviewableLeaveStatuses(): array
+    {
+        return [
+            'pending_manager',
+            'pending_cvo',
+            'pending_hr',
+        ];
     }
 
     protected function requiresLineManagerApproval(User $user): bool

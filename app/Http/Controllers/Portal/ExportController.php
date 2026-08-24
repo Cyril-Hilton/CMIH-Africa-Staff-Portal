@@ -121,6 +121,14 @@ class ExportController extends Controller
     private function scopedExportQuery(string $modelClass, User $user, string $table): Builder
     {
         $query = $modelClass::query();
+        $tableKey = strtolower($table);
+
+        if ($tableKey === 'assets' && Schema::hasColumn((new $modelClass)->getTable(), 'is_warehouse_tracked')) {
+            $query->where(function (Builder $assetQuery) {
+                $assetQuery->where('is_warehouse_tracked', false)
+                    ->orWhereNull('is_warehouse_tracked');
+            });
+        }
 
         if ($this->canManageAllData($user)) {
             return $query;
@@ -129,7 +137,7 @@ class ExportController extends Controller
         $subordinateIds = $user->subordinates()->pluck('id')->map(fn ($id) => (int) $id)->all();
         $visibleUserIds = array_values(array_unique(array_merge([(int) $user->id], $subordinateIds)));
 
-        return match (strtolower($table)) {
+        return match ($tableKey) {
             'tasks' => $query->where(function (Builder $taskQuery) use ($user, $visibleUserIds) {
                 $taskQuery->whereIn('assigned_to', $visibleUserIds)
                     ->orWhere('assigned_by', $user->id)
