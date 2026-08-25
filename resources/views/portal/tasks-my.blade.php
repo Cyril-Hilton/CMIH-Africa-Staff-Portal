@@ -139,7 +139,7 @@
     </form>
 
     {{-- Task List --}}
-    <div class="space-y-3">
+    <section class="space-y-3" data-silent-region="my-task-list">
         <h3 class="text-xs uppercase tracking-[0.3em] text-brand-ash mb-4">Your Assignments</h3>
 
         @forelse ($myTasks as $task)
@@ -232,7 +232,12 @@
         @endforelse
 
         @if ($myTasks instanceof \Illuminate\Pagination\LengthAwarePaginator)
-            <div class="pt-4">{{ $myTasks->links() }}</div>
+            <div class="pt-4">
+                <x-dashboard-pagination
+                    :paginator="$myTasks->appends(request()->except('my_page'))"
+                    item-label="tasks"
+                />
+            </div>
         @endif
-    </div>
+    </section>
 </x-app-layout>

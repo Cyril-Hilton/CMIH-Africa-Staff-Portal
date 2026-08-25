@@ -116,6 +116,9 @@ class TaskController extends Controller
                     $q->where('status', 'Awaiting Approval')
                       ->orWhere('completion_review_status', 'pending');
                 })
+                ->orderByRaw('CASE WHEN due_on IS NULL THEN 1 ELSE 0 END, due_on ASC')
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
                 ->get()
                 ->filter(fn (Task $task) => $this->canReviewCompletion($task, $user))
                 ->values();
@@ -127,8 +130,9 @@ class TaskController extends Controller
                 $allApprovals->count(),
                 $perPageApprovals,
                 $approvalPage,
-                ['path' => $request->url(), 'pageName' => 'approval_page', 'query' => $request->query()]
+                ['path' => $request->url(), 'pageName' => 'approval_page']
             );
+            $myPendingApprovals->appends($request->except('approval_page'));
 
             // Overdue breakdown
             $overdueCount = Task::query()

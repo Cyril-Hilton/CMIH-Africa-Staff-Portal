@@ -63,7 +63,7 @@
     @endif
 
     {{-- LINE MANAGER QUEUE (AWAITING MY APPROVAL) --}}
-    <div class="glass-panel rounded-2xl p-6 border border-purple-500/30 bg-purple-500/5 mb-8 shadow-2xl">
+    <div class="glass-panel rounded-2xl p-6 border border-purple-500/30 bg-purple-500/5 mb-8 shadow-2xl" data-silent-region="task-approval-queue">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-4 border-b border-brand-white/10 pb-4">
             <div>
                 <p class="text-[10px] uppercase tracking-[0.3em] text-purple-300 font-bold">Line Manager Queue</p>
@@ -202,7 +202,7 @@
     </div>
 
     {{-- Tasks Table --}}
-    <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+    <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5" data-silent-region="pending-task-list">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[860px] text-left text-sm">
                 <thead class="text-[10px] uppercase tracking-[0.25em] text-brand-ash border-b border-brand-white/10">
@@ -287,7 +287,12 @@
         </div>
 
         @if ($pendingTasks instanceof \Illuminate\Pagination\LengthAwarePaginator)
-            <div class="pt-5 border-t border-brand-white/10 mt-4">{{ $pendingTasks->links() }}</div>
+            <div class="pt-5 border-t border-brand-white/10 mt-4">
+                <x-dashboard-pagination
+                    :paginator="$pendingTasks->appends(request()->except('p_page'))"
+                    item-label="tasks"
+                />
+            </div>
         @endif
     </div>
 
