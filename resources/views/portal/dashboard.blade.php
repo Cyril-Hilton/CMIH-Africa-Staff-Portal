@@ -744,7 +744,10 @@
         <div class="mt-5 flex overflow-x-auto flex-nowrap gap-2 border-b border-brand-white/10 pb-4 scrollbar-none snap-x snap-mandatory">
             @foreach($weeklyConsolidatedDepartments as $key => $label)
                 @php
-                    $weeklyTabUrl = route('dashboard', array_merge(request()->query(), ['weekly_department' => $key]), false);
+                    $weeklyTabUrl = route('dashboard', array_merge(
+                        request()->except(['weekly_page', 'search_weekly']),
+                        ['weekly_department' => $key]
+                    ), false);
                     $isActiveWeeklyTab = $weeklyDepartmentFilter === $key;
                 @endphp
                 <a href="{{ $weeklyTabUrl }}"
@@ -754,6 +757,27 @@
                 </a>
             @endforeach
         </div>
+
+        <form method="GET" action="{{ route('dashboard', [], false) }}" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" data-no-ajax>
+            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly']) as $queryKey => $queryValue)
+                @if(is_scalar($queryValue))
+                    <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
+                @endif
+            @endforeach
+            <input type="hidden" name="weekly_department" value="{{ $weeklyDepartmentFilter }}">
+            <label class="min-w-0 flex-1">
+                <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest text-brand-ash">Search weekly rows</span>
+                <input type="search" name="search_weekly" value="{{ request('search_weekly') }}" placeholder="Search client, campaign, staff, deliverables or status..."
+                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2.5 text-xs text-brand-white placeholder-brand-white/30">
+            </label>
+            <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Search</button>
+            @if(request()->filled('search_weekly'))
+                <a href="{{ route('dashboard', array_merge(request()->except(['weekly_page', 'search_weekly']), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
+                   class="rounded-xl border border-brand-white/10 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-brand-white/70 hover:bg-brand-white/10">
+                    Clear
+                </a>
+            @endif
+        </form>
 
         @if($canManageActiveWeeklyDepartment)
             <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
@@ -1096,7 +1120,7 @@
                                         <details>
                                             <summary class="weekly-consolidated-action-button cursor-pointer border border-brand-white/10 bg-brand-white/10 hover:bg-brand-white/15">Edit Row</summary>
                                             <div class="weekly-consolidated-edit-panel mt-3 rounded-xl border border-brand-white/10 bg-brand-black p-4 shadow-2xl">
-                                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.update', $item) }}" class="space-y-4">
+                                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.update', $item) }}" class="space-y-4" data-weekly-edit-form>
                                                 @csrf
                                                 @method('PATCH')
                                                 <div class="grid gap-2 md:grid-cols-3">
@@ -1195,7 +1219,11 @@
                     @empty
                         <tr>
                             <td colspan="{{ $weeklyTableColumnCount }}" class="py-10 text-center text-sm italic text-brand-white/30">
-                                No weekly consolidated rows have been created yet.
+                                @if(request()->filled('search_weekly'))
+                                    No weekly rows match "{{ request('search_weekly') }}". Clear the search to show all saved rows.
+                                @else
+                                    No weekly consolidated rows have been created yet.
+                                @endif
                             </td>
                         </tr>
                     @endforelse
@@ -2033,6 +2061,23 @@
             };
 
             // Delegated AJAX form handler for Weekly Consolidated & Action Points
+            function syncDashboardEditors(form) {
+                form.querySelectorAll('.wysiwyg-editor').forEach((field) => {
+                    const editor = field._ckeditorInstance;
+                    if (editor && typeof editor.getData === 'function') {
+                        field.value = editor.getData();
+                    }
+                });
+            }
+
+            function responseErrorMessage(data, fallback) {
+                const validationMessage = Object.values(data?.errors || {})
+                    .flat()
+                    .find((message) => typeof message === 'string' && message.trim() !== '');
+
+                return validationMessage || data?.message || fallback;
+            }
+
             document.addEventListener('submit', async (event) => {
                 const form = event.target;
                 if (!form || !(form instanceof HTMLFormElement)) return;
@@ -2052,6 +2097,13 @@
                 event.preventDefault();
                 event.stopPropagation();
 
+                syncDashboardEditors(form);
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    showDashboardToast('Please complete the highlighted fields before updating.', 'error');
+                    return;
+                }
+
                 const previousScrollY = window.scrollY;
                 const scrollPositions = new Map();
                 document.querySelectorAll('.weekly-consolidated-scroll, .overflow-x-auto, table').forEach((container, index) => {
@@ -2064,6 +2116,7 @@
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.style.opacity = '0.6';
+                    submitBtn.textContent = 'Saving...';
                 }
 
                 try {
@@ -2075,7 +2128,7 @@
                         body: method === 'GET' ? null : formData,
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json, text/html',
+                            'Accept': 'application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                         },
                         credentials: 'same-origin',
@@ -2113,7 +2166,7 @@
                         let errorMsg = 'Save failed. Please check fields.';
                         try {
                             const data = await response.json();
-                            if (data.message) errorMsg = data.message;
+                            errorMsg = responseErrorMessage(data, errorMsg);
                         } catch (e) {}
                         showDashboardToast(errorMsg, 'error');
                     }

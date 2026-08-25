@@ -450,6 +450,80 @@ class DashboardCustomizationTest extends TestCase
         });
     }
 
+    public function test_weekly_department_tabs_drop_stale_weekly_search_and_page_state(): void
+    {
+        $manager = User::factory()->create([
+            'access_role' => 'manager',
+            'status' => 'active',
+            'department' => 'client_relations',
+        ]);
+
+        WeeklyConsolidatedItem::create([
+            'department' => 'client_relations',
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
+            'client_name' => 'Visible Client Service Row',
+            'campaign_name' => 'Client Service Campaign',
+            'deliverables' => 'This saved row must remain discoverable.',
+            'status' => 'In Progress',
+            'created_by' => $manager->id,
+            'updated_by' => $manager->id,
+        ]);
+
+        $response = $this->actingAs($manager)->get(route('dashboard', [
+            'weekly_department' => 'client_relations',
+            'weekly_page' => 7,
+            'search_weekly' => 'missing result',
+            'search_mega_client_relations' => 'Nicolette',
+        ]));
+
+        $response->assertOk();
+        $html = html_entity_decode($response->getContent());
+        preg_match('/href="([^"]*weekly_department=operations_projects[^"]*)"\s+data-weekly-department-tab/', $html, $matches);
+
+        $this->assertNotEmpty($matches[1] ?? null);
+        parse_str((string) parse_url($matches[1], PHP_URL_QUERY), $query);
+        $this->assertSame('operations_projects', $query['weekly_department'] ?? null);
+        $this->assertSame('Nicolette', $query['search_mega_client_relations'] ?? null);
+        $this->assertArrayNotHasKey('weekly_page', $query);
+        $this->assertArrayNotHasKey('search_weekly', $query);
+    }
+
+    public function test_unrelated_mega_table_search_does_not_hide_client_relations_weekly_rows(): void
+    {
+        $manager = User::factory()->create([
+            'access_role' => 'manager',
+            'status' => 'active',
+            'department' => 'client_relations',
+        ]);
+
+        WeeklyConsolidatedItem::create([
+            'department' => 'client_relations',
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
+            'client_name' => 'Client Relations Weekly Row',
+            'campaign_name' => 'Client Relations Campaign',
+            'deliverables' => 'Keep weekly data separate from Mega Table filters.',
+            'status' => 'In Progress',
+            'created_by' => $manager->id,
+            'updated_by' => $manager->id,
+        ]);
+
+        $response = $this->actingAs($manager)->get(route('dashboard', [
+            'weekly_department' => 'client_relations',
+            'tab' => 'client_relations',
+            'search_mega_client_relations' => 'Nicolette',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Client Relations Weekly Row');
+        $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) {
+            return $paginator instanceof LengthAwarePaginator
+                && $paginator->total() === 1
+                && $paginator->first()?->client_name === 'Client Relations Weekly Row';
+        });
+    }
+
     public function test_weekly_department_filter_includes_legacy_department_labels(): void
     {
         $manager = User::factory()->create([
@@ -1056,6 +1130,59 @@ class DashboardCustomizationTest extends TestCase
                 'id' => $item->id,
             ]);
         }
+    }
+
+    public function test_operations_manager_can_update_weekly_row_through_ajax_form(): void
+    {
+        $manager = User::factory()->create([
+            'access_role' => 'manager',
+            'job_level' => 'manager',
+            'position_title' => 'Department Head',
+            'status' => 'active',
+            'department' => 'operations_projects',
+        ]);
+        $item = WeeklyConsolidatedItem::create([
+            'department' => 'operations_projects',
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
+            'client_name' => 'Operations Client',
+            'campaign_name' => 'Operations Campaign',
+            'lead_staff_id' => $manager->id,
+            'deliverables' => '<p>Original operations update.</p>',
+            'status' => 'In Progress',
+            'created_by' => $manager->id,
+            'updated_by' => $manager->id,
+        ]);
+
+        $response = $this->actingAs($manager)
+            ->withHeaders([
+                'X-Requested-With' => 'XMLHttpRequest',
+                'Accept' => 'application/json',
+            ])
+            ->post(route('portal.dashboard.weekly-consolidated.update', $item), [
+                '_method' => 'PATCH',
+                'department' => 'operations_projects',
+                'week_start' => now()->startOfWeek()->toDateString(),
+                'week_end' => now()->addWeeks(2)->toDateString(),
+                'client_name' => 'Updated Operations Client',
+                'campaign_name' => 'Updated Operations Campaign',
+                'lead_staff_id' => $manager->id,
+                'deliverables' => '<p>Updated through the silent form.</p>',
+                'status' => 'Done',
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Weekly consolidated item updated successfully.',
+            ]);
+        $this->assertDatabaseHas('weekly_consolidated_items', [
+            'id' => $item->id,
+            'campaign_name' => 'Updated Operations Campaign',
+            'status' => 'Done',
+            'progress_percent' => 100,
+            'updated_by' => $manager->id,
+        ]);
     }
 
     public function test_dashboard_server_side_search_filtering_resets_page(): void
