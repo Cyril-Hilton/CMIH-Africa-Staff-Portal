@@ -21,7 +21,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [SiteController::class, 'home'])->name('home');
+Route::redirect('/', '/login')->name('home');
 
 
 Route::view('/about', 'pages.about')->name('about');
@@ -464,6 +464,7 @@ Route::middleware(['auth', 'active', 'role:admin,super_admin', 'clocked_in'])
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::get('/profile-photos/{user}', [ProfileController::class, 'photo'])->name('profile.photo');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });
 
