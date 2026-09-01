@@ -871,7 +871,7 @@
                 <div class="mt-4 rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-[10px] uppercase tracking-widest text-brand-ash">Supporting Staff + Role</p>
-                        <button type="button" onclick="cloneWeeklySupportRow('weekly-support-rows')" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
+                        <button type="button" data-weekly-support-add="weekly-support-rows" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
                     </div>
                     <div id="weekly-support-rows" class="mt-3 space-y-2">
                         <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
@@ -882,7 +882,7 @@
                                 @endforeach
                             </select>
                             <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                            <button type="button" onclick="removeWeeklySupportRow(this)" class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+                            <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
                         </div>
                     </div>
                 </div>
@@ -934,6 +934,19 @@
                 </div>
             </form>
         @endif
+
+        <template id="weekly-support-row-template">
+            <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
+                <select name="supporting_staff_ids[]" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                    <option value="">Supporting staff...</option>
+                    @foreach($allStaff as $staff)
+                        <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                    @endforeach
+                </select>
+                <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+            </div>
+        </template>
 
         <div class="weekly-consolidated-scroll mt-6 rounded-2xl border border-brand-white/10">
             <table @class([
@@ -1147,7 +1160,7 @@
                                                 <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
                                                     <div class="flex items-center justify-between gap-3">
                                                         <p class="text-[10px] uppercase tracking-widest text-brand-ash">Supporting Staff + Role</p>
-                                                        <button type="button" onclick="cloneWeeklySupportRow('weekly-support-rows-{{ $item->id }}')" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
+                                                        <button type="button" data-weekly-support-add="weekly-support-rows-{{ $item->id }}" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
                                                     </div>
                                                     <div id="weekly-support-rows-{{ $item->id }}" class="mt-3 space-y-2">
                                                         @forelse($editSupportRows as $supportStaff)
@@ -1159,7 +1172,7 @@
                                                                     @endforeach
                                                                 </select>
                                                                 <input type="text" name="supporting_roles[]" value="{{ $supportStaff->weekly_role }}" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                                                                <button type="button" onclick="removeWeeklySupportRow(this)" class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+                                                                <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
                                                             </div>
                                                         @empty
                                                             <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
@@ -1170,7 +1183,7 @@
                                                                     @endforeach
                                                                 </select>
                                                                 <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                                                                <button type="button" onclick="removeWeeklySupportRow(this)" class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+                                                                <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
                                                             </div>
                                                         @endforelse
                                                     </div>
@@ -1696,19 +1709,35 @@
             if (e.target === this) closeReassignModal();
         });
 
-        function cloneWeeklySupportRow(containerId) {
-            const container = document.getElementById(containerId);
+        function makeWeeklySupportRow(container) {
+            const template = document.getElementById('weekly-support-row-template');
+            if (template?.content?.firstElementChild) {
+                return template.content.firstElementChild.cloneNode(true);
+            }
+
             const firstRow = container?.querySelector('.weekly-support-row');
-            if (!container || !firstRow) return;
+            if (!firstRow) return null;
 
             const clone = firstRow.cloneNode(true);
             clone.querySelectorAll('select, input').forEach((field) => {
                 field.value = '';
+                if (field.tagName === 'SELECT') {
+                    field.selectedIndex = 0;
+                }
             });
-            container.appendChild(clone);
+
+            return clone;
         }
 
-        function removeWeeklySupportRow(button) {
+        window.cloneWeeklySupportRow = function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const row = makeWeeklySupportRow(container);
+            if (row) container.appendChild(row);
+        };
+
+        window.removeWeeklySupportRow = function(button) {
             const row = button.closest('.weekly-support-row');
             const container = row?.parentElement;
             if (!row || !container) return;
@@ -1721,7 +1750,22 @@
             }
 
             row.remove();
-        }
+        };
+
+        document.addEventListener('click', function(event) {
+            const addButton = event.target.closest('[data-weekly-support-add]');
+            if (addButton) {
+                event.preventDefault();
+                window.cloneWeeklySupportRow(addButton.dataset.weeklySupportAdd);
+                return;
+            }
+
+            const removeButton = event.target.closest('[data-weekly-support-remove]');
+            if (removeButton) {
+                event.preventDefault();
+                window.removeWeeklySupportRow(removeButton);
+            }
+        });
 
         //  Setup department tab switching 
         function switchTab(deptKey) {

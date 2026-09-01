@@ -974,6 +974,73 @@ class DashboardCustomizationTest extends TestCase
         $otherDashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.columns.update', $column), false);
     }
 
+    public function test_weekly_consolidated_edit_can_append_supporting_staff(): void
+    {
+        $manager = User::factory()->create([
+            'access_role' => 'manager',
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+        $lead = User::factory()->create([
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+        $existingSupport = User::factory()->create([
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+        $newSupport = User::factory()->create([
+            'status' => 'active',
+            'department' => 'creatives',
+        ]);
+
+        $item = WeeklyConsolidatedItem::create([
+            'department' => 'creatives',
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
+            'client_name' => 'Studio Sprint',
+            'campaign_name' => 'Retail Display Refresh',
+            'lead_staff_id' => $lead->id,
+            'supporting_staff_ids' => [$existingSupport->id],
+            'supporting_roles' => [$existingSupport->id => 'Initial artwork support'],
+            'deliverables' => '<p>Refresh the display guide.</p>',
+            'status' => 'In Progress',
+            'created_by' => $manager->id,
+            'updated_by' => $manager->id,
+        ]);
+
+        $dashboard = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => 'creatives']));
+        $dashboard->assertOk();
+        $dashboard->assertSee('weekly-support-row-template', false);
+        $dashboard->assertSee('data-weekly-support-add="weekly-support-rows-' . $item->id . '"', false);
+
+        $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
+            'department' => 'creatives',
+            'week_start' => now()->startOfWeek()->toDateString(),
+            'week_end' => now()->endOfWeek()->toDateString(),
+            'client_name' => 'Studio Sprint',
+            'campaign_name' => 'Retail Display Refresh',
+            'lead_staff_id' => $lead->id,
+            'supporting_staff_ids' => [$existingSupport->id, $newSupport->id, ''],
+            'supporting_roles' => ['Initial artwork support', 'Added rollout support', 'Unused blank row'],
+            'deliverables' => '<p>Refresh the display guide and rollout notes.</p>',
+            'status' => 'In Progress',
+        ]);
+
+        $updateResponse->assertSessionHasNoErrors();
+        $updateResponse->assertRedirect();
+
+        $item->refresh();
+        $this->assertSame([$existingSupport->id, $newSupport->id], $item->supporting_staff_ids);
+        $this->assertSame('Initial artwork support', $item->supporting_roles[$existingSupport->id] ?? null);
+        $this->assertSame('Added rollout support', $item->supporting_roles[$newSupport->id] ?? null);
+
+        $refreshedDashboard = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => 'creatives']));
+        $refreshedDashboard->assertOk();
+        $refreshedDashboard->assertSee($newSupport->name);
+        $refreshedDashboard->assertSee('Added rollout support');
+    }
+
     public function test_brands_line_manager_can_create_update_and_delete_weekly_consolidated_rows(): void
     {
         $manager = User::factory()->create([

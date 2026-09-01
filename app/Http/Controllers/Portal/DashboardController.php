@@ -577,9 +577,6 @@ class DashboardController extends Controller
         $validated = $this->validateWeeklyConsolidated($request);
         $validated['created_by'] = $request->user()->id;
         $validated['updated_by'] = $request->user()->id;
-        [$supportingStaffIds, $supportingRoles] = $this->normalizedSupportingStaffWithRoles($request);
-        $validated['supporting_staff_ids'] = $supportingStaffIds;
-        $validated['supporting_roles'] = $supportingRoles;
         $validated['custom_fields'] = $this->validatedWeeklyCustomFields($request->user()->id, $request, $validated['department']);
         $validated['week_end'] = $validated['week_end'] ?? Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
         $validated['progress_percent'] = $this->normalizeWeeklyProgress($validated['progress_percent'] ?? null, $validated['status']);
@@ -621,9 +618,6 @@ class DashboardController extends Controller
 
         $validated = $this->validateWeeklyConsolidated($request);
         $validated['updated_by'] = $request->user()->id;
-        [$supportingStaffIds, $supportingRoles] = $this->normalizedSupportingStaffWithRoles($request);
-        $validated['supporting_staff_ids'] = $supportingStaffIds;
-        $validated['supporting_roles'] = $supportingRoles;
         $validated['custom_fields'] = $this->validatedWeeklyCustomFields((int) $item->created_by, $request, $validated['department']);
         $validated['week_end'] = $validated['week_end'] ?? Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
         $validated['progress_percent'] = $this->normalizeWeeklyProgress($validated['progress_percent'] ?? null, $validated['status']);
@@ -763,29 +757,14 @@ class DashboardController extends Controller
     {
         $this->normalizeWeeklyConsolidatedDepartmentInput($request);
 
-        if ($request->has('supporting_staff_ids')) {
-            $ids = $request->input('supporting_staff_ids');
-            $roles = $request->input('supporting_roles');
-            
-            $filteredIds = [];
-            $filteredRoles = [];
-            
-            if (is_array($ids)) {
-                foreach ($ids as $idx => $id) {
-                    if ($id !== null && $id !== '') {
-                        $filteredIds[] = $id;
-                        $filteredRoles[] = $roles[$idx] ?? '';
-                    }
-                }
-            }
-            
-            $request->merge([
-                'supporting_staff_ids' => empty($filteredIds) ? null : $filteredIds,
-                'supporting_roles' => empty($filteredRoles) ? null : $filteredRoles,
-            ]);
-        }
+        [$supportingStaffIds, $supportingRoles] = $this->normalizedSupportingStaffWithRoles($request);
 
-        return $request->validate([
+        $request->merge([
+            'supporting_staff_ids' => empty($supportingStaffIds) ? null : $supportingStaffIds,
+            'supporting_roles' => empty($supportingRoles) ? null : $supportingRoles,
+        ]);
+
+        $validated = $request->validate([
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
             'week_start' => ['required', 'date'],
             'week_end' => ['nullable', 'date', 'after_or_equal:week_start'],
@@ -807,6 +786,11 @@ class DashboardController extends Controller
             'custom_fields' => ['nullable', 'array'],
             'custom_fields.*' => ['nullable', 'string', 'max:15000'],
         ]);
+
+        $validated['supporting_staff_ids'] = $supportingStaffIds;
+        $validated['supporting_roles'] = $supportingRoles;
+
+        return $validated;
     }
 
     private function normalizeWeeklyConsolidatedDepartmentInput(Request $request, ?string $fallback = null): string
@@ -971,7 +955,7 @@ class DashboardController extends Controller
             }
 
             $normalizedIds[] = $staffId;
-            $role = trim((string) ($roles[$index] ?? ''));
+            $role = trim((string) ($roles[$index] ?? $roles[$staffId] ?? $roles[(string) $staffId] ?? ''));
 
             if ($role !== '') {
                 $normalizedRoles[$staffId] = $role;
