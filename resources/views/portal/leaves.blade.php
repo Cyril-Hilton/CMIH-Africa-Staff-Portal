@@ -52,29 +52,48 @@
                 <div class="absolute top-0 right-0 p-4 opacity-10 text-2xl">
                     📅
                 </div>
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Remaining Balance</p>
-                <p class="mt-3 text-4xl font-semibold text-brand-white">{{ $user->leave_balance }} Days</p>
-                <p class="text-xs text-brand-ash mt-2">Deducted automatically upon final approval</p>
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Total Leave Entitlement</p>
+                <p class="mt-3 text-4xl font-semibold text-brand-white">{{ $leaveSummary['total_entitlement'] }} Days</p>
+                <p class="text-xs text-brand-ash mt-2">Based on current balance and approved leave</p>
             </div>
 
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 relative overflow-hidden">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Reporting Hierarchy</p>
-                <p class="mt-3 text-lg font-semibold text-brand-white">
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Approved / Taken</p>
+                <p class="mt-3 text-4xl font-semibold text-brand-white">{{ $leaveSummary['approved_days'] }} Days</p>
+                <p class="text-xs text-brand-ash mt-2">Final-approved working days deducted from balance</p>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 relative overflow-hidden">
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Leave Days Remaining</p>
+                <p class="mt-3 text-4xl font-semibold text-brand-white">{{ $leaveSummary['remaining_days'] }} Days</p>
+                <p class="text-xs text-brand-ash mt-2">{{ $leaveSummary['pending_days'] }} working day(s) pending approval</p>
+            </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] px-4 py-3">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-brand-ash">All Requests</p>
+                <p class="mt-1 text-xl font-semibold text-brand-white">{{ $leaveSummary['total_requests'] }}</p>
+            </div>
+            <div class="rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-green-300/70">Approved Requests</p>
+                <p class="mt-1 text-xl font-semibold text-green-300">{{ $leaveSummary['approved_requests'] }}</p>
+            </div>
+            <div class="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-yellow-300/70">Pending Requests</p>
+                <p class="mt-1 text-xl font-semibold text-yellow-300">{{ $leaveSummary['pending_requests'] }}</p>
+            </div>
+            <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] px-4 py-3">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-brand-ash">Approval Route</p>
+                <p class="mt-1 text-sm font-semibold text-brand-white">
                     @if($user->access_role === 'super_admin')
-                        HR / CVO / Super Admin final sign-off
+                        HR / CVO / Super Admin
                     @elseif($user->lineManager)
-                        {{ $user->lineManager->name }} &rarr; HR / CVO / Super Admin
+                        {{ $user->lineManager->name }} then HR / CVO
                     @else
-                        Line Manager Not Set (Select in Application)
+                        Select a line manager
                     @endif
                 </p>
-                <p class="text-xs text-brand-ash mt-2">Leave requests go to line manager first, then final approval.</p>
-            </div>
-
-            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 relative overflow-hidden">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Total Requests</p>
-                <p class="mt-3 text-4xl font-semibold text-brand-white">{{ $myLeaves->count() }}</p>
-                <p class="text-xs text-brand-ash mt-2">Historical application tracking</p>
             </div>
         </div>
 
@@ -109,7 +128,7 @@
                                 <div class="grid gap-2 text-xs text-brand-white/55 sm:grid-cols-2 lg:grid-cols-3">
                                     <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Leave Type</span><span class="capitalize">{{ $approval->leave_type }}</span></p>
                                     <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Dates</span>{{ $approval->start_date->format('M d, Y') }} to {{ $approval->end_date->format('M d, Y') }}</p>
-                                    <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Days</span>{{ $approval->start_date->diffInDays($approval->end_date) + 1 }}</p>
+                                    <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Working Days</span>{{ $approval->workingDays() }}</p>
                                     <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Covering Duty</span>{{ $approval->coveringStaff?->name ?? 'Not selected' }}</p>
                                     <p><span class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash">Line Manager</span>{{ $approval->lineManager?->name ?? 'Direct HR/CVO approval' }}</p>
                                     @if($approval->delegateLineManager)
@@ -189,6 +208,7 @@
                             <x-text-input id="end_date" name="end_date" type="date" required class="mt-1 w-full" />
                         </div>
                     </div>
+                    <p class="text-[11px] text-brand-ash">Working days only. Saturdays and Sundays are excluded from the leave total.</p>
 
                     @php
                         $requiresLineManager = $user->access_role !== 'super_admin';
@@ -250,12 +270,13 @@
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                 <h3 class="text-lg font-semibold text-brand-white mb-4">📜 Leave History & Ledgers</h3>
                 <div class="overflow-x-auto">
-                    <table class="w-full min-w-[500px] text-left text-sm text-brand-white/70">
+                    <table class="w-full min-w-[820px] text-left text-sm text-brand-white/70">
                         <thead class="text-xs uppercase tracking-[0.2em] text-brand-ash border-b border-brand-white/10">
                             <tr class="">
+                                <th class="font-normal pb-3 text-left">Requested</th>
                                 <th class="font-normal pb-3 text-left">Category</th>
-                                <th class="font-normal pb-3 text-left">Duration</th>
-                                <th class="font-normal pb-3 text-left">Days</th>
+                                <th class="font-normal pb-3 text-left">Days Off</th>
+                                <th class="font-normal pb-3 text-left">Working Days</th>
                                 <th class="font-normal pb-3 text-left">Cover / Acting LM</th>
                                 <th class="font-normal pb-3 text-right">Status</th>
                             </tr>
@@ -263,6 +284,10 @@
                         <tbody>
                             @forelse($myLeaves as $leave)
                                 <tr class="border-b border-brand-white/5 hover:bg-brand-white/5 transition-colors">
+                                    <td class="py-4 text-xs whitespace-nowrap">
+                                        {{ $leave->created_at?->format('M d, Y') ?? 'N/A' }}<br>
+                                        <span class="text-[10px] text-brand-ash">{{ $leave->created_at?->format('h:i A') }}</span>
+                                    </td>
                                     <td class="py-4 text-brand-white font-medium capitalize">
                                         {{ $leave->leave_type }}
                                         @if($leave->status === 'returned_for_correction' && $leave->comments)
@@ -275,7 +300,7 @@
                                         {{ $leave->start_date->format('M d, Y') }} &rarr; <br>
                                         {{ $leave->end_date->format('M d, Y') }}
                                     </td>
-                                    <td class="py-4 font-mono">{{ $leave->start_date->diffInDays($leave->end_date) + 1 }}</td>
+                                    <td class="py-4 font-mono">{{ $leave->workingDays() }}</td>
                                     <td class="py-4 text-xs text-brand-white/60">
                                         <div>Cover: {{ $leave->coveringStaff?->name ?? 'None' }}</div>
                                         @if($leave->delegateLineManager)
@@ -312,7 +337,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="py-12 text-center text-sm text-brand-white/50">No leave requests submitted yet.</td>
+                                    <td colspan="6" class="py-12 text-center text-sm text-brand-white/50">No leave requests submitted yet.</td>
                                 </tr>
                             @endforelse
                         </tbody>

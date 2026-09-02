@@ -9,6 +9,7 @@ use App\Models\Asset;
 use App\Models\AssetLog;
 use App\Models\Campaign;
 use App\Models\FreelancePromoter;
+use App\Models\LeaveApplication;
 use App\Models\PettyCashClaim;
 use App\Models\Task;
 use App\Models\ThirdPartyVendor;
@@ -129,7 +130,8 @@ class DepartmentController extends Controller
      */
     public function hr(Request $request): View
     {
-        $this->authorizeDepartment('admin', $request->user());
+        $viewer = $request->user();
+        $this->authorizeDepartment('admin', $viewer);
 
         $visitors         = VisitorLog::with('host')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
         $staff            = User::internalStaff()->orderBy('name')->get();
@@ -137,9 +139,29 @@ class DepartmentController extends Controller
         $preTickets       = \App\Models\VisitorPreTicket::with('host')->orderBy('expected_arrival')->paginate(5, ['*'], 'pt_page')->withQueryString();
         $directoryEntries = \App\Models\PhoneDirectory::orderBy('category')->orderBy('name')->paginate(5, ['*'], 'd_page')->withQueryString();
         $recentAnnouncements = Announcement::with('user')->latest()->take(6)->get();
-        $identityDocuments = $request->user()->canReviewIdentityDocuments()
+        $identityDocuments = $viewer->canReviewIdentityDocuments()
             ? User::internalStaff()->where('status', 'active')->orderBy('name')->get()
             : collect();
+        $canManageLeaves = $viewer->hasFullHrAccess();
+        $allLeaves = $canManageLeaves
+            ? LeaveApplication::with(['user', 'lineManager', 'coveringStaff', 'delegateLineManager'])
+                ->latest('start_date')
+                ->latest('id')
+                ->paginate(15, ['*'], 'leave_page')
+                ->withQueryString()
+            : collect();
+        $today = today();
+        $leaveStats = $canManageLeaves ? [
+            'pending' => LeaveApplication::whereIn('status', ['pending_manager', 'pending_cvo', 'pending_hr'])->count(),
+            'approved' => LeaveApplication::where('status', 'approved')->count(),
+            'active' => LeaveApplication::where('status', 'approved')
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->count(),
+            'completed' => LeaveApplication::where('status', 'approved')
+                ->whereDate('end_date', '<', $today)
+                ->count(),
+        ] : ['pending' => 0, 'approved' => 0, 'active' => 0, 'completed' => 0];
 
         return view('portal.departments.hr', compact(
             'visitors',
@@ -148,7 +170,10 @@ class DepartmentController extends Controller
             'preTickets',
             'directoryEntries',
             'recentAnnouncements',
-            'identityDocuments'
+            'identityDocuments',
+            'canManageLeaves',
+            'allLeaves',
+            'leaveStats'
         ));
     }
 

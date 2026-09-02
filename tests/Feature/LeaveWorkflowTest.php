@@ -21,6 +21,59 @@ class LeaveWorkflowTest extends TestCase
         Mail::fake();
     }
 
+    public function test_leave_working_days_exclude_weekends(): void
+    {
+        $this->assertSame(4, LeaveApplication::workingDaysBetween('2026-09-03', '2026-09-08'));
+        $this->assertSame(0, LeaveApplication::workingDaysBetween('2026-09-05', '2026-09-06'));
+    }
+
+    public function test_hr_manager_can_review_all_staff_leave_requests_from_hr_module(): void
+    {
+        $hr = User::factory()->create([
+            'name' => 'HR Manager',
+            'status' => 'active',
+            'access_role' => 'manager',
+            'department' => 'hr_admin',
+            'position_title' => 'HR Manager',
+            'job_level' => 'manager',
+        ]);
+        $staff = User::factory()->create([
+            'name' => 'Leave Applicant',
+            'status' => 'active',
+            'access_role' => 'staff',
+        ]);
+        $cover = User::factory()->create(['status' => 'active']);
+        $leave = LeaveApplication::create([
+            'user_id' => $staff->id,
+            'start_date' => '2026-09-03',
+            'end_date' => '2026-09-08',
+            'leave_type' => 'annual',
+            'status' => 'pending_hr',
+            'covering_staff_id' => $cover->id,
+            'comments' => 'Please review this request.',
+        ]);
+
+        $response = $this->actingAs($hr)->get(route('portal.hr'));
+
+        $response->assertOk();
+        $response->assertSee('All Staff Leave Manager');
+        $response->assertSee($staff->name);
+        $response->assertSee('Working Days');
+        $response->assertSee(route('portal.leaves.approve', $leave), false);
+        $response->assertSee(route('portal.leaves.return', $leave), false);
+
+        $returnResponse = $this->actingAs($hr)->post(route('portal.leaves.return', $leave), [
+            'rejection_comments' => 'Please add a clearer handover note.',
+        ]);
+
+        $returnResponse->assertRedirect();
+        $this->assertDatabaseHas('leave_applications', [
+            'id' => $leave->id,
+            'status' => 'returned_for_correction',
+            'comments' => 'Returned for Correction: Please add a clearer handover note.',
+        ]);
+    }
+
     public function test_leave_portal_renders_pending_approval_return_action(): void
     {
         $manager = User::factory()->create([
@@ -433,6 +486,12 @@ class LeaveWorkflowTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'user_id' => $hr->id,
             'title' => 'Leave Approval Needed',
+            'url' => route('portal.hr'),
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $superAdmin->id,
+            'title' => 'Leave Approval Needed',
+            'url' => route('portal.leaves'),
         ]);
 
         // 3. HR Manager final sign-off

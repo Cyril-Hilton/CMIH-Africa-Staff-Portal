@@ -33,6 +33,23 @@ class LeaveController extends Controller
             ->paginate(5, ['*'], 'my_leaves_page')
             ->withQueryString();
 
+        $leaveRecords = LeaveApplication::where('user_id', $user->id)->get();
+        $approvedRecords = $leaveRecords->where('status', 'approved');
+        $pendingRecords = $leaveRecords->whereIn('status', ['pending_manager', 'pending_cvo', 'pending_hr']);
+        $approvedDays = $approvedRecords->sum(fn (LeaveApplication $leave): int => $leave->workingDays());
+        $pendingDays = $pendingRecords->sum(fn (LeaveApplication $leave): int => $leave->workingDays());
+        $leaveSummary = [
+            // The system stores the remaining balance. Reconstruct the current entitlement
+            // from that balance plus approved working days already deducted from it.
+            'total_entitlement' => (int) $user->leave_balance + $approvedDays,
+            'approved_days' => $approvedDays,
+            'remaining_days' => (int) $user->leave_balance,
+            'pending_days' => $pendingDays,
+            'total_requests' => $leaveRecords->count(),
+            'approved_requests' => $approvedRecords->count(),
+            'pending_requests' => $pendingRecords->count(),
+        ];
+
         // Load active users for selection (exclude applicant)
         $colleagues = User::internalStaff()->where('status', 'active')
             ->where('id', '!=', $user->id)
@@ -88,7 +105,14 @@ class LeaveController extends Controller
             })->latest()->paginate(5, ['*'], 'pending_leaves_page')->withQueryString();
         }
 
-        return view('portal.leaves', compact('user', 'myLeaves', 'colleagues', 'managers', 'pendingApprovals'));
+        return view('portal.leaves', compact(
+            'user',
+            'myLeaves',
+            'colleagues',
+            'managers',
+            'pendingApprovals',
+            'leaveSummary'
+        ));
     }
 
     /**
@@ -135,10 +159,14 @@ class LeaveController extends Controller
         // Every normal applicant starts with line manager approval, then HR / CVO / Super Admin final sign-off.
         $status = ! empty($validated['line_manager_id']) ? 'pending_manager' : 'pending_hr';
 
-        // Calculate leave days requested
+        // Calculate leave days requested, excluding Saturdays and Sundays.
         $start = Carbon::parse($validated['start_date']);
         $end = Carbon::parse($validated['end_date']);
-        $days = $start->diffInDays($end) + 1;
+        $days = LeaveApplication::workingDaysBetween($start, $end);
+
+        if ($days < 1) {
+            return back()->withErrors(['end_date' => 'Leave requests must include at least one weekday.']);
+        }
 
         if ($user->leave_balance < $days) {
             return back()->withErrors(['leave_balance' => 'You do not have enough leave days remaining (' . $user->leave_balance . ' days left, requested ' . $days . ' days).']);
@@ -247,7 +275,7 @@ class LeaveController extends Controller
 
         $start = Carbon::parse($leave->start_date);
         $end = Carbon::parse($leave->end_date);
-        $days = $start->diffInDays($end) + 1;
+        $days = LeaveApplication::workingDaysBetween($start, $end);
 
         $leave->user->decrement('leave_balance', $days);
 
@@ -371,7 +399,11 @@ class LeaveController extends Controller
 
         $start = Carbon::parse($validated['start_date']);
         $end = Carbon::parse($validated['end_date']);
-        $days = $start->diffInDays($end) + 1;
+        $days = LeaveApplication::workingDaysBetween($start, $end);
+
+        if ($days < 1) {
+            return back()->withErrors(['end_date' => 'Leave requests must include at least one weekday.']);
+        }
 
         if ($user->leave_balance < $days) {
             return back()->withErrors(['leave_balance' => 'You do not have enough leave days remaining (' . $user->leave_balance . ' days left, requested ' . $days . ' days).']);
@@ -510,13 +542,37 @@ class LeaveController extends Controller
             return;
         }
 
-        NotificationService::sendApprovalNeededToMany(
-            $approverIds,
-            'Leave Approval Needed',
-            "{$leave->user->name} submitted a {$leave->leave_type} leave request that needs approval.",
-            route('portal.leaves'),
-            $leave->user_id
-        );
+        $notificationTitle = 'Leave Approval Needed';
+        $notificationMessage = "{$leave->user->name} submitted a {$leave->leave_type} leave request that needs approval.";
+
+        if ($leave->status === 'pending_hr') {
+            $cvoApproverIds = NotificationService::activeCvoApproverIds($leave->user_id);
+            $hrApproverIds = array_diff(
+                NotificationService::activeHrApproverIds($leave->user_id),
+                $cvoApproverIds
+            );
+
+            NotificationService::sendToMany(
+                $hrApproverIds,
+                $notificationTitle,
+                $notificationMessage,
+                route('portal.hr')
+            );
+            NotificationService::sendToMany(
+                $cvoApproverIds,
+                $notificationTitle,
+                $notificationMessage,
+                route('portal.leaves')
+            );
+        } else {
+            NotificationService::sendApprovalNeededToMany(
+                $approverIds,
+                $notificationTitle,
+                $notificationMessage,
+                route('portal.leaves'),
+                $leave->user_id
+            );
+        }
 
         $emailApproverIds = $approverIds;
         if ($leave->status === 'pending_manager') {

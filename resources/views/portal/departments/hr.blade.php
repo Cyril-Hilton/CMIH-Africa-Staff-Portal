@@ -116,6 +116,156 @@
         </div>
         @endif
 
+        @if($canManageLeaves)
+        @php
+            $leaveStatusStyles = [
+                'approved' => 'border-green-500/30 bg-green-500/10 text-green-300',
+                'rejected' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
+                'pending_manager' => 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300',
+                'pending_cvo' => 'border-purple-500/30 bg-purple-500/10 text-purple-300',
+                'pending_hr' => 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+                'returned_for_correction' => 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300',
+            ];
+            $today = today();
+        @endphp
+        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">HR Workflow</p>
+                    <h3 class="text-lg font-display text-brand-white uppercase">All Staff Leave Manager</h3>
+                    <p class="mt-1 text-xs text-brand-white/50">Review every leave request, see its current lifecycle, and complete final HR approval. Saturdays and Sundays are excluded from working-day totals.</p>
+                </div>
+                <a href="{{ route('portal.leaves') }}" class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">
+                    Open Leave Portal
+                </a>
+            </div>
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach([
+                    ['label' => 'Pending review', 'value' => $leaveStats['pending'], 'class' => 'border-yellow-500/20 bg-yellow-500/5'],
+                    ['label' => 'Approved', 'value' => $leaveStats['approved'], 'class' => 'border-green-500/20 bg-green-500/5'],
+                    ['label' => 'Currently on leave', 'value' => $leaveStats['active'], 'class' => 'border-sky-500/20 bg-sky-500/5'],
+                    ['label' => 'Completed', 'value' => $leaveStats['completed'], 'class' => 'border-brand-white/10 bg-brand-white/[0.03]'],
+                ] as $stat)
+                    <div class="rounded-xl border px-4 py-3 {{ $stat['class'] }}">
+                        <p class="text-[10px] uppercase tracking-[0.18em] text-brand-ash">{{ $stat['label'] }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-brand-white">{{ $stat['value'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="mt-5 overflow-x-auto rounded-xl border border-brand-white/10">
+                <table class="w-full min-w-[1120px] text-left text-xs text-brand-white/70">
+                    <thead class="bg-brand-black/40 text-[10px] uppercase tracking-widest text-brand-ash">
+                        <tr>
+                            <th class="px-4 py-3">Staff</th>
+                            <th class="px-4 py-3">Requested</th>
+                            <th class="px-4 py-3">Days Off</th>
+                            <th class="px-4 py-3">Working Days</th>
+                            <th class="px-4 py-3">Cover / Acting LM</th>
+                            <th class="px-4 py-3">Approval</th>
+                            <th class="px-4 py-3">Leave Status</th>
+                            <th class="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-white/5">
+                        @forelse($allLeaves as $leave)
+                            @php
+                                $leaveLifecycle = match (true) {
+                                    $leave->status === 'approved' && $leave->start_date->gt($today) => 'Scheduled',
+                                    $leave->status === 'approved' && $leave->end_date->lt($today) => 'Completed',
+                                    $leave->status === 'approved' => 'Currently on leave',
+                                    $leave->status === 'returned_for_correction' => 'Correction requested',
+                                    $leave->status === 'rejected' => 'Not approved',
+                                    default => 'Pending approval',
+                                };
+                                $canApproveAtThisStage = $leave->status === 'pending_hr' && $canManageLeaves;
+                            @endphp
+                            <tr class="align-top hover:bg-brand-white/[0.02]">
+                                <td class="px-4 py-4">
+                                    <p class="font-semibold text-brand-white">{{ $leave->user?->name ?? 'Unknown staff' }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-white/40">{{ $leave->user?->email ?? 'No email' }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-ash">{{ \App\Models\User::departmentLabel($leave->user?->department) }}</p>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    {{ $leave->created_at?->format('M d, Y') ?? 'N/A' }}<br>
+                                    <span class="text-[10px] text-brand-ash">{{ $leave->created_at?->format('h:i A') }}</span>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <span class="capitalize">{{ $leave->leave_type }}</span><br>
+                                    <span class="text-[10px] text-brand-white/50">{{ $leave->start_date->format('M d, Y') }} to {{ $leave->end_date->format('M d, Y') }}</span>
+                                </td>
+                                <td class="px-4 py-4 font-mono text-brand-white">{{ $leave->workingDays() }}</td>
+                                <td class="px-4 py-4">
+                                    <p>{{ $leave->coveringStaff?->name ?? 'None selected' }}</p>
+                                    @if($leave->delegateLineManager)
+                                        <p class="mt-1 text-[10px] text-amber-300">Acting LM: {{ $leave->delegateLineManager->name }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase {{ $leaveStatusStyles[$leave->status] ?? 'border-brand-white/20 text-brand-white/60' }}">
+                                        {{ ucwords(str_replace('_', ' ', $leave->status)) }}
+                                    </span>
+                                    @if($leave->comments)
+                                        <p class="mt-2 max-w-[14rem] whitespace-pre-wrap text-[10px] leading-snug text-brand-white/45">{{ trim(strip_tags($leave->comments)) }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    <span class="inline-flex rounded-full border border-brand-white/10 bg-brand-white/[0.03] px-2.5 py-1 text-[10px] font-semibold uppercase text-brand-white/60">
+                                        {{ $leaveLifecycle }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4">
+                                    @if($canApproveAtThisStage)
+                                        <div class="flex min-w-[15rem] flex-col items-end gap-2">
+                                            <div class="flex flex-wrap justify-end gap-2">
+                                                <form method="POST" action="{{ route('portal.leaves.approve', $leave) }}">
+                                                    @csrf
+                                                    <button type="submit" class="rounded-lg bg-green-500/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-green-300 hover:bg-green-500/20">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ route('portal.leaves.reject', $leave) }}">
+                                                    @csrf
+                                                    <input type="hidden" name="rejection_comments" value="Rejected by HR Manager">
+                                                    <button type="submit" class="rounded-lg bg-brand-red/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-red hover:bg-brand-red/20">
+                                                        Reject
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            <form method="POST" action="{{ route('portal.leaves.return', $leave) }}" class="flex w-full items-center justify-end gap-2">
+                                                @csrf
+                                                <input type="text" name="rejection_comments" required placeholder="Correction notes" class="min-w-0 flex-1 rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-cyan-400 focus:ring-0">
+                                                <button type="submit" class="shrink-0 rounded-lg bg-cyan-500/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/20">
+                                                    Send back
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @elseif($leave->status === 'pending_manager')
+                                        <span class="text-[10px] text-yellow-300/70">Awaiting line manager</span>
+                                    @elseif($leave->status === 'pending_cvo')
+                                        <span class="text-[10px] text-purple-300/70">Awaiting CVO</span>
+                                    @else
+                                        <span class="text-[10px] text-brand-white/35">No action required</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="px-4 py-12 text-center text-sm text-brand-white/50">No staff leave requests have been submitted yet.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($allLeaves instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                <div class="mt-4 border-t border-brand-white/10 pt-4">
+                    {{ $allLeaves->links() }}
+                </div>
+            @endif
+        </div>
+        @endif
+
         <!-- Grid layout: Visitor Log & LifeCycle -->
         <div class="grid gap-6 lg:grid-cols-2">
             <!-- Visitor Log Form and Listing -->
