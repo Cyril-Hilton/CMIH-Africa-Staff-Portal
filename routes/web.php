@@ -246,6 +246,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/hr', [\App\Http\Controllers\Portal\DepartmentController::class, 'hr'])->name('hr');
     Route::post('/hr/announcements', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeHrAnnouncement'])->name('hr.announcements.store');
     Route::post('/hr/staff/{user}/leave-balance', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateLeaveBalance'])->name('hr.leave-balance.update');
+    Route::post('/hr/salary-advance-settings', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateSalaryAdvanceSettings'])->name('hr.salary-advance-settings.update');
+    Route::post('/hr/staff/{user}/salary-advance-minimum', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateStaffSalaryAdvanceMinimum'])->name('hr.salary-advance-minimum.update');
     Route::post('/hr/visitors', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeVisitor'])->name('hr.visitors.store');
     Route::post('/hr/visitors/{visitor}/checkout', [\App\Http\Controllers\Portal\DepartmentController::class, 'checkoutVisitor'])->name('hr.visitors.checkout');
     Route::post('/hr/appraisals/metrics', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAppraisalMetric'])->name('hr.appraisals.metrics.store');

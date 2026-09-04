@@ -30,6 +30,8 @@
     @php
         $isFinanceStaff = strtolower(trim($user->department ?? '')) === 'finance'
             || $user->access_role === 'super_admin';
+        $effectiveMinimum = (float) ($salaryAdvanceMinimum ?? 500);
+        $defaultMinimum = (float) ($salaryAdvanceDefaultMinimum ?? 500);
     @endphp
 
     <div x-data="{ 
@@ -207,9 +209,10 @@
 
                     <!-- Monthly Deduction Amount -->
                     <div x-show="repaymentStyle === 'monthly_deduction'">
-                        <x-input-label for="monthly_deduction_amount" :value="__('Monthly Deduction Amount (Min: GH₵ 1,000)')" />
-                        <input id="monthly_deduction_amount" name="monthly_deduction_amount" type="number" step="0.01" min="1000" :required="repaymentStyle === 'monthly_deduction'"
-                               class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 text-brand-white px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="1000.00" />
+                        <x-input-label for="monthly_deduction_amount" :value="__('Monthly Deduction Amount')" />
+                        <input id="monthly_deduction_amount" name="monthly_deduction_amount" type="number" step="0.01" min="{{ number_format($effectiveMinimum, 2, '.', '') }}" :required="repaymentStyle === 'monthly_deduction'"
+                               class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 text-brand-white px-3 py-2 text-sm focus:outline-none focus:border-amber-500" placeholder="{{ number_format($effectiveMinimum, 2, '.', '') }}" />
+                        <p class="mt-1 text-[10px] text-brand-white/45">Minimum for your current HR terms: GHC {{ number_format($effectiveMinimum, 2) }}{{ $effectiveMinimum !== $defaultMinimum ? ' (staff-specific agreement)' : '' }}.</p>
                     </div>
 
                     <!-- Reason -->
@@ -334,10 +337,11 @@
 
                 <!-- Monthly Deduction Amount -->
                 <div x-show="resubmitRepaymentStyle === 'monthly_deduction'">
-                    <x-input-label for="resubmit_monthly_deduction_amount" :value="__('Monthly Deduction Amount (Min: GH₵ 1,000)')" />
-                    <input id="resubmit_monthly_deduction_amount" name="monthly_deduction_amount" type="number" step="0.01" min="1000" :required="resubmitRepaymentStyle === 'monthly_deduction'"
+                    <x-input-label for="resubmit_monthly_deduction_amount" :value="__('Monthly Deduction Amount')" />
+                    <input id="resubmit_monthly_deduction_amount" name="monthly_deduction_amount" type="number" step="0.01" min="{{ number_format($effectiveMinimum, 2, '.', '') }}" :required="resubmitRepaymentStyle === 'monthly_deduction'"
                            :value="resubmitAdvanceData.monthly_deduction_amount"
                            class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black text-brand-white px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
+                    <p class="mt-1 text-[10px] text-brand-white/45">Minimum for your current HR terms: GHC {{ number_format($effectiveMinimum, 2) }}.</p>
                 </div>
 
                 <!-- Reason -->

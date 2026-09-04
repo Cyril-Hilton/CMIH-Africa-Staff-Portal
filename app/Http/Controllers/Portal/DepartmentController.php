@@ -16,6 +16,7 @@ use App\Models\ThirdPartyVendor;
 use App\Models\User;
 use App\Models\VisitorLog;
 use App\Services\NotificationService;
+use App\Support\SalaryAdvancePolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -162,6 +163,7 @@ class DepartmentController extends Controller
                 ->whereDate('end_date', '<', $today)
                 ->count(),
         ] : ['pending' => 0, 'approved' => 0, 'active' => 0, 'completed' => 0];
+        $salaryAdvanceDefaultMinimum = SalaryAdvancePolicy::defaultMonthlyDeductionMinimum();
 
         return view('portal.departments.hr', compact(
             'visitors',
@@ -173,7 +175,8 @@ class DepartmentController extends Controller
             'identityDocuments',
             'canManageLeaves',
             'allLeaves',
-            'leaveStats'
+            'leaveStats',
+            'salaryAdvanceDefaultMinimum'
         ));
     }
 
@@ -264,6 +267,45 @@ class DepartmentController extends Controller
         ]);
 
         return back()->with('status', "{$user->name}'s leave balance has been updated to {$validated['leave_balance']} day(s).");
+    }
+
+    public function updateSalaryAdvanceSettings(Request $request): RedirectResponse
+    {
+        $this->authorizeDepartment('admin', $request->user());
+        abort_unless($request->user()->hasFullHrAccess(), 403);
+
+        $validated = $request->validate([
+            'default_min_monthly_deduction' => ['required', 'numeric', 'min:0.01', 'max:1000000'],
+        ]);
+
+        $minimum = SalaryAdvancePolicy::normalizeMinimum($validated['default_min_monthly_deduction']);
+        SalaryAdvancePolicy::setDefaultMonthlyDeductionMinimum($minimum, $request->user()->id);
+
+        return back()->with('status', 'Salary advance default monthly deduction minimum updated to GHC '.number_format($minimum, 2).'.');
+    }
+
+    public function updateStaffSalaryAdvanceMinimum(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizeDepartment('admin', $request->user());
+        abort_unless($request->user()->hasFullHrAccess(), 403);
+
+        $validated = $request->validate([
+            'min_monthly_deduction' => ['nullable', 'numeric', 'min:0.01', 'max:1000000'],
+        ]);
+
+        $minimum = filled($validated['min_monthly_deduction'] ?? null)
+            ? SalaryAdvancePolicy::normalizeMinimum($validated['min_monthly_deduction'])
+            : null;
+
+        $user->update([
+            'salary_advance_min_monthly_deduction' => $minimum,
+        ]);
+
+        $message = $minimum
+            ? "{$user->name}'s salary advance monthly deduction minimum is now GHC ".number_format($minimum, 2).'.'
+            : "{$user->name}'s salary advance monthly deduction minimum now follows the HR default.";
+
+        return back()->with('status', $message);
     }
 
     /**
@@ -1026,6 +1068,8 @@ class DepartmentController extends Controller
     public function advancesIndex(Request $request): View
     {
         $user = $request->user();
+        $salaryAdvanceMinimum = SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($user);
+        $salaryAdvanceDefaultMinimum = SalaryAdvancePolicy::defaultMonthlyDeductionMinimum();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
             || $user->access_role === 'super_admin';
             
@@ -1043,7 +1087,15 @@ class DepartmentController extends Controller
             $pendingCvoAdvances = collect();
         }
 
-        return view('portal.finance.advances', compact('user', 'advances', 'pendingCvoAdvances', 'isFinance', 'isCVO'));
+        return view('portal.finance.advances', compact(
+            'user',
+            'advances',
+            'pendingCvoAdvances',
+            'isFinance',
+            'isCVO',
+            'salaryAdvanceMinimum',
+            'salaryAdvanceDefaultMinimum'
+        ));
     }
 
     /** Finance: Store supplier invoice */
@@ -1389,6 +1441,7 @@ class DepartmentController extends Controller
     {
         $user = $request->user();
         $maxAmount = $user->monthlySalary() * 2;
+        $minimumMonthlyDeduction = SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($user);
 
         $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', "max:{$maxAmount}"],
@@ -1397,9 +1450,9 @@ class DepartmentController extends Controller
                 'nullable',
                 'required_if:repayment_style,monthly_deduction',
                 'numeric',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->repayment_style === 'monthly_deduction' && $value < 1000) {
-                        $fail('The monthly deduction amount must be at least 1000 GH₵.');
+                function ($attribute, $value, $fail) use ($request, $minimumMonthlyDeduction) {
+                    if ($request->repayment_style === 'monthly_deduction' && (float) $value < $minimumMonthlyDeduction) {
+                        $fail(SalaryAdvancePolicy::minimumValidationMessage($minimumMonthlyDeduction));
                     }
                 }
             ],
@@ -1437,6 +1490,7 @@ class DepartmentController extends Controller
         }
 
         $maxAmount = $user->monthlySalary() * 2;
+        $minimumMonthlyDeduction = SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($user);
 
         $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', "max:{$maxAmount}"],
@@ -1445,9 +1499,9 @@ class DepartmentController extends Controller
                 'nullable',
                 'required_if:repayment_style,monthly_deduction',
                 'numeric',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->repayment_style === 'monthly_deduction' && $value < 1000) {
-                        $fail('The monthly deduction amount must be at least 1000 GH₵.');
+                function ($attribute, $value, $fail) use ($request, $minimumMonthlyDeduction) {
+                    if ($request->repayment_style === 'monthly_deduction' && (float) $value < $minimumMonthlyDeduction) {
+                        $fail(SalaryAdvancePolicy::minimumValidationMessage($minimumMonthlyDeduction));
                     }
                 }
             ],

@@ -116,6 +116,85 @@
         </div>
         @endif
 
+        @if($canDoSensitiveHr)
+        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
+                    <h3 class="text-lg font-display text-brand-white uppercase">Salary Advance Installment Terms</h3>
+                    <p class="mt-1 text-xs text-brand-white/50">Set the default monthly loan deduction minimum, then override it for individual staff agreements where needed.</p>
+                </div>
+                <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-right">
+                    <p class="text-[10px] uppercase tracking-widest text-amber-300">Current Default</p>
+                    <p class="mt-1 text-xl font-semibold text-brand-white">GHC {{ number_format($salaryAdvanceDefaultMinimum ?? 500, 2) }}</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{{ route('portal.hr.salary-advance-settings.update') }}" class="mt-5 grid gap-3 rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                @csrf
+                <div>
+                    <x-input-label for="default_min_monthly_deduction" :value="__('Default Minimum Monthly Deduction (GHC)')" />
+                    <input id="default_min_monthly_deduction" name="default_min_monthly_deduction" type="number" step="0.01" min="0.01"
+                           value="{{ old('default_min_monthly_deduction', number_format($salaryAdvanceDefaultMinimum ?? 500, 2, '.', '')) }}"
+                           class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white focus:border-amber-500 focus:outline-none">
+                    <p class="mt-1 text-[10px] text-brand-white/45">New staff loan requests use this amount unless HR sets a staff-specific agreement below.</p>
+                </div>
+                <button type="submit" class="rounded-xl bg-brand-red px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-brand-white transition hover:bg-brand-red-dark">
+                    Save Default
+                </button>
+            </form>
+
+            <div class="mt-5 overflow-x-auto rounded-xl border border-brand-white/10">
+                <table class="w-full min-w-[860px] text-left text-xs text-brand-white/70">
+                    <thead class="bg-brand-black/40 text-[10px] uppercase tracking-widest text-brand-ash">
+                        <tr>
+                            <th class="px-4 py-3">Staff</th>
+                            <th class="px-4 py-3">Monthly Salary</th>
+                            <th class="px-4 py-3">Effective Minimum</th>
+                            <th class="px-4 py-3">Staff Agreement Override</th>
+                            <th class="px-4 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-white/5">
+                        @foreach($staff as $employee)
+                            @php
+                                $overrideMinimum = $employee->salary_advance_min_monthly_deduction;
+                                $effectiveMinimum = $overrideMinimum ?: ($salaryAdvanceDefaultMinimum ?? 500);
+                            @endphp
+                            <tr class="align-middle hover:bg-brand-white/[0.02]">
+                                <td class="px-4 py-3">
+                                    <p class="font-semibold text-brand-white">{{ $employee->name }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-white/40">{{ $employee->email }}</p>
+                                </td>
+                                <td class="px-4 py-3 font-mono">GHC {{ number_format((float) ($employee->salary ?? 0), 2) }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                                        GHC {{ number_format((float) $effectiveMinimum, 2) }}
+                                    </span>
+                                    <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMinimum ? 'Staff-specific agreement' : 'Using HR default' }}</p>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <form id="loan-minimum-{{ $employee->id }}" method="POST" action="{{ route('portal.hr.salary-advance-minimum.update', $employee) }}" class="flex items-center gap-2">
+                                        @csrf
+                                        <input name="min_monthly_deduction" type="number" step="0.01" min="0.01"
+                                               value="{{ old('min_monthly_deduction', $overrideMinimum ? number_format((float) $overrideMinimum, 2, '.', '') : '') }}"
+                                               placeholder="Blank = default"
+                                               class="w-40 rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:outline-none">
+                                    </form>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <button type="submit" form="loan-minimum-{{ $employee->id }}" class="rounded-lg bg-amber-500/20 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-amber-300 hover:bg-amber-500/30">
+                                        Save Terms
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
+
         @if($canManageLeaves)
         @php
             $leaveStatusStyles = [
