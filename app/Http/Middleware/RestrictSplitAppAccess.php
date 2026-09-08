@@ -15,6 +15,10 @@ class RestrictSplitAppAccess
         $path = $request->path();
 
         if ($kind === 'all') {
+            if (in_array(strtolower($request->getHost()), ['127.0.0.1', 'localhost'], true)) {
+                return $next($request);
+            }
+
             if ($this->isWebsiteHost($request->getHost()) && ! $this->isAllowed('website', $path)) {
                 return redirect()->away($this->targetUrlFor($request));
             }

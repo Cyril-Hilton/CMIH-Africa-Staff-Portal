@@ -98,6 +98,7 @@ class User extends Authenticatable
         'requested_change_at',
         'salary',
         'salary_advance_min_monthly_deduction',
+        'salary_advance_max_amount',
         'payroll_deductions',
         'payroll_rewards_bonus',
         'payroll_notes',
@@ -183,6 +184,7 @@ class User extends Authenticatable
             'height' => 'decimal:2',
             'salary' => 'decimal:2',
             'salary_advance_min_monthly_deduction' => 'decimal:2',
+            'salary_advance_max_amount' => 'decimal:2',
             'payroll_deductions' => 'decimal:2',
             'payroll_rewards_bonus' => 'decimal:2',
             'merchandiser_working_days' => 'array',
@@ -299,12 +301,27 @@ class User extends Authenticatable
 
         $dept = self::normalizeDepartmentKey($this->department);
         $isHrDept = $dept === 'hr_admin';
-        
-        $positionTitle = strtolower(trim((string) $this->position_title));
-        $isManagerLevel = in_array($positionTitle, ['manager', 'department head', 'hr manager'], true)
-            || in_array($this->job_level, ['manager'], true);
 
-        return $isHrDept && $isManagerLevel;
+        if (! $isHrDept) {
+            return false;
+        }
+
+        if (in_array($this->access_role, ['admin', 'manager'], true)) {
+            return true;
+        }
+
+        $positionTitle = strtolower(trim((string) $this->position_title));
+        $jobTitle = strtolower(trim((string) $this->job_title));
+        $jobLevel = strtolower(trim((string) $this->job_level));
+
+        $combinedTitle = "{$positionTitle} {$jobTitle} {$jobLevel}";
+
+        $isHrManagerTitle = (bool) preg_match('/\b(manager|head|lead|director)\b/', $combinedTitle)
+            && ! preg_match('/\b(assistant|intern|trainee)\b/', $combinedTitle);
+
+        $isManagerLevel = in_array($jobLevel, ['manager', 'head', 'hod', 'lead', 'director'], true);
+
+        return $isHrManagerTitle || $isManagerLevel;
     }
 
     /**

@@ -30,13 +30,21 @@ class SiteController extends Controller
 
     private function shouldShowBrandsPlatform(Request $request): bool
     {
-        if ((string) config('cmih.app_kind') === 'brands') {
+        $appKind = (string) config('cmih.app_kind');
+
+        if ($appKind === 'all') {
+            return false;
+        }
+
+        if ($appKind === 'brands') {
             return true;
         }
 
         $brandsHost = parse_url((string) config('cmih.urls.brands'), PHP_URL_HOST);
 
-        return $brandsHost && strtolower($request->getHost()) === strtolower($brandsHost);
+        return $brandsHost 
+            && strtolower($request->getHost()) === strtolower($brandsHost)
+            && ! in_array(strtolower($request->getHost()), ['127.0.0.1', 'localhost'], true);
     }
 
     public function news(): View

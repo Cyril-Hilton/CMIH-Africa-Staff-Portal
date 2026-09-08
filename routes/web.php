@@ -248,6 +248,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/hr/staff/{user}/leave-balance', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateLeaveBalance'])->name('hr.leave-balance.update');
     Route::post('/hr/salary-advance-settings', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateSalaryAdvanceSettings'])->name('hr.salary-advance-settings.update');
     Route::post('/hr/staff/{user}/salary-advance-minimum', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateStaffSalaryAdvanceMinimum'])->name('hr.salary-advance-minimum.update');
+    Route::post('/hr/salary-advances/{advance}/action', [\App\Http\Controllers\Portal\DepartmentController::class, 'hrActionAdvance'])->name('hr.salary-advances.action');
     Route::post('/hr/visitors', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeVisitor'])->name('hr.visitors.store');
     Route::post('/hr/visitors/{visitor}/checkout', [\App\Http\Controllers\Portal\DepartmentController::class, 'checkoutVisitor'])->name('hr.visitors.checkout');
     Route::post('/hr/appraisals/metrics', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAppraisalMetric'])->name('hr.appraisals.metrics.store');
@@ -263,6 +264,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/finance/advances/{advance}/resubmit', [\App\Http\Controllers\Portal\DepartmentController::class, 'resubmitAdvance'])->name('finance.advances.resubmit');
     Route::post('/finance/advances/{advance}/finance-action', [\App\Http\Controllers\Portal\DepartmentController::class, 'financeActionAdvance'])->name('finance.advances.finance-action');
     Route::post('/finance/advances/{advance}/cvo-action', [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionAdvance'])->name('finance.advances.cvo-action');
+    Route::post('/finance/advances/{advance}/repayments', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAdvanceRepayment'])->name('finance.advances.repayments.store');
 
     Route::get('/operations', [\App\Http\Controllers\Portal\DepartmentController::class, 'operations'])->name('operations');
     Route::post('/operations/vendors', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeVendor'])->name('operations.vendors.store');

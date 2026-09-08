@@ -1709,37 +1709,54 @@ class MerchandiserController extends Controller
     public function submitLoan(Request $request)
     {
         $user = $request->user();
+        $maxAmount = \App\Support\SalaryAdvancePolicy::effectiveMaximumAmount($user);
+        $minimumMonthlyDeduction = \App\Support\SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($user);
+
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1'],
-            'repayment_style' => ['required', 'in:flat,monthly_deduction'],
-            'monthly_deduction_amount' => ['required', 'numeric', 'min:1'],
+            'amount' => [
+                'required',
+                'numeric',
+                'min:0.01',
+                function ($attribute, $value, $fail) use ($maxAmount) {
+                    if ((float) $value > $maxAmount) {
+                        $fail(\App\Support\SalaryAdvancePolicy::maximumValidationMessage($maxAmount));
+                    }
+                },
+            ],
+            'repayment_style' => ['required', 'string', 'in:flat,monthly_deduction,pay_all_at_once'],
+            'monthly_deduction_amount' => [
+                'nullable',
+                'required_if:repayment_style,monthly_deduction',
+                'numeric',
+                function ($attribute, $value, $fail) use ($request, $minimumMonthlyDeduction) {
+                    if ($request->repayment_style === 'monthly_deduction' && (float) $value < $minimumMonthlyDeduction) {
+                        $fail(\App\Support\SalaryAdvancePolicy::minimumValidationMessage($minimumMonthlyDeduction));
+                    }
+                },
+            ],
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        // Block if advance exceeds double the monthly base salary
-        $limit = ($user->salary ?: 0) * 2;
-        if ($validated['amount'] > $limit) {
-            return back()->withErrors(['amount' => "Advance request cannot exceed double your monthly salary ({$limit})."]);
-        }
+        $repaymentStyle = ($validated['repayment_style'] === 'flat') ? 'pay_all_at_once' : $validated['repayment_style'];
 
         $loan = SalaryAdvance::create([
             'user_id' => $user->id,
             'amount' => $validated['amount'],
-            'repayment_style' => $validated['repayment_style'],
-            'monthly_deduction_amount' => $validated['monthly_deduction_amount'],
+            'repayment_style' => $repaymentStyle,
+            'monthly_deduction_amount' => $repaymentStyle === 'monthly_deduction' ? $validated['monthly_deduction_amount'] : null,
             'reason' => $validated['reason'],
-            'status' => 'pending'
+            'status' => 'pending',
         ]);
 
         NotificationService::sendApprovalNeededToMany(
-            NotificationService::activeFinanceApproverIds($user->id),
+            NotificationService::activeMerchandiserPortalAdminIds($user->id),
             'Merchandiser Salary Advance Approval Needed',
-            "{$user->name} requested a salary advance of GHS " . number_format((float) $loan->amount, 2) . ".",
+            "{$user->name} requested a salary advance of GHS " . number_format((float) $loan->amount, 2) . " for Brands Team approval.",
             route('merchandisers.admin.dashboard'),
             $user->id
         );
 
-        return redirect()->route('merchandisers.dashboard')->with('status', 'Salary advance request submitted successfully.');
+        return redirect()->route('merchandisers.dashboard')->with('status', 'Salary advance request submitted successfully to Brands Team for approval.');
     }
 
     /**

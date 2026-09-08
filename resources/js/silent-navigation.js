@@ -167,8 +167,11 @@ const navigate = async (target, options = {}) => {
             method: 'GET',
             headers: {
                 Accept: 'text/html',
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
                 'X-Requested-With': 'XMLHttpRequest',
             },
+            cache: 'no-store',
             credentials: 'same-origin',
             signal: controller.signal,
         });

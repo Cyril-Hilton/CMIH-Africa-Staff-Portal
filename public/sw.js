@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cmih-portal-20260715-notifications';
+const CACHE_NAME = 'cmih-portal-20260825-static-v2';
 const CORE_ASSETS = [
   '/manifest.json',
   '/images/logo/favicon.png',
@@ -58,17 +58,20 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  if (event.request.mode === 'navigate') {
+  const acceptsHtml = (event.request.headers.get('accept') || '').includes('text/html');
+
+  // Portal HTML contains private, frequently changing records. Never serve it
+  // from Cache Storage, including AJAX pagination and filter responses.
+  if (event.request.mode === 'navigate' || acceptsHtml) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-          return response;
-        })
-        .catch(() => caches.match(event.request))
+      fetch(event.request, { cache: 'no-store' }).catch(() => new Response(
+        'The portal is currently offline. Reconnect and try again.',
+        {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        }
+      ))
     );
     return;
   }

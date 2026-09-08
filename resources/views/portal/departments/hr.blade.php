@@ -122,25 +122,42 @@
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
                     <h3 class="text-lg font-display text-brand-white uppercase">Salary Advance Installment Terms</h3>
-                    <p class="mt-1 text-xs text-brand-white/50">Set the default monthly loan deduction minimum, then override it for individual staff agreements where needed.</p>
+                    <p class="mt-1 text-xs text-brand-white/50">Set the default loan rules, then override maximum payout and installment terms for individual staff agreements where needed.</p>
                 </div>
-                <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-right">
-                    <p class="text-[10px] uppercase tracking-widest text-amber-300">Current Default</p>
-                    <p class="mt-1 text-xl font-semibold text-brand-white">GHC {{ number_format($salaryAdvanceDefaultMinimum ?? 500, 2) }}</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-right">
+                        <p class="text-[10px] uppercase tracking-widest text-amber-300">Default Installment Min</p>
+                        <p class="mt-1 text-xl font-semibold text-brand-white">GHC {{ number_format($salaryAdvanceDefaultMinimum ?? 500, 2) }}</p>
+                    </div>
+                    <div class="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-right">
+                        <p class="text-[10px] uppercase tracking-widest text-sky-300">Default Max Payout</p>
+                        <p class="mt-1 text-xl font-semibold text-brand-white">{{ number_format($salaryAdvanceDefaultMaximumMultiplier ?? 2, 2) }}x Salary</p>
+                    </div>
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('portal.hr.salary-advance-settings.update') }}" class="mt-5 grid gap-3 rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <form method="POST" action="{{ route('portal.hr.salary-advance-settings.update') }}" class="mt-5 grid gap-4 rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 lg:grid-cols-3 lg:items-end">
                 @csrf
                 <div>
                     <x-input-label for="default_min_monthly_deduction" :value="__('Default Minimum Monthly Deduction (GHC)')" />
                     <input id="default_min_monthly_deduction" name="default_min_monthly_deduction" type="number" step="0.01" min="0.01"
                            value="{{ old('default_min_monthly_deduction', number_format($salaryAdvanceDefaultMinimum ?? 500, 2, '.', '')) }}"
                            class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white focus:border-amber-500 focus:outline-none">
-                    <p class="mt-1 text-[10px] text-brand-white/45">New staff loan requests use this amount unless HR sets a staff-specific agreement below.</p>
+                    <p class="mt-1 text-[10px] text-brand-white/45">Used unless HR sets a staff-specific installment agreement below.</p>
                 </div>
-                <button type="submit" class="rounded-xl bg-brand-red px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-brand-white transition hover:bg-brand-red-dark">
-                    Save Default
+                <div>
+                    <x-input-label for="default_max_salary_multiplier" :value="__('Default Maximum Payout Multiplier')" />
+                    <input id="default_max_salary_multiplier" name="default_max_salary_multiplier" type="number" step="0.01" min="0.01" max="100"
+                           value="{{ old('default_max_salary_multiplier', number_format($salaryAdvanceDefaultMaximumMultiplier ?? 2, 2, '.', '')) }}"
+                           class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white focus:border-amber-500 focus:outline-none">
+                    <p class="mt-1 text-[10px] text-brand-white/45">Example: 1.50 means staff can request up to 1.5x salary unless overridden below.</p>
+                </div>
+                <div class="lg:row-span-2">
+                    <x-input-label for="terms_note" :value="__('Loan Terms & Conditions Note')" />
+                    <textarea id="terms_note" name="terms_note" rows="5" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white focus:border-amber-500 focus:outline-none">{{ old('terms_note', $salaryAdvanceTermsNote ?? '') }}</textarea>
+                </div>
+                <button type="submit" class="rounded-xl bg-brand-red px-5 py-2.5 text-xs font-semibold uppercase tracking-wider text-brand-white transition hover:bg-brand-red-dark lg:col-span-2">
+                    Save Loan Policy
                 </button>
             </form>
 
@@ -151,7 +168,8 @@
                             <th class="px-4 py-3">Staff</th>
                             <th class="px-4 py-3">Monthly Salary</th>
                             <th class="px-4 py-3">Effective Minimum</th>
-                            <th class="px-4 py-3">Staff Agreement Override</th>
+                            <th class="px-4 py-3">Effective Maximum</th>
+                            <th class="px-4 py-3">Staff Agreement Overrides</th>
                             <th class="px-4 py-3 text-right">Action</th>
                         </tr>
                     </thead>
@@ -160,6 +178,8 @@
                             @php
                                 $overrideMinimum = $employee->salary_advance_min_monthly_deduction;
                                 $effectiveMinimum = $overrideMinimum ?: ($salaryAdvanceDefaultMinimum ?? 500);
+                                $overrideMaximum = $employee->salary_advance_max_amount;
+                                $effectiveMaximum = \App\Support\SalaryAdvancePolicy::effectiveMaximumAmount($employee);
                             @endphp
                             <tr class="align-middle hover:bg-brand-white/[0.02]">
                                 <td class="px-4 py-3">
@@ -174,11 +194,21 @@
                                     <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMinimum ? 'Staff-specific agreement' : 'Using HR default' }}</p>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <form id="loan-minimum-{{ $employee->id }}" method="POST" action="{{ route('portal.hr.salary-advance-minimum.update', $employee) }}" class="flex items-center gap-2">
+                                    <span class="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300">
+                                        GHC {{ number_format((float) $effectiveMaximum, 2) }}
+                                    </span>
+                                    <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMaximum ? 'Staff-specific cap' : 'Using default multiplier' }}</p>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <form id="loan-minimum-{{ $employee->id }}" method="POST" action="{{ route('portal.hr.salary-advance-minimum.update', $employee) }}" class="grid gap-2 md:grid-cols-2">
                                         @csrf
                                         <input name="min_monthly_deduction" type="number" step="0.01" min="0.01"
                                                value="{{ old('min_monthly_deduction', $overrideMinimum ? number_format((float) $overrideMinimum, 2, '.', '') : '') }}"
-                                               placeholder="Blank = default"
+                                               placeholder="Min deduction"
+                                               class="w-40 rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:outline-none">
+                                        <input name="max_advance_amount" type="number" step="0.01" min="0.01"
+                                               value="{{ old('max_advance_amount', $overrideMaximum ? number_format((float) $overrideMaximum, 2, '.', '') : '') }}"
+                                               placeholder="Max payout"
                                                class="w-40 rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:outline-none">
                                     </form>
                                 </td>
@@ -192,6 +222,167 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        @endif
+
+        @if($canDoSensitiveHr)
+        @php
+            $loanStatusStyles = [
+                'pending_hr' => 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+                'pending_finance' => 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+                'pending_cvo' => 'border-purple-500/30 bg-purple-500/10 text-purple-300',
+                'returned_for_correction' => 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300',
+                'repayment_active' => 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+                'approved' => 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+                'fully_paid' => 'border-green-500/30 bg-green-500/10 text-green-300',
+                'rejected' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
+            ];
+        @endphp
+        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
+                    <h3 class="text-lg font-display text-brand-white uppercase">Staff Loan Manager</h3>
+                    <p class="mt-1 text-xs text-brand-white/50">Review all salary advance requests, approve the agreed staff terms, and monitor payback progress with Finance.</p>
+                </div>
+                <a href="{{ route('portal.finance.advances.index') }}" class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">
+                    Open Finance View
+                </a>
+            </div>
+
+            <div class="mt-5 overflow-x-auto rounded-xl border border-brand-white/10">
+                <table class="w-full min-w-[1180px] text-left text-xs text-brand-white/70">
+                    <thead class="bg-brand-black/40 text-[10px] uppercase tracking-widest text-brand-ash">
+                        <tr>
+                            <th class="px-4 py-3">Staff</th>
+                            <th class="px-4 py-3">Request</th>
+                            <th class="px-4 py-3">Terms</th>
+                            <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3">Payback</th>
+                            <th class="px-4 py-3">Notes</th>
+                            <th class="px-4 py-3 text-right">HR Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-white/5">
+                        @forelse($salaryAdvanceRequests as $loan)
+                            @php
+                                $paid = $loan->totalRepaid();
+                                $balance = $loan->balance();
+                                $approvedMonthly = $loan->approvedMonthlyDeduction();
+                                $staffMinimum = \App\Support\SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($loan->user);
+                                $loanColor = $loanStatusStyles[$loan->status] ?? 'border-brand-white/20 bg-brand-white/5 text-brand-white/60';
+                            @endphp
+                            <tr class="align-top hover:bg-brand-white/[0.02]">
+                                <td class="px-4 py-4">
+                                    <p class="font-semibold text-brand-white">{{ $loan->user?->name ?? 'Unknown staff' }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-white/40">{{ $loan->user?->email ?? 'No email' }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-ash">{{ \App\Models\User::departmentLabel($loan->user?->department) }}</p>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <p class="font-mono text-brand-white">GHC {{ number_format($loan->amount, 2) }}</p>
+                                    <p class="mt-1 text-[10px] text-brand-white/45">{{ $loan->created_at?->format('M d, Y h:i A') }}</p>
+                                    <p class="mt-2 max-w-[16rem] text-[10px] leading-snug text-brand-white/55">{{ trim(strip_tags((string) $loan->reason)) }}</p>
+                                </td>
+                                <td class="px-4 py-4">
+                                    <p class="capitalize text-brand-white">{{ str_replace('_', ' ', $loan->repayment_style) }}</p>
+                                    @if($loan->repayment_style === 'monthly_deduction')
+                                        <p class="mt-1 text-[10px] text-brand-white/50">Requested: GHC {{ number_format($loan->monthly_deduction_amount, 2) }}</p>
+                                        <p class="text-[10px] text-emerald-300">Approved: {{ $approvedMonthly ? 'GHC '.number_format($approvedMonthly, 2) : 'Pending HR' }}</p>
+                                        <p class="text-[10px] text-brand-white/35">Staff minimum: GHC {{ number_format($staffMinimum, 2) }}</p>
+                                    @else
+                                        <p class="mt-1 text-[10px] text-amber-300">One-time payback agreement</p>
+                                    @endif
+                                    @if($loan->repayment_start_date)
+                                        <p class="mt-1 text-[10px] text-brand-white/45">Starts {{ $loan->repayment_start_date->format('M d, Y') }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase {{ $loanColor }}">
+                                        {{ ucwords(str_replace('_', ' ', $loan->status)) }}
+                                    </span>
+                                    @if($loan->hrReviewer)
+                                        <p class="mt-2 text-[10px] text-brand-white/45">HR: {{ $loan->hrReviewer->name }}</p>
+                                    @endif
+                                    @if($loan->financeReviewer)
+                                        <p class="text-[10px] text-brand-white/45">Finance: {{ $loan->financeReviewer->name }}</p>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    <p class="text-[10px] text-brand-white/45">Paid</p>
+                                    <p class="font-mono text-emerald-300">GHC {{ number_format($paid, 2) }}</p>
+                                    <p class="mt-2 text-[10px] text-brand-white/45">Balance</p>
+                                    <p class="font-mono text-brand-white">GHC {{ number_format($balance, 2) }}</p>
+                                </td>
+                                <td class="px-4 py-4">
+                                    @if($loan->hr_feedback)
+                                        <p class="max-w-[14rem] whitespace-pre-wrap text-[10px] leading-snug text-sky-200/80">HR: {{ $loan->hr_feedback }}</p>
+                                    @endif
+                                    @if($loan->finance_feedback)
+                                        <p class="mt-2 max-w-[14rem] whitespace-pre-wrap text-[10px] leading-snug text-amber-200/80">Finance/CVO: {{ $loan->finance_feedback }}</p>
+                                    @endif
+                                    @if(! $loan->hr_feedback && ! $loan->finance_feedback)
+                                        <span class="text-[10px] text-brand-white/35">No notes</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-4">
+                                    @if($loan->status === 'pending_hr')
+                                        <div class="min-w-[18rem] space-y-2 text-right">
+                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="space-y-2 rounded-xl border border-brand-white/10 bg-brand-black/30 p-3 text-left">
+                                                @csrf
+                                                <input type="hidden" name="action" value="approve">
+                                                @if($loan->repayment_style === 'monthly_deduction')
+                                                    <input name="approved_monthly_deduction_amount" type="number" step="0.01" min="{{ number_format($staffMinimum, 2, '.', '') }}" value="{{ old('approved_monthly_deduction_amount', number_format((float) $loan->monthly_deduction_amount, 2, '.', '')) }}" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white focus:border-amber-500 focus:ring-0">
+                                                @endif
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <input name="repayment_start_date" type="date" class="rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white focus:border-amber-500 focus:ring-0">
+                                                    <input name="repayment_months" type="number" min="1" max="120" placeholder="Months" class="rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:ring-0">
+                                                </div>
+                                                <input name="feedback" type="text" placeholder="HR note, optional" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:ring-0">
+                                                <button type="submit" class="w-full rounded-lg bg-emerald-500/15 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 hover:bg-emerald-500/25">
+                                                    Approve Terms
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="flex gap-2">
+                                                @csrf
+                                                <input type="hidden" name="action" value="correction">
+                                                <input name="feedback" required type="text" placeholder="Correction note" class="min-w-0 flex-1 rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-cyan-400 focus:ring-0">
+                                                <button type="submit" class="rounded-lg bg-cyan-500/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/20">
+                                                    Send Back
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}">
+                                                @csrf
+                                                <input type="hidden" name="action" value="reject">
+                                                <input type="hidden" name="feedback" value="Rejected by HR Manager">
+                                                <button type="submit" class="rounded-lg bg-brand-red/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-red hover:bg-brand-red/20">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @elseif($loan->status === 'pending_finance')
+                                        <span class="text-[10px] text-amber-300/80">Awaiting Finance payment decision</span>
+                                    @elseif($loan->status === 'repayment_active')
+                                        <span class="text-[10px] text-emerald-300/80">Finance is tracking repayments</span>
+                                    @elseif($loan->status === 'fully_paid')
+                                        <span class="text-[10px] text-green-300/80">Loan fully settled</span>
+                                    @else
+                                        <span class="text-[10px] text-brand-white/35">No HR action required</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-4 py-12 text-center text-sm text-brand-white/50">No salary advance requests have been submitted yet.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($salaryAdvanceRequests instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                <div class="mt-4 border-t border-brand-white/10 pt-4">
+                    {{ $salaryAdvanceRequests->links() }}
+                </div>
+            @endif
         </div>
         @endif
 

@@ -1938,6 +1938,7 @@ class MerchandiserAdminHubController extends Controller
     public function approveLoan(SalaryAdvance $loan)
     {
         $this->guardAdmin();
+        abort_unless($loan->user->isMerchandiserAccount() && $loan->status === 'pending', 403);
         $loan->update(['status' => 'approved']);
         return back()->with('success', 'Loan approved.');
     }
@@ -1945,6 +1946,7 @@ class MerchandiserAdminHubController extends Controller
     public function rejectLoan(SalaryAdvance $loan)
     {
         $this->guardAdmin();
+        abort_unless($loan->user->isMerchandiserAccount() && $loan->status === 'pending', 403);
         $loan->update(['status' => 'rejected']);
         return back()->with('success', 'Loan rejected.');
     }
