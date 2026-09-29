@@ -6,6 +6,18 @@
             <form method="POST" action="{{ route('portal.hr.staff.export') }}" class="flex gap-3">@csrf<input type="hidden" name="scope" value="selected"><input type="hidden" name="ids[]" value="{{ $staffMember->id }}">@foreach($record->fields() as $field)<input type="hidden" name="fields[]" value="{{ $field }}">@endforeach<button name="format" value="csv" class="rounded-lg border border-brand-white/20 px-4 py-2">Export profile CSV</button><button name="format" value="zip" class="rounded-lg bg-brand-red text-white px-4 py-2">Download full record</button></form>
         </div>
         <p class="text-sm text-brand-ash">{{ $staffMember->staff_id_number ?: 'No staff ID' }} · {{ ucfirst($staffMember->status) }} · {{ \App\Models\User::departmentLabel($staffMember->department) }}</p>
+        @if(session('status'))<p role="status" class="rounded-xl bg-emerald-500/10 p-4 text-emerald-300">{{ session('status') }}</p>@endif
+        @if($errors->any())<div role="alert" class="rounded-xl bg-red-500/10 p-4 text-red-300">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
+        <section class="rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
+            <h3 class="text-xl font-display">Work notification email</h3>
+            <p class="mt-2 text-sm text-brand-ash">Portal emails go to this work mailbox. Personal contact details remain separate. Set the correct work address when a new HR manager or staff member takes over.</p>
+            <p class="mt-2 text-sm">Currently sending to: <strong>{{ $staffMember->notificationEmail() }}</strong></p>
+            <form method="POST" action="{{ route('portal.hr.staff.work-email', $staffMember) }}" class="mt-4 flex flex-wrap items-end gap-4">
+                @csrf @method('PATCH')
+                <label class="text-sm">Work email<input required type="email" name="work_email" value="{{ old('work_email', $staffMember->work_email) }}" placeholder="name@cmihafrica.com" class="mt-2 block w-full rounded-lg border-brand-white/20 bg-brand-black"></label>
+                <button class="rounded-lg bg-brand-red px-4 py-2 text-white">Save work email</button>
+            </form>
+        </section>
         @foreach(\App\Services\HrStaffRecord::GROUPS as $group => $fields)
             <section class="rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6"><h3 class="mb-5 text-xl font-display">{{ $group }}</h3><dl class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($fields as $field)<div class="min-w-0"><dt class="text-xs uppercase tracking-wide text-brand-ash">{{ $record->label($field) }}</dt><dd class="mt-2 whitespace-pre-wrap break-words text-sm">@if($group === 'Documents')@if($record->document($staffMember, $field))<a class="underline" href="{{ route('portal.hr.staff.document', [$staffMember, $field]) }}">Download {{ strtolower($record->label($field)) }}</a>@else{{ $staffMember->{$field} ? 'File missing from storage' : 'Not supplied' }}@endif @else{{ $record->value($staffMember, $field) !== '' ? $record->value($staffMember, $field) : 'Not recorded' }}@endif</dd></div>@endforeach

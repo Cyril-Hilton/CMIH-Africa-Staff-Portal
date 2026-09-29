@@ -21,6 +21,8 @@ return [
     | the section it owns while redirecting users to the right subdomain.
     |
     */
+    'work_email_domains' => ['cmih.africa', 'cmihafrica.com'],
+
     'app_kind' => env('CMIH_APP_KIND', 'all'),
 
     'urls' => [

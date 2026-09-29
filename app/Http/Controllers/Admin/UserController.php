@@ -137,7 +137,7 @@ class UserController extends Controller
 
     public function resetCredentials(User $user): RedirectResponse
     {
-        if (! $user->contact_email) {
+        if (! ($user->work_email ?: $user->contact_email)) {
             return back()->withErrors(['contact_email' => 'User does not have a contact email on file.']);
         }
 
@@ -148,7 +148,7 @@ class UserController extends Controller
             'must_reset_password' => true,
         ]);
 
-        Mail::to($user->contact_email)->send(new PortalCredentialsMail($user, $temporaryPassword));
+        Mail::to($user->work_email ?: $user->contact_email)->send(new PortalCredentialsMail($user, $temporaryPassword));
 
         return back()
             ->with('status', 'Credentials reset and emailed.')

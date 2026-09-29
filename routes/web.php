@@ -249,6 +249,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/hr/staff/import/template', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'template'])->name('hr.staff.import.template');
     Route::post('/hr/staff/import/preview', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'preview'])->name('hr.staff.import.preview');
     Route::post('/hr/staff/import/confirm', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'confirm'])->name('hr.staff.import.confirm');
+    Route::patch('/hr/staff/{user}/work-email', [\App\Http\Controllers\Portal\HrStaffController::class, 'updateWorkEmail'])->name('hr.staff.work-email');
     Route::get('/hr/staff/{user}', [\App\Http\Controllers\Portal\HrStaffController::class, 'show'])->name('hr.staff.show');
     Route::get('/hr/staff/{user}/documents/{field}', [\App\Http\Controllers\Portal\HrStaffController::class, 'document'])->name('hr.staff.document');
     Route::get('/hr', [\App\Http\Controllers\Portal\DepartmentController::class, 'hr'])->name('hr');

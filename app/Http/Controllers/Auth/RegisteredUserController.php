@@ -114,9 +114,9 @@ class RegisteredUserController extends Controller
             report($exception);
         }
 
-        if ($user->idCardReady() && $user->contact_email) {
+        if ($user->idCardReady() && $user->notificationEmail()) {
             try {
-                Mail::to($user->contact_email)->send(new \App\Mail\StaffIdCardMail($user));
+                Mail::to($user->notificationEmail())->send(new \App\Mail\StaffIdCardMail($user));
                 $user->forceFill(['id_card_sent_at' => now()])->save();
             } catch (Throwable $exception) {
                 report($exception);

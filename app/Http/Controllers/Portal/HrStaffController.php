@@ -67,6 +67,16 @@ class HrStaffController extends Controller
         return response()->download($path, basename($path), ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function updateWorkEmail(Request $request, User $user)
+    {
+        $this->authorizeHr($request);
+        abort_unless(User::internalStaff()->whereKey($user->id)->exists(), 404);
+        $data = $request->validate(['work_email' => ['required', 'email', 'max:255', new \App\Rules\WorkEmail]]);
+        $user->update(['work_email' => strtolower(trim($data['work_email']))]);
+
+        return back()->with('status', 'Work notification email updated. Personal contact and login details are unchanged.');
+    }
+
     public function export(Request $request, HrStaffRecord $record)
     {
         $this->authorizeHr($request);

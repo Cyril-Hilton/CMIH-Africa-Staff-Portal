@@ -202,8 +202,8 @@ class PayrollController extends Controller
                 ]
             );
 
-            // Send Email to recipient primary email and contact email
-            $recipientEmails = array_unique(array_filter([$staff->contact_email, $staff->email]));
+            // Send business mail only to the staff notification mailbox.
+            $recipientEmails = array_filter([$staff->notificationEmail()]);
             if (! empty($recipientEmails)) {
                 try {
                     Mail::to($recipientEmails)->send(new StaffPayslipMail($payslip, $staff));

@@ -42,11 +42,11 @@ class ResendLeaveApprovalPrompts extends Command
         $requestNotice = (bool) $this->option('request-notice');
         $title = $requestNotice ? 'leave request notices' : 'leave approval prompts';
         $this->info(($send ? 'Sending' : 'Previewing') . " {$title} for leave #{$leave->id}.");
-        $this->line("Applicant: {$leave->user?->name} <" . ($leave->user?->contact_email ?: $leave->user?->email ?: 'no-email') . '>');
+        $this->line("Applicant: {$leave->user?->name} <" . ($leave->user?->notificationEmail() ?: 'no-email') . '>');
         $this->line('Current status: ' . str_replace('_', ' ', $leave->status));
 
         foreach ($recipients as $recipient) {
-            $email = $recipient->contact_email ?: $recipient->email;
+            $email = $recipient->notificationEmail();
             $this->line("- {$recipient->name} <{$email}>");
 
             if (! $send || ! $email) {

@@ -189,9 +189,9 @@ class ProfileController extends Controller
 
         $cardChanged = $user->wasChanged($idCardFields);
 
-        if ($user->idCardReady() && $user->contact_email && ($cardChanged || ! $user->id_card_sent_at)) {
+        if ($user->idCardReady() && $user->notificationEmail() && ($cardChanged || ! $user->id_card_sent_at)) {
             try {
-                Mail::to($user->contact_email)->send(new \App\Mail\StaffIdCardMail($user));
+                Mail::to($user->notificationEmail())->send(new \App\Mail\StaffIdCardMail($user));
                 $user->forceFill(['id_card_sent_at' => now()])->save();
             } catch (\Throwable $exception) {
                 report($exception);

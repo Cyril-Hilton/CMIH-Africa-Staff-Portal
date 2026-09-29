@@ -16,6 +16,7 @@ class HrStaffImport
             $rules[$field] = ['string', 'max:255'];
         }
         $rules['contact_email'] = ['email', 'max:255'];
+        $rules['work_email'] = ['email', 'max:255', new \App\Rules\WorkEmail];
         $rules['nationality_code'] = ['string', 'size:2'];
         $rules['department'] = [Rule::in(['hr_admin', 'finance', 'client_relations', 'operations_projects', 'brands_marketing', 'creatives'])];
         foreach (['date_of_birth', 'start_date', 'contract_expires_at', 'id_expires_at'] as $field) {

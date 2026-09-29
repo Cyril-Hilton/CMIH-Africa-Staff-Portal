@@ -11,7 +11,7 @@ class HrStaffRecord
 {
     // Explicit fields exclude credentials and future system secrets from HR exports.
     public const GROUPS = [
-        'Personal information' => ['id', 'staff_id_number', 'name', 'date_of_birth', 'birthday_month', 'birthday_day', 'nationality_code', 'email', 'contact_email', 'phone', 'residential_address', 'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_relation'],
+        'Personal information' => ['id', 'staff_id_number', 'name', 'date_of_birth', 'birthday_month', 'birthday_day', 'nationality_code', 'email', 'contact_email', 'work_email', 'phone', 'residential_address', 'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_relation'],
         'Employment' => ['department', 'job_title', 'position_title', 'job_level', 'access_role', 'status', 'start_date', 'contract_expires_at', 'line_manager_name', 'line_manager_id', 'leave_balance', 'id_expires_at', 'id_card_sent_at'],
         'Pay and banking' => ['salary', 'payroll_deductions', 'payroll_rewards_bonus', 'payroll_notes', 'salary_advance_min_monthly_deduction', 'salary_advance_max_amount', 'ssnit_number', 'bank_name', 'bank_branch', 'bank_account_name', 'bank_account_number', 'momo_number', 'momo_name'],
         'Identity' => ['identity_document_type', 'national_id_type', 'national_id_number', 'ghana_card_number', 'passport_number'],

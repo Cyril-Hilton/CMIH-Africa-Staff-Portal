@@ -64,7 +64,7 @@ class ShareController extends Controller
         if (in_array('email', $channels, true)) {
             try {
                 Mail::raw("Hello " . $recipient->name . ",\n\n" . $user->name . " has shared a resource link with you from the CMIH Africa Portal.\n\n" . $shareText . "\n\nBest regards,\nCMIH Africa Portal", function ($mail) use ($recipient, $user) {
-                    $mail->to($recipient->email)
+                    $mail->to($recipient->notificationEmail())
                          ->subject('CMIH Portal: Resource shared by ' . $user->name);
                 });
             } catch (\Exception $e) {

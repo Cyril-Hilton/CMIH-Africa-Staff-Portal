@@ -48,13 +48,38 @@ class User extends Authenticatable
             return $notification->requestedEmail();
         }
 
-        // If it's a ResetPassword notification, send to contact_email
+        if (filled($this->work_email)) {
+            return $this->notificationEmail();
+        }
+
+        // Keep legacy account recovery routing until HR configures a work mailbox.
         if ($notification instanceof \Illuminate\Auth\Notifications\ResetPassword) {
             return $this->contact_email ?? $this->email;
         }
 
-        // Default behavior (company email)
-        return $this->email;
+        return $this->notificationEmail();
+    }
+
+    /** Business notifications have one recipient; personal contact details are not CC'd. */
+    public function notificationEmail(): string
+    {
+        if (filled($this->work_email)) {
+            return trim($this->work_email);
+        }
+
+        if ($this->isMerchandiserAccount() || $this->isBrandPromoterAccount()) {
+            return trim((string) ($this->contact_email ?: $this->email));
+        }
+
+        // Older accounts may store the real work mailbox in contact_email while
+        // email is an automatically generated portal login at cmih.africa.
+        $contact = trim((string) $this->contact_email);
+        $domain = strtolower(substr(strrchr($contact, '@') ?: '', 1));
+        if (filter_var($contact, FILTER_VALIDATE_EMAIL) && in_array($domain, config('cmih.work_email_domains', ['cmih.africa', 'cmihafrica.com']), true)) {
+            return $contact;
+        }
+
+        return trim((string) $this->email);
     }
 
     /**
@@ -66,6 +91,7 @@ class User extends Authenticatable
         'name',
         'email',
         'contact_email',
+        'work_email',
         'phone',
         'profile_photo_path',
         'password',

@@ -161,7 +161,7 @@ class PerformanceAwardController extends Controller
         if (str_contains($award->award_type, 'employee')) {
             $winner = User::find($award->winner_id);
             if ($winner) {
-                $emails = array_unique(array_filter([$winner->contact_email, $winner->email]));
+                $emails = array_filter([$winner->notificationEmail()]);
                 if (! empty($emails)) {
                     try {
                         Mail::to($emails)->send(new AwardCertificateMail(
@@ -185,7 +185,7 @@ class PerformanceAwardController extends Controller
                     ->get();
 
                 foreach ($deptMembers as $member) {
-                    $emails = array_unique(array_filter([$member->contact_email, $member->email]));
+                    $emails = array_filter([$member->notificationEmail()]);
                     if (! empty($emails)) {
                         try {
                             Mail::to($emails)->send(new AwardCertificateMail(

@@ -402,6 +402,9 @@ class LeaveWorkflowTest extends TestCase
 
     public function test_tier1_staff_leave_workflow(): void
     {
+        // Wednesday + five days starts a full Monday-to-Friday leave week.
+        $this->travelTo(Carbon::parse('2026-09-02 10:00:00'));
+
         $staff = User::factory()->create([
             'status' => 'active',
             'access_role' => 'staff',
@@ -469,11 +472,11 @@ class LeaveWorkflowTest extends TestCase
         ]);
 
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($manager) {
-            return $mail->hasTo($manager->contact_email ?: $manager->email);
+            return $mail->hasTo($manager->notificationEmail());
         });
 
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($hr) {
-            return $mail->hasTo($hr->contact_email ?: $hr->email);
+            return $mail->hasTo($hr->notificationEmail());
         });
 
         // 2. Line Manager approves -> routes to pending_hr
@@ -507,10 +510,10 @@ class LeaveWorkflowTest extends TestCase
 
         // Email cover notification sent
         Mail::assertSent(\App\Mail\LeaveCoverNotificationMail::class, function ($mail) use ($cover) {
-            return $mail->hasTo($cover->contact_email);
+            return $mail->hasTo($cover->notificationEmail());
         });
         Mail::assertSent(LeaveApplicantStatusMail::class, function ($mail) use ($staff) {
-            return $mail->hasTo($staff->contact_email ?: $staff->email)
+            return $mail->hasTo($staff->notificationEmail())
                 && $mail->statusLabel === 'Approved';
         });
         $this->assertDatabaseHas('notifications', [
@@ -570,12 +573,12 @@ class LeaveWorkflowTest extends TestCase
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($lineManager, $leave) {
             return $mail->leave->is($leave)
                 && $mail->approver->is($lineManager)
-                && $mail->hasTo($lineManager->contact_email);
+                && $mail->hasTo($lineManager->notificationEmail());
         });
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($hrManager, $leave) {
             return $mail->leave->is($leave)
                 && $mail->approver->is($hrManager)
-                && $mail->hasTo($hrManager->contact_email);
+                && $mail->hasTo($hrManager->notificationEmail());
         });
         $this->assertDatabaseHas('notifications', [
             'user_id' => $lineManager->id,
@@ -636,12 +639,12 @@ class LeaveWorkflowTest extends TestCase
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($lineManager) {
             return $mail->requestNotice === true
                 && $mail->approver->is($lineManager)
-                && $mail->hasTo($lineManager->contact_email);
+                && $mail->hasTo($lineManager->notificationEmail());
         });
         Mail::assertSent(LeaveApprovalNeededMail::class, function ($mail) use ($hrManager) {
             return $mail->requestNotice === true
                 && $mail->approver->is($hrManager)
-                && $mail->hasTo($hrManager->contact_email);
+                && $mail->hasTo($hrManager->notificationEmail());
         });
         $this->assertDatabaseHas('notifications', [
             'user_id' => $lineManager->id,

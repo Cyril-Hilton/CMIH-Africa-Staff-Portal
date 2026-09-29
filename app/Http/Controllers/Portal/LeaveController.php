@@ -279,9 +279,9 @@ class LeaveController extends Controller
 
         $leave->user->decrement('leave_balance', $days);
 
-        if ($leave->coveringStaff && $leave->coveringStaff->contact_email) {
+        if ($leave->coveringStaff && $leave->coveringStaff->notificationEmail()) {
             try {
-                Mail::to($leave->coveringStaff->contact_email)
+                Mail::to($leave->coveringStaff->notificationEmail())
                     ->send(new LeaveCoverNotificationMail($leave));
             } catch (\Exception $e) {
                 Log::error('Leave cover email dispatch failed: ' . $e->getMessage());
@@ -511,7 +511,7 @@ class LeaveController extends Controller
             route('portal.leaves')
         );
 
-        $recipient = $leave->user->contact_email ?: $leave->user->email;
+        $recipient = $leave->user->notificationEmail();
         if (! $recipient) {
             return;
         }
@@ -592,7 +592,7 @@ class LeaveController extends Controller
             ->get();
 
         foreach ($approvers as $approver) {
-            $recipient = $approver->contact_email ?: $approver->email;
+            $recipient = $approver->notificationEmail();
             if (! $recipient) {
                 continue;
             }

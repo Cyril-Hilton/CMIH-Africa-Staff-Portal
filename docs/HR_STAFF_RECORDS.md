@@ -12,3 +12,11 @@ HR & Admin → Open staff register lets full-access HR managers and existing sup
 No database migration or new package is required. Full archives require PHP's ZIP extension. Build assets with `npm ci && npm run build` before deploying. Preserve production `.env`, database and storage.
 
 Verification: `php artisan test --filter=HrStaffRecordsTest` covers access controls, selected/all/filtered exports, archive contents, document access, preview/confirmation, validation, stale record rollback and privilege protection. Existing boundary and identity tests also pass. Two pre-existing adjacent failures are the absent signed payslip route and a merchandiser salary advance test in this staff-only app; both were reproduced against original routing.
+
+## Work notification email
+
+Set a staff member's work mailbox in HR & Admin → Staff register → staff name → Work notification email. Only full-access HR managers can change it; the login email and personal contact email remain separate. This field is also available in CSV exports and validated imports. CMIH addresses at `cmihafrica.com` and `cmih.africa` are accepted.
+
+Business emails (leave requests, approvals/status/cover messages, manual leave resends, payslips, awards, ID cards and shared resources) use one notification mailbox. Explicit `work_email` takes priority. Older internal accounts can use a corporate contact email; otherwise the portal's company email is used. External field accounts keep their contact-email routing. Configured work addresses also receive Laravel notifications, password resets and admin-issued credentials. Account onboarding and unconfigured legacy recovery retain their established routes.
+
+For HR handovers, configure the incoming manager's work email and HR role, and deactivate/remove HR access from the outgoing manager. Leave recipients continue to follow active roles, without any hardcoded person's address.
