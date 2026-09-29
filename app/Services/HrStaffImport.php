@@ -42,6 +42,10 @@ class HrStaffImport
     {
         $handle = fopen($path, 'r');
         try {
+            // Consume Excel's UTF-8 BOM before parsing quoted column headings.
+            if (fread($handle, 3) !== "\xEF\xBB\xBF") {
+                rewind($handle);
+            }
             $headers = fgetcsv($handle, 0, ',', '"', '');
             if (! $headers) {
                 throw ValidationException::withMessages(['file' => 'The CSV is empty.']);

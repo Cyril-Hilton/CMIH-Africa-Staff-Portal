@@ -90,7 +90,7 @@ class HrStaffController extends Controller
         }
         $headers = ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff'];
         if ($data['format'] === 'csv') {
-            $fields = array_values(array_unique(['staff_id_number', 'name', ...$data['fields']]));
+            $fields = array_values(array_unique(['id', 'staff_id_number', 'name', ...$data['fields']]));
 
             return response()->streamDownload(function () use ($query, $fields, $record) {
                 $handle = fopen('php://output', 'w');

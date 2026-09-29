@@ -38,7 +38,7 @@
                     <label class="text-sm">Download format<select name="format" x-model="format" class="mt-2 block rounded-lg bg-brand-black border-brand-white/20"><option value="csv">Spreadsheet (CSV): chosen fields</option><option value="zip">Full staff records (ZIP)</option></select></label>
                 </div>
                 <div x-show="format === 'csv'" class="space-y-4">
-                    <p class="text-sm text-brand-ash">Choose the information you need. Staff ID and name are always included. CSV opens in Excel.</p>
+                    <p class="text-sm text-brand-ash">Choose the information you need. Record ID, staff ID and name are always included. CSV opens in Excel.</p>
                     <div class="flex flex-wrap gap-4 text-sm"><button type="button" class="underline" @click="fields = @js($record->fields())">Select all fields</button><button type="button" class="underline" @click="fields = ['staff_id_number', 'name']">Clear optional fields</button><button type="button" class="underline" @click="fields = ['staff_id_number', 'name', 'date_of_birth', 'birthday_month', 'birthday_day', 'department']">Birthdays only</button></div>
                     @foreach(\App\Services\HrStaffRecord::GROUPS as $group => $columns)
                         <details class="rounded-xl border border-brand-white/10 p-4"><summary class="cursor-pointer font-semibold">{{ $group }}</summary><div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">@foreach($columns as $field)<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="fields[]" value="{{ $field }}" x-model="fields">{{ $record->label($field) }}</label>@endforeach</div></details>

@@ -172,4 +172,16 @@ class HrStaffRecordsTest extends TestCase
         $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
         $this->assertSame('staff', $staff->fresh()->access_role);
     }
+
+    public function test_birthday_export_can_be_imported_when_staff_id_is_missing(): void
+    {
+        $staff = $this->staff(['staff_id_number' => null, 'date_of_birth' => '1990-01-02']);
+        $this->actingAs($this->hr());
+        $csv = $this->post(route('portal.hr.staff.export'), ['scope' => 'selected', 'ids' => [$staff->id], 'format' => 'csv', 'fields' => ['date_of_birth']])->assertOk()->streamedContent();
+        $this->assertStringContainsString('Record ID', $csv);
+        $this->upload(str_replace('1990-01-02', '1991-02-03', $csv))->assertSessionHasNoErrors();
+        $this->assertEmpty(session('hr_staff_import.errors'));
+        $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
+        $this->assertSame('1991-02-03', $staff->fresh()->date_of_birth->format('Y-m-d'));
+    }
 }
