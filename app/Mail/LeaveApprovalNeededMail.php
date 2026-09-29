@@ -39,6 +39,9 @@ class LeaveApprovalNeededMail extends Mailable
                 'lineManager' => $this->leave->lineManager,
                 'coveringStaff' => $this->leave->coveringStaff,
                 'isRequestNotice' => $this->requestNotice,
+                'reviewUrl' => $this->approver->hasFullHrAccess() && (User::normalizeDepartmentKey($this->approver->department) === 'hr_admin' || $this->approver->access_role === 'super_admin')
+                    ? route('portal.hr').'#staff-leave-manager'
+                    : route('portal.leaves'),
             ],
         );
     }

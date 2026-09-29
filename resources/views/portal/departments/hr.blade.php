@@ -406,7 +406,7 @@
             ];
             $today = today();
         @endphp
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <div id="staff-leave-manager" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">HR Workflow</p>

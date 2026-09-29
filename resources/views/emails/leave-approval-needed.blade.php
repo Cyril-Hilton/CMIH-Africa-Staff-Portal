@@ -39,7 +39,7 @@
                 @if($leave->comments)
                     <p class="text"><span class="key">Comments / Handover:</span> {{ $leave->comments }}</p>
                 @endif
-                <a href="{{ route('portal.leaves') }}" class="button">Review Leave</a>
+                <a href="{{ $reviewUrl }}" class="button">Review Leave</a>
                 <p class="footer">CMIH Africa — We Make It Happen</p>
             </div>
         </div>
