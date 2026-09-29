@@ -243,6 +243,14 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
      // Department Modules
     Route::get('/visitors', [\App\Http\Controllers\Portal\DepartmentController::class, 'visitors'])->name('visitors');
+    Route::get('/hr/staff', [\App\Http\Controllers\Portal\HrStaffController::class, 'index'])->name('hr.staff.index');
+    Route::post('/hr/staff/export', [\App\Http\Controllers\Portal\HrStaffController::class, 'export'])->name('hr.staff.export');
+    Route::get('/hr/staff/import', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'index'])->name('hr.staff.import');
+    Route::get('/hr/staff/import/template', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'template'])->name('hr.staff.import.template');
+    Route::post('/hr/staff/import/preview', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'preview'])->name('hr.staff.import.preview');
+    Route::post('/hr/staff/import/confirm', [\App\Http\Controllers\Portal\HrStaffImportController::class, 'confirm'])->name('hr.staff.import.confirm');
+    Route::get('/hr/staff/{user}', [\App\Http\Controllers\Portal\HrStaffController::class, 'show'])->name('hr.staff.show');
+    Route::get('/hr/staff/{user}/documents/{field}', [\App\Http\Controllers\Portal\HrStaffController::class, 'document'])->name('hr.staff.document');
     Route::get('/hr', [\App\Http\Controllers\Portal\DepartmentController::class, 'hr'])->name('hr');
     Route::post('/hr/announcements', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeHrAnnouncement'])->name('hr.announcements.store');
     Route::post('/hr/staff/{user}/leave-balance', [\App\Http\Controllers\Portal\DepartmentController::class, 'updateLeaveBalance'])->name('hr.leave-balance.update');

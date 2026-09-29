@@ -22,6 +22,14 @@
         @include('portal.partials.identity-document-register', ['identityDocuments' => $identityDocuments])
     @endif
 
+    @if($canDoSensitiveHr)
+        <div class="mb-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
+            <h3 class="text-xl font-display text-brand-white">Staff records</h3>
+            <p class="mt-2 text-sm text-brand-ash">View complete staff profiles, select information to export, and import staff updates.</p>
+            <a href="{{ route('portal.hr.staff.index') }}" class="mt-4 inline-block rounded-xl bg-brand-red text-white px-5 py-3 font-semibold text-white">Open staff register</a>
+        </div>
+    @endif
+
     <div class="space-y-8">
         @if($canManageHrAnnouncements)
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
