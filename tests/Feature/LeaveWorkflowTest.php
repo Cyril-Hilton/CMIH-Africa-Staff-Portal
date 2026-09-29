@@ -21,6 +21,47 @@ class LeaveWorkflowTest extends TestCase
         Mail::fake();
     }
 
+    public function test_retrospective_leave_can_be_submitted_corrected_and_approved(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-29 10:00:00'));
+        $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'executive', 'leave_balance' => 30]);
+        $manager = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'manager']);
+        $cover = User::factory()->create(['status' => 'active']);
+        $hr = User::factory()->create(['status' => 'active', 'access_role' => 'manager', 'department' => 'hr_admin', 'position_title' => 'HR Manager', 'job_level' => 'manager']);
+        $data = ['leave_type' => 'annual', 'start_date' => '2026-09-07', 'end_date' => '2026-09-11', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id];
+
+        $this->actingAs($staff)->post('/portal/leaves', $data)->assertSessionHasNoErrors();
+        $leave = LeaveApplication::sole();
+        $this->assertSame('pending_manager', $leave->status);
+        $this->assertEquals(30, $staff->fresh()->leave_balance);
+        Mail::assertSent(LeaveApprovalNeededMail::class, fn ($mail) => $mail->hasTo($hr->notificationEmail()));
+
+        $this->actingAs($manager)->post(route('portal.leaves.return', $leave), ['rejection_comments' => 'Correct the end date.'])->assertSessionHasNoErrors();
+        $data['end_date'] = '2026-09-10';
+        $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), $data)->assertSessionHasNoErrors();
+        $this->assertSame('2026-09-10', $leave->fresh()->end_date->toDateString());
+        $this->assertSame('pending_manager', $leave->fresh()->status);
+        $this->actingAs($manager)->post(route('portal.leaves.approve', $leave))->assertSessionHasNoErrors();
+        $this->assertSame('pending_hr', $leave->fresh()->status);
+        $this->assertEquals(30, $staff->fresh()->leave_balance);
+        $this->actingAs($hr)->post(route('portal.leaves.approve', $leave))->assertSessionHasNoErrors();
+        $this->assertSame('approved', $leave->fresh()->status);
+        $this->assertEquals(26, $staff->fresh()->leave_balance);
+    }
+
+    public function test_retrospective_leave_still_validates_dates_and_balance(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-29 10:00:00'));
+        $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'executive', 'leave_balance' => 3]);
+        $manager = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'manager']);
+        $cover = User::factory()->create(['status' => 'active']);
+        $data = ['leave_type' => 'annual', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id];
+        foreach ([['2026-09-11', '2026-09-07', 'end_date'], ['2026-09-05', '2026-09-06', 'end_date'], ['2026-09-07', '2026-09-11', 'leave_balance']] as [$start, $end, $error]) {
+            $this->actingAs($staff)->post('/portal/leaves', $data + ['start_date' => $start, 'end_date' => $end])->assertSessionHasErrors($error);
+        }
+        $this->assertDatabaseCount('leave_applications', 0);
+    }
+
     public function test_leave_working_days_exclude_weekends(): void
     {
         $this->assertSame(4, LeaveApplication::workingDaysBetween('2026-09-03', '2026-09-08'));

@@ -208,7 +208,7 @@
                             <x-text-input id="end_date" name="end_date" type="date" required class="mt-1 w-full" />
                         </div>
                     </div>
-                    <p class="text-[11px] text-brand-ash">Working days only. Saturdays and Sundays are excluded from the leave total.</p>
+                    <p class="text-[11px] text-brand-ash">Past dates are allowed for leave already taken. Normal approval is still required. Saturdays and Sundays are excluded from the leave total.</p>
 
                     @php
                         $requiresLineManager = $user->access_role !== 'super_admin';
@@ -400,6 +400,8 @@
                         <input id="resubmit_end_date" name="end_date" type="date" x-model="resubmitForm.end_date" required class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black text-brand-white px-3 py-2 text-sm focus:outline-none focus:border-brand-red" />
                     </div>
                 </div>
+
+                <p class="text-[11px] text-brand-ash">Past dates are allowed for leave already taken. Normal approval is still required.</p>
 
                 @if($requiresLineManager)
                     <div>
