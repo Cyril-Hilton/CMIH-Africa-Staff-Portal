@@ -22,13 +22,45 @@
             @endif
 
             <div class="mt-5 grid gap-3 text-sm text-brand-white/70">
+                <p><span class="text-brand-white/40">Asset Tag:</span> <span class="font-mono font-bold text-amber-300">{{ $asset->asset_tag_or_code }}</span></p>
+                <p><span class="text-brand-white/40">Category:</span> {{ $asset->category ?: ($asset->type ?: 'Office Asset') }}</p>
                 <p><span class="text-brand-white/40">Brand:</span> {{ $asset->brand ?: '-' }}</p>
                 <p><span class="text-brand-white/40">Type:</span> {{ $asset->type }}</p>
-                <p><span class="text-brand-white/40">Availability:</span> {{ $asset->status }}</p>
+                <p><span class="text-brand-white/40">Status:</span> {{ $asset->status }}</p>
                 <p><span class="text-brand-white/40">Condition:</span> {{ $asset->condition }}</p>
-                <p><span class="text-brand-white/40">Assigned To:</span> {{ $asset->assignee?->name ?? 'Unassigned' }}</p>
-                <p><span class="text-brand-white/40">Safe Keeping:</span> {{ $asset->warehouse_location ?: '-' }}</p>
-                <p><span class="text-brand-white/40">Last Handled:</span> {{ $asset->lastHandler?->name ?? '-' }}</p>
+                <p><span class="text-brand-white/40">Assigned To:</span> {{ $asset->assignee?->name ?? 'Unassigned' }} @if($asset->assignee) <span class="text-xs text-brand-white/50">({{ $asset->department_name }})</span> @endif</p>
+                <p><span class="text-brand-white/40">Location:</span> {{ $asset->location ?: ($asset->warehouse_location ?: '-') }}</p>
+                <p><span class="text-brand-white/40">Owner:</span> {{ $asset->owner ?: 'CMIH Africa' }}</p>
+                @if($asset->serial_number)
+                    <p><span class="text-brand-white/40">Serial Number:</span> <span class="font-mono">{{ $asset->serial_number }}</span></p>
+                @endif
+            </div>
+
+            {{-- Official QR Code & Sticker Panel --}}
+            <div class="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-white p-1.5 shadow-md shrink-0">
+                        {!! \App\Services\QrCodeService::svg($asset->scan_url, 56, 0) !!}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <span class="text-[9px] font-bold uppercase tracking-widest text-brand-red">QR Sticker & Tracking</span>
+                        <div class="font-mono text-xs font-bold text-amber-300">{{ $asset->asset_tag_or_code }}</div>
+                        <div class="mt-2 flex flex-wrap gap-1.5">
+                            <a href="{{ route('portal.assets.sticker', $asset) }}" target="_blank"
+                               class="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 hover:bg-amber-500/20 transition">
+                                🖨️ Print Sticker
+                            </a>
+                            <a href="{{ route('portal.assets.qr', [$asset, 'download' => 1]) }}"
+                               class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:bg-white/15 transition">
+                                ⬇️ QR SVG
+                            </a>
+                            <a href="{{ $asset->scan_url }}" target="_blank"
+                               class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:bg-white/15 hover:text-white transition">
+                                📱 Test Scan
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 

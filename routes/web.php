@@ -48,6 +48,10 @@ Route::post('/shared/campaign/{token}/upload', [\App\Http\Controllers\Portal\Cam
 
 // Public Survey Routes
 Route::get('/surveys/{survey:slug}', [\App\Http\Controllers\SiteController::class, 'showSurvey'])->name('surveys.show');
+
+// Public Office Asset QR Scan Route
+Route::get('/assets/scan/{identifier}', [\App\Http\Controllers\Portal\AssetController::class, 'scan'])->name('assets.scan');
+
 Route::post('/surveys/{survey:slug}/submit', [\App\Http\Controllers\SiteController::class, 'submitSurvey'])
     ->middleware('throttle:10,1')
     ->name('surveys.submit');
@@ -158,6 +162,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/assets', [AssetController::class, 'index'])->name('assets');
     Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
+    Route::get('/assets/{asset}/qr', [AssetController::class, 'qr'])->name('assets.qr');
+    Route::get('/assets/{asset}/sticker', [AssetController::class, 'sticker'])->name('assets.sticker');
     Route::post('/assets/warehouse-posm', [WarehouseAssetController::class, 'storePosm'])->name('assets.posm.store');
     Route::delete('/assets/warehouse-posm/{entry}', [WarehouseAssetController::class, 'destroyPosm'])->name('assets.posm.destroy');
     Route::get('/assets/{asset}', [AssetController::class, 'show'])->name('assets.show');

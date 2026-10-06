@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Asset;
+use App\Services\QrCodeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -107,8 +109,15 @@ class AssetController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'condition' => ['required', 'string', 'in:New,Good,Fair,Poor'],
-            'type' => ['required', 'string', 'in:Hardware,Software,Vehicle,Other'],
+            'condition' => ['required', 'string', 'in:New,Excellent,Good,Fair,Poor'],
+            'type' => ['required', 'string', 'max:80'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'owner' => ['nullable', 'string', 'max:120'],
+            'brand' => ['nullable', 'string', 'max:120'],
+            'asset_tag' => ['nullable', 'string', 'max:100'],
+            'serial_number' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', 'string', 'max:80'],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:10240'], // 10MB max
         ]);
@@ -118,12 +127,22 @@ class AssetController extends Controller
             $imagePath = $request->file('image')->store('assets', 'public');
         }
 
-        Asset::create([
+        $status = !empty($validated['status'])
+            ? $validated['status']
+            : (!empty($validated['assigned_to']) ? 'In Use' : 'Available');
+
+        $asset = Asset::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'condition' => $validated['condition'],
             'type' => $validated['type'],
-            'status' => 'Available', // Default status
+            'category' => $validated['category'] ?? null,
+            'location' => $validated['location'] ?? null,
+            'owner' => !empty($validated['owner']) ? $validated['owner'] : 'CMIH',
+            'brand' => $validated['brand'] ?? null,
+            'asset_tag' => $validated['asset_tag'] ?? null,
+            'serial_number' => $validated['serial_number'] ?? null,
+            'status' => $status,
             'assigned_to' => $validated['assigned_to'] ?? null,
             'image_path' => $imagePath,
             'added_by' => $request->user()->id,
@@ -131,6 +150,56 @@ class AssetController extends Controller
         ]);
 
         return back()->with('status', 'Asset added successfully.');
+    }
+
+    /**
+     * Public scan verification endpoint for physical asset QR code stickers.
+     */
+    public function scan(string $identifier): View
+    {
+        $identifier = trim($identifier);
+
+        $asset = Asset::query()
+            ->with(['assignee', 'creator'])
+            ->where(function ($query) use ($identifier) {
+                $query->where('asset_tag', $identifier)
+                    ->orWhere('id', is_numeric($identifier) ? (int) $identifier : 0);
+
+                if (preg_match('/^CMIH-AST-(\d+)$/i', $identifier, $matches)) {
+                    $query->orWhere('id', (int) $matches[1]);
+                }
+            })
+            ->firstOrFail();
+
+        return view('portal.assets-scan', compact('asset'));
+    }
+
+    /**
+     * Output vector SVG QR Code for an asset.
+     */
+    public function qr(Asset $asset, Request $request): Response
+    {
+        $svg = QrCodeService::svg($asset->scan_url, 300, 2);
+
+        $headers = [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => 'public, max-age=86400',
+        ];
+
+        if ($request->boolean('download')) {
+            $filename = 'cmih-qr-' . ($asset->asset_tag_or_code) . '.svg';
+            $headers['Content-Disposition'] = "attachment; filename=\"{$filename}\"";
+        }
+
+        return response($svg, 200, $headers);
+    }
+
+    /**
+     * Dedicated printable sticker badge page for an asset.
+     */
+    public function sticker(Asset $asset): View
+    {
+        return view('portal.assets-sticker', compact('asset'));
     }
 
     public function show(Asset $asset): View

@@ -77,4 +77,26 @@ class Asset extends Model
     {
         return $this->hasMany(AssetWarehouseRequest::class);
     }
+
+    public function getAssetTagOrCodeAttribute(): string
+    {
+        return !empty($this->asset_tag)
+            ? trim($this->asset_tag)
+            : ('CMIH-AST-' . str_pad((string) $this->id, 5, '0', STR_PAD_LEFT));
+    }
+
+    public function getScanUrlAttribute(): string
+    {
+        return route('assets.scan', ['identifier' => $this->asset_tag_or_code]);
+    }
+
+    public function getDepartmentNameAttribute(): string
+    {
+        if (!$this->assignee) {
+            return 'Unassigned';
+        }
+
+        return User::departmentLabel($this->assignee->department);
+    }
 }
+

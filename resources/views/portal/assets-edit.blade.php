@@ -5,7 +5,12 @@
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">{{ $asset->is_warehouse_tracked ? 'Warehouse Assets Manager' : 'Office Asset Manager' }}</p>
                 <h2 class="text-3xl font-display text-brand-white">Edit Asset</h2>
             </div>
-            <a href="{{ $asset->is_warehouse_tracked ? route('portal.assets.warehouse.index') : route('portal.assets') }}" class="text-sm text-brand-ash hover:text-white transition">Back to Assets</a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('portal.assets.sticker', $asset) }}" target="_blank" class="rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 hover:bg-amber-500/20 transition">
+                    🖨️ Print Sticker
+                </a>
+                <a href="{{ $asset->is_warehouse_tracked ? route('portal.assets.warehouse.index') : route('portal.assets') }}" class="text-sm text-brand-ash hover:text-white transition">Back to Assets</a>
+            </div>
         </div>
     </x-slot>
 
