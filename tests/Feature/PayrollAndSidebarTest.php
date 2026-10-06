@@ -173,6 +173,28 @@ class PayrollAndSidebarTest extends TestCase
         $response->assertSee('Ghana Office', false);
         $response->assertSee('Nigeria Office', false);
         $response->assertSee('info@cmihgh.com', false);
+
+        $this->actingAs($staff)
+            ->get(route('portal.payroll.payslip', $payslip))
+            ->assertOk()
+            ->assertSee('Print / Save as PDF', false);
+
+        $otherStaff = User::factory()->create([
+            'status' => 'active',
+            'access_role' => 'staff',
+        ]);
+        $this->actingAs($otherStaff)
+            ->get(route('portal.payroll.payslip', $payslip))
+            ->assertForbidden();
+
+        $this->get(route('portal.payroll.payslip.signed', $payslip))->assertForbidden();
+
+        $expiredUrl = URL::temporarySignedRoute(
+            'portal.payroll.payslip.signed',
+            now()->subMinute(),
+            ['payslip' => $payslip->id]
+        );
+        $this->get($expiredUrl)->assertForbidden();
     }
 
     public function test_user_can_update_banking_details(): void

@@ -23,6 +23,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
 
+Route::get('/portal/payroll/payslips/{payslip}/signed', [\App\Http\Controllers\Portal\PayrollController::class, 'downloadPayslip'])
+    ->middleware('signed')
+    ->name('portal.payroll.payslip.signed');
+
 
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/services', 'pages.services')->name('services');
