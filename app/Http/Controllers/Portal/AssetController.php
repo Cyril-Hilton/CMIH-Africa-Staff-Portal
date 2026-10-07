@@ -35,6 +35,8 @@ class AssetController extends Controller
         if ($search !== '') {
             $assetsQuery->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('asset_tag', 'like', "%{$search}%")
+                    ->orWhere('serial_number', 'like', "%{$search}%")
                     ->orWhere('assigned_to', 'like', "%{$search}%")
                     ->orWhere('location', 'like', "%{$search}%")
                     ->orWhere('brand', 'like', "%{$search}%")
@@ -159,17 +161,17 @@ class AssetController extends Controller
     {
         $identifier = trim($identifier);
 
-        $asset = Asset::query()
-            ->with(['assignee', 'creator'])
-            ->where(function ($query) use ($identifier) {
-                $query->where('asset_tag', $identifier)
-                    ->orWhere('id', is_numeric($identifier) ? (int) $identifier : 0);
+        $query = Asset::query()->with(['assignee', 'creator']);
 
-                if (preg_match('/^CMIH-AST-(\d+)$/i', $identifier, $matches)) {
-                    $query->orWhere('id', (int) $matches[1]);
-                }
-            })
-            ->firstOrFail();
+        if (preg_match('/^CMIH-AST-(\d+)$/i', $identifier, $matches)) {
+            $query->whereKey((int) $matches[1]);
+        } elseif (ctype_digit($identifier)) {
+            $query->whereKey((int) $identifier);
+        } else {
+            $query->where('asset_tag', $identifier);
+        }
+
+        $asset = $query->firstOrFail();
 
         return view('portal.assets-scan', compact('asset'));
     }
@@ -179,15 +181,15 @@ class AssetController extends Controller
      */
     public function qr(Asset $asset, Request $request): Response
     {
-        $svg = QrCodeService::svg($asset->scan_url, 300, 2);
+        $svg = QrCodeService::svg($asset->scan_url, 300, 4);
 
         $headers = [
             'Content-Type' => 'image/svg+xml',
-            'Cache-Control' => 'public, max-age=86400',
+            'Cache-Control' => 'private, max-age=86400',
         ];
 
         if ($request->boolean('download')) {
-            $filename = 'cmih-qr-' . ($asset->asset_tag_or_code) . '.svg';
+            $filename = 'cmih-qr-' . $asset->id . '.svg';
             $headers['Content-Disposition'] = "attachment; filename=\"{$filename}\"";
         }
 

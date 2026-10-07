@@ -15,6 +15,57 @@ class AssetWarehouseTrackerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_office_asset_qr_links_are_unique_and_survive_tag_changes(): void
+    {
+        config(['cmih.app_kind' => 'staff']);
+        $first = $this->warehouseAsset(['asset_tag' => 'DUPLICATE']);
+        $second = $this->warehouseAsset(['asset_tag' => 'DUPLICATE']);
+        $url = $first->scan_url;
+
+        $this->assertNotSame($url, $second->scan_url);
+        $first->update(['asset_tag' => 'NEW-TAG']);
+        $this->assertSame($url, $first->fresh()->scan_url);
+
+        // A manually entered tag must never hijack a printed asset identifier.
+        $second->update(['asset_tag' => basename($url)]);
+        $this->get($url)->assertOk()->assertViewHas('asset', fn (Asset $asset) => $asset->id === $first->id);
+    }
+
+    public function test_office_asset_qr_scan_shows_current_assignment_without_login(): void
+    {
+        config(['cmih.app_kind' => 'staff']);
+        $staff = User::factory()->create(['name' => 'Sticker Test Assignee', 'department' => 'creatives']);
+        $asset = $this->warehouseAsset([
+            'name' => 'Sticker Test Laptop',
+            'assigned_to' => $staff->id,
+            'serial_number' => 'QR-SERIAL-123',
+            'owner' => 'CMIH Africa',
+            'notes' => 'Keep the charger with this laptop.',
+        ]);
+
+        $this->get($asset->scan_url)->assertOk()
+            ->assertSee('Sticker Test Laptop')->assertSee('Sticker Test Assignee')
+            ->assertSee('QR-SERIAL-123')->assertSee('Keep the charger with this laptop.');
+
+        $asset->update(['assigned_to' => null]);
+        $this->get($asset->scan_url)->assertOk()->assertSee('Unassigned / Company Pool');
+        $this->get('/assets/scan/CMIH-AST-999999999')->assertNotFound();
+    }
+
+    public function test_office_asset_qr_and_sticker_downloads_require_staff_login(): void
+    {
+        config(['cmih.app_kind' => 'staff']);
+        $asset = $this->warehouseAsset();
+        $this->get(route('portal.assets.qr', $asset))->assertRedirect(route('login'));
+        $this->get(route('portal.assets.sticker', $asset))->assertRedirect(route('login'));
+
+        $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff']);
+        $this->actingAs($staff)->get(route('portal.assets.qr', [$asset, 'download' => 1]))
+            ->assertOk()->assertHeader('Content-Type', 'image/svg+xml')
+            ->assertHeader('Content-Disposition', 'attachment; filename="cmih-qr-'.$asset->id.'.svg"');
+        $this->get(route('portal.assets.sticker', $asset))->assertOk()->assertSee('Download PNG Sticker');
+    }
+
     public function test_office_asset_page_filters_office_assets_and_excludes_warehouse_assets(): void
     {
         $viewer = User::factory()->create([

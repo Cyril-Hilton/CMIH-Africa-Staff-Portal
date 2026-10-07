@@ -13,7 +13,7 @@ class QrCodeService
     /**
      * Generate an SVG QR code string.
      */
-    public static function svg(string $text, int $size = 200, int $margin = 2, string $darkColor = '#000000', string $lightColor = '#ffffff'): string
+    public static function svg(string $text, int $size = 200, int $margin = 4, string $darkColor = '#000000', string $lightColor = '#ffffff'): string
     {
         $qr = self::createQr($text);
         $moduleCount = $qr->getModuleCount();
@@ -45,7 +45,7 @@ class QrCodeService
     /**
      * Generate a data:image/svg+xml;base64,... URI.
      */
-    public static function dataUri(string $text, int $size = 200, int $margin = 2): string
+    public static function dataUri(string $text, int $size = 200, int $margin = 4): string
     {
         $svg = self::svg($text, $size, $margin);
         return 'data:image/svg+xml;base64,' . base64_encode($svg);
@@ -648,7 +648,7 @@ class QrUtil
 
     public static function getPatternPosition(int $typeNumber): array
     {
-        return self::$PATTERN_POSITION_TABLE[$typeNumber] ?? [];
+        return self::$PATTERN_POSITION_TABLE[$typeNumber - 1] ?? [];
     }
 
     public static function getMask(int $maskPattern, int $i, int $j): bool

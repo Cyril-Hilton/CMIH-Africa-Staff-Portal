@@ -40,7 +40,7 @@
             <div class="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div class="flex items-center gap-3">
                     <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-white p-1.5 shadow-md shrink-0">
-                        {!! \App\Services\QrCodeService::svg($asset->scan_url, 56, 0) !!}
+                        {!! \App\Services\QrCodeService::svg($asset->scan_url, 56, 4) !!}
                     </div>
                     <div class="flex-1 min-w-0">
                         <span class="text-[9px] font-bold uppercase tracking-widest text-brand-red">QR Sticker & Tracking</span>
@@ -48,15 +48,15 @@
                         <div class="mt-2 flex flex-wrap gap-1.5">
                             <a href="{{ route('portal.assets.sticker', $asset) }}" target="_blank"
                                class="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 hover:bg-amber-500/20 transition">
-                                🖨️ Print Sticker
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6zM18 12h.01"/></svg> Print Sticker
                             </a>
-                            <a href="{{ route('portal.assets.qr', [$asset, 'download' => 1]) }}"
+                            <a download data-no-loader data-asset-download href="{{ route('portal.assets.qr', [$asset, 'download' => 1]) }}"
                                class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 hover:bg-white/15 transition">
-                                ⬇️ QR SVG
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> QR SVG
                             </a>
                             <a href="{{ $asset->scan_url }}" target="_blank"
                                class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:bg-white/15 hover:text-white transition">
-                                📱 Test Scan
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 15h2M15 19v2M19 19h2v2h-2z"/></svg> Test Scan
                             </a>
                         </div>
                     </div>
@@ -97,4 +97,5 @@
             </div>
         </section>
     </div>
+    @include('portal.partials.asset-download-confirm')
 </x-app-layout>

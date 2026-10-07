@@ -80,14 +80,15 @@ class Asset extends Model
 
     public function getAssetTagOrCodeAttribute(): string
     {
-        return !empty($this->asset_tag)
+        return filled($this->asset_tag)
             ? trim($this->asset_tag)
             : ('CMIH-AST-' . str_pad((string) $this->id, 5, '0', STR_PAD_LEFT));
     }
 
     public function getScanUrlAttribute(): string
     {
-        return route('assets.scan', ['identifier' => $this->asset_tag_or_code]);
+        // Printed stickers must survive tag edits and duplicate human-readable tags.
+        return route('assets.scan', ['identifier' => 'CMIH-AST-' . str_pad((string) $this->id, 5, '0', STR_PAD_LEFT)]);
     }
 
     public function getDepartmentNameAttribute(): string
@@ -99,4 +100,3 @@ class Asset extends Model
         return User::departmentLabel($this->assignee->department);
     }
 }
-

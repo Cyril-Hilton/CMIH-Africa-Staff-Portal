@@ -252,16 +252,16 @@
 <body>
     <div class="controls">
         <a href="{{ route('portal.assets') }}" class="btn btn-secondary">
-            ← Back to Assets
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="m12 5-7 7 7 7M5 12h14"/></svg> Back to Assets
         </a>
         <button onclick="window.print()" class="btn">
-            🖨️ Print Sticker
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6zM18 12h.01"/></svg> Print Sticker
         </button>
-        <button id="downloadStickerBtn" class="btn btn-secondary">
-            ⬇️ Download PNG Sticker
+        <button type="button" data-asset-download id="downloadStickerBtn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Download PNG Sticker
         </button>
         <a href="{{ $asset->scan_url }}" target="_blank" class="btn btn-secondary">
-            📱 Test Scan URL
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 15h2M15 19v2M19 19h2v2h-2z"/></svg> Test Scan URL
         </a>
     </div>
 
@@ -277,7 +277,7 @@
 
         <div class="sticker-body">
             <div class="qr-box">
-                {!! \App\Services\QrCodeService::svg($asset->scan_url, 130, 0) !!}
+                {!! \App\Services\QrCodeService::svg($asset->scan_url, 130, 4) !!}
                 <span class="qr-label">Scan to verify</span>
             </div>
 
@@ -327,8 +327,6 @@
         </div>
     </div>
 
-    {{-- Include local qrcode.min.js and canvas exporter --}}
-    <script src="{{ asset('js/qrcode.min.js') }}"></script>
     <script>
         // Automatic print if ?print=1 in URL
         if (new URLSearchParams(window.location.search).has('print')) {
@@ -357,6 +355,13 @@
             ctx.lineWidth = 2.5;
             ctx.stroke();
 
+            function fitText(value, maxWidth) {
+                let text = String(value || '-');
+                if (ctx.measureText(text).width <= maxWidth) return text;
+                while (text.length && ctx.measureText(text + '…').width > maxWidth) text = text.slice(0, -1);
+                return text + '…';
+            }
+
             // Header bar
             ctx.fillStyle = '#E50914';
             ctx.fillRect(12, 12, 38, 18);
@@ -373,7 +378,7 @@
             ctx.fillRect(width - 120, 12, 108, 20);
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 10px monospace';
-            ctx.fillText('{{ $asset->asset_tag_or_code }}', width - 114, 26);
+            ctx.fillText(fitText(@js($asset->asset_tag_or_code), 96), width - 114, 26);
 
             // Divider
             ctx.strokeStyle = '#111111';
@@ -402,7 +407,7 @@
                 // Asset Details
                 ctx.fillStyle = '#111111';
                 ctx.font = 'bold 13px sans-serif';
-                ctx.fillText('{{ addslashes($asset->name) }}', 148, 62);
+                ctx.fillText(fitText(@js($asset->name), width - 160), 148, 62);
 
                 let y = 82;
                 function drawField(label, val, isHighlight = false) {
@@ -412,16 +417,16 @@
 
                     ctx.fillStyle = isHighlight ? '#E50914' : '#111111';
                     ctx.font = isHighlight ? 'bold 10px sans-serif' : '600 9px sans-serif';
-                    ctx.fillText(val, 215, y);
+                    ctx.fillText(fitText(val, width - 227), 215, y);
                     y += 18;
                 }
 
-                drawField('Category:', '{{ addslashes($asset->category ?: ($asset->type ?: "Office Asset")) }}');
-                drawField('Type:', '{{ addslashes($asset->type) }}');
-                drawField('Assigned:', '{{ addslashes($asset->assignee?->name ?? "Company Pool") }} ({{ addslashes($asset->department_name) }})', true);
-                drawField('Location:', '{{ addslashes($asset->location ?: ($asset->warehouse_location ?: "CMIH Office")) }}');
-                drawField('Condition:', '{{ addslashes($asset->status) }} • {{ addslashes($asset->condition) }}');
-                drawField('Owner:', '{{ addslashes($asset->owner ?: "CMIH Africa") }}');
+                drawField('Category:', @js($asset->category ?: ($asset->type ?: "Office Asset")));
+                drawField('Type:', @js($asset->type));
+                drawField('Assigned:', @js(($asset->assignee?->name ?? 'Company Pool') . ' (' . $asset->department_name . ')'), true);
+                drawField('Location:', @js($asset->location ?: ($asset->warehouse_location ?: "CMIH Office")));
+                drawField('Condition:', @js($asset->status . ' • ' . $asset->condition));
+                drawField('Owner:', @js($asset->owner ?: "CMIH Africa"));
 
                 // Footer
                 ctx.strokeStyle = '#888888';
@@ -440,15 +445,17 @@
 
                 // Trigger download
                 const link = document.createElement('a');
-                link.download = 'cmih-sticker-{{ $asset->asset_tag_or_code }}.png';
+                link.download = 'cmih-sticker-{{ $asset->id }}.png';
                 link.href = canvas.toDataURL('image/png');
                 link.click();
             };
 
             // Convert SVG to data URL
-            const svgString = `{!! addslashes(\App\Services\QrCodeService::svg($asset->scan_url, 200, 0)) !!}`;
+            const svgString = @js(\App\Services\QrCodeService::svg($asset->scan_url, 360, 4));
+            qrImg.onerror = () => window.alert('Unable to load the QR code. Please refresh and try again.');
             qrImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
         });
     </script>
+    @include('portal.partials.asset-download-confirm')
 </body>
 </html>

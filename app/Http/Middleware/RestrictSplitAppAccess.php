@@ -54,6 +54,7 @@ class RestrictSplitAppAccess
             ]),
             'staff' => $this->matches($path, [
                 '/',
+                'assets/scan/*',
                 'dashboard',
                 'dashboard/*',
                 'portal',
@@ -91,6 +92,7 @@ class RestrictSplitAppAccess
         }
 
         if ($this->matches($path, [
+            'assets/scan/*',
             'dashboard',
             'dashboard/*',
             'portal',

@@ -66,12 +66,22 @@
                     @endforeach
                 </select>
 
-                <div class="flex items-center gap-3 md:col-span-2 xl:col-span-6">
+                <select name="staff" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
+                    <option value="">All staff</option>
+                    @foreach($staff as $member)
+                        <option value="{{ $member->id }}" @selected((string) $staffFilter === (string) $member->id)>{{ $member->name }}</option>
+                    @endforeach
+                </select>
+
+                <div class="flex flex-wrap items-center gap-3 md:col-span-2 xl:col-span-6">
                     <button type="submit" class="rounded-full border border-brand-white/20 bg-brand-white/10 px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-white transition hover:bg-brand-white/20">
                         Filter
                     </button>
                     <a href="{{ route('portal.assets') }}" class="text-xs uppercase tracking-[0.2em] text-brand-white/50 transition hover:text-brand-white">
                         Reset
+                    </a>
+                    <a href="{{ route('portal.export', ['table' => 'assets']) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
+                        Export CSV
                     </a>
                     @if($canCreateAssets)
                         <button type="button" @click.prevent="showModal = true" class="ml-auto rounded-full bg-brand-white px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-black transition hover:bg-brand-white/85">
@@ -170,9 +180,9 @@
                                                 @click="openStickerModal({{ json_encode($stickerData) }})"
                                                 class="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white p-1 shadow transition hover:scale-105 hover:border-brand-red hover:shadow-brand-red/30 cursor-pointer"
                                                 title="Click to view, print or download sticker">
-                                            {!! \App\Services\QrCodeService::svg($asset->scan_url, 32, 0) !!}
+                                            {!! \App\Services\QrCodeService::svg($asset->scan_url, 32, 4) !!}
                                             <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand-red text-[7px] font-bold text-white shadow">
-                                                🏷️
+                                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M9 3H4a1 1 0 0 0-1 1v5a2 2 0 0 0 .586 1.414l9 9a2 2 0 0 0 2.828 0l5-5a2 2 0 0 0 0-2.828l-9-9A2 2 0 0 0 9 3Z"/><circle cx="7" cy="7" r="1"/></svg>
                                             </span>
                                         </button>
                                         <span class="font-mono text-[10px] font-bold text-amber-300 tracking-wider">
@@ -185,7 +195,7 @@
                                                     title="Open Sticker dialog">
                                                 Sticker
                                             </button>
-                                            <a href="{{ route('portal.assets.qr', [$asset, 'download' => 1]) }}"
+                                            <a download data-no-loader data-asset-download href="{{ route('portal.assets.qr', [$asset, 'download' => 1]) }}"
                                                class="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400 transition hover:bg-white/15 hover:text-emerald-300"
                                                title="Download QR SVG">
                                                 QR
@@ -376,7 +386,7 @@
                 <div class="flex items-center justify-between border-b border-white/10 px-6 py-4">
                     <div class="flex items-center gap-2.5">
                         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-red/20 text-brand-red">
-                            🏷️
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M9 3H4a1 1 0 0 0-1 1v5a2 2 0 0 0 .586 1.414l9 9a2 2 0 0 0 2.828 0l5-5a2 2 0 0 0 0-2.828l-9-9A2 2 0 0 0 9 3Z"/><circle cx="7" cy="7" r="1"/></svg>
                         </span>
                         <div>
                             <h3 class="text-base font-display font-bold text-white">Office Asset QR Sticker</h3>
@@ -409,7 +419,7 @@
                                 {{-- QR Box --}}
                                 <div class="flex flex-col items-center justify-center rounded-lg border border-black bg-white p-1.5 shrink-0">
                                     <div id="modalQrContainer" class="flex h-28 w-28 items-center justify-center">
-                                        {{-- Rendered via QR script or SVG fetch --}}
+                                        <img :src="activeSticker?.qr_url" alt="Asset QR code" class="h-28 w-28">
                                     </div>
                                     <span class="mt-1 text-[7.5px] font-extrabold uppercase tracking-widest text-neutral-600">Scan to verify</span>
                                 </div>
@@ -468,28 +478,28 @@
                         {{-- 1. Print Sticker --}}
                         <a :href="activeSticker?.sticker_url + '?print=1'" target="_blank"
                            class="flex flex-col items-center justify-center gap-1 rounded-2xl border border-brand-red/40 bg-brand-red/10 p-3 text-center text-xs font-bold text-white transition hover:bg-brand-red hover:shadow-lg hover:shadow-brand-red/25">
-                            <span class="text-lg">🖨️</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6zM18 12h.01"/></svg>
                             <span>Print Sticker</span>
                         </a>
 
                         {{-- 2. Download Sticker PNG --}}
-                        <button type="button" @click="downloadModalStickerPng()"
+                        <button type="button" data-asset-download @click="downloadModalStickerPng()"
                                 class="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-3 text-center text-xs font-bold text-white transition hover:bg-white/15">
-                            <span class="text-lg">🖼️</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                             <span>Save Sticker (PNG)</span>
                         </button>
 
                         {{-- 3. Download QR SVG --}}
-                        <a :href="activeSticker?.qr_url + '?download=1'"
+                        <a download data-no-loader data-asset-download :href="activeSticker?.qr_url + '?download=1'"
                            class="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-3 text-center text-xs font-bold text-emerald-400 transition hover:bg-white/15">
-                            <span class="text-lg">📱</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 15h2M15 19v2M19 19h2v2h-2z"/></svg>
                             <span>Download QR</span>
                         </a>
 
                         {{-- 4. Test Mobile Scan --}}
                         <a :href="activeSticker?.scan_url" target="_blank"
                            class="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-3 text-center text-xs font-bold text-white/70 transition hover:bg-white/15 hover:text-white">
-                            <span class="text-lg">🔍</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:inline-block;vertical-align:middle;flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
                             <span>Test Scan Page</span>
                         </a>
                     </div>
@@ -500,40 +510,7 @@
 
     @include('portal.partials.asset-async')
 
-    {{-- Local QRCode script & canvas sticker downloader --}}
-    <script src="{{ asset('js/qrcode.min.js') }}"></script>
     <script>
-        document.addEventListener('alpine:init', () => {
-            // Watch for sticker modal opening to render QR code into modalQrContainer
-            Alpine.effect(() => {
-                const modal = document.querySelector('[x-data]');
-                // When modal opens with an activeSticker, draw the QR
-            });
-        });
-
-        // Function called when opening the modal to ensure QR code renders into the modal
-        function renderModalQr(scanUrl) {
-            const container = document.getElementById('modalQrContainer');
-            if (!container) return;
-            container.innerHTML = '';
-            if (window.QRCode) {
-                new QRCode(container, {
-                    text: scanUrl,
-                    width: 104,
-                    height: 104,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.M
-                });
-            }
-        }
-
-        // Hook into openStickerModal
-        document.addEventListener('click', function(e) {
-            const btn = e.target.closest('[data-sticker-btn]');
-            // already handled by alpine @click
-        });
-
         // Window helper for high-res PNG sticker download
         window.downloadModalStickerPng = function() {
             const alpineEl = document.getElementById('office-asset-manager-region');
@@ -559,6 +536,13 @@
             ctx.lineWidth = 2.5;
             ctx.strokeRect(0, 0, width, height);
 
+            function fitText(value, maxWidth) {
+                let text = String(value || '-');
+                if (ctx.measureText(text).width <= maxWidth) return text;
+                while (text.length && ctx.measureText(text + '…').width > maxWidth) text = text.slice(0, -1);
+                return text + '…';
+            }
+
             // Header bar
             ctx.fillStyle = '#E50914';
             ctx.fillRect(12, 12, 38, 18);
@@ -575,7 +559,7 @@
             ctx.fillRect(width - 120, 12, 108, 20);
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 10px monospace';
-            ctx.fillText(data.asset_tag, width - 114, 26);
+            ctx.fillText(fitText(data.asset_tag, 96), width - 114, 26);
 
             // Divider
             ctx.strokeStyle = '#111111';
@@ -603,7 +587,7 @@
                 // Asset Details
                 ctx.fillStyle = '#111111';
                 ctx.font = 'bold 13px sans-serif';
-                ctx.fillText(data.name.substring(0, 30), 148, 62);
+                ctx.fillText(fitText(data.name, width - 160), 148, 62);
 
                 let y = 82;
                 function drawField(label, val, isHighlight) {
@@ -613,7 +597,7 @@
 
                     ctx.fillStyle = isHighlight ? '#E50914' : '#111111';
                     ctx.font = isHighlight ? 'bold 10px sans-serif' : '600 9px sans-serif';
-                    ctx.fillText((val || '-').substring(0, 30), 215, y);
+                    ctx.fillText(fitText(val, width - 227), 215, y);
                     y += 18;
                 }
 
@@ -642,27 +626,16 @@
 
                 // Trigger file download
                 const link = document.createElement('a');
-                link.download = 'cmih-sticker-' + data.asset_tag + '.png';
+                link.download = 'cmih-sticker-' + data.id + '.png';
                 link.href = canvas.toDataURL('image/png');
                 link.click();
             };
 
             // Fetch the SVG QR from the server route
+            qrImg.onerror = () => window.alert('Unable to load the QR code. Please refresh and try again.');
             qrImg.src = data.qr_url;
         };
 
-        // When sticker modal is opened, trigger QR render into container
-        document.addEventListener('alpine:initialized', () => {
-            // Watch alpine state
-        });
-        window.addEventListener('click', function(e) {
-            setTimeout(() => {
-                const alpineEl = document.getElementById('office-asset-manager-region');
-                if (alpineEl && alpineEl._x_dataStack && alpineEl._x_dataStack[0].activeSticker) {
-                    const sticker = alpineEl._x_dataStack[0].activeSticker;
-                    renderModalQr(sticker.scan_url);
-                }
-            }, 50);
-        });
     </script>
+    @include('portal.partials.asset-download-confirm')
 </x-app-layout>

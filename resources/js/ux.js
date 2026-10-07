@@ -71,6 +71,7 @@ const initLoader = () => {
                 link.href.startsWith(window.location.origin) &&
                 link.target !== '_blank' &&
                 !link.hasAttribute('download') &&
+                !link.hasAttribute('data-no-loader') &&
                 !href.startsWith('#') &&
                 !href.startsWith('javascript:') &&
                 !e.ctrlKey &&

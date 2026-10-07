@@ -167,7 +167,12 @@
                     <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
                         <p class="text-[10px] font-bold uppercase tracking-wider text-white/45">Asset Description & Notes</p>
                         <div class="mt-2 text-sm text-white/70 leading-relaxed space-y-2">
-                            {!! $asset->description ?: e($asset->notes) !!}
+                            @if($asset->description)
+                                <p class="whitespace-pre-line">{{ html_entity_decode(strip_tags($asset->description), ENT_QUOTES, 'UTF-8') }}</p>
+                            @endif
+                            @if($asset->notes)
+                                <p class="whitespace-pre-line">{{ $asset->notes }}</p>
+                            @endif
                         </div>
                     </div>
                 @endif
