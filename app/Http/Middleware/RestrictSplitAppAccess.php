@@ -14,6 +14,10 @@ class RestrictSplitAppAccess
         $kind = (string) config('cmih.app_kind', 'all');
         $path = $request->path();
 
+        if ($path === 'api/location-fallback') {
+            return $next($request);
+        }
+
         if ($kind === 'all') {
             if (in_array(strtolower($request->getHost()), ['127.0.0.1', 'localhost'], true)) {
                 return $next($request);

@@ -42,7 +42,8 @@
                 gtag('config', '{{ config('services.ga4.id') }}');
             </script>
         @endif
-    </head>
+    <script src="{{ asset('js/location-chain.js') }}?v=20261009-2"></script>
+</head>
     <body class="bg-brand-black text-brand-white font-sans antialiased">
         <div class="min-h-screen flex flex-col bg-inked">
             @include('partials.site-header')

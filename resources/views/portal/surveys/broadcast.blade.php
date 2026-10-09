@@ -237,7 +237,7 @@
 function initMapAC() {
     const input = document.getElementById('event_map_url');
     if (!input) return;
-    const ac = new google.maps.places.Autocomplete(input, { types: ['establishment', 'geocode'] });
+    const ac = new window.CmihPlacesAutocomplete(input, { types: ['establishment', 'geocode'] });
     ac.addListener('place_changed', function() {
         const place = ac.getPlace();
         if (place.url) input.value = place.url;

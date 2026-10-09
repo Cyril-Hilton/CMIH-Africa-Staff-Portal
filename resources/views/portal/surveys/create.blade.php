@@ -296,7 +296,7 @@
 function initMapsAutocomplete() {
     const input = document.getElementById('location_url');
     if (!input) return;
-    const ac = new google.maps.places.Autocomplete(input, { types: ['establishment', 'geocode'] });
+    const ac = new window.CmihPlacesAutocomplete(input, { types: ['establishment', 'geocode'] });
     ac.addListener('place_changed', function() {
         const place = ac.getPlace();
         if (place.url) input.value = place.url;
@@ -361,6 +361,6 @@ function surveyBuilder() {
     };
 }
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key') }}&libraries=places&callback=initMapsAutocomplete" async defer></script>
+<script>if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initMapsAutocomplete); } else { initMapsAutocomplete(); }</script>
 @endpush
 </x-app-layout>

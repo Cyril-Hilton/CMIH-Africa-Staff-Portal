@@ -588,3 +588,8 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
 Route::get('/merchandisers/report/{token}', [\App\Http\Controllers\Merchandiser\MerchandiserReportController::class, 'show'])->name('merchandisers.report.view');
 
 require __DIR__.'/auth.php';
+
+Route::get('/api/location-fallback', function (\Illuminate\Http\Request $request) {
+ $data=$request->validate(['q'=>'required|string|min:3|max:150']);
+ return response()->json(app(\App\Services\LocationProviderChain::class)->search($data['q']))->header('Cache-Control','private, no-store');
+})->middleware(['auth','throttle:30,1'])->name('location.fallback');

@@ -29,7 +29,8 @@
                 a { color: inherit; text-decoration: none; }
             </style>
         @endif
-    </head>
+    <script src="{{ asset('js/location-chain.js') }}?v=20261009-2"></script>
+</head>
     <body class="h-screen overflow-hidden bg-brand-black font-sans antialiased text-brand-white">
         <div class="h-screen overflow-hidden bg-inked"
              x-data="{
