@@ -58,7 +58,6 @@
     $coreLinks = [
         ['label' => 'Dashboard',              'route' => 'dashboard'],
         ['label' => 'Performance & Accountability', 'route' => 'portal.performance.index'],
-        ['label' => 'Power BI Reports', 'route' => 'portal.power-bi.index'],
         ['label' => 'CMIH Messenger',         'route' => 'portal.messages'],
         ['label' => 'Notifications',          'route' => 'portal.announcements'],
         ['label' => 'People & Teams',         'route' => 'portal.people'],

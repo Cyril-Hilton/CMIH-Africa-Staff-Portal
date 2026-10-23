@@ -36,3 +36,7 @@ The new Brands layout queries the original weekly records; it does not require c
 The provided CRM workbook import and correction tooling is available. Raw private workbook/database files are excluded from Git. The original 25 ambiguous CRM source facts remain unresolved for authorised staff correction after rollout. No invented dates, targets or amounts were substituted. Local sample records are labelled SAMPLE/DEMO and the preview seeder is restricted to the designated preview database.
 
 No production deployment, production migration or production data mutation was performed. Deployment remains explicitly unauthorised.
+
+## Final removal check
+
+Power BI Reports page, navigation, controller/model and all four endpoints removed. Existing migration history is retained without a destructive table drop. Browser returned 404 for the old page and no navigation link remained. Final post-removal regression: 598 tests / 4,194 assertions passed. Local database copies were checked read-only: both contain zero weekly consolidated entries, so neither is a valid production-history rehearsal source. Production snapshot reconciliation remains unverified; no production access or deployment is implied.

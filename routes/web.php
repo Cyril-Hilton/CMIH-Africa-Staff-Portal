@@ -133,10 +133,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('portal.')->group(function () {
-    Route::get('/power-bi', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'index'])->name('power-bi.index');
-    Route::post('/power-bi', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'store'])->name('power-bi.store');
-    Route::patch('/power-bi/{link}', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'update'])->name('power-bi.update');
-    Route::get('/power-bi/{link}/open', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'open'])->name('power-bi.open');
 
     Route::get('/performance/export/{format}', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'export'])->name('performance.export');
     Route::get('/operations/handovers', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'index'])->name('operations.handovers.index');
