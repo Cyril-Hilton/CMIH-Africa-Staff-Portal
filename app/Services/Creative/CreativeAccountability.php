@@ -13,7 +13,7 @@ class CreativeAccountability {
  public static function reviewerMeasure(User $u,Carbon $start,Carbon $end):?array {
   if(!Schema::hasTable('creative_requests'))return null;
   // Review obligations belong to each submitted version, not the latest mutable row.
-  $requests=CreativeRequest::whereNotNull('planned_by')->where(fn($q)=>$q->where('reviewer_id',$u->id)->orWhereHas('updates',fn($q)=>$q->where('kind','in_review')->where('metadata->reviewer_id',$u->id)))->with(['updates'=>fn($q)=>$q->whereIn('kind',['in_review','changes_requested','delivered'])->orderBy('id')])->get();
+  $requests=CreativeRequest::whereNotNull('planned_by')->where(fn($q)=>$q->where('reviewer_id',$u->id)->orWhereHas('updates',fn($q)=>$q->where('kind','in_review')->where('metadata->reviewer_id',$u->id)))->with(['updates'=>fn($q)=>$q->whereIn('kind',['in_review','changes_requested','delivered','backlog','in_progress','brief_received','scheduled'])->orderBy('id')])->get();
   $obligations=[];
   foreach($requests as $request){
    foreach($request->updates->where('kind','in_review') as $submission){
@@ -22,6 +22,8 @@ class CreativeAccountability {
     $due=Carbon::parse($metadata['review_due_at']);
     if(!$due->betweenIncluded($start->copy()->startOfDay(),$end->copy()->endOfDay())||$due->isFuture())continue;
     $decision=$request->updates->first(fn($update)=>$update->id>$submission->id&&in_array($update->kind,['changes_requested','delivered'],true)&&(int)($update->metadata['iteration']??-1)===(int)($metadata['iteration']??0));
+    $withdrawal=$request->updates->first(fn($update)=>$update->id>$submission->id&&in_array($update->kind,['backlog','in_progress','brief_received','scheduled'],true)&&(int)($update->metadata['iteration']??-1)===(int)($metadata['iteration']??0));
+    if($withdrawal&&$withdrawal->created_at->lte($due)&&(!$decision||$withdrawal->id<$decision->id))continue;
     $obligations[]=['request'=>$request->id,'timely'=>$decision&&$decision->created_at->lte($due)];
    }
    // Preserve pre-upgrade records that have no versioned submission history.
@@ -33,7 +35,7 @@ class CreativeAccountability {
  }
  public function reminders():int {
   if(!Schema::hasTable('creative_requests'))return 0;$count=0;$workflow=app(CreativeWorkflow::class);
-  CreativeRequest::whereNotIn('stage',['completed','archived'])->chunkById(100,function($rows)use(&$count,$workflow){foreach($rows as $r){
+  CreativeRequest::whereNotIn('stage',['backlog','completed','archived'])->chunkById(100,function($rows)use(&$count,$workflow){foreach($rows as $r){
    if($r->stage==='in_review'&&$r->review_due_at?->isPast()){$ids=array_merge([$r->reviewer_id],$workflow->leads());$key='creative-review-overdue:'.$r->id.':'.$r->iteration;$title='Creative review overdue';$message=$r->reference.' is awaiting reviewer action; the creative submission time is retained.';}
    elseif($r->requested_deadline&&$r->requested_deadline->isFuture()&&$r->requested_deadline->lte(now()->addDays(2))&&!$r->first_submitted_at){$ids=array_merge([$r->assignee_id],$workflow->leads());$key='creative-due:'.$r->id.':'.$r->requested_deadline->timestamp;$title='Creative deadline approaching';$message=$r->reference.' has a requested deadline within 48 hours.';}
    else continue;

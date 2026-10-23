@@ -12,7 +12,7 @@ class CreativeCapacity {
  }
  public function hours(CreativeRequest $r,Carbon $from,Carbon $to,bool $remaining=false):?float {
   if(!$r->planned_start||!$r->internal_eta||$r->estimated_hours===null)return null;
-  if($remaining && in_array($r->stage,['completed','archived','delivered','in_review']))return 0;
+  if($remaining && in_array($r->stage,['backlog','completed','archived','delivered','in_review']))return 0;
   $days=$this->workingDates($r->planned_start,$r->internal_eta,$r->assignee_id);if(!$days)return 0;
   $first=$from->toDateString();$last=$to->toDateString();if($remaining)$first=max($first,today(config('creative.timezone'))->toDateString());
   return round($r->estimated_hours*count(array_filter($days,fn($d)=>$d>=$first&&$d<=$last))/count($days),2);

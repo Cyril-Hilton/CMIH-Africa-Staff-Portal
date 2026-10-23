@@ -375,6 +375,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
         Route::get('/data', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'data'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('data');
         Route::post('/requests', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'store'])->middleware('throttle:30,1')->name('store');
         Route::get('/requests/{creative}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'show'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('show');
+        Route::post('/requests/{creative}/split', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'split'])->name('split');
         Route::post('/requests/{creative}/plan-preview', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'previewPlan'])->name('plan-preview');
         Route::post('/requests/{creative}/plan', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'plan'])->name('plan');
         Route::post('/requests/{creative}/transition', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'transition'])->name('transition');

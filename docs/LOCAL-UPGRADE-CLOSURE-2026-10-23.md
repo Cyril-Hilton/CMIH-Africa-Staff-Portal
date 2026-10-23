@@ -14,7 +14,7 @@ Creative Studio and the main dashboard use the same authorised endpoints and cen
 
 ## Validation
 
-- Staff full suite: 564 tests, 3,829 assertions passed. Creative subset: 26 tests, 180 assertions passed.
+- Staff full suite: 571 tests, 3,949 assertions passed. Creative subset: 33 tests, 300 assertions passed.
 - Brands/Merchandiser full suite: 451 tests, 3,317 assertions passed. Two existing clock-window tests now freeze a valid workday/time rather than depending on midnight.
 - Public website: 372 tests, 2,096 assertions, no failures/errors; 72 existing PHPUnit metadata deprecations remain maintenance warnings.
 - Creator Universe surface: 118 tests, 1,078 assertions passed. Filter includes Creator, Universe and UI presentation tests. Copied Staff Portal test classes in that split repository target routes which do not exist there and are not represented as Creator feature coverage.
@@ -30,3 +30,13 @@ No production deployment. No guessed CRM facts. Production must configure the sc
 ## GitHub
 
 Push only after local closure. Use a non-production upgrade branch; do not merge into the production/default branch or invoke deployment tooling. Exclude real environment secrets and private preview databases/evidence.
+
+## Final workflow and navigation follow-up
+
+- Mega Creative now shows daily task entries only; weekly Creative retains its visual board/calendar/report workspace.
+- Daily controls: search, entry date, status, priority, staff, sorting/direction, 10/20/50 records and server pagination. Searching no longer forces Creative page two back to page one.
+- Weekly controls: shared search/filter/sort with 12/24/48/120 records and Previous/Next navigation. Filters reset to page one; changing pages keeps the selection.
+- Fixed the dashboard generic form handler intercepting Creative forms, and prevented outer automatic refresh from resetting Creative tabs/filter state. Creative manages its own live updates.
+- Client Relations can submit unassigned briefs; Creative leads assign themselves/team and split original briefs into individually tracked work packages.
+- Operational drag/drop works forward/backward, including paused backlog; evidence, review and independent verification remain enforced. Reopening removes verified completion credit.
+- Priorities appear on board/calendar/details. Native mouse moves exercised across all seven columns. Desktop and 390px phone controls inspected; no horizontal page overflow or console errors in the final control checks.

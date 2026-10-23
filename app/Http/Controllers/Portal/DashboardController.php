@@ -200,19 +200,37 @@ class DashboardController extends Controller
 
             $searchQuery = $request->query("search_mega_{$key}");
 
-            if (! empty($searchQuery)) {
+            if ($key !== 'creatives' && !empty($searchQuery)) {
                 $request->merge(["mega_{$key}_page" => 1]);
             }
-
+            if ($key === 'creatives') $request->validate([
+                'creative_day'=>'nullable|date_format:Y-m-d',
+                'creative_status'=>'nullable|in:Open,In Progress,InProgress,Completed,Deferred,AwaitingApproval,Blocked',
+                'creative_priority'=>'nullable|in:Low,Medium,High,Urgent',
+                'creative_assignee'=>'nullable|integer|min:1',
+                'creative_sort'=>'nullable|in:activity,deliverables,deadline,lead_staff,status,priority',
+                'creative_dir'=>'nullable|in:asc,desc',
+                'creative_per_page'=>'nullable|in:10,20,50',
+            ]);
+            $megaQuery=$this->megaTaskQuery($mappedDeptAliases,$deptUserIds);
+            if($key==='creatives'){$megaQuery->whereNotIn('tasks.id',\App\Models\CreativeRequest::where('legacy',false)->whereNotNull('planned_by')->whereNotNull('task_id')->select('task_id'));if($request->filled('creative_day'))$megaQuery->whereDate('tasks.created_at',$request->creative_day);}
+            if ($key === 'creatives') {
+                foreach (['creative_status'=>'status','creative_priority'=>'priority','creative_assignee'=>'assigned_to'] as $field=>$column) {
+                    if ($request->filled($field)) {
+                        if ($field==='creative_status' && in_array($request->input($field),['In Progress','InProgress'])) $megaQuery->whereIn('tasks.status',['In Progress','InProgress']);
+                        else $megaQuery->where('tasks.'.$column,$request->input($field));
+                    }
+                }
+            }
             $departmentTables[$key] = $this->applyMegaTaskSort(
                 $this->applyMegaTaskSearch(
-                    $this->megaTaskQuery($mappedDeptAliases, $deptUserIds),
+                    $megaQuery,
                     $searchQuery
                 ),
-                $megaSort,
-                $megaSortDirection
+                $key==='creatives'?$request->input('creative_sort','activity'):$megaSort,
+                $key==='creatives'?$request->input('creative_dir','desc'):$megaSortDirection
             )
-                ->paginate($megaPerPage, ['*'], "mega_{$key}_page")
+                ->paginate($key==='creatives'?$request->integer('creative_per_page',10):$megaPerPage, ['*'], "mega_{$key}_page")
                 ->withPath(route('dashboard', [], false))
                 ->withQueryString();
             $departmentColumns[$key] = DashboardColumn::forDepartment($key);
@@ -497,7 +515,7 @@ class DashboardController extends Controller
                 ->orderBy('due_on', $direction)
                 ->latest('tasks.created_at'),
             'status' => $query->orderBy('status', $direction)->latest('tasks.created_at'),
-            'priority' => $query->orderByRaw("CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 9 END {$direction}")
+            'priority' => $query->orderByRaw("CASE priority WHEN 'Urgent' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 1 ELSE 0 END {$direction}")
                 ->latest('tasks.created_at'),
             default => $query->latest('tasks.created_at'),
         };

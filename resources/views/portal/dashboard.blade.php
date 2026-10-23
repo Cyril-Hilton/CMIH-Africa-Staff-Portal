@@ -359,9 +359,8 @@
             @endphp
             <div id="tab-pane-{{ $key }}" class="dept-tab-pane hidden">
                 @if($key === 'creatives')
-                @include('portal.creative.workspace',['embedded'=>true,'initialCreativeView'=>'board','creativeHeading'=>'Creative Production Board'])
-                <details class="mt-5 rounded-xl border border-brand-white/15 p-4"><summary class="cursor-pointer text-sm text-brand-ash">Historical Task Register & Cross-Department Support</summary>
-                @endif
+                @include('portal.creative.daily-tasks')
+                @else
                 <div class="overflow-x-auto">
                 <table class="w-full min-w-[1120px] text-left text-sm text-brand-white/70" data-table-key="mega-table-{{ $key }}">
                     <thead class="text-xs uppercase tracking-[0.2em] text-brand-ash border-b border-brand-white/10">
@@ -499,7 +498,7 @@
                 <div class="mt-4" data-mega-pagination>
                     <x-dashboard-pagination :paginator="$megaPaginator" />
                 </div>
-                @if($key === 'creatives')</details>@endif
+                @endif
             </div>
         @endforeach
     </div>
@@ -2111,6 +2110,7 @@
             window.loadWeeklyConsolidatedUrl = loadWeeklyConsolidatedUrl;
             async function refreshWeeklyConsolidatedSilently() {
                 if (!weeklyConsolidatedRegion || weeklyConsolidatedRefreshing || document.hidden) return;
+                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio]')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
                 if (weeklyConsolidatedRegion.contains(document.activeElement)) return;
                 if (weeklyConsolidatedRegion.matches(':hover')) return;
                 if (weeklyConsolidatedRegion.querySelector('#weekly-consolidated-form:not(.hidden), #weekly-column-manager:not(.hidden), details[open]')) return;
@@ -2181,7 +2181,7 @@
                     action.includes('weekly-consolidated') ||
                     action.includes('action-points');
 
-                if (!isTargetForm || form.hasAttribute('data-no-ajax')) return;
+                if (!isTargetForm || form.hasAttribute('data-no-ajax') || form.closest('[data-creative-studio]')) return;
 
                 event.preventDefault();
                 event.stopPropagation();

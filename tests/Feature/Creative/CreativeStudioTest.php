@@ -189,4 +189,78 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$neutral=$this->staff('finance');$public=$this->brief($sender);$this->brief($sender,['visibility'=>'restricted','title'=>'Confidential campaign']);
   $this->actingAs($neutral)->getJson(route('portal.creative.activity'))->assertOk()->assertJsonPath('total',1)->assertJsonPath('items.0.reference',$public->reference)->assertDontSee('Confidential campaign');
  }
+
+ public function test_backlog_can_move_directly_to_brief_received_without_losing_history():void {
+  $sender=$this->staff();$lead=$this->staff('creatives','manager');$neutral=$this->staff('finance');$r=$this->brief($sender);$r->update(['stage'=>'backlog']);$received=$r->received_at->toIso8601String();
+  $this->actingAs($neutral)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'brief_received'])->assertForbidden();
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'brief_received','reason'=>'Moved on the Creative Kanban board.'])->assertOk();
+  $this->assertSame('brief_received',$r->fresh()->stage);$this->assertSame($received,$r->fresh()->received_at->toIso8601String());$this->assertSame(2,$r->fresh()->revision);
+  $this->assertDatabaseHas('creative_updates',['creative_request_id'=>$r->id,'kind'=>'brief_received']);
+ }
+
+ public function test_hod_can_split_a_client_brief_assign_self_and_team_without_duplicate_parent_scoring():void {
+  $sender=$this->staff();$lead=$this->staff('creatives','manager');$owner=$this->staff('creatives');$verifier=$this->staff('creatives','staff');$verifier->forceFill(['job_level'=>'CVO'])->save();$parent=$this->brief($sender,['priority'=>'Urgent']);
+  $payload=['revision'=>$parent->revision,'reason'=>'Divide creative work across the team','parts'=>[['title'=>'Design campaign artwork','brief'=>'Design the approved creative artwork and export the print formats.','priority'=>'Urgent'],['title'=>'Prepare motion animation','brief'=>'Produce an animation using the approved brand assets and copy.','priority'=>'High']]];
+  $this->actingAs($sender)->postJson(route('portal.creative.split',$parent),$payload)->assertForbidden();
+  $this->actingAs($lead)->postJson(route('portal.creative.split',$parent),$payload)->assertOk();
+  $this->assertTrue($parent->fresh()->is_group);$this->assertNull($parent->fresh()->task_id);$this->assertSame(2,$parent->parts()->count());
+  foreach($parent->parts()->get() as $n=>$part){
+   $this->assertSame($sender->id,$part->requester_id);$this->assertTrue($part->received_at->equalTo($parent->received_at));$this->assertSame('backlog',$part->stage);
+   $assignee=$n===0?$lead:$owner;$part=$this->plan($part,$lead,$assignee,$sender);$part=$this->move($part,$assignee,'in_progress');$part=$this->move($part,$assignee,'in_review',['reference_url'=>'https://example.test/deliverable']);$part=$this->move($part,$sender,'delivered');$this->move($part,$verifier,'completed',['quality_score'=>90]);
+  }
+  $this->assertSame('completed',$parent->fresh()->stage);$this->assertDatabaseCount('tasks',2);
+  $this->actingAs($lead)->postJson(route('portal.creative.split',$parent),$payload)->assertStatus(409);
+ }
+
+ public function test_creative_can_pause_and_resume_production_without_losing_assignment_or_deadline():void {
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->move($this->plan($this->brief($sender),$lead,$owner,$sender),$owner,'in_progress');$due=$r->requested_deadline->toIso8601String();
+  $r=$this->move($r,$owner,'backlog');$this->assertSame('backlog',$r->stage);$this->assertSame($owner->id,$r->assignee_id);$this->assertSame($due,$r->requested_deadline->toIso8601String());$this->assertSame('Deferred',$r->task->fresh()->status);
+  $this->assertEquals(0,app(CreativeCapacity::class)->hours($r,now()->startOfWeek(),now()->endOfWeek(),true));
+  $r=$this->move($r,$owner,'brief_received');$r=$this->move($r,$owner,'scheduled');$r=$this->move($r,$owner,'in_progress');$this->assertSame('in_progress',$r->stage);$this->assertSame('In Progress',$r->task->fresh()->status);
+  $r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/current-artwork']);$r=$this->move($r,$owner,'backlog');$this->assertNotNull($r->first_submitted_at);$this->assertSame('backlog',$r->stage);
+ }
+
+ public function test_mega_creative_daily_entries_are_separate_from_weekly_studio_workflow():void {
+  $owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$sender=$this->staff();
+  Task::create(['title'=>'Daily clock-in design task','details'=>'Daily standalone task entry.','department'=>'creatives','assigned_to'=>$owner->id,'assigned_by'=>$owner->id,'status'=>'Open','priority'=>'High']);
+  $brief=$this->plan($this->brief($sender,['title'=>'Studio campaign work package']),$lead,$owner,$sender);
+  $response=$this->actingAs($owner)->get(route('dashboard',['tab'=>'creatives','weekly_department'=>'creatives']));$response->assertOk()->assertSee('Daily Creative Work')->assertSee('Daily clock-in design task');
+  $html=$response->getContent();$start=strpos($html,'data-creative-daily-tasks');$end=strpos($html,'</section>',$start);$daily=substr($html,$start,$end-$start);
+  $this->assertStringNotContainsString('data-cs-view',$daily);$this->assertStringNotContainsString('Studio campaign work package',$daily);
+  $this->assertStringContainsString('Task Entry Date',$daily);
+ }
+
+ public function test_assigned_creative_can_move_backward_and_forward_between_all_operational_columns():void {
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');
+  foreach(['backlog','brief_received','scheduled','in_progress','in_review','delivered','completed'] as $source){
+   foreach(['backlog','brief_received','scheduled','in_progress'] as $destination){
+    if($source===$destination)continue;
+    $r=$this->plan($this->brief($sender),$lead,$owner,$sender);
+    if(in_array($source,['backlog','brief_received']))$r=$this->move($r,$owner,$source);
+    if(in_array($source,['in_progress','in_review','delivered','completed']))$r=$this->move($r,$owner,'in_progress');
+    if(in_array($source,['in_review','delivered','completed']))$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/approved-work']);
+    if(in_array($source,['delivered','completed']))$r=$this->move($r,$sender,'delivered');
+    if($source==='completed')$r=$this->move($r,$lead,'completed',['quality_score'=>95]);
+    $r=$this->move($r,$owner,$destination);$this->assertSame($destination,$r->stage,$source.' -> '.$destination);$this->assertNull($r->fresh()->completed_at);$this->assertNotSame('approved',$r->task->fresh()->completion_review_status);
+   }
+  }
+ }
+ public function test_daily_search_filters_sort_and_pagination_preserve_the_selected_page():void {
+  $owner=$this->staff('creatives');
+  for($i=1;$i<=23;$i++)Task::create(['title'=>sprintf('Daily Filter %02d',$i),'department'=>'creatives','assigned_to'=>$owner->id,'assigned_by'=>$owner->id,'status'=>'Open','priority'=>'High']);
+  Task::create(['title'=>'Daily Filter Wrong Priority','department'=>'creatives','assigned_to'=>$owner->id,'assigned_by'=>$owner->id,'status'=>'Open','priority'=>'Low']);
+  $params=['tab'=>'creatives','search_mega_creatives'=>'Daily Filter','creative_status'=>'Open','creative_priority'=>'High','creative_assignee'=>$owner->id,'creative_sort'=>'deliverables','creative_dir'=>'asc','creative_per_page'=>10,'mega_creatives_page'=>2];
+  $response=$this->actingAs($owner)->get(route('dashboard',$params))->assertOk();
+  $page=$response->viewData('departmentTables')['creatives'];
+  $this->assertSame(2,$page->currentPage());$this->assertSame(23,$page->total());$this->assertSame('Daily Filter 11',$page->first()->title);$this->assertSame('Daily Filter 20',$page->last()->title);
+  $params['creative_per_page']=20;$params['mega_creatives_page']=1;
+  $this->get(route('dashboard',$params))->assertOk()->assertViewHas('departmentTables',fn($tables)=>$tables['creatives']->count()===20);
+ }
+ public function test_weekly_creative_search_sort_and_page_size_work_together():void {
+  $sender=$this->staff();
+  for($i=1;$i<=15;$i++)$this->brief($sender,['title'=>sprintf('Paged Creative %02d',$i),'priority'=>'High']);
+  $this->brief($sender,['title'=>'Paged Creative Wrong Priority','priority'=>'Low']);
+  $this->actingAs($sender)->getJson(route('portal.creative.data',['q'=>'Paged Creative','priority'=>'High','sort'=>'title','per_page'=>12,'page'=>2]))->assertOk()->assertJsonPath('pagination.page',2)->assertJsonPath('pagination.total',15)->assertJsonPath('pagination.last',2)->assertJsonCount(3,'items')->assertJsonPath('items.0.title','Paged Creative 13');
+ }
+
 }
