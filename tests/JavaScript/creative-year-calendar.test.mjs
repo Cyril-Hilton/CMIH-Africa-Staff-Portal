@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const source=readFileSync(new URL('../../resources/js/creative-studio.js',import.meta.url),'utf8').split('function initCreativeStudios')[0];
+const Studio=vm.runInNewContext(source+';CreativeStudio',{URLSearchParams,Intl,Date});
+const calendar=(year)=>{const s=Object.create(Studio.prototype);Object.assign(s,{view:'calendar',calendarMode:'year',week:new Date(`${year}-10-19T00:00:00Z`),filter:{},page:1,items:[]});return s;};
+test('year query covers January through December and preserves filters',()=>{const s=calendar(2026);s.filter={assignee:'12'};const q=s.params();assert.equal(q.get('from'),'2026-01-01');assert.equal(q.get('to'),'2026-12-31');assert.equal(q.get('assignee'),'12');});
+test('annual calendar renders twelve months and leap day correctly',()=>{for(const [year,days] of [[2026,365],[2028,366]]){const html=calendar(year).yearCalendar(year);assert.equal((html.match(/class="cs-year-month"/g)||[]).length,12);assert.equal((html.match(/class="cs-year-day"/g)||[]).length,days);assert.equal(html.includes(`${year}-02-29`),days===366);}});
+test('annual dates expose milestone counts and date actions',()=>{const s=calendar(2026);s.items=[{dates:{received_at:'2026-10-23T09:00:00Z'}}];const html=s.yearCalendar(2026);assert.match(html,/data-cs-day="2026-10-23"[^>]*data-active="true"[^>]*aria-label="2026-10-23: 1 milestones"/);});
