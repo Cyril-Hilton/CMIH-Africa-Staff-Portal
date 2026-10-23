@@ -40,3 +40,19 @@ No production deployment, production migration or production data mutation was p
 ## Final removal check
 
 Power BI Reports page, navigation, controller/model and all four endpoints removed. Existing migration history is retained without a destructive table drop. Browser returned 404 for the old page and no navigation link remained. Final post-removal regression: 598 tests / 4,194 assertions passed. Local database copies were checked read-only: both contain zero weekly consolidated entries, so neither is a valid production-history rehearsal source. Production snapshot reconciliation remains unverified; no production access or deployment is implied.
+
+## Production-copy rehearsal completed
+
+A read-only file download through authorised DirectAdmin access produced an integrity-checked SQLite copy on 23 October 2026. It is stored in a restricted local folder outside every repository. No production configuration, database contents or permissions were changed.
+
+- Source: 96 accounts, 1,822 tasks, 155 saved weekly records (Brands 7, Client Relations 116, Creative 11, Finance 5, HR/Admin 10, Operations 6).
+- Upgrade migrations succeeded on a second isolated copy. Hash comparisons of original column values across all 110 original data tables were identical before/after migration and after projection/import rehearsal.
+- All six new departmental dashboard views rendered with the production-copy records.
+- Brands returned all seven original entries with brief text, nested reported KPI tables, ownership, supporting responsibilities and dates. Browser search for Analytics returned the original matching record; phone rendering remained within its container.
+- Creative historical conversion added 186 records; a repeat run added zero. Original daily/weekly sources remained unchanged.
+- CRM archive imported all 2,555 source rows. The four confirmed current owner mappings imported 141 pipeline snapshots, 34 target rows, 24 financial source records and 14 account allocations. Repeat imports added zero duplicates. The remaining older pipeline snapshots remain in the complete source archive with original sheet/cell provenance rather than inventing active custodian accounts. Twenty-five target facts still need real staff confirmation.
+- Rehearsal exposed a suspended historical owner being rejected by the CLI import. Import-only historical attribution now accepts an existing internal Client Relations owner regardless of active status. Portal authorisation still requires active status; no suspended account was reactivated or granted access. Regression coverage preserves both attribution and inactive access denial.
+- A local-only rehearsal reviewer was added after the original-table preservation comparison for browser testing; it exists only in the disposable copy. Mail and workflow email delivery were disabled. Source database checksum remains unchanged.
+- Browser showed original Brands work in the new layout, with no console errors in that capture. Light-theme contrast and very narrow nested padding were improved during visual review.
+
+This completes the protected-copy compatibility rehearsal previously marked pending above. It does not deploy the upgrade or import into production. Production rollout still requires an authorised backup, migration and import execution; the 25 genuine CRM data corrections remain deferred as agreed.

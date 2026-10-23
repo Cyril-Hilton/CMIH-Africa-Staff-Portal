@@ -18,6 +18,13 @@ class ClientRelationsPipeline
         return $user->isActive() && User::normalizeDepartmentKey($user->department) === 'client_relations';
     }
 
+    /** Historical attribution never reactivates a former staff member or grants access. */
+    public static function historicalOwner(User $user): bool
+    {
+        return User::normalizeDepartmentKey($user->department) === 'client_relations'
+            && User::internalStaff()->whereKey($user->id)->exists();
+    }
+
     public static function canReveal(User $user): bool
     {
         return \App\Services\Creative\CreativeAccess::staff($user);

@@ -28,8 +28,8 @@ class ImportCrmPipeline extends Command
             throw new \RuntimeException('Authorised importer required');
         }
         foreach (array_unique(array_column($data['projects'], 'sheet')) as $sheet) {
-            if (empty($map[$sheet]) || ! ClientRelationsPipeline::staffMember(User::findOrFail($map[$sheet]))) {
-                throw new \RuntimeException('Explicit active Client Relations owner required for '.$sheet);
+            if (empty($map[$sheet]) || ! ClientRelationsPipeline::historicalOwner(User::findOrFail($map[$sheet]))) {
+                throw new \RuntimeException('Explicit existing Client Relations owner required for '.$sheet);
             }
         }
         $counts = ['projects' => 0, 'targets' => 0, 'undated_targets' => 0];
