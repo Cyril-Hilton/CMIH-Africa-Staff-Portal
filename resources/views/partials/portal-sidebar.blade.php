@@ -94,7 +94,6 @@
     // Full platform admins see the whole panel. HR/CVO-level approvers only see
     // staff management links that the backend actually permits.
     $fullAdminLinks = [
-        ['label' => 'Admin Overview', 'route' => 'admin.dashboard'],
         ['label' => 'Team Updates',   'route' => 'admin.updates'],
         ['label' => 'Site Content',   'route' => 'admin.content'],
         ['label' => 'Assignments',    'route' => 'admin.tasks'],
@@ -272,18 +271,6 @@
                         <span class="text-[9px] text-emerald-400/70 uppercase tracking-widest">→ Finance</span>
                     </a>
                 @endforeach
-            </nav>
-        </div>
-    @endif
-
-    {{--  CVO Command Centre — only visible to CVO / super_admin --}}
-    @if ($user->isCvoOrSuperAdmin())
-        <div class="mt-8">
-            <p class="text-xs uppercase tracking-[0.3em] text-amber-400/70">Executive</p>
-            <nav class="mt-3 space-y-2 text-xs uppercase tracking-[0.3em]">
-                <a href="{{ route('portal.cvo') }}" class="flex items-center justify-between rounded-xl px-4 py-3 transition border {{ request()->routeIs('portal.cvo') ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'text-amber-400/70 hover:text-amber-300 border-transparent hover:border-amber-500/20' }}">
-                    <span><x-ui-icon name="bolt" /> CVO Command Centre</span>
-                </a>
             </nav>
         </div>
     @endif

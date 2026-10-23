@@ -184,6 +184,9 @@ class DashboardController extends Controller
         $pendingApprovalsCount = User::internalStaff()->where('status', 'pending')->count();
         $allStaff = User::internalStaff()->orderBy('name')->get();
 
+        // Presentation order is separate from award calculations above.
+        $departments = collect(array_keys(config('performance.departments')))->mapWithKeys(fn ($key) => [$key => $departments[$key]])->all();
+
         // 6. Mega Table + Dynamic Custom Columns
         $departmentTables = [];
         $departmentColumns = [];
@@ -255,8 +258,8 @@ class DashboardController extends Controller
         $searchWeekly = $request->query('search_weekly');
         $publicCrmProgress = \Illuminate\Support\Facades\Schema::hasTable('crm_weekly_progress')
             ? \App\Services\ClientRelationsPipeline::publicRows(is_string($searchWeekly) ? $searchWeekly : null)
-                ->when($request->filled('weekly_from'), fn ($q) => $q->whereDate('week_start', '>=', $request->query('weekly_from')))
-                ->when($request->filled('weekly_to'), fn ($q) => $q->whereDate('week_start', '<=', $request->query('weekly_to')))
+                ->when($request->filled('weekly_from'), fn ($q) => $q->whereDate('crm_weekly_progress.week_start', '>=', $request->query('weekly_from')))
+                ->when($request->filled('weekly_to'), fn ($q) => $q->whereDate('crm_weekly_progress.week_start', '<=', $request->query('weekly_to')))
                 ->paginate(8, ['*'], 'crm_page')->withQueryString()->appends(['weekly_department' => 'client_relations'])
             : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 8);
 

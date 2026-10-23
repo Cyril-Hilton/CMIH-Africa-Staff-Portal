@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 class SharedWeeklyPerformance
 {
-    /** Public projection only: never return source models, money values, HR cases or private notes. */
+    /** Shared projection only: Client Relations amounts are public internally; other financial amounts, HR cases and private notes stay private. */
     public function build(string $department, string $from, string $to): array
     {
         $result = [];
@@ -28,12 +28,13 @@ class SharedWeeklyPerformance
                 $observation = $plan->observation;
                 $actual = $observation?->approved_at ? $observation->actual : null;
                 $achievement = PerformanceMath::achievement($plan->target, $actual, $kpi->direction);
-                $money = $kpi->dimension === 'financial' || (bool) preg_match('/GHS|GHC|USD|GBP|EUR|currency|money|cedi|dollar|£|€|\$/i', $kpi->unit);
+                $money = $kpi->dimension === 'financial' || (bool) preg_match('/GHS|GHC|GH₵|₵|USD|GBP|EUR|currency|money|cedi|dollar|£|€|\$/i', $kpi->unit);
+                $displayValue = fn($value) => $plan->department==='client_relations' && preg_match('/^(GHS|GHC|GH₵|₵)$/ui', $kpi->unit) ? 'GH₵ '.number_format((float)$value,2) : $value.' '.$kpi->unit;
                 $result[$plan->department]['kpis'][] = [
                     'id' => $plan->id, 'name' => $kpi->name, 'scope' => $plan->scope_type, 'owner' => $plan->owner?->name ?? 'Unassigned',
                     'client' => $plan->client, 'project' => $plan->project, 'period' => $plan->period_start->format('d M').'–'.$plan->period_end->format('d M Y'),
-                    'target' => $money ? '100% of agreed target' : $plan->target.' '.$kpi->unit,
-                    'actual' => $actual === null ? 'Not reported / not approved' : ($money ? ($achievement === null ? 'Not measured' : $achievement.'% of target') : $actual.' '.$kpi->unit),
+                    'target' => $money && $plan->department!=='client_relations' ? '100% of agreed target' : $displayValue($plan->target),
+                    'actual' => $actual === null ? 'Not reported / not approved' : ($money && $plan->department!=='client_relations' ? ($achievement === null ? 'Not measured' : $achievement.'% of target') : $displayValue($actual)),
                     'achievement' => $achievement, 'gap' => $achievement === null ? null : round($achievement - 100, 2),
                     'rag' => PerformanceMath::rag($achievement, $kpi->green_threshold, $kpi->amber_threshold),
                     'financial' => $money,

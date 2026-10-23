@@ -33,6 +33,8 @@
         </div>
     @endif
 
+    @include('portal.partials.executive-dashboard-summary')
+
     <!-- Session Status and Errors -->
     @if (session('status'))
         <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
@@ -74,6 +76,8 @@
                             You are not clocked in yet. Please set your daily objective to clock in.
                         @endif
                     @elseif(!$todayAttendance->clock_out_at)
+
+
                         You clocked in today at <span class="text-brand-white font-semibold">{{ $todayAttendance->clock_in_at->format('h:i A') }}</span> (Status: <span class="font-bold text-sky-400">{{ $todayAttendance->status }}</span>).
                         @if($canClockOutNow)
                             You can clock out now.
@@ -120,6 +124,7 @@
                         </form>
                     @endif
                 @elseif(!$todayAttendance->clock_out_at)
+
                     <form method="POST" action="{{ route('portal.attendance.clock-out') }}" class="flex justify-end">
                         @csrf
                         <button type="submit" @disabled(!$canClockOutNow)
@@ -632,6 +637,82 @@
         .weekly-consolidated-table--brands .weekly-rich-content td {
             padding: .65rem .75rem;
         }
+        .weekly-history {
+            --history-accent: #a5b4fc;
+            min-width: 0;
+            margin-top: 1.5rem;
+            border: 1px solid color-mix(in srgb, var(--history-accent) 25%, transparent);
+            border-radius: 1rem;
+            background: linear-gradient(125deg, #a5b4fc08, transparent 65%);
+            padding: 1.15rem;
+        }
+        .weekly-history > summary { cursor: pointer; font-size: .95rem; font-weight: 650; color: #e0e7ff; }
+        .weekly-history > summary::marker { color: var(--history-accent); }
+        .weekly-history > summary:focus-visible { outline: 2px solid var(--history-accent); outline-offset: 5px; border-radius: 4px; }
+        .weekly-history .weekly-history-subtitle { margin-top: .8rem; font-size: .78rem; color: #a5a5b5; }
+        .weekly-history .weekly-consolidated-scroll { border: 1px solid #ffffff16; border-radius: .8rem; scrollbar-width: thin; scrollbar-color: #a5b4fc60 #ffffff05; }
+        .weekly-history .weekly-consolidated-scroll::-webkit-scrollbar { display: block; height: 8px; }
+        .weekly-history .weekly-consolidated-scroll::-webkit-scrollbar-thumb { background: #a5b4fc60; border-radius: 8px; }
+        .weekly-history .weekly-consolidated-table { border-spacing: 0; }
+        .weekly-history .weekly-consolidated-table > thead > tr > th { background: #171a27; color: #c7d2fe; border-bottom: 1px solid #a5b4fc30; text-transform: none; letter-spacing: .015em; font-size: .77rem; font-weight: 650; line-height: 1.5; padding: 1rem; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td { border: 0; border-bottom: 1px solid #ffffff12; border-radius: 0; background: #ffffff02; padding: 1rem; font-size: .78rem; line-height: 1.6; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:nth-child(even) > td { background: #ffffff05; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:hover > td { background: #a5b4fc0a; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:last-child > td { border-bottom: 0; }
+        .weekly-history .weekly-consolidated-table td > span.inline-flex,
+        .weekly-history .weekly-consolidated-table td > span.rounded-full { display: inline-flex; align-items: center; white-space: nowrap; overflow-wrap: normal; word-break: keep-all; line-height: 1.4; border-radius: 7px; padding: .35rem .65rem; }
+        .weekly-history .weekly-consolidated-action-button { border-radius: 7px; padding: .55rem .7rem; font-weight: 600; font-size: .75rem; }
+        .weekly-history .weekly-consolidated-actions { gap: .5rem; }
+        .weekly-history .weekly-quick-status-select { border-radius: 7px; min-height: 36px; }
+        .weekly-history .weekly-consolidated-edit-panel { border-color: #a5b4fc35; border-radius: 12px; }
+        @media(max-width:640px) { .weekly-history { padding: .85rem; } .weekly-history .weekly-consolidated-table > tbody > tr > td { padding: .8rem; } }
+        .weekly-history { padding: 0; background: #10121b75; border-color: #ffffff20; }
+        .weekly-history > summary { display: flex; align-items: center; gap: .9rem; padding: 1.25rem; list-style: none; }
+        .weekly-history > summary::-webkit-details-marker { display: none; }
+        .weekly-history > summary small { display: block; margin-top: .3rem; color: #a4a5b6; font-size: .73rem; font-weight: 400; }
+        .weekly-history .history-summary-icon { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid #a5b4fc35; border-radius: 12px; background: #a5b4fc12; color: #c7d2fe; }
+        .weekly-history .history-count { margin-left: auto; white-space: nowrap; padding: .4rem .7rem; border-radius: 99px; border: 1px solid #a5b4fc30; font-size: .7rem; color: #c7d2fe; }
+        .weekly-history[open] > summary { border-bottom: 1px solid #ffffff15; }
+        .weekly-history .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem; font-size: .73rem; color: #a4a5b6; }
+        .weekly-history .history-toolbar>span:first-child { color: #e0e7ff; font-weight: 600; }
+        .weekly-history .weekly-consolidated-scroll { margin: 0 1.25rem; border-radius: 10px; }
+        .weekly-history [data-weekly-pagination] { padding: 0 1.25rem 1.25rem; }
+        .weekly-history .weekly-consolidated-table > thead > tr > th { background: #202333; color: #e0e7ff; border-right: 1px solid #ffffff0a; font-size: .75rem; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td { background: #141620; border-right: 1px solid #ffffff08; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:nth-child(even)>td { background: #191c28; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:hover>td { background: #252a3b; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td:first-child { border-left: 3px solid #a5b4fc55; }
+        .weekly-history .history-empty { padding: 2rem; display: flex; align-items: center; gap: 1.25rem; min-height: 150px; background: radial-gradient(ellipse at left,#a5b4fc0d,transparent 65%); }
+        .weekly-history .history-empty-icon { display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 16px; border: 1px dashed #a5b4fc50; color: #a5b4fc; }
+        .weekly-history .history-empty h4 { font-size: .95rem; font-weight: 600; color: #e0e7ff; }
+        .weekly-history .history-empty p { font-size: .8rem; line-height: 1.7; color: #a4a5b6; max-width: 560px; margin-top: .5rem; }
+        @media(max-width:640px) { .weekly-history{padding:0}.weekly-history>summary{padding:1rem;flex-wrap:wrap}.weekly-history .history-count{margin-left:0}.weekly-history .history-empty{padding:1.25rem;align-items:flex-start}.weekly-history .weekly-consolidated-scroll{margin:0 .8rem} }
+        /* Earlier records use neutral surfaces; status is the only strong colour. */
+        .weekly-history { --history-accent:#d4d4d8; background:transparent; border-color:#ffffff20; }
+        .weekly-history > summary { color:#ededf0; }
+        .weekly-history .history-summary-icon,.weekly-history .history-empty-icon { color:#d4d4d8;background:#ffffff04;border-color:#ffffff20; }
+        .weekly-history .history-count { color:#d4d4d8;border-color:#ffffff20;background:transparent; }
+        .weekly-history .history-empty { background:transparent; }
+        .weekly-history .history-empty h4 { color:#ededf0; }
+        .weekly-history .weekly-consolidated-table > thead > tr > th { background:#1c1c1c; color:#e5e5e5; border-color:#ffffff14; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td,
+        .weekly-history .weekly-consolidated-table > tbody > tr:nth-child(even) > td { background:transparent; border-color:#ffffff10; }
+        .weekly-history .weekly-consolidated-table > tbody > tr:hover > td { background:#ffffff04; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td:first-child { border-left:0; }
+        .weekly-history .weekly-consolidated-action-button { background:transparent; }
+        .weekly-history .weekly-consolidated-action-button:hover { background:#ffffff08; }
+        [data-theme=light] .weekly-history {background:#fff;border-color:#e5e7eb}
+        [data-theme=light] .weekly-history>summary,[data-theme=light] .weekly-history .history-empty h4 {color:#27272a}
+        [data-theme=light] .weekly-history .weekly-consolidated-table>thead>tr>th {background:#f5f5f5;color:#3f3f46;border-color:#e5e7eb}
+        [data-theme=light] .weekly-history .weekly-consolidated-table>tbody>tr>td {color:#3f3f46;border-color:#e5e7eb}
+        [data-theme=light] .weekly-history .weekly-consolidated-table>tbody>tr:hover>td {background:#fafafa}
+        .weekly-history .weekly-consolidated-table--brands { table-layout:auto; min-width:max(100%,130rem); }
+        .weekly-history .weekly-consolidated-table > thead > tr > th { overflow-wrap:normal; word-break:normal; }
+        .weekly-history .weekly-consolidated-table > thead > tr > th:last-child { white-space:nowrap; min-width:14rem; width:14rem; max-width:none; }
+        .weekly-history .weekly-consolidated-table > tbody > tr > td:last-child:has(.weekly-consolidated-actions) { min-width:14rem; width:14rem; max-width:none; }
+        .weekly-history .weekly-consolidated-table--brands > thead > tr > th:nth-child(9),
+        .weekly-history .weekly-consolidated-table--brands > tbody > tr > td:nth-child(9) { min-width:10rem; width:10rem; max-width:16rem; }
+        .weekly-history .weekly-consolidated-actions { width:12rem; min-width:12rem; }
         .weekly-consolidated-actions {
             display: flex;
             flex-direction: column;
@@ -750,9 +831,6 @@
             </div>
         </div>
 
-        @if($weeklyDepartmentFilter === 'hr_admin' && (\App\Services\PerformanceAccess::executive($user) || \App\Services\PerformanceAccess::department($user)==='hr_admin'))
-        <div class="mt-4 grid gap-3 sm:grid-cols-2"><a class="rounded-xl border border-brand-white/20 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>HR weekly table</strong><span class="mt-1 block text-xs text-brand-ash">Workforce, attendance, recruitment, reviews and employee matters</span></a><a class="rounded-xl border border-brand-white/20 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Admin weekly table</strong><span class="mt-1 block text-xs text-brand-ash">Office administration, fleet, drivers, assets and next-period priorities</span></a></div>
-        @endif
         @include('portal.partials.weekly-accountability-summary')
 
         <div class="mt-5 flex overflow-x-auto flex-nowrap gap-2 border-b border-brand-white/10 pb-4 scrollbar-none snap-x snap-mandatory">
@@ -969,13 +1047,16 @@
 
         @include('portal.partials.shared-weekly-performance')
 
-        @if($isCreativeWeeklyDepartment)<details class="mt-6 rounded-xl border border-brand-white/15 p-4"><summary class="cursor-pointer font-semibold">Historical Creative Table & Legacy Row Editing</summary>@endif
+        <details class="weekly-history"><summary><span class="history-summary-icon"><x-ui-icon name="clipboard" /></span><span>{{ $isCreativeWeeklyDepartment?'Historical Creative Table & Legacy Row Editing':'Earlier Weekly Entries & Row Editing' }}<small>Saved weekly records, updates and row actions</small></span><span class="history-count">{{ $weeklyConsolidatedItems->total() }} {{ $weeklyConsolidatedItems->total()===1?'Entry':'Entries' }}</span></summary>
+        @if($weeklyConsolidatedItems->isNotEmpty())
+        <div class="history-toolbar"><span>Weekly Record Register</span><span>Scroll to explore all columns · Expand Edit Row to update</span></div>
         <div class="weekly-consolidated-scroll mt-6 rounded-2xl border border-brand-white/10">
             <table @class([
                     'weekly-consolidated-table text-left text-sm text-brand-white/75',
                     'weekly-consolidated-table--brands' => $isBrandsWeeklyDepartment,
                 ])
                    data-table-key="weekly-consolidated-{{ $weeklyDepartmentFilter }}">
+                <caption class="sr-only">Earlier weekly entries and row editing</caption>
                 <thead class="text-xs uppercase tracking-[0.2em] text-brand-ash">
                     <tr>
                         @if($isBrandsWeeklyDepartment)
@@ -1284,7 +1365,10 @@
             <x-dashboard-pagination :paginator="$weeklyPaginator" />
         </div>
 
-        @if($isCreativeWeeklyDepartment)</details>@endif
+        @else
+        <div class="history-empty"><span class="history-empty-icon"><x-ui-icon name="clipboard" /></span><div><h4>{{ request()->filled('search_weekly')?'No Matching Weekly Entries':'No Earlier Weekly Entries' }}</h4><p>{{ request()->filled('search_weekly')?'Try a different search or reporting period.':'Approved departmental reporting is presented above. Earlier weekly rows will appear here when available.' }}</p></div></div>
+        @endif
+        </details>
 
         {{-- MEETING ACTION POINTS CARD --}}
         <div class="glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
@@ -2110,7 +2194,7 @@
             window.loadWeeklyConsolidatedUrl = loadWeeklyConsolidatedUrl;
             async function refreshWeeklyConsolidatedSilently() {
                 if (!weeklyConsolidatedRegion || weeklyConsolidatedRefreshing || document.hidden) return;
-                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio]')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
+                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
                 if (weeklyConsolidatedRegion.contains(document.activeElement)) return;
                 if (weeklyConsolidatedRegion.matches(':hover')) return;
                 if (weeklyConsolidatedRegion.querySelector('#weekly-consolidated-form:not(.hidden), #weekly-column-manager:not(.hidden), details[open]')) return;
@@ -2181,7 +2265,7 @@
                     action.includes('weekly-consolidated') ||
                     action.includes('action-points');
 
-                if (!isTargetForm || form.hasAttribute('data-no-ajax') || form.closest('[data-creative-studio]')) return;
+                if (!isTargetForm || form.hasAttribute('data-no-ajax') || form.closest('[data-creative-studio], [data-crm-centre], [data-ops-handover]')) return;
 
                 event.preventDefault();
                 event.stopPropagation();

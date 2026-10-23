@@ -29,10 +29,11 @@ class ClientRelationsPipelineController extends Controller
         $projects = $q->orderByDesc('week_start')->orderByDesc('source_row')->paginate(15)->withQueryString();
         $clientRecords = \App\Models\CrmClientRecord::with('owner')->when($r->filled('q'), fn ($q) => $q->where('client_name', 'like', '%'.$filters['q'].'%'))->when($r->filled('owner'), fn ($q) => $q->where('owner_id', $filters['owner']))->latest()->get();
         $scorecard = app(\App\Services\ClientRelationsScorecard::class)->build($scorecardProjects, $clientRecords);
-        $staff = User::where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->orderBy('name')->get();
+        $staff = User::where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->where('name','not like','Import custodian%')->orderBy('name')->get();
+        $clientNames = CrmPipelineProject::query()->select('client_name')->distinct()->orderBy('client_name')->pluck('client_name')->merge(\App\Models\CrmFinancialRegister::pluck('client_name'))->merge(\App\Models\CrmAccountAllocation::pluck('client_name'))->unique()->sort()->values();
         $targets = CrmAccountTarget::orderByDesc('period_start')->get();
 
-        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects'));
+        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects','clientNames'));
     }
 
     public function history(Request $r)
@@ -53,9 +54,9 @@ class ClientRelationsPipelineController extends Controller
         PerformanceWorkflow::record('crm_project', $project->id, $r->user()->id, 'reveal_shared_amounts', [], [], 'Shared table amounts revealed for up to two minutes');
 
         return response()->json([
-            'proposed_amount' => $project->proposed_amount === null ? 'Not Recorded' : 'GHS '.number_format((float) $project->proposed_amount, 2),
-            'po_amount' => $project->po_amount === null ? 'Not Recorded' : 'GHS '.number_format((float) $project->po_amount, 2),
-            'weighted_forecast' => $metrics['weighted_forecast'] === null ? 'Not Recorded' : 'GHS '.number_format($metrics['weighted_forecast'], 2),
+            'proposed_amount' => $project->proposed_amount === null ? 'Not Recorded' : 'GH₵ '.number_format((float) $project->proposed_amount, 2),
+            'po_amount' => $project->po_amount === null ? 'Not Recorded' : 'GH₵ '.number_format((float) $project->po_amount, 2),
+            'weighted_forecast' => $metrics['weighted_forecast'] === null ? 'Not Recorded' : 'GH₵ '.number_format($metrics['weighted_forecast'], 2),
         ])->header('Cache-Control', 'no-store, private')->header('Pragma', 'no-cache');
     }
 
@@ -114,6 +115,9 @@ class ClientRelationsPipelineController extends Controller
             }$item->updated_by = $r->user()->id;
             $item->revision = ($project ? $item->revision + 1 : 1);
             $item->save();
+            if ($project && (int)$before['owner_id'] !== (int)$item->owner_id) {
+                \App\Models\CrmAccountRelationship::firstOrCreate(['client_name'=>$before['client_name'],'owner_id'=>$before['owner_id'],'relationship'=>'previous','ends_on'=>today()->toDateString()],['starts_on'=>null,'note'=>'Project ownership changed; original tenure start is not confirmed.','created_by'=>$r->user()->id]);
+            }
             $service->publish($item);
             PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason']);
         });
@@ -121,11 +125,18 @@ class ClientRelationsPipelineController extends Controller
         return back()->with('status', 'Pipeline saved. The shared weekly table has been updated.');
     }
 
-    public function record(Request $r)
+    public function updateRecord(Request $r, \App\Models\CrmClientRecord $record)
+    {
+        return $this->record($r, $record);
+    }
+
+    public function record(Request $r, ?\App\Models\CrmClientRecord $record = null)
     {
         $this->authorizeMember($r);
+        if ($record) abort_unless($r->user()->isLineManager() || (int)$record->owner_id === $r->user()->id, 403);
+        $change = $record ? $r->validate(['revision'=>'required|integer|min:1','reason'=>'required|string|min:5|max:2000']) : [];
         $v = $r->validate(['kind' => ['required', Rule::in(array_keys(config('crm_scorecard')))], 'reference' => 'required|string|max:255', 'client_name' => 'required|string|max:255', 'project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'owner_id' => 'required|integer|exists:users,id', 'status' => 'required|string', 'notes' => 'nullable|string|max:5000', 'data' => 'required|array']);
-        abort_unless(Pipeline::staffMember(User::findOrFail($v['owner_id'])), 422);
+        abort_unless(($record && (int)$record->owner_id === (int)$v['owner_id']) || Pipeline::staffMember(User::findOrFail($v['owner_id'])), 422);
         if (! $r->user()->isLineManager()) {
             abort_unless((int) $v['owner_id'] === $r->user()->id, 403);
         }
@@ -135,6 +146,7 @@ class ClientRelationsPipelineController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['client_name' => 'Client must match the linked project.']);
             }
         }
+        if ($record) abort_unless($v['kind'] === $record->kind, 422, 'The record type cannot be changed.');
         $schema = config('crm_scorecard.'.$v['kind']);
         $rules = ['status' => ['required', Rule::in($schema['statuses'])]];
         foreach ($schema['fields'] as $field => $type) {
@@ -155,15 +167,22 @@ class ClientRelationsPipelineController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['data.'.$b => 'End date cannot precede the start date.']);
             }
         }
-        if (\App\Models\CrmClientRecord::where('kind', $v['kind'])->where('reference', $v['reference'])->exists()) {
+        if (\App\Models\CrmClientRecord::where('kind', $v['kind'])->where('reference', $v['reference'])->when($record, fn($q)=>$q->whereKeyNot($record->id))->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['reference' => 'This source reference already exists.']);
         }
-        DB::transaction(function () use ($v, $r) {
-            $i = \App\Models\CrmClientRecord::create($v + ['created_by' => $r->user()->id, 'updated_by' => $r->user()->id]);
-            PerformanceWorkflow::record('crm_record', $i->id, $r->user()->id, 'create', [], $i->getAttributes(), 'Client scorecard source recorded');
+        DB::transaction(function () use ($v, $r, $record, $change) {
+            if ($record) {
+                $i = \App\Models\CrmClientRecord::lockForUpdate()->findOrFail($record->id);
+                abort_unless($r->user()->isLineManager() || (int)$i->owner_id === $r->user()->id, 403);
+                abort_if((int)$i->revision !== (int)$change['revision'],409,'This activity changed. Refresh before saving.');
+                $before=$i->getAttributes();
+                $i->fill($v + ['updated_by'=>$r->user()->id]);$i->revision++;$i->save();
+            } else {
+                $before=[];$i=\App\Models\CrmClientRecord::create($v + ['created_by'=>$r->user()->id,'updated_by'=>$r->user()->id]);
+            }
+            PerformanceWorkflow::record('crm_record',$i->id,$r->user()->id,$record?'update':'create',$before,$i->getAttributes(),$change['reason']??'Client scorecard source recorded');
         });
-
-        return back()->with('status', 'Client scorecard source recorded.');
+        return back()->with('status', $record ? 'Client activity updated. The shared view will show its latest status.' : 'Client scorecard source recorded.');
     }
 
     public function correctTarget(Request $r, CrmAccountTarget $target)

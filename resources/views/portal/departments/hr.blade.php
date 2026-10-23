@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
-            <h2 class="text-3xl font-display text-brand-white">HR & Admin Command Center</h2>
+            <h2 class="text-3xl font-display text-brand-white">HR & Admin Workspace</h2>
         </div>
     </x-slot>
     <style>
@@ -13,9 +13,9 @@
         details[open]>.hr-module-summary{border-bottom:1px solid rgba(128,128,128,.2)}
         @media print{details:not([open])>*:not(summary){display:block!important}.hr-module-chevron{display:none}}
     </style>
-    <div class="mb-5 grid gap-3 sm:grid-cols-2">
-        @if(auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>HR reporting table</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
-        <a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Admin / Administrator reporting table</strong><span class="block text-xs text-brand-ash mt-1">Office administration, fleet, drivers, assets and next-period priorities</span></a>
+    <div data-hr-group="reporting" class="hr-workspace-tool grid gap-3 sm:grid-cols-2">
+        @if(auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>Human Resources Reporting</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
+        <a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Administrator Reporting</strong><span class="block text-xs text-brand-ash mt-1">Office administration, fleet, drivers, assets and next-period priorities</span></a>
     </div>
 
     @php
@@ -30,12 +30,14 @@
         </div>
     @endif
 
+    @include('portal.partials.hr-workspace-navigation')
+
     @if(auth()->user()->canReviewIdentityDocuments())
-        @include('portal.partials.identity-document-register', ['identityDocuments' => $identityDocuments])
+        <details data-hr-group="people" class="hr-workspace-tool glass-panel rounded-2xl border border-brand-white/10"><summary class="hr-module-summary"><span><strong>Identity Verification Register</strong><span class="hr-module-description">Review authorised identity documents when needed.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-4 sm:p-6">@include('portal.partials.identity-document-register', ['identityDocuments' => $identityDocuments])</div></details>
     @endif
 
     @if($canDoSensitiveHr)
-        <div class="mb-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
+        <div data-hr-group="people" class="hr-workspace-tool rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
             <h3 class="text-xl font-display text-brand-white">Staff records</h3>
             <p class="mt-2 text-sm text-brand-ash">View complete staff profiles, select information to export, and import staff updates.</p>
             <a href="{{ route('portal.hr.staff.index') }}" class="mt-4 inline-block rounded-xl bg-brand-red text-white px-5 py-3 font-semibold text-white">Open staff register</a>
@@ -44,7 +46,7 @@
 
     <div class="space-y-8">
         @if($canManageHrAnnouncements)
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff communications</strong><span class="hr-module-description">Create announcements and review recent notices.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="communications" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff communications</strong><span class="hr-module-description">Create announcements and review recent notices.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Staff Communication</p>
@@ -137,7 +139,7 @@
         @endif
 
         @if($canDoSensitiveHr)
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Salary advance policy</strong><span class="hr-module-description">Manage default terms and staff-specific agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="pay" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Salary advance policy</strong><span class="hr-module-description">Manage default terms and staff-specific agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
@@ -147,7 +149,7 @@
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-right">
                         <p class="text-[10px] uppercase tracking-widest text-amber-300">Default Installment Min</p>
-                        <p class="mt-1 text-xl font-semibold text-brand-white">GHC {{ number_format($salaryAdvanceDefaultMinimum ?? 500, 2) }}</p>
+                        <p class="mt-1 text-xl font-semibold text-brand-white">GH₵ {{ number_format($salaryAdvanceDefaultMinimum ?? 500, 2) }}</p>
                     </div>
                     <div class="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-right">
                         <p class="text-[10px] uppercase tracking-widest text-sky-300">Default Max Payout</p>
@@ -206,16 +208,16 @@
                                     <p class="font-semibold text-brand-white">{{ $employee->name }}</p>
                                     <p class="mt-1 text-[10px] text-brand-white/40">{{ $employee->email }}</p>
                                 </td>
-                                <td class="px-4 py-3 font-mono">GHC {{ number_format((float) ($employee->salary ?? 0), 2) }}</td>
+                                <td class="px-4 py-3 font-mono">GH₵ {{ number_format((float) ($employee->salary ?? 0), 2) }}</td>
                                 <td class="px-4 py-3">
                                     <span class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
-                                        GHC {{ number_format((float) $effectiveMinimum, 2) }}
+                                        GH₵ {{ number_format((float) $effectiveMinimum, 2) }}
                                     </span>
                                     <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMinimum ? 'Staff-specific agreement' : 'Using HR default' }}</p>
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300">
-                                        GHC {{ number_format((float) $effectiveMaximum, 2) }}
+                                        GH₵ {{ number_format((float) $effectiveMaximum, 2) }}
                                     </span>
                                     <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMaximum ? 'Staff-specific cap' : 'Using default multiplier' }}</p>
                                 </td>
@@ -258,7 +260,7 @@
                 'rejected' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
             ];
         @endphp
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff loan management</strong><span class="hr-module-description">Review requests, repayments and agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="pay" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff loan management</strong><span class="hr-module-description">Review requests, repayments and agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
@@ -299,16 +301,16 @@
                                     <p class="mt-1 text-[10px] text-brand-ash">{{ \App\Models\User::departmentLabel($loan->user?->department) }}</p>
                                 </td>
                                 <td class="px-4 py-4">
-                                    <p class="font-mono text-brand-white">GHC {{ number_format($loan->amount, 2) }}</p>
+                                    <p class="font-mono text-brand-white">GH₵ {{ number_format($loan->amount, 2) }}</p>
                                     <p class="mt-1 text-[10px] text-brand-white/45">{{ $loan->created_at?->format('M d, Y h:i A') }}</p>
                                     <p class="mt-2 max-w-[16rem] text-[10px] leading-snug text-brand-white/55">{{ trim(strip_tags((string) $loan->reason)) }}</p>
                                 </td>
                                 <td class="px-4 py-4">
                                     <p class="capitalize text-brand-white">{{ str_replace('_', ' ', $loan->repayment_style) }}</p>
                                     @if($loan->repayment_style === 'monthly_deduction')
-                                        <p class="mt-1 text-[10px] text-brand-white/50">Requested: GHC {{ number_format($loan->monthly_deduction_amount, 2) }}</p>
-                                        <p class="text-[10px] text-emerald-300">Approved: {{ $approvedMonthly ? 'GHC '.number_format($approvedMonthly, 2) : 'Pending HR' }}</p>
-                                        <p class="text-[10px] text-brand-white/35">Staff minimum: GHC {{ number_format($staffMinimum, 2) }}</p>
+                                        <p class="mt-1 text-[10px] text-brand-white/50">Requested: GH₵ {{ number_format($loan->monthly_deduction_amount, 2) }}</p>
+                                        <p class="text-[10px] text-emerald-300">Approved: {{ $approvedMonthly ? 'GH₵ '.number_format($approvedMonthly, 2) : 'Pending HR' }}</p>
+                                        <p class="text-[10px] text-brand-white/35">Staff minimum: GH₵ {{ number_format($staffMinimum, 2) }}</p>
                                     @else
                                         <p class="mt-1 text-[10px] text-amber-300">One-time payback agreement</p>
                                     @endif
@@ -329,9 +331,9 @@
                                 </td>
                                 <td class="px-4 py-4">
                                     <p class="text-[10px] text-brand-white/45">Paid</p>
-                                    <p class="font-mono text-emerald-300">GHC {{ number_format($paid, 2) }}</p>
+                                    <p class="font-mono text-emerald-300">GH₵ {{ number_format($paid, 2) }}</p>
                                     <p class="mt-2 text-[10px] text-brand-white/45">Balance</p>
-                                    <p class="font-mono text-brand-white">GHC {{ number_format($balance, 2) }}</p>
+                                    <p class="font-mono text-brand-white">GH₵ {{ number_format($balance, 2) }}</p>
                                 </td>
                                 <td class="px-4 py-4">
                                     @if($loan->hr_feedback)
@@ -418,7 +420,7 @@
             ];
             $today = today();
         @endphp
-        <details id="staff-leave-manager" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave management</strong><span class="hr-module-description">Review staff requests and manage leave decisions.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="leave" id="staff-leave-manager" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave management</strong><span class="hr-module-description">Review staff requests and manage leave decisions.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">HR Workflow</p>
@@ -559,7 +561,7 @@
         <!-- Grid layout: Visitor Log & LifeCycle -->
         <div class="grid gap-6 lg:grid-cols-2">
             <!-- Visitor Log Form and Listing -->
-            <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Visitor reception</strong><span class="hr-module-description">Register arrivals and review recent visits.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+            <details data-hr-group="workplace" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Visitor Arrivals</strong><span class="hr-module-description">Register arrivals and review recent visits.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="logout" /> Visitor Management System</h3>
                 <form method="POST" action="{{ route('portal.hr.visitors.store') }}" class="space-y-4 mb-6">
                     @csrf
@@ -628,7 +630,7 @@
 
             {{-- Employee Lifecycle Tracker: HR Manager only --}}
             @if($canDoSensitiveHr)
-            <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Employee lifecycle &amp; contracts</strong><span class="hr-module-description">Manage employment changes and contract milestones.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+            <details data-hr-group="people" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Employee lifecycle &amp; contracts</strong><span class="hr-module-description">Manage employment changes and contract milestones.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="chart" /> Employee Lifecycle & Contracts</h3>
                 <a href="{{ route('portal.hr.staff.index') }}" class="mb-4 inline-block rounded-xl bg-brand-red px-4 py-2 text-sm text-white">Manage staff records</a>
                 <div class="space-y-4">
@@ -657,7 +659,7 @@
         </div>{{-- /Visitor+Lifecycle grid --}}
 
         @if($canDoSensitiveHr)
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave entitlements &amp; exports</strong><span class="hr-module-description">Update entitlements and download HR reports.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="leave" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave entitlements &amp; exports</strong><span class="hr-module-description">Update entitlements and download HR reports.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Leave Entitlements & HR Exports</h3>
@@ -705,7 +707,7 @@
 
         {{-- ── Employee Lifecycle & Contracts: HR Manager only ──────────────── --}}
         @if($canDoSensitiveHr)
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Appraisal tools</strong><span class="hr-module-description">Build assessment forms and manage parameters.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="people" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Appraisal tools</strong><span class="hr-module-description">Build assessment forms and manage parameters.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="award" /> Appraisal Form Builder</h3>
                 <div class="flex items-center gap-2">
@@ -880,7 +882,7 @@
         </div></details>{{-- /Appraisal Form Builder --}}
 
         {{-- ── Central Vault: HR Manager only ─────────────────────────────── --}}
-        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Templates &amp; guides</strong><span class="hr-module-description">Access HR reference materials.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+        <details data-hr-group="communications" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Templates &amp; guides</strong><span class="hr-module-description">Access HR reference materials.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="folder" /> Central Vault (Templates & Guides)</h3>
             <div class="grid gap-4 sm:grid-cols-3">
                 @foreach([
@@ -903,10 +905,10 @@
     ══════════════════════════════════════════════════════════════════════ --}}
 
     {{-- Visitor Pre-Ticketing ──────────────────────────────────────────────── --}}
-    <details class="mt-8 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Scheduled visitors</strong><span class="hr-module-description">Schedule visits and manage upcoming arrivals.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+    <details data-hr-group="workplace" class="mt-8 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Scheduled visitors</strong><span class="hr-module-description">Schedule visits and manage upcoming arrivals.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
             <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Reception services</p>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Visitor Services</p>
                 <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="id" /> Visitor Pre-Ticketing</h3>
             </div>
         </div>
@@ -1006,10 +1008,10 @@
     </div></details>
 
     {{-- Phone & Vendor Directory ────────────────────────────────────────────── --}}
-    <details class="mt-6 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Contacts &amp; vendors</strong><span class="hr-module-description">Maintain the corporate contact directory.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+    <details data-hr-group="workplace" class="mt-6 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Contacts &amp; vendors</strong><span class="hr-module-description">Maintain the corporate contact directory.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
             <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Reception services</p>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Visitor Services</p>
                 <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="phone" /> Corporate Phone & Vendor Directory</h3>
             </div>
         </div>
@@ -1105,4 +1107,5 @@
             staff.classList.toggle('hidden', value !== 'selected');
         }
     </script>
+    @include('portal.partials.hr-workspace-controller')
 </x-app-layout>

@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration;use Illuminate\Database\Schema\Blueprint;use Illuminate\Support\Facades\Schema;
+return new class extends Migration {public function up():void{Schema::create('crm_account_allocations',function(Blueprint $t){$t->id();$t->string('import_key',64)->unique();$t->string('client_name');$t->foreignId('owner_id')->constrained('users')->restrictOnDelete();foreach(['ytd_target','monthly_target','budget_target','reported_target'] as $f)$t->decimal($f,18,2)->nullable();$t->string('source_sheet');$t->unsignedInteger('source_row');$t->json('source_values');$t->timestamps();});}public function down():void{Schema::dropIfExists('crm_account_allocations');}};

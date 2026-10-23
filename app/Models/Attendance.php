@@ -43,6 +43,16 @@ class Attendance extends Model
         ];
     }
 
+    /** Scheduled working time, excluding the fixed break/lunch allowance and overtime. */
+    public function scheduledWorkingMinutes(): ?int
+    {
+        if (! $this->clock_in_at || ! $this->clock_out_at) return null;
+        $start = max($this->clock_in_at, $this->clock_in_at->copy()->setTime(9, 0));
+        $end = min($this->clock_out_at, $this->clock_in_at->copy()->setTime(18, 0));
+        $elapsed = max(0, (int) $start->diffInMinutes($end, false));
+        return max(0, $elapsed - 60);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -154,6 +154,9 @@ class Task extends Model
     public function scopeApprovedForPerformance($query)
     {
         return $query->realWork()
+            ->whereNotExists(function ($handover) {
+                $handover->selectRaw('1')->from('operations_handovers')->whereColumn('operations_handovers.task_id','tasks.id')->where('operations_handovers.stage','!=','completed');
+            })
             ->where(function ($reviewQuery) {
                 $reviewQuery->where('completion_review_status', 'approved')
                     ->orWhere(function ($statusQuery) {

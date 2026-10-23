@@ -27,6 +27,9 @@ class PerformanceSourceController extends Controller
         }
         $v = $request->validate($rules);
         $details = array_intersect_key($v['data'] ?? [], $schema);
+        if ($register->department === 'brands_marketing') {
+            app(\App\Services\BrandsActivityValidation::class)->validate($details);
+        }
         if (isset($register->data['_source_budget_id'])) {
             $details['budget'] = $register->data['budget'];
         }

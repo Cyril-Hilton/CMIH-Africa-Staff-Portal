@@ -17,7 +17,7 @@ return [
         ],
     ],
 
-    'departments' => ['client_relations' => 'Client Relations', 'creatives' => 'Creative', 'operations_projects' => 'Operations / Projects', 'finance' => 'Finance', 'hr_admin' => 'HR / Admin', 'brands_marketing' => 'Brands / Marketing'],
+    'departments' => ['brands_marketing' => 'Brands / Marketing', 'client_relations' => 'Client Relations', 'operations_projects' => 'Operations / Projects', 'creatives' => 'Creative', 'finance' => 'Finance', 'hr_admin' => 'HR / Admin'],
     'score_weights' => ['punctuality' => 10, 'completion' => 65, 'kpi' => 25],
     'score_effective_from' => '2026-10-01',
     'dimensions' => ['target_achievement', 'timeliness', 'quality', 'financial', 'stakeholder', 'issue_resolution', 'compliance', 'process_discipline'],

@@ -226,7 +226,7 @@ class SalaryAdvanceTest extends TestCase
         $response->assertSee('Salary Advance Installment Terms');
         $response->assertSee('Staff Loan Manager');
         $response->assertSee('Default Installment Min');
-        $response->assertSee('GHC 500.00');
+        $response->assertSee('GH₵ 500.00');
         $response->assertSee($staff->name);
         $response->assertSee('450.00');
         $response->assertSee('Medical bills.');

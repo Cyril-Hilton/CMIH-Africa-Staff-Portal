@@ -1,4 +1,5 @@
 export const actionFor = (element, form = null) => {
+    if (!form && !element?.hasAttribute('data-confirm') && (element?.hasAttribute('data-oh-close') || element?.hasAttribute('data-cr-close') || element?.hasAttribute('data-dismiss-dialog'))) return null;
     const text = [form?.dataset.confirm, element?.dataset.confirm, element?.getAttribute('aria-label'), element?.getAttribute('title'), element?.textContent, element?.value].filter(Boolean).join(' ').trim();
     const route = element?.getAttribute('href') || form?.getAttribute('action') || '';
     if (element?.getAttribute('href') && /\b(directory|history|view|list|queue|reports)\b/i.test(text) && !/\/(?:export|download|delete|destroy|suspend|archive|remove|revoke)(?:\/|\?|$)/i.test(route) && !element?.hasAttribute('download') && !element?.hasAttribute('data-confirm')) return null;

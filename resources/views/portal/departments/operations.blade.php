@@ -14,6 +14,7 @@
         </div>
     @endif
 
+    @include('portal.operations.handover-workspace')
     <div class="space-y-8">
         <!-- BTL Campaigns & Live-Share Panel -->
         <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-4 sm:p-6">

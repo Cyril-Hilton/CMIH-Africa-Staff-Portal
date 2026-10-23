@@ -25,9 +25,10 @@ class ExecutiveModuleAccessTest extends TestCase
                 $this->assertTrue(PerformanceAccess::manages($user, $department));
                 $this->get(route('portal.performance.index', ['department' => $department]))->assertOk();
             }
-            foreach (['portal.crm.index', 'portal.hr-reporting.index', 'portal.admin-weekly.index', 'portal.printing-requests.index', 'portal.printing-requests.create', 'portal.hr', 'portal.finance', 'portal.operations', 'portal.brands', 'portal.creative', 'portal.assets.warehouse.index', 'admin.dashboard', 'admin.users', 'admin.content', 'admin.tasks', 'admin.announcements', 'admin.events', 'admin.brands', 'admin.portfolio', 'admin.portfolio-payments', 'admin.settings'] as $route) {
+            foreach (['portal.crm.index', 'portal.hr-reporting.index', 'portal.admin-weekly.index', 'portal.printing-requests.index', 'portal.printing-requests.create', 'portal.hr', 'portal.finance', 'portal.operations', 'portal.brands', 'portal.creative', 'portal.assets.warehouse.index', 'admin.users', 'admin.content', 'admin.tasks', 'admin.announcements', 'admin.events', 'admin.brands', 'admin.portfolio', 'admin.portfolio-payments', 'admin.settings'] as $route) {
                 $this->get(route($route))->assertOk();
             }
+            $this->get(route('admin.dashboard'))->assertRedirect(route('dashboard',['weekly_department'=>'all']));
             $this->get(route('portal.performance.index'))->assertSee('Executive Business Summary')->assertSee('Cash Position')->assertSee('Vendor Printing Requests')->assertSee('Client Relations')->assertSee('HR &amp; Admin Module', false);
         }
     }
@@ -41,12 +42,12 @@ class ExecutiveModuleAccessTest extends TestCase
         @$dom->loadHTML($html);
         $xpath = new \DOMXPath($dom);
         $panels = $xpath->query('//details[summary[contains(@class,"hr-module-summary")]]');
-        $this->assertSame(11, $panels->length);
+        $this->assertSame(12, $panels->length);
         foreach ($panels as $panel) {
             $this->assertFalse($panel->hasAttribute('open'));
-            $this->assertGreaterThan(0, $xpath->query('.//form | .//a', $panel)->length, trim($xpath->query('./summary', $panel)->item(0)->textContent));
+            $this->assertGreaterThan(0, $xpath->query('.//form | .//a | .//table', $panel)->length, trim($xpath->query('./summary', $panel)->item(0)->textContent));
         }
-        $response->assertSee('Staff communications')->assertSee('Leave management')->assertSee('Scheduled visitors')->assertSee('Contacts &amp; vendors', false);
+        $response->assertSee('HR & Admin Workspaces', false)->assertSee('People &amp; Employment', false)->assertSee('Leave &amp; Attendance', false)->assertSee('Pay &amp; Benefits', false)->assertSee('Workplace Services')->assertSee('Reports &amp; Presentation', false)->assertDontSee('Blueprint.docx')->assertSee('Staff communications')->assertSee('Leave management')->assertSee('Scheduled visitors')->assertSee('Contacts &amp; vendors', false);
     }
 
     public function test_regular_other_department_manager_still_cannot_access_private_modules(): void

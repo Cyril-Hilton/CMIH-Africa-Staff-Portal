@@ -255,6 +255,9 @@ class IdentityVerificationTest extends TestCase
 
         $this->actingAs($cvo)
             ->get(route('portal.cvo'))
+            ->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+
+        $this->actingAs($cvo)->get(route('portal.hr'))
             ->assertOk()
             ->assertSee('Identity Verification Register')
             ->assertSee($target->name)

@@ -139,6 +139,18 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/power-bi/{link}/open', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'open'])->name('power-bi.open');
 
     Route::get('/performance/export/{format}', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'export'])->name('performance.export');
+    Route::get('/operations/handovers', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'index'])->name('operations.handovers.index');
+    Route::get('/operations/handovers/data', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'data'])->name('operations.handovers.data');
+    Route::post('/operations/handovers', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'store'])->name('operations.handovers.store');
+    Route::post('/operations/handovers/{handover}/action', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'action'])->name('operations.handovers.action');
+    Route::get('/operations/handovers/{handover}/plan', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'file'])->name('operations.handovers.file');
+    Route::post('/client-relations/financial-register/{entry}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'financialUpdate'])->name('crm.centre.financial-update');
+    Route::post('/client-relations/allocations/{allocation}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'allocationUpdate'])->name('crm.centre.allocation-update');
+    Route::get('/client-relations/centre/data', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'data'])->name('crm.centre.data');
+    Route::get('/client-relations/centre/export/{format}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'export'])->name('crm.centre.export');
+    Route::post('/client-relations/account-targets/{target}/result', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'targetResult'])->name('crm.centre.target-result');
+    Route::post('/client-relations/centre/relationships', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'relationship'])->name('crm.centre.relationship');
+    Route::post('/client-relations/scorecard-records/{record}', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'updateRecord'])->name('crm.record.update');
     Route::post('/client-relations/scorecard-records', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'record'])->name('crm.record');
     Route::get('/client-relations/history', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'history'])->name('crm.history');
     Route::get('/client-relations/pipeline', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'index'])->name('crm.index');
@@ -272,6 +284,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/messages/forward/{message}', [MessageController::class, 'forwardMessage'])->name('messages.forward');
     Route::post('/messages/broadcast/create', [MessageController::class, 'createBroadcast'])->name('messages.broadcast.create');
 
+    Route::get('/hr-reporting/attendance', \App\Http\Controllers\Portal\HrAttendanceController::class)->name('hr-reporting.attendance');
     Route::post('/attendance/clock-in', [\App\Http\Controllers\Portal\AttendanceController::class, 'clockIn'])->name('attendance.clock-in');
     Route::post('/attendance/clock-out', [\App\Http\Controllers\Portal\AttendanceController::class, 'clockOut'])->name('attendance.clock-out');
     Route::get('/attendance-performance/export', \App\Http\Controllers\Portal\AttendancePerformanceExportController::class)->name('attendance-performance.export');

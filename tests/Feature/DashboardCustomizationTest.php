@@ -1085,17 +1085,15 @@ class DashboardCustomizationTest extends TestCase
         ]));
 
         $dashboard->assertOk();
-        $dashboard->assertSeeTextInOrder([
-            'Task ID',
-            'Project',
-            'Project Brief',
-            'Task Name',
-            'Assigned To',
-            'KPIS',
-            'Start Date',
-            'Due Date',
-            'Update',
-        ]);
+        preg_match('/<table[^>]*data-table-key="weekly-consolidated-brands_marketing"[^>]*>(.*?)<\/thead>/s', $dashboard->getContent(), $headerMatch);
+        $this->assertNotEmpty($headerMatch, 'The existing Brands editing table must remain available.');
+        $headerText=strip_tags($headerMatch[1]);
+        $position=0;
+        foreach(['Task ID','Project','Project Brief','Task Name','Assigned To','KPIS','Start Date','Due Date','Update'] as $heading) {
+            $found=strpos($headerText,$heading,$position);
+            $this->assertNotFalse($found, 'Preserved Brands heading: '.$heading);
+            $position=$found+strlen($heading);
+        }
         $dashboard->assertSee('Guinness Trade Campaign');
         $dashboard->assertSee('Pending');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);

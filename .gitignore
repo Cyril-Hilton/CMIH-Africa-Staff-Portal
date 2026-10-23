@@ -24,3 +24,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 .login
+
+# Local Python extraction caches
+__pycache__/
+*.py[cod]

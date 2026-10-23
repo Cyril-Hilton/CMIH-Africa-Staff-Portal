@@ -17,7 +17,7 @@ class DepartmentReportingPrivacyTest extends TestCase
         return User::factory()->create(['department' => $dept, 'access_role' => $role, 'status' => 'active']);
     }
 
-    public function test_crm_financials_are_private_and_weekly_progress_is_percentage_only(): void
+    public function test_crm_business_amounts_are_shared_but_contacts_and_private_notes_stay_private(): void
     {
         $owner = $this->user('client_relations', 'manager');
         $staff = $this->user('creatives');
@@ -30,10 +30,10 @@ class DepartmentReportingPrivacyTest extends TestCase
         $this->get(route('portal.crm.index'))->assertOk()->assertSee('123,457.89')->assertSee('PRIVATE-CONTACT-TOKEN');
         $this->actingAs($staff)->get(route('portal.crm.index'))->assertForbidden();
         $page = $this->get(route('dashboard', ['weekly_department' => 'client_relations']));
-        $page->assertOk()->assertSee('Privacy pipeline project')->assertSee('50.0%')->assertDontSee('123,457.89')->assertDontSee('999987.12')->assertDontSee('PRIVATE-CONTACT-TOKEN')->assertDontSee('PRIVATE-FINANCIAL-NOTE');
+        $page->assertOk()->assertSee('Privacy pipeline project')->assertSee('50.0%')->assertSee('123,457.89')->assertSee('999,987.12')->assertDontSee('PRIVATE-CONTACT-TOKEN')->assertDontSee('PRIVATE-FINANCIAL-NOTE');
         $payload = $page->viewData('publicCrmProgress')->first()->toArray();
-        $this->assertArrayNotHasKey('target_amount', $payload);
-        $this->assertArrayNotHasKey('proposed_amount', $payload);
+        $this->assertEquals(123457.89, $payload['target_amount']);
+        $this->assertEquals(999987.12, $payload['proposed_amount']);
         $this->actingAs($this->user('finance', 'super_admin'))->get(route('portal.crm.index'))->assertOk()->assertSee('PRIVATE-CONTACT-TOKEN');
     }
 

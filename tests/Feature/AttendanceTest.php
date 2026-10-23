@@ -317,89 +317,11 @@ class AttendanceTest extends TestCase
         ]);
     }
 
-    public function test_admin_dashboard_shows_unified_geolocation_mapping_for_all_staff(): void
+    public function test_legacy_admin_attendance_dashboard_redirects_to_main_dashboard(): void
     {
-        // 1. Create a Super Admin and three staff members
-        $admin = User::factory()->create([
-            'status' => 'active',
-            'access_role' => 'super_admin',
-        ]);
-
-        $userGps = User::factory()->create([
-            'name' => 'GPS User',
-            'status' => 'active',
-            'access_role' => 'staff',
-            'department' => 'creatives',
-        ]);
-
-        $userIp = User::factory()->create([
-            'name' => 'IP User',
-            'status' => 'active',
-            'access_role' => 'staff',
-            'department' => 'finance',
-            'last_login_ip' => '8.8.8.8',
-            'last_login_at' => Carbon::now(),
-        ]);
-
-        $userBase = User::factory()->create([
-            'name' => 'Base User',
-            'status' => 'active',
-            'access_role' => 'staff',
-            'department' => 'hr_admin',
-            'last_login_ip' => null,
-        ]);
-
-        // 2. Create GPS Attendance for $userGps
-        Attendance::create([
-            'user_id' => $userGps->id,
-            'clock_in_at' => Carbon::now(),
-            'daily_objective' => 'GPS objective',
-            'status' => 'On Time',
-            'latitude' => 5.5555,
-            'longitude' => -0.1111,
-        ]);
-
-        // 3. Mock HTTP for IP geolocation API
-        \Illuminate\Support\Facades\Http::fake([
-            'https://ipgeolocation.abstractapi.com/v1/*' => \Illuminate\Support\Facades\Http::response([
-                'latitude' => 5.6666,
-                'longitude' => -0.2222,
-                'city' => 'Mock City',
-                'country' => 'Mock Country',
-            ], 200),
-        ]);
-
-        // 4. Access the admin dashboard
-        $response = $this->actingAs($admin)->get('/admin');
-
-        $response->assertStatus(200);
-
-        // Check if variables passed to view contain our users
-        $response->assertViewHas('attendanceLogs');
-        $logs = $response->viewData('attendanceLogs');
-
-        // GPS User, IP User, Base User, and Admin itself (4 active users in total)
-        $this->assertCount(4, $logs);
-
-        // Find and check GPS User entry
-        $gpsLog = collect($logs)->firstWhere('user.name', 'GPS User');
-        $this->assertNotNull($gpsLog);
-        $this->assertEquals(5.5555, $gpsLog['latitude']);
-        $this->assertEquals(-0.1111, $gpsLog['longitude']);
-        $this->assertEquals('GPS Check-In', $gpsLog['source']);
-
-        // Find and check IP User entry
-        $ipLog = collect($logs)->firstWhere('user.name', 'IP User');
-        $this->assertNotNull($ipLog);
-        $this->assertEquals(5.6666, $ipLog['latitude']);
-        $this->assertEquals(-0.2222, $ipLog['longitude']);
-        $this->assertEquals('IP Geolocation', $ipLog['source']);
-
-        // Find and check Base User entry
-        $baseLog = collect($logs)->firstWhere('user.name', 'Base User');
-        $this->assertNotNull($baseLog);
-        $this->assertEquals(5.6037, $baseLog['latitude']);
-        $this->assertEquals(-0.1870, $baseLog['longitude']);
-        $this->assertEquals('Office Base', $baseLog['source']);
+        $admin=User::factory()->create(['status'=>'active','access_role'=>'super_admin']);
+        $this->actingAs($admin)->get('/admin')->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+        // Attendance tools retain their own permissions after the overview is consolidated.
+        $this->actingAs($admin)->get(route('portal.hr-reporting.index'))->assertOk();
     }
 }

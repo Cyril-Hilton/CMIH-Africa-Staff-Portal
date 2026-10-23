@@ -37,6 +37,21 @@ return [
         'facility_request' => ['opened_on' => 'date', 'due_on' => 'date', 'resolved_on' => 'date', 'impact' => 'text'],
     ],
     'brands_marketing' => [
-        'campaign' => ['assets_planned' => 'number', 'assets_delivered' => 'number', 'reach' => 'number', 'interactions' => 'number', 'qualified_leads' => 'number', 'budget' => 'money', 'spend' => 'money', 'impressions' => 'number'],
+        // Keep the campaign key and legacy measures so existing records remain editable.
+        'campaign' => [
+            'workstream' => 'text', 'brand' => 'text', 'channel' => 'text', 'region' => 'text',
+            'outlets_planned' => 'number', 'outlets_visited' => 'number', 'retailers_supported' => 'number',
+            'merchandisers_deployed' => 'number', 'promoters_deployed' => 'number', 'training_completed' => 'number',
+            'coverage_target_percent' => 'number', 'coverage_actual_percent' => 'number', 'coverage_previous_percent' => 'number',
+            'osa_target_percent' => 'number', 'osa_actual_percent' => 'number', 'osa_previous_percent' => 'number',
+            'npd_target_percent' => 'number', 'npd_actual_percent' => 'number',
+            'must_have_target_percent' => 'number', 'must_have_actual_percent' => 'number',
+            'perfect_store_target_percent' => 'number', 'perfect_store_actual_percent' => 'number',
+            'report_due_on' => 'date', 'report_shared_on' => 'date', 'dashboard_refreshed_on' => 'date',
+            'insights' => 'text', 'bottleneck' => 'text', 'next_action' => 'text', 'action_due_on' => 'date',
+            'assets_planned' => 'number', 'assets_delivered' => 'number', 'reach' => 'number',
+            'interactions' => 'number', 'qualified_leads' => 'number', 'budget' => 'money',
+            'spend' => 'money', 'impressions' => 'number',
+        ],
     ],
 ];

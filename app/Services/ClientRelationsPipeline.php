@@ -20,7 +20,7 @@ class ClientRelationsPipeline
 
     public static function canReveal(User $user): bool
     {
-        return $user->isActive() && ($user->isCvoOrSuperAdmin() || (self::staffMember($user) && $user->isLineManager()));
+        return \App\Services\Creative\CreativeAccess::staff($user);
     }
 
     public function stagePercent(string $stage): ?float
@@ -59,9 +59,9 @@ class ClientRelationsPipeline
         ])->save();
     }
 
-    /** Dedicated allow-list: never pass the private project model to a shared view. */
+    /** Dedicated allow-list: shared business amounts are visible; contact details and private notes stay excluded. */
     public static function publicRows(?string $search = null)
     {
-        return CrmWeeklyProgress::query()->with('owner:id,name')->when($search, fn ($q) => $q->where(fn ($w) => $w->where('client_name', 'like', '%'.$search.'%')->orWhere('project_name', 'like', '%'.$search.'%')))->orderByDesc('week_start')->orderBy('client_name');
+        return CrmWeeklyProgress::query()->with('owner:id,name')->leftJoin('crm_pipeline_projects as business','business.id','=','crm_weekly_progress.project_id')->select('crm_weekly_progress.*','business.proposed_amount','business.po_amount','business.target_amount','business.actual_amount','business.invoiced_amount','business.collected_amount')->when($search, fn ($q) => $q->where(fn ($w) => $w->where('crm_weekly_progress.client_name', 'like', '%'.$search.'%')->orWhere('crm_weekly_progress.project_name', 'like', '%'.$search.'%')))->orderByDesc('crm_weekly_progress.week_start')->orderBy('crm_weekly_progress.client_name');
     }
 }

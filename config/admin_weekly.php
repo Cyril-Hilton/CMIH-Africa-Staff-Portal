@@ -21,7 +21,7 @@ return [
         'repairs_completed' => ['label' => 'Repairs completed', 'type' => 'text'],
         'under_repair' => ['label' => 'Vehicles under repair', 'type' => 'text'],
         'fuel_litres' => ['label' => 'Fuel consumption (litres)', 'type' => 'number'],
-        'fuel_cost' => ['label' => 'Fuel cost (GHS)', 'type' => 'number'],
+        'fuel_cost' => ['label' => 'Fuel cost (GH₵)', 'type' => 'number'],
         'distance_km' => ['label' => 'Distance travelled (km)', 'type' => 'number'],
         'consumption_per_100km' => ['label' => 'Fuel consumption (L/100km)', 'type' => 'number'],
     ]],

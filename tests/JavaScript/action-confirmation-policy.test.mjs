@@ -31,3 +31,9 @@ test('filter resets stay ordinary navigation while password resets require confi
 test('print and save PDF controls require confirmation',()=>assert.equal(actionFor(element('Print / save PDF')),'Download'));
 
 test('sign-out controls require confirmation',()=>{assert.equal(actionFor(element('Log Out')),'Sign Out');assert.equal(actionFor(element('Sign Out')),'Sign Out');});
+
+test('closing a view is not a business close action',()=>{
+ assert.equal(actionFor(element('Close Handover',{'data-oh-close':''})),null);
+ assert.equal(actionFor(element('Close Client',{'data-cr-close':''})),null);
+ assert.equal(actionFor(element('Close Case'),form('/cases/4/close')),'Close');
+});

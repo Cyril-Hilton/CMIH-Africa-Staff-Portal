@@ -413,6 +413,9 @@ class PerformanceHubController extends Controller
             }
         }
         $v['data'] = array_intersect_key($details['data'] ?? [], $schema);
+        if ($v['department'] === 'brands_marketing') {
+            app(\App\Services\BrandsActivityValidation::class)->validate($v['data']);
+        }
         if ($v['department'] === 'operations_projects') {
             app(\App\Services\OperationsTracker::class)->validate($v['kind'], $v['data']);
         }

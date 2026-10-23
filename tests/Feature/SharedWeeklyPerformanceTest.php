@@ -15,7 +15,7 @@ class SharedWeeklyPerformanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_every_department_sees_shared_percentages_but_no_private_financial_values(): void
+    public function test_every_department_sees_client_relations_financial_kpis_without_private_source_notes(): void
     {
         $owner = User::factory()->create(['department' => 'client_relations', 'access_role' => 'manager', 'status' => 'active']);
         $reviewer = User::factory()->create(['department' => 'client_relations', 'access_role' => 'manager', 'status' => 'active']);
@@ -25,15 +25,25 @@ class SharedWeeklyPerformanceTest extends TestCase
         PerformanceObservation::create(['scope_key' => 'private-actual', 'target_plan_id' => $plan->id, 'kpi_id' => $k->id, 'owner_id' => $owner->id, 'period_start' => today()->startOfWeek(), 'period_end' => today()->endOfWeek(), 'target' => 246913.78, 'actual' => 123456.89, 'source_reference' => 'PRIVATE-LEDGER-REFERENCE', 'approved_at' => now(), 'approved_by' => $reviewer->id]);
         foreach (array_keys(config('performance.departments')) as $department) {
             $staff = User::factory()->create(['department' => $department, 'access_role' => 'staff', 'status' => 'active']);
-            $page = $this->actingAs($staff)->get(route('dashboard', ['weekly_department' => 'all']))->assertOk()->assertSee('Shared client')->assertSee('Shared project')->assertSee('50% of target')->assertDontSee('246913.78')->assertDontSee('246,913.78')->assertDontSee('123456.89')->assertDontSee('123,456.89')->assertDontSee('PRIVATE-BASELINE-NOTE')->assertDontSee('PRIVATE-LEDGER-REFERENCE');
+            $page = $this->actingAs($staff)->get(route('dashboard', ['weekly_department' => 'all']))->assertOk()->assertSee('Shared client')->assertSee('Shared project')->assertSee('GH₵ 123,456.89')->assertSee('GH₵ 246,913.78')->assertDontSee('PRIVATE-BASELINE-NOTE')->assertDontSee('PRIVATE-LEDGER-REFERENCE');
             $public = json_encode($page->viewData('sharedWeeklyPerformance'));
-            $this->assertStringNotContainsString('123456.89', $public);
+            $this->assertStringContainsString('123,456.89', $public);
             if ($department !== 'client_relations') {
                 $this->get(route('portal.crm.index'))->assertForbidden();
             }
         }
         $projection = app(SharedWeeklyPerformance::class)->build('client_relations', today()->startOfWeek()->toDateString(), today()->endOfWeek()->toDateString());
-        $this->assertSame('100% of agreed target', $projection['client_relations']['kpis'][0]['target']);
+        $this->assertSame('GH₵ 246,913.78', $projection['client_relations']['kpis'][0]['target']);
         $this->assertSame('red', $projection['client_relations']['kpis'][0]['rag']);
+
+        // Currency units must protect Finance amounts even if the KPI dimension is misclassified.
+        $k->update(['department' => 'finance', 'dimension' => 'delivery', 'unit' => 'GH₵']);
+        $plan->update(['department' => 'finance']);
+        $finance = app(SharedWeeklyPerformance::class)->build('finance', today()->startOfWeek()->toDateString(), today()->endOfWeek()->toDateString());
+        $this->assertSame('100% of agreed target', $finance['finance']['kpis'][0]['target']);
+        $this->assertSame('50% of target', $finance['finance']['kpis'][0]['actual']);
+        $this->assertStringNotContainsString('123456', json_encode($finance));
+        $this->assertStringNotContainsString('PRIVATE-LEDGER-REFERENCE', json_encode($finance));
+
     }
 }
