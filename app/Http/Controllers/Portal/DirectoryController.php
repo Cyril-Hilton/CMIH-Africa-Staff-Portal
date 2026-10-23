@@ -81,7 +81,7 @@ class DirectoryController extends Controller
         $viewer = $request->user();
 
         if (!User::canEditUser($viewer, $user)) {
-            abort(403, '🔒 Access Denied. You do not have permission to edit this user\'s privileges.');
+            abort(403, ' Access Denied. You do not have permission to edit this user\'s privileges.');
         }
 
         $validated = $request->validate([
@@ -93,6 +93,13 @@ class DirectoryController extends Controller
         // Check if trying to promote to admin or super_admin
         if (in_array($validated['access_role'], ['admin', 'super_admin'], true) && !$viewer->hasRole('super_admin')) {
              return back()->withErrors(['access_role' => 'Only Super Admin can assign Admin or Super Admin privileges.']);
+        }
+
+        if ($validated['position_title'] === 'CVO' && ! $viewer->isCvoOrSuperAdmin()) {
+            return back()->withErrors(['position_title' => 'Only CVO or Super Admin can appoint a CVO.']);
+        }
+        if (! $viewer->hasFullHrAccess() && $validated['department'] !== User::normalizeDepartmentKey($viewer->department)) {
+            return back()->withErrors(['department' => 'Department changes require HR or executive approval.']);
         }
 
         $updates = [

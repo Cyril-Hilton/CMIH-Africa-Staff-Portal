@@ -198,7 +198,7 @@
             </div>
 
             <div class="flex justify-between items-center pt-4">
-                <button type="button" onclick="if(confirm('Are you sure you want to delete this task?')) { document.getElementById('delete-task-form').submit(); }" class="rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-brand-white/10 px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white/90 hover:text-brand-white transition-all">
+                <button type="submit" form="delete-task-form" data-confirm="Delete this task?" class="rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-brand-white/10 px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white/90 hover:text-brand-white transition-all">
                     Delete Task
                 </button>
                 <button type="submit" class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white transition-all">
@@ -206,6 +206,7 @@
                 </button>
             </div>
         </form>
+        @include('portal.partials.delivery-impact',['work'=>$task])
         <form id="delete-task-form" method="POST" action="{{ route('portal.tasks.destroy', $task) }}" class="hidden">
             @csrf
             @method('DELETE')

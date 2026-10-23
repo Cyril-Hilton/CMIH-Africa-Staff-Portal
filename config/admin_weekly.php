@@ -1,0 +1,50 @@
+<?php
+
+return [
+    'office' => ['title' => 'General Office Administration', 'rows' => [
+        'office_maintenance' => ['label' => 'Office maintenance', 'type' => 'text'],
+        'supplies' => ['label' => 'Office supplies and stationery', 'type' => 'text'],
+        'utilities' => ['label' => 'Utilities and internet', 'type' => 'text'],
+        'security' => ['label' => 'Security and access control', 'type' => 'text'],
+        'equipment' => ['label' => 'Equipment and office furniture', 'type' => 'text'],
+        'vendors' => ['label' => 'Vendor and supplier management', 'type' => 'text'],
+        'insurance' => ['label' => 'Insurance', 'type' => 'text'],
+        'licences' => ['label' => 'Licences and permits', 'type' => 'text'],
+        'records' => ['label' => 'Administrative records and filing', 'type' => 'text'],
+        'outstanding_requests' => ['label' => 'Outstanding administrative requests', 'type' => 'text'],
+    ]],
+    'fleet' => ['title' => 'Fleet Management', 'rows' => [
+        'total_vehicles' => ['label' => 'Total vehicles', 'type' => 'number'],
+        'vehicles_available' => ['label' => 'Vehicles available', 'type' => 'number'],
+        'downtime' => ['label' => 'Vehicles unavailable / downtime', 'type' => 'text'],
+        'maintenance_due' => ['label' => 'Maintenance due', 'type' => 'text'],
+        'repairs_completed' => ['label' => 'Repairs completed', 'type' => 'text'],
+        'under_repair' => ['label' => 'Vehicles under repair', 'type' => 'text'],
+        'fuel_litres' => ['label' => 'Fuel consumption (litres)', 'type' => 'number'],
+        'fuel_cost' => ['label' => 'Fuel cost (GHS)', 'type' => 'number'],
+        'distance_km' => ['label' => 'Distance travelled (km)', 'type' => 'number'],
+        'consumption_per_100km' => ['label' => 'Fuel consumption (L/100km)', 'type' => 'number'],
+    ]],
+    'drivers' => ['title' => 'Driver Management', 'rows' => [
+        'total_drivers' => ['label' => 'Total drivers', 'type' => 'number'],
+        'attendance_rate' => ['label' => 'Attendance rate (%)', 'type' => 'number'],
+        'assignments_completed' => ['label' => 'Assignments completed', 'type' => 'number'],
+        'late_arrivals' => ['label' => 'Late arrivals', 'type' => 'text'],
+        'vehicle_incidents' => ['label' => 'Vehicle incidents', 'type' => 'text'],
+        'traffic_violations' => ['label' => 'Traffic violations', 'type' => 'text'],
+        'performance_concerns' => ['label' => 'Driver performance concerns / reported score', 'type' => 'text'],
+    ]],
+    'assets' => ['title' => 'Asset Management', 'rows' => [
+        'total_assets' => ['label' => 'Total company assets', 'type' => 'number'],
+        'assigned_assets' => ['label' => 'Assets assigned to staff', 'type' => 'number'],
+        'missing_assets' => ['label' => 'Missing assets', 'type' => 'number'],
+        'damaged_assets' => ['label' => 'Damaged assets', 'type' => 'number'],
+        'under_repair' => ['label' => 'Assets under repair', 'type' => 'text'],
+        'transferred' => ['label' => 'Assets transferred / moved', 'type' => 'number'],
+        'verified' => ['label' => 'Assets verified', 'type' => 'text'],
+    ]],
+    'priorities' => ['title' => 'Priorities for the Next Period', 'rows' => [
+        'actions' => ['label' => 'Actions to complete', 'type' => 'text'],
+        'outstanding_issues' => ['label' => 'Outstanding issues', 'type' => 'text'],
+    ]],
+];

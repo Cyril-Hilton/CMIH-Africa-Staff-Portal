@@ -65,7 +65,7 @@
                 ← Back
             </a>
             <button onclick="window.print()" class="px-5 py-2 text-xs font-semibold uppercase tracking-wider rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold transition-all shadow-lg shadow-amber-500/20">
-                🖨️ Print Report
+                <x-ui-icon name="printer" /> Print Report
             </button>
         </div>
     </div>
@@ -164,7 +164,7 @@
             {{-- Tasks Ledger --}}
             <div class="bg-brand-white/5 print-card border border-brand-white/10 rounded-2xl p-5">
                 <h3 class="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
-                    <span>📋</span> Task Completion Velocity Ledger
+                    <span><x-ui-icon name="clipboard" /></span> Task Completion Velocity Ledger
                 </h3>
                 <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
                     <table class="w-full text-left text-xs border-collapse">
@@ -222,7 +222,7 @@
             {{-- Attendance Ledger --}}
             <div class="bg-brand-white/5 print-card border border-brand-white/10 rounded-2xl p-5">
                 <h3 class="text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
-                    <span>⏰</span> Attendance & Overtime Ledger
+                    <span><x-ui-icon name="clock" /></span> Attendance & Overtime Ledger
                 </h3>
                 <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
                     <table class="w-full text-left text-xs border-collapse">
@@ -268,7 +268,7 @@
             {{-- Pure CSS Overtime Chart --}}
             <div class="bg-brand-white/5 print-card border border-brand-white/10 rounded-2xl p-5">
                 <h3 class="text-sm font-bold uppercase tracking-wider text-white mb-4">
-                    📈 Monthly Overtime Log (Last 6 Months)
+                    <x-ui-icon name="chart" /> Monthly Overtime Log (Last 6 Months)
                 </h3>
                 <div class="flex items-end justify-between gap-2 h-48 pt-6 border-b border-brand-white/10 print-border px-4">
                     @forelse($monthlyOvertime as $month => $hours)
@@ -298,7 +298,7 @@
             {{-- Appraisal History --}}
             <div class="bg-brand-white/5 print-card border border-brand-white/10 rounded-2xl p-5">
                 <h3 class="text-sm font-bold uppercase tracking-wider text-white mb-4">
-                    🏛️ Approved Appraisal History
+                    <x-ui-icon name="building" /> Approved Appraisal History
                 </h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">

@@ -58,6 +58,8 @@ class RestrictSplitAppAccess
             ]),
             'staff' => $this->matches($path, [
                 '/',
+                'api/public/events',
+                'api/public/events/*/flyer',
                 'assets/scan/*',
                 'dashboard',
                 'dashboard/*',

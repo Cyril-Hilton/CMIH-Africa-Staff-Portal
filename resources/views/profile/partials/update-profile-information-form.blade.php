@@ -36,7 +36,7 @@
         @if($user->requested_position_title || $user->requested_department)
             <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-400">
                 <p class="font-bold flex items-center gap-1.5">
-                    <span>⏳</span> Pending Super Admin Approval
+                    <span><x-ui-icon name="clock" /></span> Pending Super Admin Approval
                 </p>
                 <ul class="list-disc pl-4 mt-2 space-y-1">
                     @if($user->requested_position_title)
@@ -63,8 +63,9 @@
         {{-- Role / Job Title --}}
         <div>
             <x-input-label for="job_title" :value="__('Role / Job Title')" />
-            <x-text-input id="job_title" name="job_title" type="text" :value="old('job_title', $user->job_title)" placeholder="e.g. Senior Designer, Account Manager" />
+            <x-text-input id="job_title" name="job_title" type="text" :readonly="! $user->isCvoOrSuperAdmin()" :value="old('job_title', $user->job_title)" placeholder="e.g. Senior Designer, Account Manager" />
             <x-input-error class="mt-2" :messages="$errors->get('job_title')" />
+            @unless($user->isCvoOrSuperAdmin())<p class="mt-1 text-xs text-brand-white/60">Ask HR to update your job title.</p>@endunless
         </div>
 
         {{-- Job Level (was "Position") --}}
@@ -201,7 +202,7 @@
                     x-transition
                     x-init="setTimeout(() => show = false, 2000)"
                     class="text-xs text-emerald-400"
-                >✓ Saved successfully.</p>
+                ><x-ui-icon name="check" /> Saved successfully.</p>
             @endif
         </div>
     </form>

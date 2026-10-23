@@ -20,21 +20,23 @@
         'finance'             => ['label' => 'Finance Module',          'route' => 'portal.finance'],
         'operations_projects' => ['label' => 'Operations & Projects',   'route' => 'portal.operations'],
         'brands_marketing'    => ['label' => 'Brands & Marketing',      'route' => 'portal.brands'],
-        'client_relations'    => ['label' => 'Client Relations',        'route' => 'portal.creative'],
-        'creatives'           => ['label' => 'Creative Department',     'route' => 'portal.creative'],
+        'client_relations'    => ['label' => 'Client Relations',        'route' => 'portal.crm.index'],
+        'creatives'           => ['label' => 'Creative Studio',     'route' => 'portal.creative'],
     ];
 
+    if (!\App\Services\ClientRelationsPipeline::member($user)) unset($allDeptModules['client_relations']);
+
     // ── Determine sidebar dept links ─────────────────────────────────────────
-    // RULE: super_admin only sees ALL departments.
-    //       Everyone else (including developers) sees ONLY their own department.
+    // CVO and Super Admin see all departmental modules.
+    //       Other staff see their permitted department.
     //       Developer flag only bypasses 403 on controller level — NOT the sidebar.
     //       Transport/supporting staff (hrLevel 4) within HR/Admin dept do NOT
     //       get the HR module — they only see standard staff tools.
     $deptLinks  = [];
     $crossLinks = [];
 
-    if ($isSuperAdmin) {
-        // Super admin sees every department module
+    if ($user->isCvoOrSuperAdmin()) {
+        // Executive access includes every department module
         $deptLinks = array_values($allDeptModules);
     } else {
         // Transport / Supporting staff in HR dept — NO HR module link
@@ -55,9 +57,11 @@
     // ── Core links shown to EVERYONE ────────────────────────────────────────
     $coreLinks = [
         ['label' => 'Dashboard',              'route' => 'dashboard'],
+        ['label' => 'Performance & Accountability', 'route' => 'portal.performance.index'],
+        ['label' => 'Power BI Reports', 'route' => 'portal.power-bi.index'],
         ['label' => 'CMIH Messenger',         'route' => 'portal.messages'],
         ['label' => 'Notifications',          'route' => 'portal.announcements'],
-        ['label' => 'Team Management',        'route' => 'portal.directory'],
+        ['label' => 'People & Teams',         'route' => 'portal.people'],
         ['label' => 'Collaborative Workspace','route' => 'portal.workspace.index'],
         ['label' => 'Cloud Storage',          'route' => 'portal.dropbox'],
         ['label' => 'Profile',                'route' => 'portal.profile'],
@@ -82,12 +86,15 @@
         ['label' => 'Surveys',             'route' => 'portal.surveys.index'],
     ];
 
+    if ($user->canManageOperationsPrintingRequests()) {
+        $hrmLinks[] = ['label' => 'Vendor Printing Requests', 'route' => 'portal.printing-requests.index'];
+    }
+
     // ── Admin Panel ─────────────────────────────────────────────────────────
     // Full platform admins see the whole panel. HR/CVO-level approvers only see
     // staff management links that the backend actually permits.
     $fullAdminLinks = [
         ['label' => 'Admin Overview', 'route' => 'admin.dashboard'],
-        ['label' => 'Manage Staff',   'route' => 'admin.users'],
         ['label' => 'Team Updates',   'route' => 'admin.updates'],
         ['label' => 'Site Content',   'route' => 'admin.content'],
         ['label' => 'Assignments',    'route' => 'admin.tasks'],
@@ -97,16 +104,15 @@
         ['label' => 'Portfolio',      'route' => 'admin.portfolio'],
     ];
 
-    if ($isSuperAdmin) {
+    if ($user->isCvoOrSuperAdmin()) {
         $fullAdminLinks[] = ['label' => 'Portfolio Payments', 'route' => 'admin.portfolio-payments'];
     }
 
     $fullAdminLinks[] = ['label' => 'Settings',       'route' => 'admin.settings'];
     $staffAdminLinks = [
-        ['label' => 'Manage Staff', 'route' => 'admin.users'],
     ];
     $canSeeStaffAdminLinks = $hasFullHr && ! $isDeveloper;
-    $adminLinks = $user->hasRole(['admin', 'super_admin'])
+    $adminLinks = ($user->isCvoOrSuperAdmin() || $user->hasRole(['admin', 'super_admin']))
         ? $fullAdminLinks
         : ($canSeeStaffAdminLinks ? $staffAdminLinks : []);
     $showAdminPanel = count($adminLinks) > 0;
@@ -226,6 +232,8 @@
                     $isActive = false;
                     if ($link['route'] === 'portal.surveys.index') {
                         $isActive = request()->routeIs('portal.surveys.*');
+                    } elseif ($link['route'] === 'portal.printing-requests.index') {
+                        $isActive = request()->routeIs('portal.printing-requests.*');
                     } elseif ($link['route'] === 'portal.assets.warehouse.index') {
                         $isActive = request()->routeIs('portal.assets.warehouse.*');
                     } else {
@@ -268,13 +276,13 @@
         </div>
     @endif
 
-    {{-- ⚡ CVO Command Centre — only visible to CVO / super_admin --}}
+    {{--  CVO Command Centre — only visible to CVO / super_admin --}}
     @if ($user->isCvoOrSuperAdmin())
         <div class="mt-8">
             <p class="text-xs uppercase tracking-[0.3em] text-amber-400/70">Executive</p>
             <nav class="mt-3 space-y-2 text-xs uppercase tracking-[0.3em]">
                 <a href="{{ route('portal.cvo') }}" class="flex items-center justify-between rounded-xl px-4 py-3 transition border {{ request()->routeIs('portal.cvo') ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'text-amber-400/70 hover:text-amber-300 border-transparent hover:border-amber-500/20' }}">
-                    <span>⚡ CVO Command Centre</span>
+                    <span><x-ui-icon name="bolt" /> CVO Command Centre</span>
                 </a>
             </nav>
         </div>
@@ -324,10 +332,13 @@
                 @endif
             </p>
         </div>
+    @if(\App\Services\Events\EventPublication::allowed($user))
+    <div class="pb-3"><a href="{{ route('portal.events.index') }}" class="block rounded-xl border border-brand-red/40 px-4 py-3 text-xs font-semibold text-brand-white">Events & Activations</a></div>
+    @endif
         <form method="POST" action="{{ route('logout') }}" class="pt-2 border-t border-brand-white/10 mt-2">
             @csrf
             <button type="submit" class="w-full text-left rounded-xl hover:bg-brand-white/10 px-3 py-1.5 text-xs uppercase tracking-[0.3em] text-brand-red font-semibold transition-all">
-                👋 Log Out
+                <x-ui-icon name="logout" /> Log Out
             </button>
         </form>
     </div>

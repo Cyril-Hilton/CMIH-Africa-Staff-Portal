@@ -5,6 +5,8 @@
             <h2 class="text-3xl font-display text-brand-white">Team Management</h2>
         </div>
     </x-slot>
+    @include('portal.partials.people-tabs')
+
 
     <div x-data="{ 
         activeTab: 'directory',
@@ -21,10 +23,10 @@
         <!-- Tab Selectors -->
         <div class="flex border-b border-brand-white/10 space-x-4">
             <button @click="activeTab = 'directory'" :class="activeTab === 'directory' ? 'border-amber-500 text-amber-500 font-semibold' : 'border-transparent text-brand-white/60 hover:text-brand-white'" class="py-3 px-4 border-b-2 text-sm uppercase tracking-wider transition-colors focus:outline-none">
-                📋 Staff Directory & Privileges
+                <x-ui-icon name="clipboard" /> Staff Directory & Privileges
             </button>
             <button @click="activeTab = 'organogram'" :class="activeTab === 'organogram' ? 'border-amber-500 text-amber-500 font-semibold' : 'border-transparent text-brand-white/60 hover:text-brand-white'" class="py-3 px-4 border-b-2 text-sm uppercase tracking-wider transition-colors focus:outline-none">
-                📊 Company Organogram
+                <x-ui-icon name="chart" /> Company Organogram
             </button>
         </div>
 
@@ -64,7 +66,7 @@
                                 <tr>
                                     <td class="py-4 px-4">
                                         <div class="flex items-center gap-3">
-                                            <img src="{{ $member->profilePhotoUrl() }}" alt="{{ $member->name }}" class="h-10 w-10 rounded-full object-cover border border-brand-white/20" />
+                                            <img src="{{ $member->profilePhotoUrl() }}" alt="{{ $member->name }}" width="40" height="40" loading="lazy" decoding="async" class="h-10 w-10 rounded-full object-cover border border-brand-white/20" />
                                             <div>
                                                 <p class="font-medium text-brand-white">{{ $member->name }}</p>
                                                 <p class="text-xs text-brand-white/50">{{ $member->email }}</p>
@@ -310,7 +312,7 @@
                     <!-- Iterating active tier members -->
                     <template x-for="u in users.filter(user => user.position_title === activeTier)">
                         <div class="flex items-center gap-4 p-3 rounded-xl bg-brand-white/5 border border-brand-white/10 hover:border-amber-500/30 transition-all">
-                            <img :src="u.profile_photo_url"
+                            <img :src="u.profile_photo_url" :alt="u.name" width="48" height="48" loading="lazy" decoding="async"
                                 class="w-12 h-12 rounded-full object-cover border border-brand-white/10" />
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-brand-white truncate" x-text="u.name"></p>
@@ -325,7 +327,7 @@
 
                     <!-- Empty State -->
                     <div x-show="users.filter(user => user.position_title === activeTier).length === 0" class="text-center py-12">
-                        <div class="text-4xl mb-2">👥</div>
+                        <div class="text-4xl mb-2"><x-ui-icon name="users" /></div>
                         <p class="text-sm text-brand-white/40 italic">No staff members allocated to this job level.</p>
                     </div>
                 </div>
@@ -335,9 +337,7 @@
         <!-- Alpine.js Edit Privileges Modal -->
         <div x-show="openModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-black/80 backdrop-blur-sm" x-cloak style="display: none;">
             <div @click.away="openModal = false" class="w-full max-w-md glass-panel rounded-2xl p-6 border border-brand-white/15 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-                <button @click="openModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none">
-                    ✕
-                </button>
+                <button aria-label="Close" @click="openModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none"><x-ui-icon name="close" /></button>
                 
                 <h3 class="text-lg font-semibold text-brand-white mb-2">Edit Staff Privileges</h3>
                 <p class="text-xs text-brand-ash mb-6">Modify system access role, position level, and department for <span class="text-amber-400 font-semibold" x-text="targetUser.name"></span> immediately.</p>
@@ -418,7 +418,7 @@
                             <input type="file" name="contract" class="w-full text-xs text-brand-white bg-brand-black/50 border border-brand-white/10 rounded-xl px-4 py-2 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-brand-black hover:file:bg-amber-400" />
                             <template x-if="targetUser.contract_path">
                                 <div class="mt-2 text-xs flex items-center gap-1.5">
-                                    <span class="text-brand-ash">📄 Current Contract:</span>
+                                    <span class="text-brand-ash"><x-ui-icon name="file" /> Current Contract:</span>
                                     <a :href="targetUser.contract_url || '#'" target="_blank" class="text-amber-400 hover:underline font-semibold">Download / View</a>
                                 </div>
                             </template>
@@ -430,7 +430,7 @@
                             <input type="file" name="job_description" class="w-full text-xs text-brand-white bg-brand-black/50 border border-brand-white/10 rounded-xl px-4 py-2 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-brand-black hover:file:bg-amber-400" />
                             <template x-if="targetUser.job_description_path">
                                 <div class="mt-2 text-xs flex items-center gap-1.5">
-                                    <span class="text-brand-ash">📄 Current Job Description:</span>
+                                    <span class="text-brand-ash"><x-ui-icon name="file" /> Current Job Description:</span>
                                     <a :href="targetUser.job_description_url || '#'" target="_blank" class="text-amber-400 hover:underline font-semibold">Download / View</a>
                                 </div>
                             </template>

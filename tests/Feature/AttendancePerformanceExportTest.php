@@ -12,6 +12,7 @@ use Tests\TestCase;
 class AttendancePerformanceExportTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ReadsExcelExports;
 
     protected function tearDown(): void
     {
@@ -113,13 +114,13 @@ class AttendancePerformanceExportTest extends TestCase
                 ]));
 
             $response->assertOk();
-            $response->assertHeader('Content-Type', 'text/csv; charset=utf-8');
+            $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             $this->assertStringContainsString(
-                'attachment; filename="attendance_punctuality_performance_2026-07-01_to_2026-07-14.csv"',
+                'attachment; filename="attendance_punctuality_performance_2026-07-01_to_2026-07-14.xlsx"',
                 $response->headers->get('Content-Disposition')
             );
 
-            $csv = $response->streamedContent();
+            $csv = $this->excelText($response->getContent());
 
             $this->assertStringContainsString('Login Log Storage', $csv);
             $this->assertStringContainsString('Tasks In Range', $csv);
@@ -162,11 +163,11 @@ class AttendancePerformanceExportTest extends TestCase
         $this->actingAs($hrUser)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Export Clock-In CSV');
+            ->assertSee('Export Clock-In Excel');
 
         $this->actingAs($regularStaff)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertDontSee('Export Clock-In CSV');
+            ->assertDontSee('Export Clock-In Excel');
     }
 }

@@ -27,7 +27,7 @@ class PortfolioPaymentTest extends TestCase
                     'authorization_url' => 'https://checkout.paystack.com/mock-auth-url',
                     'access_code' => 'mock-code',
                     'reference' => 'mock-ref-123',
-                ]
+                ],
             ], 200),
         ]);
 
@@ -80,7 +80,7 @@ class PortfolioPaymentTest extends TestCase
                 'message' => 'Authorization URL created',
                 'data' => [
                     'authorization_url' => 'https://checkout.paystack.com/mock-auth-url',
-                ]
+                ],
             ], 200),
         ]);
 
@@ -131,7 +131,7 @@ class PortfolioPaymentTest extends TestCase
                     'amount' => 20000,
                     'currency' => 'USD',
                     'gateway_response' => 'Successful',
-                ]
+                ],
             ], 200),
         ]);
 
@@ -170,7 +170,7 @@ class PortfolioPaymentTest extends TestCase
                     'status' => 'failed',
                     'reference' => 'CMIH-MOCK-REF-FAIL',
                     'gateway_response' => 'Declined',
-                ]
+                ],
             ], 200),
         ]);
 
@@ -216,10 +216,10 @@ class PortfolioPaymentTest extends TestCase
             ->assertOk()
             ->assertSee('Portfolio Payments');
 
-        // 2. CVO is forbidden
+        // 2. CVO has all-module access under the enterprise policy
         $this->actingAs($cvo)
             ->get(route('admin.portfolio-payments'))
-            ->assertForbidden();
+            ->assertOk();
 
         // 3. HR Manager is forbidden
         $this->actingAs($hrManager)

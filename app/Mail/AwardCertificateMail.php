@@ -82,7 +82,7 @@ class AwardCertificateMail extends Mailable
      */
     public function build()
     {
-        $subject = "🏆 Congratulations! You won {$this->awardType} ({$this->periodLabel})";
+        $subject = " Congratulations! You won {$this->awardType} ({$this->periodLabel})";
         
         return $this->subject($subject)
             ->view('emails.winner-certificate');

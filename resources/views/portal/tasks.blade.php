@@ -53,7 +53,7 @@
     <div class="space-y-6">
         <!-- Create Task Form (To unlock clock-in) -->
         <div id="create-task-form" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-6">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">➕ Add Daily Task / Project Activity</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="plus" /> Add Daily Task / Project Activity</h3>
             
             @if (session('status'))
                 <div class="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-400">
@@ -142,7 +142,7 @@
                                 <a href="{{ route('portal.tasks.edit', $task) }}" class="rounded-full border border-brand-white/20 px-3 py-1 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all whitespace-nowrap">
                                     Edit Task
                                 </a>
-                                <form method="POST" action="{{ route('portal.tasks.destroy', $task) }}" onsubmit="return confirm('Delete this task?')" class="inline">
+                                <form method="POST" action="{{ route('portal.tasks.destroy', $task) }}" data-confirm="Delete this task?" class="inline">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="rounded-full border border-brand-red/30 bg-brand-red/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-brand-red hover:bg-brand-red/20 transition-all whitespace-nowrap">

@@ -22,7 +22,7 @@
         
         <!-- Add SKU Box -->
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 h-fit">
-            <h3 class="text-lg font-semibold text-brand-white mb-4">🆕 Add New SKU</h3>
+            <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="plus" /> Add New SKU</h3>
             <form method="POST" action="{{ route('portal.merchandisers-admin.skus.store') }}" class="space-y-4">
                 @csrf
                 <div>
@@ -35,7 +35,7 @@
 
         <!-- SKUs List Grid -->
         <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40">
-            <h3 class="text-lg font-semibold text-brand-white mb-4">📦 Active SKUs ({{ $skus->count() }})</h3>
+            <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="box" /> Active SKUs ({{ $skus->count() }})</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-brand-white/70">
                     <thead class="text-xs uppercase tracking-[0.2em] text-brand-ash border-b border-brand-white/10">
@@ -49,7 +49,7 @@
                             <tr class="hover:bg-brand-white/5 transition-colors">
                                 <td class="py-3.5 font-medium text-brand-white">{{ $sku->name }}</td>
                                 <td class="py-3.5 text-right">
-                                    <form method="POST" action="{{ route('portal.merchandisers-admin.skus.destroy', $sku) }}" onsubmit="return confirm('Are you sure you want to delete this SKU?');" class="inline">
+                                    <form method="POST" action="{{ route('portal.merchandisers-admin.skus.destroy', $sku) }}" data-confirm="Are you sure you want to delete this SKU?" class="inline">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="px-3 py-1.5 rounded-lg bg-brand-red/10 border border-brand-red/20 text-brand-red hover:bg-brand-red/20 text-xs font-semibold uppercase tracking-wider transition-all">

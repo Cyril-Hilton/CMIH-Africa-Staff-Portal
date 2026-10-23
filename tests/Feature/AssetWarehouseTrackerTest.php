@@ -14,6 +14,7 @@ use Tests\TestCase;
 class AssetWarehouseTrackerTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ReadsExcelExports;
 
     public function test_office_asset_qr_links_are_unique_and_survive_tag_changes(): void
     {
@@ -306,14 +307,14 @@ class AssetWarehouseTrackerTest extends TestCase
             'format' => 'csv',
         ]));
         $export->assertOk();
-        $this->assertStringContainsString('AWR-202608-0001', $export->streamedContent());
+        $this->assertStringContainsString('AWR-202608-0001', $this->excelText($export->getContent()));
 
         $inventoryExport = $this->actingAs($manager)->get(route('portal.assets.warehouse.export', [
             'scope' => 'inventory',
             'format' => 'csv',
         ]));
         $inventoryExport->assertOk();
-        $this->assertStringContainsString('Activation Booth', $inventoryExport->streamedContent());
+        $this->assertStringContainsString('Activation Booth', $this->excelText($inventoryExport->getContent()));
 
         PosmLedger::create([
             'created_by' => $manager->id,
@@ -330,7 +331,7 @@ class AssetWarehouseTrackerTest extends TestCase
             'format' => 'csv',
         ]));
         $posmExport->assertOk();
-        $this->assertStringContainsString('Counter Top', $posmExport->streamedContent());
+        $this->assertStringContainsString('Counter Top', $this->excelText($posmExport->getContent()));
     }
 
     public function test_super_admin_can_edit_import_approve_and_manage_warehouse_assets(): void

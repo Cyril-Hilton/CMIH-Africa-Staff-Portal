@@ -80,6 +80,9 @@ class HrStaffController extends Controller
     public function export(Request $request, HrStaffRecord $record)
     {
         $this->authorizeHr($request);
+        if ($request->input('format') === 'xlsx') {
+            $request->merge(['format' => 'csv']);
+        }
         $data = $request->validate([
             'scope' => ['required', Rule::in(['selected', 'filtered', 'all'])],
             'ids' => ['required_if:scope,selected', 'array', 'min:1', 'max:1000'],
@@ -112,14 +115,14 @@ class HrStaffController extends Controller
                 fclose($handle);
             }, 'staff-information-'.now()->format('Y-m-d').'.csv', $headers + ['Content-Type' => 'text/csv; charset=UTF-8']);
         }
-        abort_unless(class_exists(ZipArchive::class), 503, 'Full record downloads require the PHP ZIP extension. CSV exports remain available.');
+        abort_unless(class_exists(ZipArchive::class), 503, 'Full record downloads require the PHP ZIP extension. Excel exports remain available.');
         $path = tempnam(sys_get_temp_dir(), 'cmih-hr-');
         $zip = new ZipArchive;
         try {
             if ($zip->open($path, ZipArchive::OVERWRITE) !== true) {
                 throw new \RuntimeException('Unable to create staff archive.');
             }
-            $zip->addFromString('READ-ME.txt', 'CMIH staff records exported '.now()->toIso8601String()."\nEach staff folder contains a profile CSV, recorded HR and employment history CSVs, and available profile documents.\nEmpty history CSVs mean no records exist. Missing documents are listed in documents.csv.\nPasswords, authentication tokens and private messages are excluded.\nCSV values beginning with formula characters are prefixed with an apostrophe for spreadsheet safety.\n");
+            $zip->addFromString('READ-ME.txt', 'CMIH staff records exported '.now()->toIso8601String()."\nEach staff folder contains a profile Excel workbook, recorded HR and employment history Excel workbooks, and available profile documents.\nEmpty history Excel workbooks mean no records exist. Missing documents are listed in documents.xlsx.\nPasswords, authentication tokens and private messages are excluded.\nSpreadsheet text is stored as literal values, never executed as formulas.\n");
             foreach ($query->lazy(100) as $user) {
                 $folder = 'staff-'.$user->id.'/';
                 $this->addCsv($zip, $folder.'profile.csv', ['Field', 'Value'], (function () use ($record, $user) {
@@ -142,7 +145,7 @@ class HrStaffController extends Controller
                     }
                     $documents[] = [$record->label($field), $file ? 'Included' : ($user->{$field} ? 'File missing' : 'Not supplied'), $filename];
                 }
-                $this->addCsv($zip, $folder.'documents.csv', ['Document', 'Status', 'File'], $documents, $record);
+                $this->addCsv($zip, $folder.'documents.xlsx', ['Document', 'Status', 'File'], $documents, $record);
             }
             if (! $zip->close()) {
                 throw new \RuntimeException('Unable to finalize staff archive.');
@@ -159,19 +162,12 @@ class HrStaffController extends Controller
 
     private function addCsv(ZipArchive $zip, string $filename, array $headers, iterable $rows, HrStaffRecord $record): void
     {
-        $handle = fopen('php://temp/maxmemory:2097152', 'w+');
-        try {
-            fwrite($handle, "\xEF\xBB\xBF");
-            $record->csvRow($handle, $headers);
-            foreach ($rows as $row) {
-                $record->csvRow($handle, $row);
-            }
-            rewind($handle);
-            if (! $zip->addFromString($filename, stream_get_contents($handle))) {
-                throw new \RuntimeException('Unable to include staff record.');
-            }
-        } finally {
-            fclose($handle);
+        $data = [$headers];
+        foreach ($rows as $row) {
+            $data[] = $row;
+        }
+        if (! $zip->addFromString(preg_replace('/\.csv$/', '.xlsx', $filename), app(\App\Services\BrandedSpreadsheet::class)->xlsx($data))) {
+            throw new \RuntimeException('Unable to include staff record.');
         }
     }
 }

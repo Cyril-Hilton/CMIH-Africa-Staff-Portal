@@ -59,7 +59,8 @@
             this.resubmitActionUrl = '{{ url('/portal/finance/advances') }}/' + advance.id + '/resubmit';
             this.openResubmitModal = true;
         }
-    }" class="space-y-6">
+    }" class="relative" data-finance-dialogs-root>
+        <div class="space-y-6">
 
         @if ($isHrManager && $hrPendingCount > 0)
             <div class="glass-panel rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6">
@@ -502,4 +503,5 @@
             </form>
         </div>
     </div>
+</div>{{-- Shared dialog state scope --}}
 </x-app-layout>

@@ -13,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -371,16 +370,17 @@ class WarehouseAssetController extends Controller
         };
 
         if ($format === 'pdf') {
-            return response(view('portal.assets-warehouse-export', [
-                'rows' => $rows,
-                'title' => $label,
-                'printedAt' => now(),
-            ]));
+            $table = [array_keys($rows[0] ?? ['Notice' => 'No warehouse records found'])];
+            foreach ($rows as $row) {
+                $table[] = array_values($row);
+            }
+
+            return response(app(\App\Services\PerformanceExport::class)->pdf($table))->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="'.$filenamePrefix.'.pdf"')->header('Cache-Control', 'private, no-store');
         }
 
         $extension = $format === 'excel' ? 'xls' : 'csv';
         $mime = $format === 'excel' ? 'application/vnd.ms-excel' : 'text/csv; charset=UTF-8';
-        $filename = $filenamePrefix . '_' . now()->format('Y-m-d_H-i-s') . '.' . $extension;
+        $filename = $filenamePrefix.'_'.now()->format('Y-m-d_H-i-s').'.'.$extension;
 
         return response()->streamDownload(function () use ($rows) {
             $handle = fopen('php://output', 'w');
@@ -432,6 +432,7 @@ class WarehouseAssetController extends Controller
 
             if (($payload['name'] ?? '') === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -829,6 +830,7 @@ class WarehouseAssetController extends Controller
 
         if (! $headers) {
             fclose($handle);
+
             return [];
         }
 
@@ -848,7 +850,7 @@ class WarehouseAssetController extends Controller
             return [];
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($path) !== true) {
             return [];
         }
@@ -911,7 +913,7 @@ class WarehouseAssetController extends Controller
             return [];
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($path) !== true) {
             return [];
         }
@@ -1038,14 +1040,14 @@ class WarehouseAssetController extends Controller
 
     private function nextRequestCode(): string
     {
-        $prefix = 'AWR-' . now()->format('Ym') . '-';
-        $lastCode = AssetWarehouseRequest::where('request_code', 'like', $prefix . '%')
+        $prefix = 'AWR-'.now()->format('Ym').'-';
+        $lastCode = AssetWarehouseRequest::where('request_code', 'like', $prefix.'%')
             ->latest('id')
             ->value('request_code');
 
         $next = $lastCode ? ((int) Str::afterLast($lastCode, '-')) + 1 : 1;
 
-        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     private function warehouseStatusLabels(): array
@@ -1092,7 +1094,7 @@ class WarehouseAssetController extends Controller
             return false;
         }
 
-        if ($user->isSuperAdmin() || $user->isOperationsDepartmentLead() || $user->isActingForOperationsDepartmentLead()) {
+        if ($user->isCvoOrSuperAdmin() || $user->isOperationsDepartmentLead() || $user->isActingForOperationsDepartmentLead()) {
             return true;
         }
 
@@ -1120,7 +1122,7 @@ class WarehouseAssetController extends Controller
     private function canGrantWarehouseCollaborators(?User $user): bool
     {
         return $user?->isActive()
-            && ($user->isSuperAdmin()
+            && ($user->isCvoOrSuperAdmin()
                 || $user->isOperationsDepartmentLead()
                 || $user->isActingForOperationsDepartmentLead());
     }

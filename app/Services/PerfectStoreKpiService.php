@@ -402,8 +402,84 @@ class PerfectStoreKpiService
         return $availableWeight > 0 ? round($weighted / $availableWeight, 1) : 0.0;
     }
 
-    private function percent(int|float $part, int|float $total): float
+    public function categoryKpis(Carbon $from, Carbon $to): Collection
     {
-        return $total > 0 ? round(((float) $part / (float) $total) * 100, 1) : 0.0;
+        $rows = MerchandiserVisitSku::with('sku')
+            ->whereHas('visit', fn ($query) => $query->whereBetween('created_at', [$from, $to]))
+            ->whereHas('sku', fn ($query) => $query->whereNotNull('category'))
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return collect();
+        }
+
+        return $rows
+            ->groupBy(fn (MerchandiserVisitSku $row) => $row->sku?->category ?: 'Uncategorized')
+            ->map(function (Collection $categoryRows, string $category) {
+                $trackedOsa = $categoryRows->filter(fn (MerchandiserVisitSku $row) => (bool) ($row->sku?->track_osa ?? true));
+                $trackedNpd = $categoryRows->filter(fn (MerchandiserVisitSku $row) => (bool) ($row->sku?->track_npd ?? false));
+                $trackedMhs = $categoryRows->filter(fn (MerchandiserVisitSku $row) => (bool) ($row->sku?->track_mhs ?? false));
+                $trackedPlanogram = $categoryRows->filter(fn (MerchandiserVisitSku $row) => (bool) ($row->sku?->track_planogram ?? true));
+
+                $categoryVisitShelf = $categoryRows
+                    ->filter(fn (MerchandiserVisitSku $row) => (int) ($row->category_total_facings ?? 0) > 0)
+                    ->groupBy('visit_id')
+                    ->map(function (Collection $visitRows) {
+                        $unileverFacings = $visitRows->max(fn (MerchandiserVisitSku $row) => max(0, (int) ($row->category_unilever_facings ?? 0)));
+                        $totalFacings = $visitRows->max(fn (MerchandiserVisitSku $row) => max(0, (int) ($row->category_total_facings ?? 0)));
+
+                        return [
+                            'unilever_facings' => $unileverFacings,
+                            'category_facings' => $totalFacings,
+                            'sos_pct' => $totalFacings > 0
+                                ? $this->percent($unileverFacings, $totalFacings, capAtHundred: true)
+                                : null,
+                        ];
+                    });
+
+                $skuSosTargets = $categoryRows
+                    ->map(fn (MerchandiserVisitSku $row) => $row->sku?->sos_target)
+                    ->filter(fn ($target) => $target !== null);
+                $configuredTarget = \App\Models\PerfectStoreCategoryTarget::where('category', $category)->value('sos_target');
+
+                $row = (object) [
+                    'category' => $category,
+                    'visit_count' => $categoryRows->pluck('visit_id')->unique()->count(),
+                    'osa_pass' => $trackedOsa->filter(fn (MerchandiserVisitSku $row) => (int) $row->osa_quantity >= max(1, (int) ($row->sku?->osa_drop_size ?? 1)))->count(),
+                    'osa_total' => $trackedOsa->count(),
+                    'npd_pass' => $trackedNpd->filter(fn (MerchandiserVisitSku $row) => (bool) $row->npd_present && (int) $row->osa_quantity >= max(1, (int) ($row->sku?->npd_drop_size ?? 1)))->count(),
+                    'npd_total' => $trackedNpd->count(),
+                    'mhs_pass' => $trackedMhs->filter(fn (MerchandiserVisitSku $row) => (int) $row->osa_quantity >= max(1, (int) ($row->sku?->mhs_drop_size ?? 1)))->count(),
+                    'mhs_total' => $trackedMhs->count(),
+                    'planogram_pass' => $trackedPlanogram->where('planogram_compliant', true)->count(),
+                    'planogram_total' => $trackedPlanogram->count(),
+                    'total_facings' => $categoryRows->sum(fn (MerchandiserVisitSku $row) => max(0, (int) $row->facing)),
+                    'target_facings' => $categoryRows->sum(fn (MerchandiserVisitSku $row) => max(1, (int) ($row->facing_target_snapshot ?? $row->sku?->facing_target ?? 1))),
+                    'unilever_facings' => $categoryVisitShelf->sum('unilever_facings'),
+                    'category_facings' => $categoryVisitShelf->sum('category_facings'),
+                    'sos_target' => $configuredTarget !== null
+                        ? round((float) $configuredTarget, 1)
+                        : ($skuSosTargets->isNotEmpty() ? round((float) $skuSosTargets->avg(), 1) : null),
+                ];
+
+                $row->osa_pct = $row->osa_total > 0 ? $this->percent($row->osa_pass, $row->osa_total, capAtHundred: true) : null;
+                $row->npd_pct = $row->npd_total > 0 ? $this->percent($row->npd_pass, $row->npd_total, capAtHundred: true) : null;
+                $row->mhs_pct = $row->mhs_total > 0 ? $this->percent($row->mhs_pass, $row->mhs_total, capAtHundred: true) : null;
+                $row->planogram_pct = $row->planogram_total > 0 ? $this->percent($row->planogram_pass, $row->planogram_total, capAtHundred: true) : null;
+                $row->facing_pct = $row->target_facings > 0 ? $this->percent($row->total_facings, $row->target_facings, capAtHundred: true) : null;
+                $sosScores = $categoryVisitShelf->pluck('sos_pct')->filter(fn ($score) => $score !== null);
+                $row->sos_pct = $sosScores->isNotEmpty() ? round((float) $sosScores->avg(), 1) : null;
+
+                return $row;
+            })
+            ->sortBy('category')
+            ->values();
+    }
+
+    private function percent(int|float $part, int|float $total, bool $capAtHundred = false): float
+    {
+        $value = $total > 0 ? round(((float) $part / (float) $total) * 100, 1) : 0.0;
+
+        return $capAtHundred ? min(100.0, $value) : $value;
     }
 }

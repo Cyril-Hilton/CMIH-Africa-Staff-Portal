@@ -11,7 +11,7 @@ class Event extends Model
     use HasFactory;
 
     protected $fillable = [
-        'created_by',
+        'created_by', 'updated_by', 'event_key', 'flyer_sha256', 'flyer_fingerprint', 'original_filename', 'filename_key', 'image_disk', 'revision',
         'title',
         'summary',
         'location',
@@ -25,7 +25,7 @@ class Event extends Model
     protected function casts(): array
     {
         return [
-            'starts_at' => 'date',
+            'starts_at' => 'date', 'flyer_fingerprint' => 'array', 'revision' => 'integer',
             'ends_at' => 'date',
         ];
     }

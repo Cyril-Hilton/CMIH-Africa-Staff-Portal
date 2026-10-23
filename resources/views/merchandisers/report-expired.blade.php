@@ -14,7 +14,7 @@
 
     <div class="glass-panel max-w-md w-full rounded-2xl p-8 border border-brand-white/10 text-center space-y-6">
         <div class="w-16 h-16 rounded-full bg-brand-red/10 border border-brand-red/20 flex items-center justify-center mx-auto text-brand-red text-3xl">
-            ⏳
+            <x-ui-icon name="clock" />
         </div>
         <div class="space-y-2">
             <h1 class="text-xl font-bold font-display text-brand-white">Link Expired</h1>

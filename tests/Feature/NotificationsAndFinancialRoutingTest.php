@@ -475,19 +475,19 @@ class NotificationsAndFinancialRoutingTest extends TestCase
         // Verify the celebrant (staffUser) got a personal notification
         $this->assertDatabaseHas('notifications', [
             'user_id' => $this->staffUser->id,
-            'title' => '🎉 Happy Birthday!',
+            'title' => 'Happy Birthday!',
         ]);
 
         // Verify other active users (e.g. financeUser) got the birthday announcement
         $this->assertDatabaseHas('notifications', [
             'user_id' => $this->financeUser->id,
-            'title' => "🎂 Birthday Celebration: {$this->staffUser->name}",
+            'title' => "Birthday Celebration: {$this->staffUser->name}",
         ]);
 
         // Verify celebrant did NOT get the team broadcast notification to avoid duplication
         $this->assertDatabaseMissing('notifications', [
             'user_id' => $this->staffUser->id,
-            'title' => "🎂 Birthday Celebration: {$this->staffUser->name}",
+            'title' => "Birthday Celebration: {$this->staffUser->name}",
         ]);
     }
 

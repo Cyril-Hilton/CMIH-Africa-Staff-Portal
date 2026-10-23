@@ -29,6 +29,7 @@ class EnsureUserHasRole
 
         if (
             $user->hasRole($roles)
+            || $user->isCvoOrSuperAdmin()
             || ($user->hasFullHrAccess() && $isUserRoute && ! $isDeveloperBypass)
             || ($isMerchandiserAdminRoute && $user->isMerchandiserPortalAdmin())
         ) {

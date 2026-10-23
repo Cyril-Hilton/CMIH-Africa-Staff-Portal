@@ -2,13 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Asset;
 use App\Models\Campaign;
 use App\Models\CampaignPhoto;
-use App\Models\Asset;
-use App\Models\User;
-use App\Models\Task;
 use App\Models\FreelancePromoter;
-use App\Models\AppraisalMetric;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -17,8 +16,10 @@ use Tests\TestCase;
 class Phase2FeaturesTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ReadsExcelExports;
 
     protected User $adminUser;
+
     protected User $staffUser;
 
     protected function setUp(): void
@@ -62,8 +63,8 @@ class Phase2FeaturesTest extends TestCase
         $response = $this->get(route('portal.export', ['table' => 'freelance_promoters']));
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'text/csv; charset=utf-8');
-        $response->assertHeader('Content-Disposition', 'attachment; filename="freelance_promoters_export_' . date('Y-m-d') . '_' . date('H-i') . '-' . date('s') . '.csv"');
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition', 'attachment; filename="freelance_promoters_export_'.date('Y-m-d').'_'.date('H-i').'-'.date('s').'.xlsx"');
     }
 
     public function test_staff_task_export_is_scoped_to_owned_and_collaborator_records(): void
@@ -105,7 +106,7 @@ class Phase2FeaturesTest extends TestCase
         $response = $this->actingAs($this->staffUser)->get(route('portal.export', ['table' => 'tasks']));
 
         $response->assertOk();
-        $content = $response->streamedContent();
+        $content = $this->excelText($response->getContent());
         $this->assertStringContainsString('Owned Export Task', $content);
         $this->assertStringContainsString('Collaborator Export Task', $content);
         $this->assertStringNotContainsString('Unrelated Export Task', $content);
@@ -285,8 +286,8 @@ class Phase2FeaturesTest extends TestCase
 
         $exportResponse = $this->actingAs($this->staffUser)->get(route('portal.export', ['table' => 'campaigns']));
         $exportResponse->assertOk();
-        $exportResponse->assertHeader('Content-Type', 'text/csv; charset=utf-8');
-        $this->assertStringContainsString('Exportable Operations Campaign', $exportResponse->streamedContent());
+        $exportResponse->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringContainsString('Exportable Operations Campaign', $this->excelText($exportResponse->getContent()));
     }
 
     public function test_operations_staff_can_update_campaign_week_on_week_brief(): void
@@ -343,8 +344,8 @@ class Phase2FeaturesTest extends TestCase
 
         $exportResponse = $this->actingAs($this->adminUser)->get(route('portal.export', ['table' => 'assets']));
         $exportResponse->assertOk();
-        $exportResponse->assertHeader('Content-Type', 'text/csv; charset=utf-8');
-        $this->assertStringContainsString('Conference Projector', $exportResponse->streamedContent());
+        $exportResponse->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringContainsString('Conference Projector', $this->excelText($exportResponse->getContent()));
     }
 
     public function test_operations_campaign_activity_hides_sensitive_finance_tasks_from_non_collaborators(): void

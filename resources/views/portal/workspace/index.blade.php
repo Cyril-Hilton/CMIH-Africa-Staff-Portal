@@ -22,7 +22,7 @@
         @if ($actionQueue->count() > 0)
             <div class="glass-panel rounded-2xl p-6 border border-amber-500/30 bg-amber-500/5">
                 <div class="flex items-center gap-3 mb-4">
-                    <span class="text-2xl">⚡</span>
+                    <span class="text-2xl"><x-ui-icon name="bolt" /></span>
                     <h3 class="text-lg font-semibold text-brand-white">Pending Your Review</h3>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -65,7 +65,7 @@
                                     </span>
                                     @if ($doc->file_path)
                                         <span class="text-[10px] text-brand-ash flex items-center gap-1">
-                                            📎 File Attachment
+                                            <x-ui-icon name="paperclip" /> File Attachment
                                         </span>
                                     @endif
                                 </div>
@@ -74,19 +74,19 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 <a href="{{ route('portal.workspace.show', $doc) }}" class="p-2 rounded bg-brand-white/10 hover:bg-brand-white/15 text-brand-white text-xs transition" title="View Document">
-                                    👁️
+                                    <x-ui-icon name="eye" />
                                 </a>
                                 <a href="{{ route('portal.workspace.edit', $doc) }}" class="p-2 rounded bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 text-xs transition" title="Edit Document">
-                                    ✏️
+                                    <x-ui-icon name="edit" />
                                 </a>
                                 <a href="{{ route('portal.workspace.export', $doc) }}" class="p-2 rounded bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400 text-xs transition" title="Export File">
-                                    📥
+                                    <x-ui-icon name="download" />
                                 </a>
                             </div>
                         </div>
                     @empty
                         <div class="text-center py-12">
-                            <div class="text-4xl mb-2">📁</div>
+                            <div class="text-4xl mb-2"><x-ui-icon name="folder" /></div>
                             <p class="text-sm text-brand-white/40 italic">You haven't created any documents yet.</p>
                         </div>
                     @endforelse
@@ -112,7 +112,7 @@
                                     </span>
                                     @if ($doc->file_path)
                                         <span class="text-[10px] text-brand-ash">
-                                            📎 File Attachment
+                                            <x-ui-icon name="paperclip" /> File Attachment
                                         </span>
                                     @endif
                                 </div>
@@ -121,21 +121,21 @@
                             </div>
                             <div class="flex items-center gap-3">
                                 <a href="{{ route('portal.workspace.show', $doc) }}" class="p-2 rounded bg-brand-white/10 hover:bg-brand-white/15 text-brand-white text-xs transition" title="View Document">
-                                    👁️
+                                    <x-ui-icon name="eye" />
                                 </a>
                                 @if ($perm === 'edit')
                                     <a href="{{ route('portal.workspace.edit', $doc) }}" class="p-2 rounded bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 text-xs transition" title="Edit Document">
-                                        ✏️
+                                        <x-ui-icon name="edit" />
                                     </a>
                                 @endif
                                 <a href="{{ route('portal.workspace.export', $doc) }}" class="p-2 rounded bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400 text-xs transition" title="Export File">
-                                    📥
+                                    <x-ui-icon name="download" />
                                 </a>
                             </div>
                         </div>
                     @empty
                         <div class="text-center py-12">
-                            <div class="text-4xl mb-2">🤝</div>
+                            <div class="text-4xl mb-2"><x-ui-icon name="handshake" /></div>
                             <p class="text-sm text-brand-white/40 italic">No documents shared with you yet.</p>
                         </div>
                     @endforelse

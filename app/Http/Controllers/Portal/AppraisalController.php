@@ -267,7 +267,7 @@ class AppraisalController extends Controller
         );
 
         return redirect()->route('portal.appraisals.index')
-            ->with('status', '✅ Self-assessment submitted successfully. Your line manager has been notified to proceed.');
+            ->with('status', ' Self-assessment submitted successfully. Your line manager has been notified to proceed.');
     }
 
     // ─── Step 2: Manager Review ───────────────────────────────────────────────
@@ -358,7 +358,7 @@ class AppraisalController extends Controller
         );
 
         return redirect()->route('portal.appraisals.index')
-            ->with('status', '✅ Manager review submitted. HR will now conduct the final audit.');
+            ->with('status', ' Manager review submitted. HR will now conduct the final audit.');
     }
 
     // ─── Step 3: HR Final Audit ───────────────────────────────────────────────
@@ -410,8 +410,8 @@ class AppraisalController extends Controller
         ]);
 
         $msg = $request->final_decision === 'approved'
-            ? '🏆 Appraisal approved and finalised!'
-            : '🔄 Appraisal sent back for revision.';
+            ? ' Appraisal approved and finalised!'
+            : ' Appraisal sent back for revision.';
 
         return redirect()->route('portal.appraisals.index')->with('status', $msg);
     }
@@ -427,7 +427,7 @@ class AppraisalController extends Controller
 
         $appraisal->update(['status' => 'draft']);
 
-        return back()->with('status', '🔓 Appraisal unlocked and reset to draft stage.');
+        return back()->with('status', ' Appraisal unlocked and reset to draft stage.');
     }
 
     /**

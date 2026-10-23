@@ -122,7 +122,7 @@
 
                 <!-- KPI / Project Tasks Progress Card -->
                 <div class="glass-panel rounded-3xl p-6 border border-brand-white/10 bg-brand-white/5 space-y-4">
-                    <h3 class="text-xs uppercase tracking-wider text-brand-white font-bold">🎯 Task Completion Target</h3>
+                    <h3 class="text-xs uppercase tracking-wider text-brand-white font-bold"><x-ui-icon name="spark" /> Task Completion Target</h3>
                     
                     @php
                         $visibleTasks = $tasks->reject(fn ($task) => $task->completion_review_status === 'audit_task');
@@ -148,7 +148,7 @@
                                 <div class="flex items-start gap-3 text-xs">
                                     <div class="mt-0.5">
                                         @if($t->isApprovedForPerformance())
-                                            <span class="text-emerald-400">✓</span>
+                                            <span class="text-emerald-400"><x-ui-icon name="check" /></span>
                                         @else
                                             <span class="text-brand-ash">•</span>
                                         @endif
@@ -171,7 +171,7 @@
 
                 <!-- Upload field photo widget -->
                 <div class="glass-panel rounded-3xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📸 Submit Live Field Photo</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="camera" /> Submit Live Field Photo</h3>
                     <form method="POST" action="{{ route('campaign.share.upload', $campaign->share_token) }}" enctype="multipart/form-data" class="space-y-4">
                         @csrf
                         <div class="grid gap-4 sm:grid-cols-2">

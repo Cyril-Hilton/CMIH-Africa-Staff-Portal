@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
-use App\Models\AppraisalMetric;
 use App\Models\Announcement;
+use App\Models\AppraisalMetric;
 use App\Models\Asset;
 use App\Models\AssetLog;
 use App\Models\Campaign;
@@ -29,31 +29,31 @@ class DepartmentController extends Controller
 {
     private function authorizeDepartment(string $deptName, User $user): void
     {
-        $isSuperAdmin = $user->access_role === 'super_admin';
-        
+        $isSuperAdmin = $user->isCvoOrSuperAdmin();
+
         if ($isSuperAdmin) {
             return;
         }
 
         $accessGroups = [
-            'hr_admin'            => 'admin',
-            'finance'             => 'finance',
-            'client_relations'    => 'creatives',
-            'creatives'           => 'creatives',
+            'hr_admin' => 'admin',
+            'finance' => 'finance',
+            'client_relations' => 'creatives',
+            'creatives' => 'creatives',
             'operations_projects' => 'operations',
-            'brands_marketing'    => 'brands',
+            'brands_marketing' => 'brands',
         ];
-        
+
         $userDeptKey = User::normalizeDepartmentKey($user->department);
-        $reqDeptKey  = User::normalizeDepartmentKey($deptName);
+        $reqDeptKey = User::normalizeDepartmentKey($deptName);
         $userDeptNorm = $accessGroups[$userDeptKey] ?? $userDeptKey;
-        $reqDeptNorm  = $accessGroups[$reqDeptKey] ?? $reqDeptKey;
+        $reqDeptNorm = $accessGroups[$reqDeptKey] ?? $reqDeptKey;
 
         if ($userDeptNorm === $reqDeptNorm) {
             return;
         }
 
-        abort(403, '🔒 Access Denied. You do not belong to the ' . ucfirst($deptName) . ' department.');
+        abort(403, ' Access Denied. You do not belong to the '.ucfirst($deptName).' department.');
     }
 
     // ─── CVO Helper ───────────────────────────────────────────────────────────
@@ -105,6 +105,7 @@ class DepartmentController extends Controller
         if ($currency === 'GHC') {
             return 'GH₵';
         }
+
         return in_array($currency, self::ALLOWED_CURRENCIES, true)
             ? $currency : 'GH₵';
     }
@@ -116,7 +117,7 @@ class DepartmentController extends Controller
     {
         $user = $request->user();
         $staff = User::internalStaff()->orderBy('name')->get();
-        
+
         // Regular staff only see pre-tickets where they are the host or which they created
         $preTickets = \App\Models\VisitorPreTicket::where('host_id', $user->id)
             ->orWhere('created_by', $user->id)
@@ -136,10 +137,10 @@ class DepartmentController extends Controller
         $viewer = $request->user();
         $this->authorizeDepartment('admin', $viewer);
 
-        $visitors         = VisitorLog::with('host')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
-        $staff            = User::internalStaff()->orderBy('name')->get();
-        $metrics          = AppraisalMetric::orderBy('category')->get();
-        $preTickets       = \App\Models\VisitorPreTicket::with('host')->orderBy('expected_arrival')->paginate(5, ['*'], 'pt_page')->withQueryString();
+        $visitors = VisitorLog::with('host')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
+        $staff = User::internalStaff()->orderBy('name')->get();
+        $metrics = AppraisalMetric::orderBy('category')->get();
+        $preTickets = \App\Models\VisitorPreTicket::with('host')->orderBy('expected_arrival')->paginate(5, ['*'], 'pt_page')->withQueryString();
         $directoryEntries = \App\Models\PhoneDirectory::orderBy('category')->orderBy('name')->paginate(5, ['*'], 'd_page')->withQueryString();
         $recentAnnouncements = Announcement::with('user')->latest()->take(6)->get();
         $identityDocuments = $viewer->canReviewIdentityDocuments()
@@ -258,12 +259,12 @@ class DepartmentController extends Controller
 
         NotificationService::sendToMany(
             $recipientIds,
-            'HR Announcement: ' . $announcement->title,
+            'HR Announcement: '.$announcement->title,
             $announcement->plainBody(150),
             route('portal.announcements')
         );
 
-        return back()->with('status', 'Announcement sent to ' . count($recipientIds) . ' staff member(s).');
+        return back()->with('status', 'Announcement sent to '.count($recipientIds).' staff member(s).');
     }
 
     public function updateLeaveBalance(Request $request, User $user): RedirectResponse
@@ -421,10 +422,10 @@ class DepartmentController extends Controller
             || $user->access_role === 'super_admin';
 
         if ($isFinance) {
-            $claims   = PettyCashClaim::with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
+            $claims = PettyCashClaim::with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
             $invoices = \App\Models\SupplierInvoice::with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();
         } else {
-            $claims   = PettyCashClaim::where('user_id', $user->id)->with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
+            $claims = PettyCashClaim::where('user_id', $user->id)->with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
             $invoices = \App\Models\SupplierInvoice::where('submitted_by', $user->id)->with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();
         }
 
@@ -437,11 +438,11 @@ class DepartmentController extends Controller
     public function storeClaim(Request $request): RedirectResponse
     {
         $request->validate([
-            'amount'      => ['required', 'numeric', 'min:0.01'],
-            'currency'    => ['nullable', 'string'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'currency' => ['nullable', 'string'],
             'description' => ['required', 'string', 'max:2000'],
-            'receipt'     => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
-            'submit_to'   => ['required', 'string', 'in:finance,cvo'],
+            'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
+            'submit_to' => ['required', 'string', 'in:finance,cvo'],
         ]);
 
         $receiptPath = null;
@@ -451,24 +452,24 @@ class DepartmentController extends Controller
 
         $currency = $this->validateCurrency($request->input('currency', 'GHC'));
         $submitTo = $request->input('submit_to', 'cvo');
-        
+
         $status = ($submitTo === 'finance') ? 'Submitted to Finance' : 'Submitted to CVO';
 
         $claim = PettyCashClaim::create([
-            'user_id'      => $request->user()->id,
-            'amount'       => $request->input('amount'),
-            'currency'     => $currency,
-            'description'  => $request->input('description'),
+            'user_id' => $request->user()->id,
+            'amount' => $request->input('amount'),
+            'currency' => $currency,
+            'description' => $request->input('description'),
             'receipt_path' => $receiptPath,
-            'status'       => $status,
+            'status' => $status,
         ]);
 
         if ($submitTo === 'finance') {
             // Notify Finance Users
             $financeUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('department', 'finance')
-                      ->orWhere('access_role', 'super_admin');
+                        ->orWhere('access_role', 'super_admin');
                 })->get();
             foreach ($financeUsers as $fin) {
                 \App\Services\NotificationService::send(
@@ -478,13 +479,14 @@ class DepartmentController extends Controller
                     route('portal.finance')
                 );
             }
-            return back()->with('status', '📤 Claim submitted to Finance for verification.');
+
+            return back()->with('status', ' Claim submitted to Finance for verification.');
         } else {
             // Notify CVO Users
             $cvoUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('access_role', 'super_admin')
-                      ->orWhere('job_level', 'super_admin');
+                        ->orWhere('job_level', 'super_admin');
                 })->get();
             foreach ($cvoUsers as $cvo) {
                 \App\Services\NotificationService::send(
@@ -494,7 +496,8 @@ class DepartmentController extends Controller
                     route('portal.cvo')
                 );
             }
-            return back()->with('status', '📤 Claim submitted directly to CVO for approval.');
+
+            return back()->with('status', ' Claim submitted directly to CVO for approval.');
         }
     }
 
@@ -511,12 +514,12 @@ class DepartmentController extends Controller
         if ($claim->status === 'Submitted to Finance') {
             if ($action === 'verify' || $action === 'approve') {
                 $claim->update(['status' => 'Finance Approved']);
-                
+
                 // Notify CVO/Super Admin
                 $cvoUsers = User::internalStaff()->where('status', 'active')
-                    ->where(function($q) {
+                    ->where(function ($q) {
                         $q->where('access_role', 'super_admin')
-                          ->orWhere('job_level', 'super_admin');
+                            ->orWhere('job_level', 'super_admin');
                     })->get();
                 foreach ($cvoUsers as $cvo) {
                     \App\Services\NotificationService::send(
@@ -527,12 +530,12 @@ class DepartmentController extends Controller
                     );
                 }
 
-                return back()->with('status', '✅ Claim verified and approved by Finance. Sent to CVO.');
+                return back()->with('status', ' Claim verified and approved by Finance. Sent to CVO.');
             }
 
             if ($action === 'reject') {
                 $claim->update(['status' => 'Rejected']);
-                
+
                 // Notify claimant
                 \App\Services\NotificationService::send(
                     $claim->user_id,
@@ -566,7 +569,7 @@ class DepartmentController extends Controller
 
         // Finance can only Pay, Flag, or Reject AFTER CVO has approved
         if ($claim->status !== 'CVO Approved') {
-            return back()->withErrors(['error' => '⚠️ This claim requires CVO approval first before Finance can action it.']);
+            return back()->withErrors(['error' => ' This claim requires CVO approval first before Finance can action it.']);
         }
 
         $validActions = ['flag' => 'Flagged', 'reject' => 'Rejected', 'pay' => 'Paid', 'return' => 'Returned for Correction'];
@@ -617,12 +620,14 @@ class DepartmentController extends Controller
 
         if ($action === 'approve') {
             $claim->update(['status' => 'CVO Approved']);
-            return back()->with('status', '✅ Claim approved by CVO. Finance can now process it.');
+
+            return back()->with('status', ' Claim approved by CVO. Finance can now process it.');
         }
 
         if ($action === 'reject') {
             $claim->update(['status' => 'Rejected']);
-            return back()->with('status', '✗ Claim rejected by CVO.');
+
+            return back()->with('status', ' Claim rejected by CVO.');
         }
 
         if ($action === 'return') {
@@ -630,7 +635,8 @@ class DepartmentController extends Controller
                 'status' => 'Returned for Correction',
                 'notes' => $request->input('notes'),
             ]);
-            return back()->with('status', '🔄 Claim returned by CVO for correction.');
+
+            return back()->with('status', ' Claim returned by CVO for correction.');
         }
 
         return back()->withErrors(['error' => 'Invalid CVO action.']);
@@ -642,27 +648,27 @@ class DepartmentController extends Controller
     public function resubmitClaim(Request $request, PettyCashClaim $claim): RedirectResponse
     {
         $user = $request->user();
-        if ($claim->user_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ($claim->user_id !== $user->id && ! $user->hasRole('super_admin')) {
             abort(403);
         }
 
         $request->validate([
-            'amount'      => ['required', 'numeric', 'min:0.01'],
-            'currency'    => ['nullable', 'string'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'currency' => ['nullable', 'string'],
             'description' => ['required', 'string', 'max:2000'],
-            'receipt'     => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
-            'submit_to'   => ['required', 'string', 'in:finance,cvo'],
+            'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
+            'submit_to' => ['required', 'string', 'in:finance,cvo'],
         ]);
 
         $submitTo = $request->input('submit_to', 'cvo');
         $status = ($submitTo === 'finance') ? 'Submitted to Finance' : 'Submitted to CVO';
 
         $updateData = [
-            'amount'      => $request->input('amount'),
-            'currency'    => $this->validateCurrency($request->input('currency', 'GHC')),
+            'amount' => $request->input('amount'),
+            'currency' => $this->validateCurrency($request->input('currency', 'GHC')),
             'description' => $request->input('description'),
-            'notes'       => null,
-            'status'      => $status,
+            'notes' => null,
+            'status' => $status,
         ];
 
         if ($request->hasFile('receipt')) {
@@ -679,9 +685,9 @@ class DepartmentController extends Controller
         if ($submitTo === 'finance') {
             // Notify Finance Users
             $financeUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('department', 'finance')
-                      ->orWhere('access_role', 'super_admin');
+                        ->orWhere('access_role', 'super_admin');
                 })->get();
             foreach ($financeUsers as $fin) {
                 \App\Services\NotificationService::send(
@@ -691,13 +697,14 @@ class DepartmentController extends Controller
                     route('portal.finance')
                 );
             }
-            return back()->with('status', '📤 Claim resubmitted to Finance for verification.');
+
+            return back()->with('status', ' Claim resubmitted to Finance for verification.');
         } else {
             // Notify CVO Users
             $cvoUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('access_role', 'super_admin')
-                      ->orWhere('job_level', 'super_admin');
+                        ->orWhere('job_level', 'super_admin');
                 })->get();
             foreach ($cvoUsers as $cvo) {
                 \App\Services\NotificationService::send(
@@ -707,7 +714,8 @@ class DepartmentController extends Controller
                     route('portal.cvo')
                 );
             }
-            return back()->with('status', '📤 Claim resubmitted directly to CVO.');
+
+            return back()->with('status', ' Claim resubmitted directly to CVO.');
         }
     }
 
@@ -719,12 +727,12 @@ class DepartmentController extends Controller
         $user = $request->user();
         $this->authorizeDepartment('operations', $user);
 
-        $vendors    = ThirdPartyVendor::with('project')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
-        $promoters  = FreelancePromoter::latest()->paginate(5, ['*'], 'p_page')->withQueryString();
-        $assets     = Asset::latest()->get();
-        $assetLogs  = AssetLog::with(['asset', 'user'])->latest()->paginate(5, ['*'], 'al_page')->withQueryString();
-        $projects   = Task::whereIn('department', ['operations', 'operations_projects'])->realWork()->latest()->get();
-        $campaigns  = Campaign::with(['projectLead', 'tasks.assignee', 'tasks.assigner', 'assetLogs.asset', 'assetLogs.user', 'campaignPhotos'])
+        $vendors = ThirdPartyVendor::with('project')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
+        $promoters = FreelancePromoter::latest()->paginate(5, ['*'], 'p_page')->withQueryString();
+        $assets = Asset::latest()->get();
+        $assetLogs = AssetLog::with(['asset', 'user'])->latest()->paginate(5, ['*'], 'al_page')->withQueryString();
+        $projects = Task::whereIn('department', ['operations', 'operations_projects'])->realWork()->latest()->get();
+        $campaigns = Campaign::with(['projectLead', 'tasks.assignee', 'tasks.assigner', 'assetLogs.asset', 'assetLogs.user', 'campaignPhotos'])
             ->latest()
             ->get()
             ->each(function (Campaign $campaign) use ($user) {
@@ -735,7 +743,7 @@ class DepartmentController extends Controller
                         ->values()
                 );
             });
-        $staff      = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
+        $staff = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
 
         return view('portal.departments.operations', compact('vendors', 'promoters', 'assets', 'assetLogs', 'projects', 'campaigns', 'staff'));
     }
@@ -887,8 +895,8 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('brands', $request->user());
 
-        $materials   = Asset::where('type', 'POSM')->orWhere('type', 'posm')->latest()->paginate(5, ['*'], 'm_page')->withQueryString();
-        $blueprints  = Asset::where('type', 'blueprint')->latest()->paginate(5, ['*'], 'bp_page')->withQueryString();
+        $materials = Asset::where('type', 'POSM')->orWhere('type', 'posm')->latest()->paginate(5, ['*'], 'm_page')->withQueryString();
+        $blueprints = Asset::where('type', 'blueprint')->latest()->paginate(5, ['*'], 'bp_page')->withQueryString();
         $posmEntries = \App\Models\PosmLedger::with('creator')->latest()->paginate(5, ['*'], 'pe_page')->withQueryString();
 
         return view('portal.departments.brands', compact('materials', 'blueprints', 'posmEntries'));
@@ -930,8 +938,8 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('creatives', $request->user());
 
-        $briefs           = Task::where('department', 'creatives')->realWork()->latest()->paginate(5, ['*'], 'b_page')->withQueryString();
-        $designs          = Asset::where('type', 'design')->latest()->paginate(5, ['*'], 'd_page')->withQueryString();
+        $briefs = Task::where('department', 'creatives')->realWork()->latest()->paginate(5, ['*'], 'b_page')->withQueryString();
+        $designs = Asset::where('type', 'design')->latest()->paginate(5, ['*'], 'd_page')->withQueryString();
         $creativeComments = \App\Models\CreativeComment::with(['user', 'task'])->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
 
         return view('portal.departments.creative', compact('briefs', 'designs', 'creativeComments'));
@@ -958,9 +966,9 @@ class DepartmentController extends Controller
             $jobDesc = $request->input('job_description_custom');
         }
 
-        $fullTitle = '[' . $jobDesc . '] ' . $request->input('title');
+        $fullTitle = '['.$jobDesc.'] '.$request->input('title');
 
-        Task::create([
+        $task = Task::create([
             'title' => $fullTitle,
             'details' => $request->input('details'),
             'assigned_to' => $request->user()->id,
@@ -972,6 +980,16 @@ class DepartmentController extends Controller
             'progress' => 0,
         ]);
 
+        if (\Illuminate\Support\Facades\Schema::hasTable('creative_requests')) {
+            app(\App\Services\Creative\CreativeLegacyImport::class)->run();
+            $studio = \App\Models\CreativeRequest::where('task_id', $task->id)->first();
+            if ($studio) {
+                $studio->update(['received_at' => now(), 'legacy' => false, 'stage' => 'brief_received', 'reviewer_id' => $request->user()->id]);
+                $workflow = app(\App\Services\Creative\CreativeWorkflow::class);
+                $workflow->event($studio, $request->user(), 'submitted', [], 'Brief submitted through the existing creative intake form.');
+                $workflow->notify($studio, $workflow->leads(), 'New creative brief', $studio->reference.' has been submitted.');
+            }
+        }
         return back()->with('status', 'Creative Design Brief submitted successfully!');
     }
 
@@ -991,13 +1009,13 @@ class DepartmentController extends Controller
         ]);
 
         $filePath = $request->file('file')->store('designs', 'public');
-        
+
         $jobDesc = $request->input('job_description');
         if ($jobDesc === 'Other' && $request->filled('job_description_custom')) {
             $jobDesc = $request->input('job_description_custom');
         }
 
-        $fullName = '[' . $jobDesc . '] ' . $request->input('name');
+        $fullName = '['.$jobDesc.'] '.$request->input('name');
 
         Asset::create([
             'name' => $fullName,
@@ -1021,18 +1039,19 @@ class DepartmentController extends Controller
     public function storePreTicket(Request $request): RedirectResponse
     {
         $request->validate([
-            'visitor_name'     => ['required', 'string', 'max:255'],
-            'visitor_company'  => ['nullable', 'string', 'max:255'],
-            'visitor_email'    => ['nullable', 'email', 'max:255'],
-            'visitor_phone'    => ['nullable', 'string', 'max:30'],
-            'purpose'          => ['required', 'string', 'max:1000'],
-            'host_id'          => ['required', 'exists:users,id'],
+            'visitor_name' => ['required', 'string', 'max:255'],
+            'visitor_company' => ['nullable', 'string', 'max:255'],
+            'visitor_email' => ['nullable', 'email', 'max:255'],
+            'visitor_phone' => ['nullable', 'string', 'max:30'],
+            'purpose' => ['required', 'string', 'max:1000'],
+            'host_id' => ['required', 'exists:users,id'],
             'expected_arrival' => ['required', 'date'],
         ]);
         \App\Models\VisitorPreTicket::create(array_merge(
             $request->only('visitor_name', 'visitor_company', 'visitor_email', 'visitor_phone', 'purpose', 'host_id', 'expected_arrival'),
             ['created_by' => $request->user()->id, 'status' => 'pending']
         ));
+
         return back()->with('status', 'Visitor pre-ticket created. Front desk has been notified.');
     }
 
@@ -1041,6 +1060,7 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('admin', $request->user());
         $ticket->update(['status' => 'arrived']);
+
         return back()->with('status', 'Visitor marked as arrived.');
     }
 
@@ -1051,21 +1071,24 @@ class DepartmentController extends Controller
         $isDev = in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah'], true);
         $canEdit = $isDev || $user->access_role === 'super_admin'
             || in_array(strtolower($user->department ?? ''), ['admin', 'hr_admin']);
-        if (! $canEdit) abort(403, 'Only HR/Admin or Super Admin can manage the directory.');
+        if (! $canEdit) {
+            abort(403, 'Only HR/Admin or Super Admin can manage the directory.');
+        }
         $request->validate([
-            'name'      => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'job_title' => ['nullable', 'string', 'max:255'],
-            'department'=> ['nullable', 'string', 'max:100'],
-            'phone'     => ['nullable', 'string', 'max:30'],
+            'department' => ['nullable', 'string', 'max:100'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'extension' => ['nullable', 'string', 'max:10'],
-            'email'     => ['nullable', 'email', 'max:255'],
-            'category'  => ['required', 'string', 'in:staff,vendor,client,emergency'],
-            'company'   => ['nullable', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'category' => ['required', 'string', 'in:staff,vendor,client,emergency'],
+            'company' => ['nullable', 'string', 'max:255'],
         ]);
         \App\Models\PhoneDirectory::create(array_merge(
             $request->only('name', 'job_title', 'department', 'phone', 'extension', 'email', 'category', 'company'),
             ['is_vendor' => $request->input('category') === 'vendor']
         ));
+
         return back()->with('status', 'Directory entry added successfully.');
     }
 
@@ -1079,6 +1102,7 @@ class DepartmentController extends Controller
             abort(403);
         }
         $entry->delete();
+
         return back()->with('status', 'Directory entry removed.');
     }
 
@@ -1094,7 +1118,7 @@ class DepartmentController extends Controller
         $salaryAdvanceTermsNote = SalaryAdvancePolicy::termsNote();
         $isFinance = $this->canActionSalaryAdvanceFinance($user);
         $isHR = $user->hasFullHrAccess();
-            
+
         $isCVO = $user->job_level === 'super_admin'
             || $user->access_role === 'super_admin';
 
@@ -1143,14 +1167,14 @@ class DepartmentController extends Controller
     public function storeInvoice(Request $request): RedirectResponse
     {
         $request->validate([
-            'supplier_name'  => ['required', 'string', 'max:255'],
+            'supplier_name' => ['required', 'string', 'max:255'],
             'invoice_number' => ['nullable', 'string', 'max:100'],
-            'description'    => ['required', 'string', 'max:2000'],
-            'amount'         => ['required', 'numeric', 'min:0.01'],
-            'currency'       => ['nullable', 'string'],
-            'task_id'        => ['nullable', 'exists:tasks,id'],
-            'attachment'     => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
-            'submit_to'      => ['required', 'string', 'in:finance,cvo'],
+            'description' => ['required', 'string', 'max:2000'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'currency' => ['nullable', 'string'],
+            'task_id' => ['nullable', 'exists:tasks,id'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
+            'submit_to' => ['required', 'string', 'in:finance,cvo'],
         ]);
         $path = null;
         if ($request->hasFile('attachment')) {
@@ -1158,27 +1182,27 @@ class DepartmentController extends Controller
         }
         $currency = $this->validateCurrency($request->input('currency', 'GHC'));
         $submitTo = $request->input('submit_to', 'cvo');
-        
+
         $status = ($submitTo === 'finance') ? 'Submitted to Finance' : 'Submitted to CVO';
 
         $invoice = \App\Models\SupplierInvoice::create([
-            'submitted_by'    => $request->user()->id,
-            'task_id'         => $request->input('task_id'),
-            'invoice_number'  => $request->input('invoice_number'),
-            'supplier_name'   => $request->input('supplier_name'),
-            'description'     => $request->input('description'),
-            'amount'          => $request->input('amount'),
-            'currency'        => $currency,
+            'submitted_by' => $request->user()->id,
+            'task_id' => $request->input('task_id'),
+            'invoice_number' => $request->input('invoice_number'),
+            'supplier_name' => $request->input('supplier_name'),
+            'description' => $request->input('description'),
+            'amount' => $request->input('amount'),
+            'currency' => $currency,
             'attachment_path' => $path,
-            'status'          => $status,
+            'status' => $status,
         ]);
 
         if ($submitTo === 'finance') {
             // Notify Finance Users
             $financeUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('department', 'finance')
-                      ->orWhere('access_role', 'super_admin');
+                        ->orWhere('access_role', 'super_admin');
                 })->get();
             foreach ($financeUsers as $fin) {
                 \App\Services\NotificationService::send(
@@ -1188,13 +1212,14 @@ class DepartmentController extends Controller
                     route('portal.finance')
                 );
             }
-            return back()->with('status', '📤 Supplier invoice submitted to Finance for verification.');
+
+            return back()->with('status', ' Supplier invoice submitted to Finance for verification.');
         } else {
             // Notify CVO Users
             $cvoUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('access_role', 'super_admin')
-                      ->orWhere('job_level', 'super_admin');
+                        ->orWhere('job_level', 'super_admin');
                 })->get();
             foreach ($cvoUsers as $cvo) {
                 \App\Services\NotificationService::send(
@@ -1204,7 +1229,8 @@ class DepartmentController extends Controller
                     route('portal.cvo')
                 );
             }
-            return back()->with('status', '📤 Supplier invoice submitted directly to CVO for approval.');
+
+            return back()->with('status', ' Supplier invoice submitted directly to CVO for approval.');
         }
     }
 
@@ -1218,12 +1244,12 @@ class DepartmentController extends Controller
         if ($invoice->status === 'Submitted to Finance') {
             if ($action === 'verify' || $action === 'approve') {
                 $invoice->update(['status' => 'Finance Approved']);
-                
+
                 // Notify CVO/Super Admin
                 $cvoUsers = User::internalStaff()->where('status', 'active')
-                    ->where(function($q) {
+                    ->where(function ($q) {
                         $q->where('access_role', 'super_admin')
-                          ->orWhere('job_level', 'super_admin');
+                            ->orWhere('job_level', 'super_admin');
                     })->get();
                 foreach ($cvoUsers as $cvo) {
                     \App\Services\NotificationService::send(
@@ -1234,12 +1260,12 @@ class DepartmentController extends Controller
                     );
                 }
 
-                return back()->with('status', '✅ Invoice verified and approved by Finance. Sent to CVO.');
+                return back()->with('status', ' Invoice verified and approved by Finance. Sent to CVO.');
             }
 
             if ($action === 'reject') {
                 $invoice->update(['status' => 'Rejected']);
-                
+
                 // Notify submitter
                 \App\Services\NotificationService::send(
                     $invoice->submitted_by,
@@ -1273,7 +1299,7 @@ class DepartmentController extends Controller
 
         // Finance can only Pay, Flag, or Reject AFTER CVO has approved
         if ($invoice->status !== 'CVO Approved') {
-            return back()->withErrors(['error' => '⚠️ This invoice requires CVO approval first before Finance can action it.']);
+            return back()->withErrors(['error' => ' This invoice requires CVO approval first before Finance can action it.']);
         }
 
         $validActions = ['flag' => 'Flagged', 'reject' => 'Rejected', 'pay' => 'Paid', 'return' => 'Returned for Correction'];
@@ -1310,12 +1336,14 @@ class DepartmentController extends Controller
 
         if ($action === 'approve') {
             $invoice->update(['status' => 'CVO Approved']);
-            return back()->with('status', '✅ Invoice approved by CVO. Finance can now process it.');
+
+            return back()->with('status', ' Invoice approved by CVO. Finance can now process it.');
         }
 
         if ($action === 'reject') {
             $invoice->update(['status' => 'Rejected']);
-            return back()->with('status', '✗ Invoice rejected by CVO.');
+
+            return back()->with('status', ' Invoice rejected by CVO.');
         }
 
         if ($action === 'return') {
@@ -1323,7 +1351,8 @@ class DepartmentController extends Controller
                 'status' => 'Returned for Correction',
                 'notes' => $request->input('notes'),
             ]);
-            return back()->with('status', '🔄 Invoice returned by CVO for correction.');
+
+            return back()->with('status', ' Invoice returned by CVO for correction.');
         }
 
         return back()->withErrors(['error' => 'Invalid CVO action.']);
@@ -1347,33 +1376,33 @@ class DepartmentController extends Controller
     public function resubmitInvoice(Request $request, \App\Models\SupplierInvoice $invoice): RedirectResponse
     {
         $user = $request->user();
-        if ($invoice->submitted_by !== $user->id && !$user->hasRole('super_admin')) {
+        if ($invoice->submitted_by !== $user->id && ! $user->hasRole('super_admin')) {
             abort(403);
         }
 
         $request->validate([
-            'supplier_name'  => ['required', 'string', 'max:255'],
+            'supplier_name' => ['required', 'string', 'max:255'],
             'invoice_number' => ['nullable', 'string', 'max:100'],
-            'description'    => ['required', 'string', 'max:2000'],
-            'amount'         => ['required', 'numeric', 'min:0.01'],
-            'currency'       => ['nullable', 'string'],
-            'task_id'        => ['nullable', 'exists:tasks,id'],
-            'attachment'     => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
-            'submit_to'      => ['required', 'string', 'in:finance,cvo'],
+            'description' => ['required', 'string', 'max:2000'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'currency' => ['nullable', 'string'],
+            'task_id' => ['nullable', 'exists:tasks,id'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
+            'submit_to' => ['required', 'string', 'in:finance,cvo'],
         ]);
 
         $submitTo = $request->input('submit_to', 'cvo');
         $status = ($submitTo === 'finance') ? 'Submitted to Finance' : 'Submitted to CVO';
 
         $updateData = [
-            'supplier_name'  => $request->input('supplier_name'),
+            'supplier_name' => $request->input('supplier_name'),
             'invoice_number' => $request->input('invoice_number'),
-            'description'    => $request->input('description'),
-            'amount'         => $request->input('amount'),
-            'currency'       => $this->validateCurrency($request->input('currency', 'GHC')),
-            'task_id'        => $request->input('task_id'),
-            'notes'          => null,
-            'status'         => $status,
+            'description' => $request->input('description'),
+            'amount' => $request->input('amount'),
+            'currency' => $this->validateCurrency($request->input('currency', 'GHC')),
+            'task_id' => $request->input('task_id'),
+            'notes' => null,
+            'status' => $status,
         ];
 
         if ($request->hasFile('attachment')) {
@@ -1390,9 +1419,9 @@ class DepartmentController extends Controller
         if ($submitTo === 'finance') {
             // Notify Finance Users
             $financeUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('department', 'finance')
-                      ->orWhere('access_role', 'super_admin');
+                        ->orWhere('access_role', 'super_admin');
                 })->get();
             foreach ($financeUsers as $fin) {
                 \App\Services\NotificationService::send(
@@ -1402,13 +1431,14 @@ class DepartmentController extends Controller
                     route('portal.finance')
                 );
             }
-            return back()->with('status', '📤 Invoice resubmitted to Finance for verification.');
+
+            return back()->with('status', ' Invoice resubmitted to Finance for verification.');
         } else {
             // Notify CVO Users
             $cvoUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('access_role', 'super_admin')
-                      ->orWhere('job_level', 'super_admin');
+                        ->orWhere('job_level', 'super_admin');
                 })->get();
             foreach ($cvoUsers as $cvo) {
                 \App\Services\NotificationService::send(
@@ -1418,7 +1448,8 @@ class DepartmentController extends Controller
                     route('portal.cvo')
                 );
             }
-            return back()->with('status', '📤 Invoice resubmitted directly to CVO.');
+
+            return back()->with('status', ' Invoice resubmitted directly to CVO.');
         }
     }
 
@@ -1427,18 +1458,19 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('brands', $request->user());
         $request->validate([
-            'item_name'    => ['required', 'string', 'max:255'],
-            'item_type'    => ['required', 'string', 'in:POSM,Uniform,Banner,Tablet,AV,Other'],
+            'item_name' => ['required', 'string', 'max:255'],
+            'item_type' => ['required', 'string', 'in:POSM,Uniform,Banner,Tablet,AV,Other'],
             'client_brand' => ['nullable', 'string', 'max:255'],
-            'quantity_in'  => ['required', 'integer', 'min:0'],
+            'quantity_in' => ['required', 'integer', 'min:0'],
             'quantity_out' => ['required', 'integer', 'min:0'],
-            'location'     => ['nullable', 'string', 'max:255'],
-            'notes'        => ['nullable', 'string', 'max:1000'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
         \App\Models\PosmLedger::create(array_merge(
             $request->only('item_name', 'item_type', 'client_brand', 'quantity_in', 'quantity_out', 'location', 'notes'),
             ['created_by' => $request->user()->id]
         ));
+
         return back()->with('status', 'POSM / Materials ledger entry saved.');
     }
 
@@ -1447,6 +1479,7 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('brands', $request->user());
         $entry->delete();
+
         return back()->with('status', 'POSM entry removed.');
     }
 
@@ -1455,23 +1488,24 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('creatives', $request->user());
         $request->validate([
-            'comment'       => ['required', 'string', 'max:2000'],
+            'comment' => ['required', 'string', 'max:2000'],
             'version_label' => ['nullable', 'string', 'max:20'],
-            'status'        => ['required', 'string', 'in:feedback,approved,revision_requested'],
-            'attachment'    => ['nullable', 'file', 'max:10240'],
+            'status' => ['required', 'string', 'in:feedback,approved,revision_requested'],
+            'attachment' => ['nullable', 'file', 'max:10240'],
         ]);
         $path = null;
         if ($request->hasFile('attachment')) {
             $path = $request->file('attachment')->store('creative_files', 'public');
         }
         \App\Models\CreativeComment::create([
-            'task_id'         => $task->id,
-            'user_id'         => $request->user()->id,
-            'comment'         => $request->input('comment'),
-            'version_label'   => $request->input('version_label'),
-            'status'          => $request->input('status'),
+            'task_id' => $task->id,
+            'user_id' => $request->user()->id,
+            'comment' => $request->input('comment'),
+            'version_label' => $request->input('version_label'),
+            'status' => $request->input('status'),
             'attachment_path' => $path,
         ]);
+
         return back()->with('status', 'Proofing comment added to design brief.');
     }
 
@@ -1505,7 +1539,7 @@ class DepartmentController extends Controller
                     if ($request->repayment_style === 'monthly_deduction' && (float) $value < $minimumMonthlyDeduction) {
                         $fail(SalaryAdvancePolicy::minimumValidationMessage($minimumMonthlyDeduction));
                     }
-                }
+                },
             ],
             'reason' => ['required', 'string', 'max:2000'],
         ]);
@@ -1540,7 +1574,7 @@ class DepartmentController extends Controller
         if ($advance->status !== 'returned_for_correction' || $advance->disbursed_at) {
             return back()->withErrors(['action' => 'Only a request returned for correction can be resubmitted.']);
         }
-        if ($advance->user_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ($advance->user_id !== $user->id && ! $user->hasRole('super_admin')) {
             abort(403);
         }
 
@@ -1567,7 +1601,7 @@ class DepartmentController extends Controller
                     if ($request->repayment_style === 'monthly_deduction' && (float) $value < $minimumMonthlyDeduction) {
                         $fail(SalaryAdvancePolicy::minimumValidationMessage($minimumMonthlyDeduction));
                     }
-                }
+                },
             ],
             'reason' => ['required', 'string', 'max:2000'],
         ]);
@@ -1699,7 +1733,7 @@ class DepartmentController extends Controller
         $user = $request->user();
         $isFinance = $this->canActionSalaryAdvanceFinance($user);
 
-        if (!$isFinance) {
+        if (! $isFinance) {
             abort(403, 'Only Finance department staff or Super Admin can action this request.');
         }
 
@@ -1791,7 +1825,8 @@ class DepartmentController extends Controller
                 route('portal.finance.advances.index'),
                 $user->id
             );
-            return back()->with('status', '✅ Verified salary advance. Forwarded to CVO for approval.');
+
+            return back()->with('status', ' Verified salary advance. Forwarded to CVO for approval.');
         } elseif ($action === 'correction') {
             $advance->update([
                 'status' => 'returned_for_correction',
@@ -1799,7 +1834,8 @@ class DepartmentController extends Controller
                 'finance_reviewed_by' => $user->id,
                 'finance_reviewed_at' => now(),
             ]);
-            return back()->with('status', '🔄 Request returned to user for correction.');
+
+            return back()->with('status', ' Request returned to user for correction.');
         } else {
             $advance->update([
                 'status' => 'rejected',
@@ -1807,7 +1843,8 @@ class DepartmentController extends Controller
                 'finance_reviewed_by' => $user->id,
                 'finance_reviewed_at' => now(),
             ]);
-            return back()->with('status', '✗ Salary advance request rejected.');
+
+            return back()->with('status', ' Salary advance request rejected.');
         }
     }
 

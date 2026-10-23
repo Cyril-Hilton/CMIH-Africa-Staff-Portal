@@ -5,6 +5,18 @@
             <h2 class="text-3xl font-display text-brand-white">HR & Admin Command Center</h2>
         </div>
     </x-slot>
+    <style>
+        .hr-module-summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.25rem 1.5rem;cursor:pointer;list-style:none;color:var(--brand-white,#fff)}
+        .hr-module-summary::-webkit-details-marker{display:none}.hr-module-summary:focus-visible{outline:2px solid #ef4444;outline-offset:3px;border-radius:1rem}
+        .hr-module-description{display:block;margin-top:.35rem;font-size:.75rem;line-height:1.5;opacity:.65;font-weight:400}
+        .hr-module-chevron{font-size:1.5rem;transition:transform .15s}details[open]>.hr-module-summary .hr-module-chevron{transform:rotate(180deg)}
+        details[open]>.hr-module-summary{border-bottom:1px solid rgba(128,128,128,.2)}
+        @media print{details:not([open])>*:not(summary){display:block!important}.hr-module-chevron{display:none}}
+    </style>
+    <div class="mb-5 grid gap-3 sm:grid-cols-2">
+        @if(auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>HR reporting table</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
+        <a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Admin / Administrator reporting table</strong><span class="block text-xs text-brand-ash mt-1">Office administration, fleet, drivers, assets and next-period priorities</span></a>
+    </div>
 
     @php
         // Only HR Managers (Level 1) and Super Admin can access sensitive HR data
@@ -32,7 +44,7 @@
 
     <div class="space-y-8">
         @if($canManageHrAnnouncements)
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff communications</strong><span class="hr-module-description">Create announcements and review recent notices.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Staff Communication</p>
@@ -121,11 +133,11 @@
                     </div>
                 @endforelse
             </div>
-        </div>
+        </div></details>
         @endif
 
         @if($canDoSensitiveHr)
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Salary advance policy</strong><span class="hr-module-description">Manage default terms and staff-specific agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
@@ -230,7 +242,7 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div></details>
         @endif
 
         @if($canDoSensitiveHr)
@@ -246,7 +258,7 @@
                 'rejected' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
             ];
         @endphp
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Staff loan management</strong><span class="hr-module-description">Review requests, repayments and agreements.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Finance Policy</p>
@@ -391,7 +403,7 @@
                     {{ $salaryAdvanceRequests->links() }}
                 </div>
             @endif
-        </div>
+        </div></details>
         @endif
 
         @if($canManageLeaves)
@@ -406,7 +418,7 @@
             ];
             $today = today();
         @endphp
-        <div id="staff-leave-manager" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details id="staff-leave-manager" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave management</strong><span class="hr-module-description">Review staff requests and manage leave decisions.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">HR Workflow</p>
@@ -541,14 +553,14 @@
                     {{ $allLeaves->links() }}
                 </div>
             @endif
-        </div>
+        </div></details>
         @endif
 
         <!-- Grid layout: Visitor Log & LifeCycle -->
         <div class="grid gap-6 lg:grid-cols-2">
             <!-- Visitor Log Form and Listing -->
-            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🚪 Visitor Management System</h3>
+            <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Visitor reception</strong><span class="hr-module-description">Register arrivals and review recent visits.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="logout" /> Visitor Management System</h3>
                 <form method="POST" action="{{ route('portal.hr.visitors.store') }}" class="space-y-4 mb-6">
                     @csrf
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -612,12 +624,13 @@
                         {{ $visitors->links() }}
                     </div>
                 @endif
-            </div>
+            </div></details>
 
             {{-- Employee Lifecycle Tracker: HR Manager only --}}
             @if($canDoSensitiveHr)
-            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📊 Employee Lifecycle & Contracts</h3>
+            <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Employee lifecycle &amp; contracts</strong><span class="hr-module-description">Manage employment changes and contract milestones.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="chart" /> Employee Lifecycle & Contracts</h3>
+                <a href="{{ route('portal.hr.staff.index') }}" class="mb-4 inline-block rounded-xl bg-brand-red px-4 py-2 text-sm text-white">Manage staff records</a>
                 <div class="space-y-4">
                     @foreach($staff->take(5) as $employee)
                         <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-4">
@@ -639,12 +652,12 @@
                         </div>
                     @endforeach
                 </div>
-            </div>
+            </div></details>
             @endif{{-- /canDoSensitiveHr --}}
         </div>{{-- /Visitor+Lifecycle grid --}}
 
         @if($canDoSensitiveHr)
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Leave entitlements &amp; exports</strong><span class="hr-module-description">Update entitlements and download HR reports.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Leave Entitlements & HR Exports</h3>
@@ -687,20 +700,20 @@
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div></details>
         @endif
 
         {{-- ── Employee Lifecycle & Contracts: HR Manager only ──────────────── --}}
         @if($canDoSensitiveHr)
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Appraisal tools</strong><span class="hr-module-description">Build assessment forms and manage parameters.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">🏆 Appraisal Form Builder</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="award" /> Appraisal Form Builder</h3>
                 <div class="flex items-center gap-2">
                     <a href="{{ route('portal.import.show', ['table' => 'appraisal_metrics']) }}" class="rounded-xl bg-brand-white/5 border border-brand-white/10 hover:bg-brand-white/10 px-3.5 py-1.5 text-xs text-brand-white font-semibold transition uppercase tracking-wider">
-                        📥 Import Metrics
+                        <x-ui-icon name="download" /> Import Metrics
                     </a>
                     <a href="{{ route('portal.export', ['table' => 'appraisal_metrics']) }}" class="rounded-xl bg-brand-white/5 border border-brand-white/10 hover:bg-brand-white/10 px-3.5 py-1.5 text-xs text-brand-white font-semibold transition uppercase tracking-wider">
-                        📤 Export Metrics
+                        <x-ui-icon name="upload" /> Export Metrics
                     </a>
                 </div>
             </div>
@@ -840,7 +853,7 @@
                                 </select>
                                 <input type="text" placeholder="Width" value="${col.width}" onchange="updateCol(${index}, 'width', this.value)"
                                     class="w-16 rounded border border-brand-white/10 bg-brand-black/60 px-1 py-1 text-xs text-brand-white" />
-                                <button type="button" onclick="deleteCol(${index})" class="text-brand-red font-bold hover:text-red-400">✕</button>
+                                <button type="button" onclick="deleteCol(${index})" class="text-brand-red font-bold hover:text-red-400"></button>
                             `;
                             container.appendChild(row);
                         });
@@ -864,32 +877,24 @@
                     }
                 </script>
             </div>
-        </div>{{-- /Appraisal Form Builder --}}
+        </div></details>{{-- /Appraisal Form Builder --}}
 
         {{-- ── Central Vault: HR Manager only ─────────────────────────────── --}}
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📂 Central Vault (Templates & Guides)</h3>
+        <details class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Templates &amp; guides</strong><span class="hr-module-description">Access HR reference materials.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="folder" /> Central Vault (Templates & Guides)</h3>
             <div class="grid gap-4 sm:grid-cols-3">
                 @foreach([
-                    ['name' => 'Onboarding Checklist Blueprint.docx', 'size' => '245 KB'],
-                    ['name' => 'Employment Agreement Template.pdf', 'size' => '1.2 MB'],
-                    ['name' => 'Performance Evaluation Manual.pdf', 'size' => '850 KB']
-                ] as $doc)
-                    <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-4 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <svg class="h-8 w-8 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            <div>
-                                <p class="text-xs font-semibold text-brand-white truncate max-w-[150px]">{{ $doc['name'] }}</p>
-                                <p class="text-[10px] text-brand-white/40">{{ $doc['size'] }}</p>
-                            </div>
-                        </div>
-                        <a href="#" class="rounded-full bg-brand-white/10 p-2 text-brand-white hover:bg-brand-white/20 transition-all">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        </a>
-                    </div>
+                    ['label'=>'Staff Import Template','description'=>'Download the formatted Excel template for staff records.','url'=>route('portal.hr.staff.import.template')],
+                    ['label'=>'Staff Records & Documents','description'=>'Open staff records and their authorised documents.','url'=>route('portal.hr.staff.index')],
+                    ['label'=>'Performance Definitions','description'=>'Review departmental objectives and KPI definitions.','url'=>route('portal.performance.index',['department'=>'hr_admin','view'=>'dictionary'])]
+                ] as $resource)
+                    <a href="{{ $resource['url'] }}" class="block min-w-0 rounded-xl border border-brand-white/15 bg-brand-white/5 p-4 transition hover:border-brand-red/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-red">
+                        <strong class="block text-sm text-brand-white">{{ $resource['label'] }}</strong>
+                        <span class="mt-2 block text-xs text-brand-ash">{{ $resource['description'] }}</span>
+                    </a>
                 @endforeach
             </div>
-        </div>{{-- /Central Vault --}}
+        </div></details>{{-- /Central Vault --}}
         @endif{{-- /canDoSensitiveHr --}}
     </div>
 
@@ -898,11 +903,11 @@
     ══════════════════════════════════════════════════════════════════════ --}}
 
     {{-- Visitor Pre-Ticketing ──────────────────────────────────────────────── --}}
-    <div class="mt-8 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+    <details class="mt-8 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Scheduled visitors</strong><span class="hr-module-description">Schedule visits and manage upcoming arrivals.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
             <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Phase 3</p>
-                <h3 class="text-lg font-display text-brand-white uppercase">🎟️ Visitor Pre-Ticketing</h3>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Reception services</p>
+                <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="id" /> Visitor Pre-Ticketing</h3>
             </div>
         </div>
         <div class="grid gap-6 lg:grid-cols-2">
@@ -953,7 +958,7 @@
                         </div>
                     </div>
                     <button type="submit" class="w-full rounded-xl bg-brand-red hover:bg-brand-red-dark py-2.5 text-xs uppercase tracking-widest font-semibold text-white transition-all">
-                        🎟️ Create Pre-Ticket
+                        <x-ui-icon name="id" /> Create Pre-Ticket
                     </button>
                 </form>
             </div>
@@ -975,7 +980,7 @@
                                 </div>
                                 <div class="text-right shrink-0">
                                     @if($pt->status === 'arrived')
-                                        <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-400">✅ Arrived</span>
+                                        <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-400"><x-ui-icon name="check" /> Arrived</span>
                                     @elseif($pt->status === 'pending')
                                         <form method="POST" action="{{ route('portal.hr.pre-tickets.arrive', $pt) }}">
                                             @csrf @method('PATCH')
@@ -998,14 +1003,14 @@
                 @endif
             </div>
         </div>
-    </div>
+    </div></details>
 
     {{-- Phone & Vendor Directory ────────────────────────────────────────────── --}}
-    <div class="mt-6 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+    <details class="mt-6 glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Contacts &amp; vendors</strong><span class="hr-module-description">Maintain the corporate contact directory.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
             <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Phase 3</p>
-                <h3 class="text-lg font-display text-brand-white uppercase">📞 Corporate Phone & Vendor Directory</h3>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Reception services</p>
+                <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="phone" /> Corporate Phone & Vendor Directory</h3>
             </div>
         </div>
         <div class="grid gap-6 lg:grid-cols-2">
@@ -1066,13 +1071,13 @@
                             <div>
                                 <p class="font-semibold text-brand-white">{{ $entry->name }}</p>
                                 <p class="text-brand-ash text-[10px]">{{ $entry->job_title }} · {{ $entry->company }}</p>
-                                <p class="text-brand-ash text-[10px]">📞 {{ $entry->phone ?? '—' }} @if($entry->email) · ✉ {{ $entry->email }} @endif</p>
+                                <p class="text-brand-ash text-[10px]"><x-ui-icon name="phone" /> {{ $entry->phone ?? '—' }} @if($entry->email) ·  {{ $entry->email }} @endif</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="rounded-full border border-brand-white/10 px-2 py-0.5 text-[10px] text-brand-white/50 capitalize">{{ $entry->category }}</span>
-                                <form method="POST" action="{{ route('portal.hr.directory.destroy', $entry) }}" onsubmit="return confirm('Remove entry?')">
+                                <form method="POST" action="{{ route('portal.hr.directory.destroy', $entry) }}" data-confirm="Remove entry?">
                                     @csrf @method('DELETE')
-                                    <button type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors">✕</button>
+                                    <button aria-label="Close" type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors"><x-ui-icon name="close" /></button>
                                 </form>
                             </div>
                         </div>
@@ -1087,7 +1092,7 @@
                 @endif
             </div>
         </div>
-    </div>
+    </div></details>
 
     <script>
         function toggleHrAnnouncementAudience(value) {

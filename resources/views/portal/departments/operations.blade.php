@@ -1,4 +1,6 @@
 <x-app-layout>
+<div class="mb-4"><a href="{{ route('portal.events.index') }}" class="inline-flex rounded-xl bg-brand-red px-4 py-3 font-semibold text-white">Events & Activations · Upload a Flyer</a></div>
+
     <x-slot name="header">
         <div>
             <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
@@ -187,7 +189,7 @@
                                                 <button type="button" x-on:click="openCampaign = {{ $camp->id }}; editingCampaign = editingCampaign === {{ $camp->id }} ? null : {{ $camp->id }}" class="rounded border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[9px] font-bold uppercase text-sky-300 transition hover:bg-sky-500/20">
                                                     Edit
                                                 </button>
-                                                <form method="POST" action="{{ route('portal.campaigns.destroy', $camp) }}" onsubmit="return confirm({{ \Illuminate\Support\Js::from('Delete "' . $camp->name . '"? This removes the campaign and live-share photos. Linked tasks and asset logs stay as history.') }});">
+                                                <form method="POST" action="{{ route('portal.campaigns.destroy', $camp) }}" data-confirm="Delete this campaign and its live-share photos? Linked tasks and asset logs stay as history.">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="rounded border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[9px] font-bold uppercase text-red-300 transition hover:bg-red-500/20">

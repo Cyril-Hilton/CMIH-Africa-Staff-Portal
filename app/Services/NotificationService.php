@@ -204,14 +204,14 @@ class NotificationService
                 // 1. Personal wish
                 self::send(
                     $user->id,
-                    '🎉 Happy Birthday!',
+                    'Happy Birthday!',
                     "Dear {$user->name}, CMIH Africa wishes you a wonderful Happy Birthday! Have an amazing day!",
                     route('portal.profile')
                 );
 
                 // 2. Team announcement
                 self::broadcastToInternalStaff(
-                    "🎂 Birthday Celebration: {$user->name}",
+                    "Birthday Celebration: {$user->name}",
                     "Today is {$user->name}'s birthday! Join us in wishing them a fantastic day!",
                     route('portal.directory'),
                     $user->id

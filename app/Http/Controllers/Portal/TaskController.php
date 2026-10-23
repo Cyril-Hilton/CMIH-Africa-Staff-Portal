@@ -330,8 +330,12 @@ class TaskController extends Controller
     /**
      * Show the form for editing the specified task.
      */
-    public function edit(Task $task, Request $request): View
+    public function edit(Task $task, Request $request): View|RedirectResponse
     {
+        if(\Illuminate\Support\Facades\Schema::hasTable('creative_requests') && ($studio=\App\Models\CreativeRequest::where('task_id',$task->id)->whereNotNull('planned_by')->first())) {
+            abort_unless(\App\Services\Creative\CreativeAccess::view($request->user(),$studio),403);
+            return redirect()->route('portal.creative',['request'=>$studio->id]);
+        }
         $user = $request->user();
         if (! $task->canBeEditedBy($user)) {
             abort(403);
@@ -962,7 +966,7 @@ class TaskController extends Controller
 
     private function canSelfApproveAssociatedCompletion(Task $task, User $user): bool
     {
-        if (! $user->isCyrilHilton()) {
+        if (! $user->isLineManager()) {
             return false;
         }
 

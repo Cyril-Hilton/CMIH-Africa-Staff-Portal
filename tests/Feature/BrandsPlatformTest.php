@@ -421,6 +421,6 @@ class BrandsPlatformTest extends TestCase
         $this->actingAs($staff)
             ->get(route('brands-platform.export', [$brand->slug, 'promoter']))
             ->assertOk()
-            ->assertHeader('content-type', 'text/csv; charset=utf-8');
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 }

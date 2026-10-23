@@ -19,7 +19,7 @@
 
     <div class="space-y-6">
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📋 Created Surveys</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clipboard" /> Created Surveys</h3>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[800px] text-left text-xs text-brand-white/70">
                     <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -77,7 +77,7 @@
                                             class="text-brand-white/40 hover:text-brand-white transition"
                                             title="Copy Link"
                                         >
-                                            📋
+                                            <x-ui-icon name="clipboard" />
                                         </button>
                                     </div>
                                 </td>

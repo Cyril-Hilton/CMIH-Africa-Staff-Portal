@@ -92,7 +92,7 @@
                 <p class="text-sm text-brand-white/60">Staff ID: {{ $user->staff_id_number ?? 'Pending' }}</p>
                 <p class="text-sm text-brand-white/60">Department: {{ $departmentLabel }}</p>
                 @if ($user->residential_address)
-                    <p class="mt-2 text-xs text-brand-white/40 uppercase tracking-widest">Address on file ✓</p>
+                    <p class="mt-2 text-xs text-brand-white/40 uppercase tracking-widest">Address on file <x-ui-icon name="check" /></p>
                 @endif
             </div>
 
@@ -101,7 +101,7 @@
                 <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
                     <button type="submit" class="w-full text-center rounded-xl bg-brand-red hover:bg-brand-red-dark py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-all">
-                        👋 Log Out
+                        <x-ui-icon name="logout" /> Log Out
                     </button>
                 </form>
             </div>

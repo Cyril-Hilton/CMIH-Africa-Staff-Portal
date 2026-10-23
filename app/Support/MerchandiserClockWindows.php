@@ -7,25 +7,34 @@ use Illuminate\Support\Carbon;
 
 class MerchandiserClockWindows
 {
+    public const VISIT_DEFAULTS = [
+        'label' => 'Outlet Visit Window',
+        'short_label' => 'Visit Window',
+        'icon' => 'clock',
+        'start' => '08:00',
+        'end' => '17:00',
+        'late_start' => '09:00',
+    ];
+
     public const DEFAULTS = [
         'morning' => [
             'label' => 'Morning Clock-in',
             'short_label' => 'Morning',
-            'icon' => '🌅',
+            'icon' => 'clock',
             'start' => '09:00',
             'end' => '10:00',
         ],
         'midday' => [
             'label' => 'Midday Check-in',
             'short_label' => 'Midday',
-            'icon' => '☀️',
+            'icon' => 'clock',
             'start' => '12:00',
             'end' => '13:00',
         ],
         'cob' => [
             'label' => 'Clock-out / COB',
             'short_label' => 'Clock-out',
-            'icon' => '🌇',
+            'icon' => 'clock',
             'start' => '16:30',
             'end' => '17:30',
         ],
@@ -54,6 +63,50 @@ class MerchandiserClockWindows
                 ];
             })
             ->all();
+    }
+
+    public static function visitSettings(): array
+    {
+        $start = self::cleanTime(
+            SiteContent::getValue('merchandiser_visit_window_start', self::VISIT_DEFAULTS['start']),
+            self::VISIT_DEFAULTS['start']
+        );
+        $end = self::cleanTime(
+            SiteContent::getValue('merchandiser_visit_window_end', self::VISIT_DEFAULTS['end']),
+            self::VISIT_DEFAULTS['end']
+        );
+        $lateStart = self::cleanTime(
+            SiteContent::getValue('merchandiser_visit_late_start', self::VISIT_DEFAULTS['late_start']),
+            self::VISIT_DEFAULTS['late_start']
+        );
+
+        return [
+            ...self::VISIT_DEFAULTS,
+            'start' => $start,
+            'end' => $end,
+            'late_start' => $lateStart,
+            'range' => "{$start}-{$end}",
+        ];
+    }
+
+    public static function visitWindow(string $timezone = 'Africa/Accra', ?Carbon $date = null): array
+    {
+        $date = $date ? $date->copy()->timezone($timezone) : Carbon::today($timezone);
+        $setting = self::visitSettings();
+        $start = Carbon::parse($date->toDateString().' '.$setting['start'], $timezone);
+        $end = Carbon::parse($date->toDateString().' '.$setting['end'], $timezone);
+        $lateStart = Carbon::parse($date->toDateString().' '.$setting['late_start'], $timezone);
+
+        if ($end->lt($start)) {
+            $end->addDay();
+        }
+
+        return [
+            ...$setting,
+            'start_at' => $start,
+            'end_at' => $end,
+            'late_start_at' => $lateStart,
+        ];
     }
 
     public static function windows(string $timezone = 'Africa/Accra', ?Carbon $date = null): array
@@ -92,6 +145,15 @@ class MerchandiserClockWindows
         return $rules;
     }
 
+    public static function visitValidationRules(): array
+    {
+        return [
+            'visit_start' => ['required', 'date_format:H:i'],
+            'visit_end' => ['required', 'date_format:H:i'],
+            'late_start' => ['required', 'date_format:H:i'],
+        ];
+    }
+
     public static function persist(array $validated, int $updatedBy): void
     {
         foreach (array_keys(self::DEFAULTS) as $slot) {
@@ -105,6 +167,26 @@ class MerchandiserClockWindows
                     ]
                 );
             }
+        }
+
+        SiteContent::forgetCachedValues();
+    }
+
+    public static function persistVisitWindow(array $validated, int $updatedBy): void
+    {
+        foreach ([
+            'merchandiser_visit_window_start' => $validated['visit_start'],
+            'merchandiser_visit_window_end' => $validated['visit_end'],
+            'merchandiser_visit_late_start' => $validated['late_start'],
+        ] as $key => $value) {
+            SiteContent::updateOrCreate(
+                ['key' => $key],
+                [
+                    'value' => $value,
+                    'type' => 'text',
+                    'updated_by' => $updatedBy,
+                ]
+            );
         }
 
         SiteContent::forgetCachedValues();

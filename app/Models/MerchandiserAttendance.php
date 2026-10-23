@@ -15,11 +15,14 @@ class MerchandiserAttendance extends Model
     protected $fillable = [
         'user_id', 'outlet_id', 'clock_in_type', 'clock_in_time',
         'client_recorded_at', 'sync_token', 'sync_source', 'synced_at',
-        'latitude', 'longitude', 'distance_from_outlet', 'status'
+        'latitude', 'longitude', 'distance_from_outlet', 'status',
+        'clock_out_time', 'clock_out_latitude', 'clock_out_longitude', 'clock_out_distance_from_outlet', 'visit_duration_minutes',
     ];
 
     protected $casts = [
         'clock_in_time' => 'datetime',
+        'clock_out_time' => 'datetime',
+        'visit_duration_minutes' => 'integer',
         'client_recorded_at' => 'datetime',
         'synced_at' => 'datetime',
         'latitude' => 'decimal:8',

@@ -64,7 +64,7 @@
     {{-- Session flash --}}
     @if (session('status'))
         <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400 flex items-center gap-3">
-            <span class="text-lg">✅</span> {{ session('status') }}
+            <span class="text-lg"><x-ui-icon name="check" /></span> {{ session('status') }}
         </div>
     @endif
 
@@ -179,7 +179,7 @@
                                 @endif
                                 @if ($isOverdue)
                                     <span class="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-red-400 font-bold animate-pulse">
-                                        ⚠ Overdue
+                                        <x-ui-icon name="alert" /> Overdue
                                     </span>
                                 @endif
                             </div>
@@ -207,13 +207,13 @@
                         @if ($canEdit)
                             <div class="mt-3 flex flex-wrap items-center justify-start gap-2 transition-all sm:justify-end">
                                 <a href="{{ route('portal.tasks.edit', $task) }}" class="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-brand-white/10 bg-brand-white/5 px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-brand-white/70 transition-all hover:bg-brand-white/10 hover:text-brand-white sm:flex-none sm:py-1.5">
-                                    ✏ Edit
+                                    <x-ui-icon name="edit" /> Edit
                                 </a>
-                                <form method="POST" action="{{ route('portal.tasks.destroy', $task) }}" onsubmit="return confirm('Delete this task?')" class="flex-1 sm:flex-none">
+                                <form method="POST" action="{{ route('portal.tasks.destroy', $task) }}" data-confirm="Delete this task?" class="flex-1 sm:flex-none">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="inline-flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-[10px] uppercase tracking-[0.15em] text-brand-red transition-all hover:bg-brand-red/20 sm:w-auto sm:py-1.5">
-                                        🗑 Delete
+                                        <x-ui-icon name="spark" /> Delete
                                     </button>
                                 </form>
                             </div>
@@ -223,7 +223,7 @@
             </div>
         @empty
             <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-12 text-center">
-                <div class="text-4xl mb-3">📋</div>
+                <div class="text-4xl mb-3"><x-ui-icon name="clipboard" /></div>
                 <p class="text-brand-white/50 text-sm">No tasks assigned to you yet.</p>
                 <a href="{{ route('portal.tasks', ['view' => 'create']) }}" class="mt-4 inline-block rounded-xl bg-brand-red/20 border border-brand-red/30 hover:bg-brand-red/30 px-5 py-2.5 text-xs uppercase tracking-[0.2em] text-brand-red transition-all">
                     Create Your First Task

@@ -10,8 +10,8 @@
                 <a href="{{ route('portal.assets') }}" class="rounded-full border border-brand-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-white/65 transition hover:text-brand-white">
                     Office Assets
                 </a>
-                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'inventory', 'format' => 'csv'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
-                    Inventory CSV
+                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'inventory', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
+                    Inventory Excel
                 </a>
                 <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'inventory', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-sky-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-300 transition hover:bg-sky-500/10">
                     Inventory Excel
@@ -19,8 +19,8 @@
                 <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'inventory', 'format' => 'pdf'] + request()->query()) }}" data-no-asset-async target="_blank" class="rounded-full border border-brand-red/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-red transition hover:bg-brand-red/10">
                     Inventory PDF
                 </a>
-                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'requests', 'format' => 'csv'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
-                    Requests CSV
+                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'requests', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
+                    Requests Excel
                 </a>
                 <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'requests', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
                     Requests Excel
@@ -28,8 +28,8 @@
                 <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'requests', 'format' => 'pdf'] + request()->query()) }}" data-no-asset-async target="_blank" class="rounded-full border border-emerald-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
                     Requests PDF
                 </a>
-                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'posm', 'format' => 'csv'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-amber-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 transition hover:bg-amber-500/10">
-                    POSM CSV
+                <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'posm', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-amber-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 transition hover:bg-amber-500/10">
+                    POSM Excel
                 </a>
                 <a href="{{ route('portal.assets.warehouse.export', ['scope' => 'posm', 'format' => 'excel'] + request()->query()) }}" data-no-asset-async class="rounded-full border border-amber-500/30 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 transition hover:bg-amber-500/10">
                     POSM Excel
@@ -419,7 +419,7 @@
                                     <td class="px-4 py-4">{{ $entry->creator?->name ?? 'System' }}</td>
                                     @if($canEditWarehouse)
                                         <td class="px-4 py-4 text-right">
-                                            <form method="POST" action="{{ route('portal.assets.warehouse.posm.destroy', $entry) }}" onsubmit="return confirm('Remove this warehouse movement?')">
+                                            <form method="POST" action="{{ route('portal.assets.warehouse.posm.destroy', $entry) }}" data-confirm="Remove this warehouse movement?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="rounded-full border border-brand-red/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-red transition hover:bg-brand-red/10">Delete</button>

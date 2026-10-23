@@ -129,11 +129,6 @@
             if (!form || !region || form.dataset.noAssetAsync !== undefined || event.defaultPrevented) return;
             if (!actionBelongsToRegion(form, region)) return;
 
-            if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
-                event.preventDefault();
-                return;
-            }
-
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;

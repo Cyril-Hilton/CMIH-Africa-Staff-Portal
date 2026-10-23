@@ -92,7 +92,7 @@
                 <a href="{{ route('disclaimer') }}" class="hover:text-brand-white">Disclaimer</a>
                 <a href="{{ route('terms') }}" class="hover:text-brand-white">Terms</a>
                 <a href="{{ Route::has('login') ? route('login') : '#' }}" class="hover:text-brand-white">Internal Portal Login</a>
-                <a href="#" class="hover:text-brand-white">Career Opportunities</a>
+                <a href="{{ rtrim(config('cmih.urls.website'), '/').'/contact?service=Career%20Enquiry' }}" class="hover:text-brand-white">Career Opportunities</a>
             </div>
             <p class="text-[0.65rem]">&copy; 2026 CMIH Africa. All Rights Reserved.</p>
         </div>

@@ -48,8 +48,19 @@ class UserController extends Controller
         return view('admin.users', compact('users'));
     }
 
+    private function authorizeTarget(User $target): void
+    {
+        $actor = request()->user();
+        $allowed = $actor && $target->id !== $actor->id && ($actor->access_role === 'super_admin'
+            || ($actor->isCvoOrSuperAdmin() && $target->access_role !== 'super_admin')
+            || ($actor->hasRole('admin') && ! $target->isCvoOrSuperAdmin())
+            || User::canEditUser($actor, $target));
+        abort_unless($allowed, 403, 'You do not have permission to change this account.');
+    }
+
     public function approve(User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         $user->update(['status' => 'active']);
 
         return back()->with('status', 'User approved.');
@@ -57,6 +68,7 @@ class UserController extends Controller
 
     public function suspend(User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         $user->update(['status' => 'suspended']);
 
         return back()->with('status', 'User suspended.');
@@ -64,6 +76,7 @@ class UserController extends Controller
 
     public function updateRole(Request $request, User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         $validated = $request->validate([
             'access_role' => ['required', 'string', 'in:staff,ops,admin,super_admin'],
         ]);
@@ -97,6 +110,10 @@ class UserController extends Controller
             'permissions' => ['nullable', 'array'],
         ]);
 
+        if ($validated['job_level'] === 'super_admin' && ! $actor->hasRole('super_admin')) {
+            return back()->withErrors(['job_level' => 'Only Super Admin can grant executive system privileges.']);
+        }
+
         $user->update([
             'job_level' => $validated['job_level'],
             'permissions_matrix' => $validated['permissions'] ?? [],
@@ -107,6 +124,7 @@ class UserController extends Controller
 
     public function updateDepartment(Request $request, User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         $validated = $request->validate([
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
         ]);
@@ -118,6 +136,7 @@ class UserController extends Controller
 
     public function updateIdExpiry(Request $request, User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         $validated = $request->validate([
             'id_expires_at' => ['required', 'date'],
         ]);
@@ -137,6 +156,7 @@ class UserController extends Controller
 
     public function resetCredentials(User $user): RedirectResponse
     {
+        $this->authorizeTarget($user);
         if (! ($user->work_email ?: $user->contact_email)) {
             return back()->withErrors(['contact_email' => 'User does not have a contact email on file.']);
         }
@@ -159,7 +179,8 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
-        if (! request()->user()->hasRole(['admin', 'super_admin'])) {
+        $this->authorizeTarget($user);
+        if (! request()->user()->hasRole(['admin', 'super_admin']) && ! request()->user()->isCvoOrSuperAdmin()) {
             abort(403, 'Only admins can archive user accounts.');
         }
 
@@ -174,7 +195,8 @@ class UserController extends Controller
 
     public function restore(User $user): RedirectResponse
     {
-        if (! request()->user()->hasRole(['admin', 'super_admin'])) {
+        $this->authorizeTarget($user);
+        if (! request()->user()->hasRole(['admin', 'super_admin']) && ! request()->user()->isCvoOrSuperAdmin()) {
             abort(403, 'Only admins can restore archived user accounts.');
         }
 

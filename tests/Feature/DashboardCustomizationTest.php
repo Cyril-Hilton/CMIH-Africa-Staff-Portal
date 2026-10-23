@@ -109,7 +109,7 @@ class DashboardCustomizationTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        
+
         $task->refresh();
         $this->assertEquals($staff2->id, $task->assigned_to);
         $this->assertStringContainsString('Alice is overloaded', $task->notes_feedback);
@@ -268,7 +268,7 @@ class DashboardCustomizationTest extends TestCase
         $response = $this->actingAs($staff)->get('/dashboard');
 
         $response->assertStatus(200);
-        $response->assertViewHas('departments', function($depts) {
+        $response->assertViewHas('departments', function ($depts) {
             return count($depts) === 6; // All 6 departments are visible
         });
     }
@@ -439,6 +439,7 @@ class DashboardCustomizationTest extends TestCase
         $secondPage = $this->actingAs($manager)->get(route('dashboard', [
             'weekly_department' => 'brands_marketing',
             'weekly_page' => 2,
+            'search_weekly' => 'Weekly Pagination Client',
         ]));
 
         $secondPage->assertOk();
@@ -509,6 +510,9 @@ class DashboardCustomizationTest extends TestCase
             'updated_by' => $manager->id,
         ]);
 
+        $project = \App\Models\CrmPipelineProject::create(['client_name' => 'Client Relations Weekly Row', 'project_name' => 'Client Relations Campaign', 'owner_id' => $manager->id, 'stage' => 'proposal_sent', 'week_start' => now()->startOfWeek()->toDateString(), 'created_by' => $manager->id, 'updated_by' => $manager->id]);
+        app(\App\Services\ClientRelationsPipeline::class)->publish($project);
+
         $response = $this->actingAs($manager)->get(route('dashboard', [
             'weekly_department' => 'client_relations',
             'tab' => 'client_relations',
@@ -517,7 +521,7 @@ class DashboardCustomizationTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Client Relations Weekly Row');
-        $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) {
+        $response->assertViewHas('publicCrmProgress', function ($paginator) {
             return $paginator instanceof LengthAwarePaginator
                 && $paginator->total() === 1
                 && $paginator->first()?->client_name === 'Client Relations Weekly Row';
@@ -1012,7 +1016,7 @@ class DashboardCustomizationTest extends TestCase
         $dashboard = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => 'creatives']));
         $dashboard->assertOk();
         $dashboard->assertSee('weekly-support-row-template', false);
-        $dashboard->assertSee('data-weekly-support-add="weekly-support-rows-' . $item->id . '"', false);
+        $dashboard->assertSee('data-weekly-support-add="weekly-support-rows-'.$item->id.'"', false);
 
         $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
             'department' => 'creatives',
@@ -1291,6 +1295,7 @@ class DashboardCustomizationTest extends TestCase
 
         $response->assertViewHas('departmentTables', function ($tables) {
             $paginator = $tables['finance'] ?? null;
+
             return $paginator && $paginator->currentPage() === 1 && $paginator->total() === 1;
         });
     }

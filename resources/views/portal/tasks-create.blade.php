@@ -132,9 +132,9 @@
                         <label for="priority" class="block text-[10px] uppercase tracking-[0.25em] text-brand-ash mb-2">Priority</label>
                         <select id="priority" name="priority"
                             class="w-full rounded-xl border border-brand-white/10 bg-brand-black/40 px-4 py-3 text-sm text-brand-white focus:border-brand-red focus:ring-0 transition">
-                            <option value="low" {{ old('priority') === 'low' ? 'selected' : '' }}>🟢 Low</option>
-                            <option value="medium" {{ old('priority', 'medium') === 'medium' ? 'selected' : '' }}>🟡 Medium</option>
-                            <option value="high" {{ old('priority') === 'high' ? 'selected' : '' }}>🔴 High</option>
+                            <option value="low" {{ old('priority') === 'low' ? 'selected' : '' }}>Low</option>
+                            <option value="medium" {{ old('priority', 'medium') === 'medium' ? 'selected' : '' }}>Medium</option>
+                            <option value="high" {{ old('priority') === 'high' ? 'selected' : '' }}>High</option>
                         </select>
                     </div>
 

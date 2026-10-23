@@ -26,24 +26,24 @@
             <div class="flex items-center gap-3">
                 <a href="{{ route('surveys.show', $survey->slug) }}" target="_blank"
                    class="rounded-xl border border-brand-white/20 hover:bg-brand-white/5 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition">
-                    👁️ Public Link
+                    <x-ui-icon name="eye" /> Public Link
                 </a>
                 {{-- Edit Button --}}
                 <a href="{{ route('portal.surveys.edit', $survey) }}"
                    class="rounded-xl border border-brand-white/25 hover:border-brand-white/50 bg-brand-white/5 hover:bg-brand-white/10 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition">
-                    ✏️ Edit Survey
+                    <x-ui-icon name="edit" /> Edit Survey
                 </a>
                 {{-- Broadcast Email --}}
                 @if(!$survey->is_anonymous && $totalResponses > 0)
                     <a href="{{ route('portal.surveys.broadcast', $survey) }}"
                        class="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-white transition shadow-lg">
-                        📣 Broadcast Email
+                        <x-ui-icon name="megaphone" /> Broadcast Email
                     </a>
                 @endif
                 @if($totalResponses > 0)
                     <a href="{{ route('portal.surveys.export', $survey) }}"
                        class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition shadow-lg">
-                        📥 Export CSV
+                        <x-ui-icon name="download" /> Export Excel
                     </a>
                 @endif
             </div>
@@ -86,7 +86,7 @@
             {{-- Demographic Analytics (only for public surveys) --}}
             @if(!$survey->is_anonymous)
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-6 border-b border-brand-white/10 pb-2">👥 Consumer Demographics</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-6 border-b border-brand-white/10 pb-2"><x-ui-icon name="users" /> Consumer Demographics</h3>
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="space-y-2">
                             <h4 class="text-xs uppercase tracking-wider text-brand-ash text-center">Gender Split</h4>
@@ -106,7 +106,7 @@
 
             {{-- Custom Questions Analytics --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-6 border-b border-brand-white/10 pb-2">📊 Question Responses Summary</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-6 border-b border-brand-white/10 pb-2"><x-ui-icon name="chart" /> Question Responses Summary</h3>
                 <div class="grid gap-6 md:grid-cols-2">
                     @foreach($survey->questions as $q)
                         {{-- Choice charts --}}
@@ -155,7 +155,7 @@
 
             {{-- Response Ledger / Data Grid --}}
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📋 Individual Submissions Ledger</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clipboard" /> Individual Submissions Ledger</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[700px] text-left text-xs text-brand-white/70">
                         <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">

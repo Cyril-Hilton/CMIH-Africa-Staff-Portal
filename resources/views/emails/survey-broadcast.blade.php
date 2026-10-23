@@ -131,11 +131,11 @@
             <!-- Event Details Block (shown only when at least one detail is set) -->
             @if($eventDate || $eventTime || $eventLocation || $eventMapUrl)
                 <div class="event-details">
-                    <p class="event-details-title">📅 Event Details</p>
+                    <p class="event-details-title"><x-ui-icon name="calendar" /> Event Details</p>
 
                     @if($eventDate)
                         <div class="event-row">
-                            <span class="event-icon">📅</span>
+                            <span class="event-icon"><x-ui-icon name="calendar" /></span>
                             <div>
                                 <p class="event-key">Date</p>
                                 <p class="event-value">{{ $eventDate }}</p>
@@ -145,7 +145,7 @@
 
                     @if($eventTime)
                         <div class="event-row">
-                            <span class="event-icon">⏰</span>
+                            <span class="event-icon"><x-ui-icon name="clock" /></span>
                             <div>
                                 <p class="event-key">Time</p>
                                 <p class="event-value">{{ $eventTime }}</p>
@@ -155,7 +155,7 @@
 
                     @if($eventLocation)
                         <div class="event-row">
-                            <span class="event-icon">📍</span>
+                            <span class="event-icon"><x-ui-icon name="pin" /></span>
                             <div>
                                 <p class="event-key">Location</p>
                                 <p class="event-value">{{ $eventLocation }}</p>
@@ -165,7 +165,7 @@
 
                     @if($eventMapUrl)
                         <a href="{{ $eventMapUrl }}" class="map-btn" target="_blank">
-                            📍 View on Google Maps
+                            <x-ui-icon name="pin" /> View on Google Maps
                         </a>
                     @endif
                 </div>

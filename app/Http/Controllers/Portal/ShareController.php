@@ -31,7 +31,7 @@ class ShareController extends Controller
         $note = $request->input('note', '');
         $channels = $request->input('channels');
 
-        $shareText = "🔗 Shared Resource: " . $link;
+        $shareText = " Shared Resource: " . $link;
         if (!empty($note)) {
             $shareText .= "\n\nNote: " . $note;
         }

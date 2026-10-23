@@ -8,6 +8,23 @@
         modalConfirmText: '{{ $confirmText }}',
         modalCancelText: '{{ $cancelText }}',
         callback: null,
+        previousFocus: null,
+        init() {
+            this.$watch('show', visible => {
+                if (visible) {
+                    this.previousFocus = document.activeElement;
+                    this.$nextTick(() => this.$el.querySelector('button')?.focus());
+                } else {
+                    this.previousFocus?.focus();
+                }
+            });
+        },
+        cycleFocus(event) {
+            const buttons = Array.from(this.$el.querySelectorAll('button:not([disabled])'));
+            const index = buttons.indexOf(document.activeElement);
+            const next = (index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length;
+            buttons[next]?.focus();
+        },
         confirm() {
             if (this.callback) {
                 this.callback();
@@ -48,7 +65,11 @@
     }"
     @open-confirm-modal.window="openModal($event.detail);"
     x-show="show"
-    class="fixed inset-0 z-[999] flex items-center justify-center p-4 backdrop-blur-sm bg-brand-black/80"
+    data-existing-confirmation
+    role="dialog" aria-modal="true" aria-label="Confirm Action"
+    @keydown.escape.window="show = false"
+    @keydown.tab.prevent="cycleFocus($event)"
+    class="fixed inset-0 z-[999] flex items-center justify-center p-4 backdrop-blur-md bg-brand-black/80"
     style="display: none;"
 >
     <div

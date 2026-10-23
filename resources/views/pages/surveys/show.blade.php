@@ -67,7 +67,7 @@
                 {{-- ── STATUS CHECKS ─────────────────────────────────── --}}
                 @if($survey->status === 'closed')
                     <div class="rounded-2xl border border-brand-red/30 bg-brand-red/10 p-5 text-center text-sm text-brand-red font-semibold">
-                        🔒 This survey is now closed. Thank you for your interest!
+                        <x-ui-icon name="lock" /> This survey is now closed. Thank you for your interest!
                     </div>
                 @else
                     {{-- ── SURVEY FORM ───────────────────────────────── --}}
@@ -87,7 +87,7 @@
                         {{-- Demographics Block (only if NOT anonymous) --}}
                         @if(!$survey->is_anonymous)
                             <div class="border-b border-brand-white/10 pb-6 space-y-4">
-                                <h3 class="text-xs uppercase tracking-[0.25em] text-brand-ash font-semibold mb-2">👤 Your Details</h3>
+                                <h3 class="text-xs uppercase tracking-[0.25em] text-brand-ash font-semibold mb-2"><x-ui-icon name="user" /> Your Details</h3>
 
                                 <div>
                                     <label for="name" class="block text-xs text-brand-white/70 mb-1">Full Name <span class="text-brand-red">*</span></label>
@@ -140,7 +140,7 @@
                         {{-- ── CUSTOM QUESTIONS ─────────────────────── --}}
                         @if(count($survey->questions) > 0)
                             <div class="space-y-6">
-                                <h3 class="text-xs uppercase tracking-[0.25em] text-brand-ash font-semibold">📋 Survey Questions</h3>
+                                <h3 class="text-xs uppercase tracking-[0.25em] text-brand-ash font-semibold"><x-ui-icon name="clipboard" /> Survey Questions</h3>
 
                                 @foreach($survey->questions as $q)
                                     <div class="space-y-2">

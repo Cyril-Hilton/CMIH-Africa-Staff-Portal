@@ -3,14 +3,14 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
-                <h2 class="text-3xl font-display text-brand-white">💸 Reimbursements & Claims</h2>
+                <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="wallet" /> Reimbursements & Claims</h2>
             </div>
             <div class="flex gap-3">
                 <a href="{{ route('portal.finance.budgets.index') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">
-                    📊 Project Budgets
+                    <x-ui-icon name="chart" /> Project Budgets
                 </a>
                 <a href="{{ route('portal.finance.advances.index') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">
-                    💰 Salary Advances
+                    <x-ui-icon name="wallet" /> Salary Advances
                 </a>
             </div>
         </div>
@@ -55,13 +55,14 @@
             this.resubmitInvoiceActionUrl = '{{ url('/portal/finance/invoices') }}/' + inv.id + '/resubmit';
             this.openResubmitInvoiceModal = true;
         }
-    }" class="space-y-6">
+    }" class="relative" data-finance-dialogs-root>
+        <div class="space-y-6">
         
         <!-- CLAIMS & INVOICES -->
         <div class="space-y-6">
             <!-- Submit Claim Widget -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 h-fit">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">💸 New Reimbursement Claim</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="wallet" /> New Reimbursement Claim</h3>
                 <form method="POST" action="{{ route('portal.finance.claims.store') }}" enctype="multipart/form-data" class="space-y-4">
                     @csrf
                     <div class="grid grid-cols-2 gap-3">
@@ -96,7 +97,7 @@
                             <option value="cvo" selected>Chief Visionary Officer (directly)</option>
                         </select>
                     </div>
-                    <p class="text-[10px] text-amber-400/70 flex items-center gap-1">⚠️ All claims require CVO approval before Finance can pay them.</p>
+                    <p class="text-[10px] text-amber-400/70 flex items-center gap-1"><x-ui-icon name="alert" /> All claims require CVO approval before Finance can pay them.</p>
                     <button type="submit" class="w-full rounded-xl bg-brand-red hover:bg-brand-red-dark py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white transition-all">
                         Submit Expense Claim
                     </button>
@@ -106,9 +107,9 @@
             <!-- Claims Audit Board -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">📈 Expense Claim Ledger</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="chart" /> Expense Claim Ledger</h3>
                     <a href="{{ route('portal.export', ['table' => 'petty_cash_claims']) }}" class="rounded-xl bg-brand-white/5 border border-brand-white/10 hover:bg-brand-white/10 px-3.5 py-1.5 text-xs text-brand-white font-semibold transition uppercase tracking-wider">
-                        📤 Export Ledger
+                        <x-ui-icon name="upload" /> Export Ledger
                     </a>
                 </div>
                 <div class="overflow-x-auto">
@@ -162,7 +163,7 @@
                                     </td>
                                     <td class="py-4 text-right space-x-1">
                                         @if($claim->status === 'Pending' || $claim->status === 'Updated')
-                                            <span class="text-[9px] text-amber-400/80 italic">⏳ Awaiting CVO</span>
+                                            <span class="text-[9px] text-amber-400/80 italic"><x-ui-icon name="clock" /> Awaiting CVO</span>
                                         @elseif($claim->status === 'CVO Approved' && $isFinanceUser)
                                             <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'pay']) }}" class="inline">
                                                 @csrf
@@ -209,7 +210,7 @@
         <!-- Supplier Invoicing -->
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="mb-5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">🧾 Supplier Invoice Ingestion</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="file" /> Supplier Invoice Ingestion</h3>
             </div>
             <div class="space-y-6">
                 <!-- Submit Invoice -->
@@ -316,7 +317,7 @@
                                         </td>
                                         <td class="py-3 text-right space-x-1">
                                             @if ($inv->status === 'Pending' || $inv->status === 'Updated')
-                                                <span class="text-[9px] text-amber-400/80 italic">⏳ Awaiting CVO</span>
+                                                <span class="text-[9px] text-amber-400/80 italic"><x-ui-icon name="clock" /> Awaiting CVO</span>
                                             @elseif ($inv->status === 'CVO Approved' && $isFinanceUser)
                                                 <form method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'pay']) }}" class="inline">
                                                     @csrf
@@ -364,9 +365,7 @@
                      document.getElementById('resubmit_claim_desc').value = resubmitClaimData.description || '';
                  }
              })">
-            <button @click="openResubmitClaimModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none">
-                ✕
-            </button>
+            <button aria-label="Close" @click="openResubmitClaimModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none"><x-ui-icon name="close" /></button>
             
             <h3 class="text-lg font-semibold text-brand-white mb-2">Correct & Resubmit Reimbursement Claim</h3>
             <p class="text-xs text-brand-ash mb-4">Modify and correct your reimbursement claim details below.</p>
@@ -434,9 +433,7 @@
                      document.getElementById('resubmit_inv_desc').value = resubmitInvoiceData.description || '';
                  }
              })">
-            <button @click="openResubmitInvoiceModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none">
-                ✕
-            </button>
+            <button aria-label="Close" @click="openResubmitInvoiceModal = false" class="absolute top-4 right-4 text-brand-white/60 hover:text-brand-white text-lg transition-colors focus:outline-none"><x-ui-icon name="close" /></button>
             
             <h3 class="text-lg font-semibold text-brand-white mb-2">Correct & Resubmit Supplier Invoice</h3>
             <p class="text-xs text-brand-ash mb-4">Modify and correct your supplier invoice details below.</p>
@@ -501,4 +498,5 @@
             </form>
         </div>
     </div>
+</div>{{-- Shared dialog state scope --}}
 </x-app-layout>

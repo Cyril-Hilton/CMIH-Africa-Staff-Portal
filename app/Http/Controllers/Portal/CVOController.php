@@ -33,7 +33,7 @@ class CVOController extends Controller
         $user = $request->user();
 
         if (! $this->isCVO($user)) {
-            abort(403, '🔒 This area is reserved for the Chief Visionary Officer.');
+            abort(403, ' This area is reserved for the Chief Visionary Officer.');
         }
 
         // ── Staff / Headcount ─────────────────────────────────────────────────

@@ -1,0 +1,37 @@
+<?php
+
+return [
+    'labels' => ['project' => 'Master projects', 'activation' => 'Activations', 'posm_deployment' => 'POSM deployment & returns', 'procurement' => 'Procurement', 'supplier' => 'Suppliers', 'production' => 'Production & execution', 'client_approval' => 'Client approvals', 'project_report' => 'Project reports', 'risk_issue' => 'Risks & issues', 'milestone' => 'Milestones', 'risk' => 'Risk exposure'],
+    'tables' => [
+        'activation' => ['brand' => 'text', 'location' => 'text', 'outlet' => 'text', 'starts_on' => 'date', 'ends_on' => 'date', 'report_shared_on' => 'date', 'remarks' => 'text'],
+        'posm_deployment' => ['brand' => 'text', 'category' => 'text', 'asset_name' => 'text', 'asset_code' => 'text', 'quantity' => 'number', 'returned_quantity' => 'number', 'location' => 'text', 'outlet' => 'text', 'deployed_on' => 'date', 'expected_return_on' => 'date', 'returned_on' => 'date', 'deployed_by' => 'text', 'received_by' => 'text', 'condition_before' => 'text', 'condition_after' => 'text', 'deployment_status' => 'text', 'return_status' => 'text', 'current_location' => 'text', 'remarks' => 'text'],
+        'procurement' => ['item_service' => 'text', 'quantity' => 'number', 'supplier' => 'text', 'requested_on' => 'date', 'required_on' => 'date', 'po_status' => 'text', 'procurement_status' => 'text', 'delivery_status' => 'text', 'issue' => 'text'],
+        'supplier' => ['supplier_name' => 'text', 'contact_person' => 'text', 'cost' => 'money', 'delivery_on' => 'date', 'performance' => 'text', 'payment_status' => 'text', 'issue' => 'text', 'resolution_action' => 'text'],
+        'production' => ['production_item' => 'text', 'responsible_person' => 'text', 'due_on' => 'date', 'delivered_on' => 'date', 'production_status' => 'text', 'quality_check' => 'text', 'issue' => 'text', 'action_required' => 'text'],
+        'client_approval' => ['item_for_approval' => 'text', 'submitted_on' => 'date', 'approval_status' => 'text', 'decided_on' => 'date', 'follow_up_action' => 'text', 'next_follow_up_on' => 'date', 'comments' => 'text'],
+        'project_report' => ['activity_on' => 'date', 'due_on' => 'date', 'report_status' => 'text', 'shared_on' => 'date', 'client_feedback' => 'text', 'outstanding_actions' => 'text'],
+        'risk_issue' => ['category' => 'text', 'description' => 'text', 'impact' => 'text', 'priority' => 'text', 'action_required' => 'text', 'due_on' => 'date', 'issue_status' => 'text', 'resolved_on' => 'date', 'resolution' => 'text'],
+    ],
+    'project_fields' => ['brand' => 'text', 'supporting_team' => 'text', 'location' => 'text', 'due_on' => 'date', 'project_stage' => 'text', 'project_status' => 'text', 'progress_percent' => 'number', 'key_issue' => 'text', 'action_required' => 'text', 'action_due_on' => 'date', 'is_activation' => 'text', 'outlet' => 'text', 'primary_requirement' => 'text', 'team_handyman_requirement' => 'text', 'travel_required' => 'text', 'asset_readiness' => 'text'],
+    'options' => [
+        'project_stage' => ['Briefing', 'Planning', 'Recce', 'Procurement', 'Production', 'Execution', 'Reporting'],
+        'project_status' => ['Not Started', 'Planning', 'In Progress', 'On Hold', 'Completed', 'Cancelled'],
+        'is_activation' => ['Yes', 'No'], 'travel_required' => ['Yes', 'No'],
+        'asset_readiness' => ['Not Assessed', 'Action Required', 'Ready', 'Not Applicable'],
+        'po_status' => ['Not Requested', 'Requested', 'PO Raised', 'Approved', 'Rejected', 'Not Required'],
+        'procurement_status' => ['Not Started', 'Requested', 'Sourcing', 'PO Raised', 'Ordered', 'Delivered'],
+        'delivery_status' => ['Pending', 'Partially Delivered', 'Delivered', 'Delayed'],
+        'deployment_status' => ['Planned', 'Deployed', 'Cancelled'],
+        'return_status' => ['Pending', 'Partially Returned', 'Returned', 'Not Required'],
+        'condition_before' => ['Excellent', 'Good', 'Fair', 'Damaged', 'Missing'],
+        'condition_after' => ['Excellent', 'Good', 'Fair', 'Damaged', 'Missing'],
+        'performance' => ['Excellent', 'Good', 'Average', 'Poor'],
+        'payment_status' => ['Not Due', 'Pending', 'Partially Paid', 'Paid', 'Overdue'],
+        'production_status' => ['Not Started', 'In Progress', 'Completed', 'On Hold', 'Cancelled'],
+        'quality_check' => ['Pending', 'Passed', 'Failed', 'Rework Required'],
+        'approval_status' => ['Pending', 'Approved', 'Rejected', 'Revision Required'],
+        'report_status' => ['Not Started', 'In Progress', 'Submitted', 'Approved', 'Shared', 'Outstanding'],
+        'priority' => ['Low', 'Medium', 'High', 'Critical'],
+        'issue_status' => ['Open', 'In Progress', 'Resolved', 'Closed'],
+    ],
+];

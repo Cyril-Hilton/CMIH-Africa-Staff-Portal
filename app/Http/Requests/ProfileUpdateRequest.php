@@ -62,6 +62,10 @@ class ProfileUpdateRequest extends FormRequest
     {
         $validator->after(function (Validator $validator) {
             IdentityVerification::addCompletenessErrors($validator, $this, $this->user());
+            // Job titles participate in role checks, so self-service edits cannot grant authority.
+            if ($this->has('job_title') && $this->input('job_title') !== $this->user()->job_title && ! $this->user()->isCvoOrSuperAdmin()) {
+                $validator->errors()->add('job_title', 'Please ask HR to update your job title.');
+            }
         });
     }
 

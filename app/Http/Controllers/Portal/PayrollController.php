@@ -218,7 +218,7 @@ class PayrollController extends Controller
 
         $periodLabel = Carbon::createFromFormat('!Y-m', $period)->format('F Y');
         return back()->with('status', "Monthly payslips generated and emailed to {$count} staff member(s) for {$periodLabel}.");
-        return back()->with('status', "🎉 Success! Monthly payslips generated & emailed to {$count} staff members for {$periodLabel}.");
+        return back()->with('status', " Success! Monthly payslips generated & emailed to {$count} staff members for {$periodLabel}.");
     }
 
     /**

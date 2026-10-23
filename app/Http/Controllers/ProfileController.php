@@ -65,9 +65,9 @@ class ProfileController extends Controller
         $hadPendingProfileApproval = filled($user->requested_department) || filled($user->requested_position_title);
 
         // Intercept department and job level changes for standard users
-        if (! $user->hasFullHrAccess()) {
-            if (isset($data['department'])) {
-                if ($user->department && $data['department'] !== $user->department) {
+        if (! $user->isCvoOrSuperAdmin()) {
+            if (array_key_exists('department', $data)) {
+                if ($data['department'] !== $user->department) {
                     $user->requested_department = $data['department'];
                     $user->requested_change_at = now();
                     // Keep original value on immediate save
@@ -77,8 +77,8 @@ class ProfileController extends Controller
                 }
             }
 
-            if (isset($data['position_title'])) {
-                if ($user->position_title && $data['position_title'] !== $user->position_title) {
+            if (array_key_exists('position_title', $data)) {
+                if ($data['position_title'] !== $user->position_title) {
                     $user->requested_position_title = $data['position_title'];
                     $user->requested_change_at = now();
                     // Keep original value on immediate save
@@ -160,7 +160,7 @@ class ProfileController extends Controller
 
         $user->fill($data);
 
-        $needsProfileApprovalNotification = ! $user->hasFullHrAccess()
+        $needsProfileApprovalNotification = ! $user->isCvoOrSuperAdmin()
             && (filled($user->requested_department) || filled($user->requested_position_title))
             && (
                 ! $hadPendingProfileApproval

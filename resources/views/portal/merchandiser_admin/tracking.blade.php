@@ -36,13 +36,13 @@
         <!-- Premium Tabs -->
         <div class="flex items-center gap-2 border-b border-brand-white/10 pb-4">
             <button @click="activeTab = 'map'" :class="activeTab === 'map' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-brand-white/60 hover:text-brand-white'" class="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2">
-                🗺 Live Map & Routes
+                <x-ui-icon name="map" /> Live Map & Routes
             </button>
             <button @click="activeTab = 'charts'" :class="activeTab === 'charts' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-brand-white/60 hover:text-brand-white'" class="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2">
-                📊 Market Analytics & SKUs
+                <x-ui-icon name="chart" /> Market Analytics & SKUs
             </button>
             <button @click="activeTab = 'leaderboard'" :class="activeTab === 'leaderboard' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'text-brand-white/60 hover:text-brand-white'" class="px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-2">
-                🏆 Agent Leaderboard
+                <x-ui-icon name="award" /> Agent Leaderboard
             </button>
         </div>
 
@@ -119,7 +119,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Store Movement Trend -->
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-red-500/20 transition-all">
-                    <h4 class="text-xs uppercase tracking-[0.2em] font-bold text-brand-white mb-4">📈 Daily Store Movement Activities (Last 7 Days)</h4>
+                    <h4 class="text-xs uppercase tracking-[0.2em] font-bold text-brand-white mb-4"><x-ui-icon name="chart" /> Daily Store Movement Activities (Last 7 Days)</h4>
                     <div class="h-[280px]">
                         <canvas id="dailyVisitsChart"></canvas>
                     </div>
@@ -127,7 +127,7 @@
 
                 <!-- Top SKUs Orders -->
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-red-500/20 transition-all">
-                    <h4 class="text-xs uppercase tracking-[0.2em] font-bold text-brand-white mb-4">🍩 Product Share of KD Orders (Top 5 SKUs)</h4>
+                    <h4 class="text-xs uppercase tracking-[0.2em] font-bold text-brand-white mb-4"><x-ui-icon name="circle" /> Product Share of KD Orders (Top 5 SKUs)</h4>
                     <div class="h-[280px] flex items-center justify-center">
                         @if($topSkus->isEmpty())
                             <p class="text-xs text-brand-white/40">No SKU orders logged yet.</p>
@@ -163,11 +163,11 @@
                             <tr class="hover:bg-brand-white/5 transition-colors">
                                 <td class="py-4 pl-3">
                                     @if($index === 0)
-                                        <span class="text-lg">🥇</span>
+                                        <span class="text-lg"><x-ui-icon name="award" /></span>
                                     @elseif($index === 1)
-                                        <span class="text-lg">🥈</span>
+                                        <span class="text-lg"><x-ui-icon name="award" /></span>
                                     @elseif($index === 2)
-                                        <span class="text-lg">🥉</span>
+                                        <span class="text-lg"><x-ui-icon name="award" /></span>
                                     @else
                                         <span class="font-bold text-brand-white/40">#{{ $index + 1 }}</span>
                                     @endif
@@ -231,8 +231,8 @@
                 var popupText = `
                     <div style="font-family: Sora, sans-serif; font-size:11px;">
                         <h4 style="margin:0 0 5px; color:#ef4444; font-weight:700;">${loc.name}</h4>
-                        <p style="margin:0 0 3px;">📞 Phone: ${loc.phone}</p>
-                        <p style="margin:0;">🕒 Last Active: ${loc.recorded_at}</p>
+                        <p style="margin:0 0 3px;"> Phone: ${loc.phone}</p>
+                        <p style="margin:0;"> Last Active: ${loc.recorded_at}</p>
                     </div>
                 `;
                 

@@ -102,7 +102,7 @@
             </div>
 
             <div class="flex gap-4 pt-2">
-                <button type="button" onclick="if(confirm('Are you sure you want to delete this task?')) { document.getElementById('delete-task-form').submit(); }" class="flex-1 rounded-md border border-brand-white/10 bg-zinc-700 hover:bg-zinc-600 py-2.5 text-xs uppercase tracking-widest font-semibold text-white transition-all text-center">
+                <button type="submit" form="delete-task-form" data-confirm="Delete this task?" class="flex-1 rounded-md border border-brand-white/10 bg-zinc-700 hover:bg-zinc-600 py-2.5 text-xs uppercase tracking-widest font-semibold text-white transition-all text-center">
                     Delete Task
                 </button>
                 <x-primary-button class="flex-1 justify-center">Update Task</x-primary-button>

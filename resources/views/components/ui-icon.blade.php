@@ -1,0 +1,2 @@
+@props(['name' => 'circle', 'label' => null])
+<svg {{ $attributes->class(['ui-icon'])->merge(['width' => 18, 'height' => 18, 'style' => 'display:inline-block;vertical-align:-.15em;flex-shrink:0']) }} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" @if($label) role="img" aria-label="{{ $label }}" @else aria-hidden="true" @endif focusable="false">{!! \App\Support\UiIcon::paths($name) !!}</svg>

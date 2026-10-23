@@ -74,7 +74,7 @@
                             Back
                         </a>
                         <button type="submit" class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-8 py-3 text-xs uppercase tracking-wider font-semibold text-brand-white transition">
-                            🚀 Run Ingestion
+                            <x-ui-icon name="bolt" /> Run Ingestion
                         </button>
                     </div>
                 </form>

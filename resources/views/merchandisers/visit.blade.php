@@ -64,7 +64,7 @@
 
             <!-- POSM Checklist -->
             <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-4">
-                <h3 class="text-lg font-display text-brand-white tracking-wider">📦 POSM Checklist</h3>
+                <h3 class="text-lg font-display text-brand-white tracking-wider"><x-ui-icon name="box" /> POSM Checklist</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="rounded-xl border border-brand-white/5 bg-brand-white/5 p-4 flex items-center justify-between">
                         <div>
@@ -211,7 +211,7 @@
 
             <!-- SKU Stock Execution Metrics -->
             <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-4">
-                <h3 class="text-lg font-display text-brand-white tracking-wider">📊 SKU Stock & Execution Metrics</h3>
+                <h3 class="text-lg font-display text-brand-white tracking-wider"><x-ui-icon name="chart" /> SKU Stock & Execution Metrics</h3>
                 <input type="hidden" name="sku_entry_mode" x-model="skuEntryMode">
                 <input type="hidden" name="ai_predictions_json" :value="aiDetectionResult ? JSON.stringify(aiDetectionResult) : ''">
 
@@ -333,7 +333,7 @@
 
             <!-- KD Order Generation Form -->
             <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-4">
-                <h3 class="text-lg font-display text-brand-white tracking-wider">🛒 KD Order Placement</h3>
+                <h3 class="text-lg font-display text-brand-white tracking-wider"><x-ui-icon name="cart" /> KD Order Placement</h3>
                 <p class="text-xs text-brand-white/50">Specify the order quantity (in Cartons/Crates) to be forwarded to Key Distributor <strong>{{ auth()->user()->merchandiserKd->name ?? 'N/A' }}</strong>. Leave empty if no order is required.</p>
                 
                 <div class="overflow-x-auto">

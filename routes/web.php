@@ -4,29 +4,34 @@ use App\Http\Controllers\Admin\AnnouncementController as AdminAnnouncementContro
 use App\Http\Controllers\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
+use App\Http\Controllers\Admin\PortfolioController as AdminPortfolioController;
 use App\Http\Controllers\Admin\TaskController as AdminTaskController;
 use App\Http\Controllers\Admin\UpdateController as AdminUpdateController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Brands\BrandsPlatformController;
-use App\Http\Controllers\Admin\PortfolioController as AdminPortfolioController;
 use App\Http\Controllers\Portal\AnnouncementController;
 use App\Http\Controllers\Portal\AssetController;
-use App\Http\Controllers\Portal\WarehouseAssetController;
 use App\Http\Controllers\Portal\DashboardController;
 use App\Http\Controllers\Portal\DirectoryController;
 use App\Http\Controllers\Portal\MessageController;
 use App\Http\Controllers\Portal\TaskController;
 use App\Http\Controllers\Portal\UpdateController;
+use App\Http\Controllers\Portal\WarehouseAssetController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login')->name('home');
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    if (config('cmih.app_kind') === 'staff') {
+        return redirect('/login');
+    }
+
+    return app(SiteController::class)->home($request);
+})->name('home');
 
 Route::get('/portal/payroll/payslips/{payslip}/signed', [\App\Http\Controllers\Portal\PayrollController::class, 'downloadPayslip'])
     ->middleware('signed')
     ->name('portal.payroll.payslip.signed');
-
 
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/services', 'pages.services')->name('services');
@@ -128,6 +133,66 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/power-bi', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'index'])->name('power-bi.index');
+    Route::post('/power-bi', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'store'])->name('power-bi.store');
+    Route::patch('/power-bi/{link}', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'update'])->name('power-bi.update');
+    Route::get('/power-bi/{link}/open', [\App\Http\Controllers\Portal\PowerBiReportLinkController::class, 'open'])->name('power-bi.open');
+
+    Route::get('/performance/export/{format}', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'export'])->name('performance.export');
+    Route::post('/client-relations/scorecard-records', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'record'])->name('crm.record');
+    Route::get('/client-relations/history', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'history'])->name('crm.history');
+    Route::get('/client-relations/pipeline', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'index'])->name('crm.index');
+    Route::post('/client-relations/pipeline', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'store'])->name('crm.store');
+    Route::get('/client-relations/shared-progress/{progress}/amounts', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'reveal'])->middleware('throttle:30,1')->name('crm.reveal');
+    Route::post('/client-relations/pipeline/{project}', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'update'])->name('crm.update');
+    Route::post('/client-relations/account-targets/{target}/correction', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'correctTarget'])->name('crm.target.correct');
+    Route::post('/client-relations/account-targets/{target}/review', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'reviewTargetCorrection'])->name('crm.target.review');
+    Route::post('/client-relations/account-targets', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'target'])->name('crm.target');
+    Route::get('/hr-reporting', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'index'])->name('hr-reporting.index');
+    Route::post('/hr-reporting', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'create'])->name('hr-reporting.create');
+    Route::post('/hr-reporting/{report}/sources', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'populateSources'])->name('hr-reporting.sources');
+    Route::post('/hr-reporting/{report}/entries', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'entry'])->name('hr-reporting.entry');
+    Route::post('/hr-reporting/{report}/entries/{entry}', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'entry'])->name('hr-reporting.correct');
+    Route::post('/hr-reporting/{report}/section', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'section'])->name('hr-reporting.section');
+    Route::post('/hr-reporting/{report}/review', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'review'])->name('hr-reporting.review');
+    Route::get('/admin-weekly', [\App\Http\Controllers\Portal\AdminWeeklyReportController::class, 'index'])->name('admin-weekly.index');
+    Route::post('/admin-weekly', [\App\Http\Controllers\Portal\AdminWeeklyReportController::class, 'store'])->name('admin-weekly.store');
+    Route::post('/admin-weekly/{report}/lines/{line}', [\App\Http\Controllers\Portal\AdminWeeklyReportController::class, 'correct'])->name('admin-weekly.correct');
+    Route::post('/admin-weekly/{report}/transition', [\App\Http\Controllers\Portal\AdminWeeklyReportController::class, 'transition'])->name('admin-weekly.transition');
+    Route::post('/admin-weekly/{report}/approve', [\App\Http\Controllers\Portal\AdminWeeklyReportController::class, 'approve'])->name('admin-weekly.approve');
+    Route::get('/performance/report-packs', [\App\Http\Controllers\Portal\PerformanceReportPackController::class, 'index'])->name('performance.packs');
+    Route::get('/performance/report-packs/{pack}/{format?}', [\App\Http\Controllers\Portal\PerformanceReportPackController::class, 'show'])->name('performance.packs.show');
+    Route::get('/performance/actions', [\App\Http\Controllers\Portal\PerformanceCaseController::class, 'index'])->name('performance.cases');
+    Route::post('/performance/actions', [\App\Http\Controllers\Portal\PerformanceCaseController::class, 'store'])->name('performance.cases.store');
+    Route::post('/performance/actions/{case}/transition', [\App\Http\Controllers\Portal\PerformanceCaseController::class, 'transition'])->name('performance.cases.transition');
+    Route::get('/performance', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'index'])->name('performance.index');
+    Route::post('/performance/objectives', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'objective'])->name('performance.objective');
+    Route::post('/performance/kpis/{kpi}/revisions', [\App\Http\Controllers\Portal\PerformanceKpiRevisionController::class, 'store'])->name('performance.kpi.revisions.store');
+    Route::post('/performance/kpi-revisions/{revision}/review', [\App\Http\Controllers\Portal\PerformanceKpiRevisionController::class, 'review'])->name('performance.kpi.revisions.review');
+    Route::post('/performance/kpis', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'kpi'])->name('performance.kpi');
+    Route::post('/performance/commitments/{item}/adopt', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'adopt'])->name('performance.adopt');
+    Route::post('/performance/commitments', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'commitment'])->name('performance.commitment');
+    Route::post('/performance/commitments/{item}/progress', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'update'])->name('performance.update');
+    Route::post('/performance/commitments/{item}/transition', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'transition'])->name('performance.transition');
+    Route::post('/performance/observations', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'observation'])->name('performance.observation');
+    Route::post('/performance/target-plans', [\App\Http\Controllers\Portal\PerformanceTargetController::class, 'store'])->name('performance.targets.store');
+    Route::post('/performance/target-plans/{plan}/withdraw', [\App\Http\Controllers\Portal\PerformanceTargetController::class, 'withdraw'])->name('performance.targets.withdraw');
+    Route::post('/performance/target-plans/{plan}/amend', [\App\Http\Controllers\Portal\PerformanceTargetController::class, 'amend'])->name('performance.targets.amend');
+    Route::post('/performance/target-plans/{plan}/approve', [\App\Http\Controllers\Portal\PerformanceTargetController::class, 'approve'])->name('performance.targets.approve');
+    Route::post('/performance/observations/{observation}/approve', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'approveObservation'])->name('performance.approveObservation');
+    Route::post('/performance/dependencies', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'dependency'])->name('performance.dependency');
+    Route::post('/performance/commitments/{item}/evidence', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'evidence'])->name('performance.evidence');
+    Route::post('/performance/sources/{register}/correct', [\App\Http\Controllers\Portal\PerformanceSourceController::class, 'correct'])->name('performance.sources.correct');
+    Route::post('/performance/dependency-requests', [\App\Http\Controllers\Portal\PerformanceDependencyRequestController::class, 'store'])->name('performance.dependency-requests.store');
+    Route::post('/performance/dependency-requests/{dependencyRequest}/review', [\App\Http\Controllers\Portal\PerformanceDependencyRequestController::class, 'review'])->name('performance.dependency-requests.review');
+    Route::post('/performance/policies', [\App\Http\Controllers\Portal\PerformancePolicyController::class, 'store'])->name('performance.policies.store');
+    Route::post('/performance/policies/{policy}/review', [\App\Http\Controllers\Portal\PerformancePolicyController::class, 'review'])->name('performance.policies.review');
+    Route::post('/performance/sources/task', [\App\Http\Controllers\Portal\PerformanceSourceController::class, 'task'])->name('performance.sources.task');
+    Route::post('/performance/registers', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'register'])->name('performance.register');
+    Route::post('/performance/registers/{register}/approve', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'approveRegister'])->name('performance.approveRegister');
+    Route::get('/performance/evidence/{evidence}', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'download'])->name('performance.evidence.download');
+    Route::get('/performance/commitments/{item}/history', [\App\Http\Controllers\Portal\PerformanceHubController::class, 'history'])->name('performance.history');
+
     Route::get('/updates', [UpdateController::class, 'index'])->name('updates');
     Route::post('/updates', [UpdateController::class, 'store'])->name('updates.store');
     Route::get('/updates/{update}/edit', [UpdateController::class, 'edit'])->name('updates.edit');
@@ -136,6 +201,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/tasks', [TaskController::class, 'index'])->name('tasks');
     Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
     Route::get('/tasks/{task}/edit', [TaskController::class, 'edit'])->name('tasks.edit');
+    Route::post('/tasks/{task}/impact', [\App\Http\Controllers\Portal\DeliveryImpactController::class, 'task'])->name('tasks.impact');
+    Route::post('/performance/commitments/{item}/impact', [\App\Http\Controllers\Portal\DeliveryImpactController::class, 'commitment'])->name('performance.impact');
     Route::patch('/tasks/{task}', [TaskController::class, 'update'])->name('tasks.update');
     Route::post('/tasks/{task}/completion-review', [TaskController::class, 'completionReview'])->name('tasks.completion-review');
     Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
@@ -144,6 +211,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/notifications/{notification}/read', [AnnouncementController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [AnnouncementController::class, 'markAllAsRead'])->name('notifications.readAll');
 
+    Route::get('/people/{section?}', [\App\Http\Controllers\Portal\PeopleController::class, 'index'])->whereIn('section',['directory','records','accounts'])->name('people');
     Route::get('/directory', [DirectoryController::class, 'index'])->name('directory');
     Route::post('/directory/{user}/privileges', [DirectoryController::class, 'updatePrivileges'])->name('directory.privileges');
 
@@ -171,6 +239,13 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::match(['put', 'patch'], '/assets/{asset}', [AssetController::class, 'update'])->name('assets.update');
     Route::delete('/assets/{asset}', [AssetController::class, 'destroy'])->name('assets.destroy');
 
+    Route::get('/printing-requests', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'index'])->name('printing-requests.index');
+    Route::get('/printing-requests/create', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'create'])->name('printing-requests.create');
+    Route::post('/printing-requests', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'store'])->name('printing-requests.store');
+    Route::get('/printing-requests/{printingRequest}/edit', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'edit'])->name('printing-requests.edit');
+    Route::put('/printing-requests/{printingRequest}', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'update'])->name('printing-requests.update');
+    Route::get('/printing-requests/{printingRequest}/preview', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'preview'])->name('printing-requests.preview');
+    Route::get('/printing-requests/{printingRequest}/pdf', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'download'])->name('printing-requests.download');
     Route::get('/warehouse-assets', [WarehouseAssetController::class, 'index'])->name('assets.warehouse.index');
     Route::post('/warehouse-assets', [WarehouseAssetController::class, 'store'])->name('assets.warehouse.store');
     Route::post('/warehouse-assets/import', [WarehouseAssetController::class, 'import'])->name('assets.warehouse.import');
@@ -246,12 +321,11 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::patch('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'update'])->name('action-points.update');
     Route::delete('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'destroy'])->name('action-points.destroy');
 
-
     Route::get('/id-card', [ProfileController::class, 'idCard'])->name('id-card');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
 
-     // Department Modules
+    // Department Modules
     Route::get('/visitors', [\App\Http\Controllers\Portal\DepartmentController::class, 'visitors'])->name('visitors');
     Route::get('/hr/staff', [\App\Http\Controllers\Portal\HrStaffController::class, 'index'])->name('hr.staff.index');
     Route::post('/hr/staff/export', [\App\Http\Controllers\Portal\HrStaffController::class, 'export'])->name('hr.staff.export');
@@ -294,7 +368,23 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/brands', [\App\Http\Controllers\Portal\DepartmentController::class, 'brands'])->name('brands');
     Route::post('/brands/strategy', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeStrategy'])->name('brands.strategy.store');
 
-    Route::get('/creative', [\App\Http\Controllers\Portal\DepartmentController::class, 'creative'])->name('creative');
+    Route::get('/creative', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'index'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('creative');
+    Route::prefix('creative-studio')->name('creative.')->group(function () {
+        Route::get('/activity', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'activity'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('activity');
+        Route::get('/reports/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'presentationReport'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format',['data','pdf'])->name('reports');
+        Route::get('/data', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'data'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('data');
+        Route::post('/requests', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'store'])->middleware('throttle:30,1')->name('store');
+        Route::get('/requests/{creative}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'show'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('show');
+        Route::post('/requests/{creative}/plan-preview', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'previewPlan'])->name('plan-preview');
+        Route::post('/requests/{creative}/plan', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'plan'])->name('plan');
+        Route::post('/requests/{creative}/transition', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'transition'])->name('transition');
+        Route::post('/requests/{creative}/comments', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'comment'])->middleware('throttle:30,1')->name('comment');
+        Route::post('/requests/{creative}/acknowledge', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'acknowledge'])->name('acknowledge');
+        Route::post('/requests/{creative}/attachments', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'upload'])->middleware('throttle:30,1')->name('upload');
+        Route::get('/attachments/{attachment}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'attachment'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('attachment');
+        Route::post('/capacity', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'capacity'])->name('capacity');
+        Route::get('/export/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'export'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format',['xlsx','pdf'])->name('export');
+    });
     Route::post('/creative/briefs', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeBrief'])->name('creative.briefs.store');
     Route::post('/creative/files', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeDesignFile'])->name('creative.files.store');
 
@@ -309,7 +399,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/dashboard/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeColumn'])->name('dashboard.columns.store');
     Route::post('/dashboard/weekly-consolidated', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidated'])->name('dashboard.weekly-consolidated.store');
     Route::post('/dashboard/weekly-consolidated/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidatedColumn'])->name('dashboard.weekly-consolidated.columns.store');
-    
+
     // ── Performance Awards Leaderboard & Locking ──────────────────────────────
     Route::get('/awards/standings', [\App\Http\Controllers\Portal\PerformanceAwardController::class, 'getStandings'])->name('awards.standings');
     Route::post('/awards/lock', [\App\Http\Controllers\Portal\PerformanceAwardController::class, 'lockAward'])->name('awards.lock');
@@ -379,7 +469,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/cvo', [\App\Http\Controllers\Portal\CVOController::class, 'dashboard'])->name('cvo');
 
     // ── CVO Financial Approval Actions ────────────────────────────────────────
-    Route::post('/finance/claims/{claim}/cvo/{action}',   [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionClaim'])->name('finance.claims.cvo.action');
+    Route::post('/finance/claims/{claim}/cvo/{action}', [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionClaim'])->name('finance.claims.cvo.action');
     Route::post('/finance/budgets/{budget}/cvo/{action}', [\App\Http\Controllers\Portal\BudgetController::class, 'cvoAction'])->name('finance.budgets.cvo.action');
     Route::post('/finance/invoices/{invoice}/cvo/{action}', [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionInvoice'])->name('finance.invoices.cvo.action');
 
@@ -398,22 +488,21 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     // Merchandiser Admin Panel
     Route::prefix('merchandisers-admin')->name('merchandisers-admin.')->group(function () {
         Route::redirect('/tracking', '/merchandisers/admin/hub/tracking')->name('tracking');
-        
+
         Route::redirect('/pairings', '/merchandisers/admin/hub/merchandisers')->name('pairings');
         Route::post('/pairings/{user}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'pair'])->name('pair');
-        
+
         Route::redirect('/skus', '/merchandisers/admin/hub/skus')->name('skus');
         Route::post('/skus', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'storeSku'])->name('skus.store');
         Route::put('/skus/{sku}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'updateSku'])->name('skus.update');
         Route::delete('/skus/{sku}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'destroySku'])->name('skus.destroy');
 
-        
         Route::redirect('/kds', '/merchandisers/admin/hub/kds')->name('kds');
         Route::post('/kds', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'storeKd'])->name('kds.store');
         Route::put('/kds/{kd}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'updateKd'])->name('kds.update');
         Route::get('/kds/{kd}/check-dependents', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'checkKdDependents'])->name('kds.check-dependents');
         Route::delete('/kds/{kd}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'destroyKd'])->name('kds.destroy');
-        
+
         Route::redirect('/outlets', '/merchandisers/admin/hub/kds')->name('outlets');
         Route::post('/outlets', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'storeOutlet'])->name('outlets.store');
         Route::put('/outlets/{outlet}', [\App\Http\Controllers\Portal\MerchandiserAdminController::class, 'updateOutlet'])->name('outlets.update');
@@ -421,8 +510,6 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     });
 
 });
-
-
 
 Route::middleware(['auth', 'active', 'role:admin,super_admin', 'clocked_in'])
     ->prefix('admin')
@@ -500,7 +587,7 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
     Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store'])->defaults('portal', 'merchandisers')->name('password.email');
     Route::get('/register', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'showRegister'])->name('register');
     Route::post('/register', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'register'])->name('register.store');
-    
+
     Route::middleware(['auth', 'active', 'identity_docs'])->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'dashboard'])->name('dashboard');
         Route::post('/outlets', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'storeOutlet'])->name('outlets.store');
@@ -514,7 +601,7 @@ Route::prefix('merchandisers')->name('merchandisers.')->group(function () {
         Route::post('/visit/{outlet}', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'storeVisit'])->name('visit.store');
         Route::post('/location-ping', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'locationPing'])->name('location-ping');
         Route::post('/logout', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'logout'])->name('logout');
-        
+
         // HRM & Financial sub-portal submissions
         Route::patch('/profile/update', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'updateProfile'])->name('profile.update');
         Route::post('/leaves', [\App\Http\Controllers\Merchandiser\MerchandiserController::class, 'submitLeave'])->name('leaves.store');
@@ -590,6 +677,17 @@ Route::get('/merchandisers/report/{token}', [\App\Http\Controllers\Merchandiser\
 require __DIR__.'/auth.php';
 
 Route::get('/api/location-fallback', function (\Illuminate\Http\Request $request) {
- $data=$request->validate(['q'=>'required|string|min:3|max:150']);
- return response()->json(app(\App\Services\LocationProviderChain::class)->search($data['q']))->header('Cache-Control','private, no-store');
-})->middleware(['auth','throttle:30,1'])->name('location.fallback');
+    $data = $request->validate(['q' => 'required|string|min:3|max:150']);
+
+    return response()->json(app(\App\Services\LocationProviderChain::class)->search($data['q']))->header('Cache-Control', 'private, no-store');
+})->middleware(['auth', 'throttle:30,1'])->name('location.fallback');
+
+// Shared public event catalogue; only explicitly published fields leave the portal.
+Route::get('/api/public/events', [\App\Http\Controllers\PublicEventFeedController::class, 'index'])->middleware('throttle:120,1')->name('public.events.index');
+Route::get('/api/public/events/{event}/flyer', [\App\Http\Controllers\PublicEventFeedController::class, 'flyer'])->middleware('throttle:240,1')->name('public.events.flyer');
+Route::middleware(['auth','active'])->prefix('portal/events')->name('portal.events.')->group(function () {
+ Route::get('/', [\App\Http\Controllers\Portal\EventPublicationController::class,'index'])->name('index');
+ Route::post('/', [\App\Http\Controllers\Portal\EventPublicationController::class,'store'])->name('store');
+ Route::get('/{event}/flyer', [\App\Http\Controllers\Portal\EventPublicationController::class,'flyer'])->name('flyer');
+ Route::patch('/{event}', [\App\Http\Controllers\Portal\EventPublicationController::class,'update'])->name('update');
+});

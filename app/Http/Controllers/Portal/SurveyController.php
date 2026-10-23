@@ -464,7 +464,7 @@ class SurveyController extends Controller
             }
         }
 
-        $msg = "✅ Broadcast sent! {$sent} email(s) delivered successfully.";
+        $msg = " Broadcast sent! {$sent} email(s) delivered successfully.";
         if ($skipped > 0) $msg .= " {$skipped} skipped (no email address or delivery error).";
 
         return redirect()->route('portal.surveys.show', $survey)->with('status', $msg);

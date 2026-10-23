@@ -103,7 +103,7 @@ class PerformanceScoringService
         $workdays = [];
 
         for ($date = $effectiveStart->copy(); $date->lte($endDate); $date->addDay()) {
-            if ($date->isWeekend() || in_array($date->toDateString(), $approvedLeaveDates, true)) {
+            if ($date->isWeekend() || in_array($date->toDateString(), config('company_calendar.non_working_dates', []), true) || in_array($date->toDateString(), $approvedLeaveDates, true)) {
                 continue;
             }
 
@@ -141,6 +141,6 @@ class PerformanceScoringService
     private static function isPunctual(Attendance $attendance): bool
     {
         return $attendance->clock_in_at
-            && $attendance->clock_in_at->format('H:i:s') <= '09:00:00';
+            && $attendance->clock_in_at->format('H:i:s') <= config('company_calendar.clock_in_cutoff', '09:00:00');
     }
 }

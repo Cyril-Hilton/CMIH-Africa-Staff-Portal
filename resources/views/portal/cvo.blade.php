@@ -161,11 +161,11 @@
         <div class="text-right hidden sm:block">
             @if ($pendingFinanceCount > 0)
                 <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300 text-sm font-bold">
-                    ⚠️ {{ $pendingFinanceCount }} items awaiting your approval
+                    <x-ui-icon name="alert" /> {{ $pendingFinanceCount }} items awaiting your approval
                 </div>
             @else
                 <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/10 text-green-400 text-sm font-semibold">
-                    ✅ All financial items are clear
+                    <x-ui-icon name="check" /> All financial items are clear
                 </div>
             @endif
             <p class="text-xs text-white/30 mt-2">{{ $pendingLeaves->count() }} leave(s) pending your sign-off</p>
@@ -232,7 +232,7 @@
 
             {{-- ── Pending Claims ──────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">💰 Petty Cash / Reimbursement Claims — Awaiting Your Approval</p>
+                <p class="section-title"><x-ui-icon name="wallet" /> Petty Cash / Reimbursement Claims — Awaiting Your Approval</p>
                 @forelse ($pendingClaims as $claim)
                     <div class="queue-row mb-2" style="grid-template-columns: 1fr auto auto;">
                         <div>
@@ -247,15 +247,15 @@
                         <div class="flex items-center gap-2">
                             <form method="POST" action="{{ route('portal.finance.claims.cvo.action', [$claim->id, 'approve']) }}">
                                 @csrf
-                                <button type="submit" class="approve-btn">✅ Approve</button>
+                                <button type="submit" class="approve-btn"><x-ui-icon name="check" /> Approve</button>
                             </form>
                             <form method="POST" action="{{ route('portal.finance.claims.cvo.action', [$claim->id, 'reject']) }}">
                                 @csrf
-                                <button type="submit" class="reject-btn" onclick="return confirm('Reject this claim?')">✗ Reject</button>
+                                <button type="submit" class="reject-btn" data-confirm="Reject this claim?"><x-ui-icon name="close" /> Reject</button>
                             </form>
                             <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('cvo-ret-claim-{{ $claim->id }}'); f.notes.value = note; f.submit(); }"
                                     class="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold uppercase tracking-wider hover:bg-cyan-500/25">
-                                🔄 Return
+                                <x-ui-icon name="refresh" /> Return
                             </button>
                             <form id="cvo-ret-claim-{{ $claim->id }}" method="POST" action="{{ route('portal.finance.claims.cvo.action', [$claim->id, 'return']) }}" class="hidden">
                                 @csrf
@@ -288,7 +288,7 @@
 
             {{-- ── Pending Budgets ─────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">📊 Project Budgets — Submitted for CVO Review</p>
+                <p class="section-title"><x-ui-icon name="chart" /> Project Budgets — Submitted for CVO Review</p>
                 @forelse ($pendingBudgets as $budget)
                     <div class="queue-row mb-2" style="grid-template-columns: 1fr auto auto auto;">
                         <div>
@@ -304,11 +304,11 @@
                         </div>
                         <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget->id, 'approve']) }}">
                             @csrf
-                            <button type="submit" class="approve-btn">✅ Approve</button>
+                            <button type="submit" class="approve-btn"><x-ui-icon name="check" /> Approve</button>
                         </form>
                         <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget->id, 'reject']) }}">
                             @csrf
-                            <button type="submit" class="reject-btn" onclick="return confirm('Reject this budget?')">✗ Reject</button>
+                            <button type="submit" class="reject-btn" data-confirm="Reject this budget?"><x-ui-icon name="close" /> Reject</button>
                         </form>
                     </div>
                 @empty
@@ -318,7 +318,7 @@
 
             {{-- ── Pending Invoices ────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">🧾 Supplier Invoices — Awaiting Your Approval</p>
+                <p class="section-title"><x-ui-icon name="file" /> Supplier Invoices — Awaiting Your Approval</p>
                 @forelse ($pendingInvoices as $invoice)
                     <div class="queue-row mb-2" style="grid-template-columns: 1fr auto auto;">
                         <div>
@@ -333,15 +333,15 @@
                         <div class="flex items-center gap-2">
                             <form method="POST" action="{{ route('portal.finance.invoices.cvo.action', [$invoice->id, 'approve']) }}">
                                 @csrf
-                                <button type="submit" class="approve-btn">✅ Approve</button>
+                                <button type="submit" class="approve-btn"><x-ui-icon name="check" /> Approve</button>
                             </form>
                             <form method="POST" action="{{ route('portal.finance.invoices.cvo.action', [$invoice->id, 'reject']) }}">
                                 @csrf
-                                <button type="submit" class="reject-btn" onclick="return confirm('Reject this invoice?')">✗ Reject</button>
+                                <button type="submit" class="reject-btn" data-confirm="Reject this invoice?"><x-ui-icon name="close" /> Reject</button>
                             </form>
                             <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('cvo-ret-invoice-{{ $invoice->id }}'); f.notes.value = note; f.submit(); }"
                                     class="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold uppercase tracking-wider hover:bg-cyan-500/25">
-                                🔄 Return
+                                <x-ui-icon name="refresh" /> Return
                             </button>
                             <form id="cvo-ret-invoice-{{ $invoice->id }}" method="POST" action="{{ route('portal.finance.invoices.cvo.action', [$invoice->id, 'return']) }}" class="hidden">
                                 @csrf
@@ -375,7 +375,7 @@
             {{-- ── Department Performance ─────────────────────────────────── --}}
             @if ($deptTaskStats->count() > 0)
             <div>
-                <p class="section-title">📈 Department Task Completion Rates</p>
+                <p class="section-title"><x-ui-icon name="chart" /> Department Task Completion Rates</p>
                 <div class="space-y-3">
                     @foreach ($deptTaskStats->sortByDesc('rate') as $stat)
                         <div class="rounded-xl p-4 bg-white/3 border border-white/5">
@@ -399,7 +399,7 @@
 
             {{-- ── Pending Leaves ──────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">🏖️ Pending Leave Requests</p>
+                <p class="section-title"><x-ui-icon name="umbrella" /> Pending Leave Requests</p>
                 @forelse ($pendingLeaves as $leave)
                     <div class="rounded-xl p-4 bg-white/3 border border-white/5 mb-2">
                         <div class="flex items-center justify-between mb-1">
@@ -412,15 +412,15 @@
                         <div class="mt-3 flex gap-2">
                             <form method="POST" action="{{ route('portal.leaves.approve', $leave->id) }}">
                                 @csrf
-                                <button class="approve-btn text-[10px]">✅ Approve</button>
+                                <button class="approve-btn text-[10px]"><x-ui-icon name="check" /> Approve</button>
                             </form>
                             <form method="POST" action="{{ route('portal.leaves.reject', $leave->id) }}">
                                 @csrf
-                                <button class="reject-btn text-[10px]">✗ Reject</button>
+                                <button class="reject-btn text-[10px]"><x-ui-icon name="close" /> Reject</button>
                             </form>
                             <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('cvo-ret-leave-{{ $leave->id }}'); f.rejection_comments.value = note; f.submit(); }"
                                     class="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold uppercase tracking-wider hover:bg-cyan-500/25">
-                                🔄 Return
+                                <x-ui-icon name="refresh" /> Return
                             </button>
                             <form id="cvo-ret-leave-{{ $leave->id }}" method="POST" action="{{ route('portal.leaves.return', $leave->id) }}" class="hidden">
                                 @csrf
@@ -436,7 +436,7 @@
             {{-- ── Appraisals ──────────────────────────────────────────────── --}}
             @if ($pendingAppraisals->count() > 0)
             <div>
-                <p class="section-title">⭐ Appraisals Awaiting Review</p>
+                <p class="section-title"><x-ui-icon name="award" /> Appraisals Awaiting Review</p>
                 @foreach ($pendingAppraisals as $ap)
                     <div class="rounded-xl p-4 bg-white/3 border border-white/5 mb-2">
                         <div class="flex items-center justify-between">
@@ -454,7 +454,7 @@
 
             {{-- ── Staff by Dept ────────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">👥 Staff Distribution</p>
+                <p class="section-title"><x-ui-icon name="users" /> Staff Distribution</p>
                 @php
                     $totalForChart = array_sum($staffByDept) ?: 1;
                     $deptNames = [
@@ -486,7 +486,7 @@
             {{-- ── Recent Announcements ─────────────────────────────────────── --}}
             @if ($recentAnnouncements->count() > 0)
             <div>
-                <p class="section-title">📢 Recent Announcements</p>
+                <p class="section-title"><x-ui-icon name="megaphone" /> Recent Announcements</p>
                 @foreach ($recentAnnouncements as $ann)
                     <div class="rounded-xl p-3 bg-white/3 border border-white/5 mb-2">
                         <p class="text-sm font-semibold text-white line-clamp-1">{{ $ann->title }}</p>
@@ -499,19 +499,19 @@
 
             {{-- ── Quick Links ──────────────────────────────────────────────── --}}
             <div>
-                <p class="section-title">🔗 Quick Links</p>
+                <p class="section-title"><x-ui-icon name="link" /> Quick Links</p>
                 <div class="grid grid-cols-2 gap-2">
                     @php $links = [
-                        ['label'=>'Finance Module', 'route'=>'portal.finance', 'icon'=>'💰'],
-                        ['label'=>'HR & Admin',     'route'=>'portal.hr',      'icon'=>'👥'],
-                        ['label'=>'Appraisals',     'route'=>'portal.appraisals.index', 'icon'=>'⭐'],
-                        ['label'=>'Leave Mgmt',     'route'=>'portal.leaves',  'icon'=>'🏖️'],
-                        ['label'=>'Team Directory',  'route'=>'portal.directory','icon'=>'📇'],
-                        ['label'=>'Admin Panel',    'route'=>'admin.dashboard', 'icon'=>'⚙️'],
+                        ['label'=>'Finance Module', 'route'=>'portal.finance', 'icon'=>'wallet'],
+                        ['label'=>'HR & Admin',     'route'=>'portal.hr',      'icon'=>'users'],
+                        ['label'=>'Appraisals',     'route'=>'portal.appraisals.index', 'icon'=>'award'],
+                        ['label'=>'Leave Mgmt',     'route'=>'portal.leaves',  'icon'=>'umbrella'],
+                        ['label'=>'Team Directory',  'route'=>'portal.directory','icon'=>'id'],
+                        ['label'=>'Admin Panel',    'route'=>'admin.dashboard', 'icon'=>'gear'],
                     ]; @endphp
                     @foreach ($links as $lnk)
                         <a href="{{ route($lnk['route']) }}" class="rounded-xl p-3 bg-white/3 border border-white/5 hover:border-amber-500/20 hover:bg-white/5 transition text-center text-xs text-white/60 hover:text-white">
-                            <div class="text-lg mb-1">{{ $lnk['icon'] }}</div>
+                            <div class="text-lg mb-1"><x-ui-icon :name="$lnk['icon']" /></div>
                             {{ $lnk['label'] }}
                         </a>
                     @endforeach

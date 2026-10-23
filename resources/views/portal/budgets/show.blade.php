@@ -11,7 +11,7 @@
                 </a>
                 @if ($budget->canEdit(auth()->user()))
                     <a href="{{ route('portal.finance.budgets.edit', $budget) }}" class="rounded-full bg-brand-white/10 hover:bg-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white transition-all">
-                        ✏️ Edit Details
+                        <x-ui-icon name="edit" /> Edit Details
                     </a>
                 @endif
             </div>
@@ -101,7 +101,7 @@
                         <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Spreadsheet Line Items</h3>
                         <div class="flex items-center gap-2">
                             <a href="{{ route('portal.finance.budgets.export', $budget) }}" class="rounded bg-brand-white/10 hover:bg-brand-white/20 px-3 py-1.5 text-[10px] uppercase font-bold text-brand-white">
-                                📤 Export CSV
+                                <x-ui-icon name="upload" /> Export Excel
                             </a>
                         </div>
                     </div>
@@ -131,11 +131,11 @@
                                         <td class="py-3 text-emerald-400 font-bold font-mono">{{ number_format($item->total, 2) }}</td>
                                         @if ($budget->created_by === auth()->id() || $budget->canEdit(auth()->user()) || $isFinance)
                                             <td class="py-3 text-right">
-                                                <form method="POST" action="{{ route('portal.finance.budgets.items.destroy', [$budget, $item]) }}" onsubmit="return confirm('Remove line item?')">
+                                                <form method="POST" action="{{ route('portal.finance.budgets.items.destroy', [$budget, $item]) }}" data-confirm="Remove line item?">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="text-brand-red/70 hover:text-brand-red font-semibold">
-                                                        ✕ Remove
+                                                        <x-ui-icon name="close" /> Remove
                                                     </button>
                                                 </form>
                                             </td>
@@ -193,7 +193,7 @@
 
                         <!-- CSV Bulk Import -->
                         <div class="mt-6 border-t border-brand-white/5 pt-4 bg-brand-white/[0.01] rounded-xl p-4">
-                            <h4 class="text-xs font-semibold uppercase tracking-wider text-brand-ash mb-2">📥 Bulk Load via CSV</h4>
+                            <h4 class="text-xs font-semibold uppercase tracking-wider text-brand-ash mb-2"><x-ui-icon name="download" /> Bulk Load via CSV</h4>
                             <p class="text-[10px] text-brand-white/50 mb-3">Upload a CSV file containing columns: <strong class="text-brand-white">Description, Quantity, Unit Price, Category</strong> in order. Quotation marks will be parsed out automatically.</p>
                             <form method="POST" action="{{ route('portal.finance.budgets.import', $budget) }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
                                 @csrf
@@ -219,19 +219,19 @@
                                 <form method="POST" action="{{ route('portal.finance.budgets.submit', $budget) }}" class="space-y-2">
                                     @csrf
                                     <button type="submit" name="submit_target" value="finance" class="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white py-2 text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-blue-600/20">
-                                        📤 Submit to Finance for Approval
+                                        <x-ui-icon name="upload" /> Submit to Finance for Approval
                                     </button>
                                     <button type="submit" name="submit_target" value="cvo" class="w-full rounded-xl bg-amber-500 hover:bg-amber-400 text-brand-black py-2.5 text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-amber-500/20">
-                                        ⚡ Submit directly to CVO
+                                        <x-ui-icon name="bolt" /> Submit directly to CVO
                                     </button>
                                 </form>
                             @endif
                             @if ($budget->created_by === auth()->id() || auth()->user()->hasRole('super_admin'))
-                                <form method="POST" action="{{ route('portal.finance.budgets.destroy', $budget) }}" class="block pt-2" onsubmit="return confirm('Permanently delete this project budget?')">
+                                <form method="POST" action="{{ route('portal.finance.budgets.destroy', $budget) }}" class="block pt-2" data-confirm="Permanently delete this project budget?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="w-full rounded-xl border border-brand-red/35 bg-brand-red/5 hover:bg-brand-red/10 text-brand-red py-2.5 text-xs uppercase tracking-wider transition">
-                                        🗑️ Delete Draft Budget
+                                        <x-ui-icon name="spark" /> Delete Draft Budget
                                     </button>
                                 </form>
                             @endif
@@ -257,13 +257,13 @@
                                         <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'send_back']) }}" class="w-full">
                                             @csrf
                                             <button type="submit" class="w-full rounded border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 py-2 text-xs uppercase tracking-widest transition">
-                                                ↩ Send Back for Correction
+                                                <x-ui-icon name="refresh" /> Send Back for Correction
                                             </button>
                                         </form>
                                     </div>
                                 </div>
                             @else
-                                <p class="text-xs text-blue-400 font-semibold italic">⏳ Submitted to Finance. Awaiting verification.</p>
+                                <p class="text-xs text-blue-400 font-semibold italic"><x-ui-icon name="clock" /> Submitted to Finance. Awaiting verification.</p>
                             @endif
                         @elseif ($budget->status === 'Finance Approved')
                             @if ($isCVO)
@@ -287,16 +287,16 @@
                                         <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'send_back_finance']) }}" class="w-full">
                                             @csrf
                                             <button type="submit" class="w-full rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 py-2 text-xs uppercase tracking-widest transition">
-                                                ↩ Send Back to Finance
+                                                <x-ui-icon name="refresh" /> Send Back to Finance
                                             </button>
                                         </form>
                                     </div>
                                 </div>
                             @else
-                                <p class="text-xs text-indigo-400 font-semibold italic">⏳ Approved by Finance. Awaiting final CVO executive approval.</p>
+                                <p class="text-xs text-indigo-400 font-semibold italic"><x-ui-icon name="clock" /> Approved by Finance. Awaiting final CVO executive approval.</p>
                             @endif
                         @elseif ($budget->status === 'CVO Approved')
-                            <p class="text-xs text-purple-300 font-semibold">✓ Approved by CVO. Ready for payment processing.</p>
+                            <p class="text-xs text-purple-300 font-semibold"><x-ui-icon name="check" /> Approved by CVO. Ready for payment processing.</p>
                             @if ($isFinance)
                                 <div class="pt-2">
                                     <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'reject']) }}">
@@ -361,7 +361,7 @@
 
                                      @if ($budget->created_by === auth()->id() || auth()->user()->hasRole('super_admin'))
                                          <button type="button" @click="removeCollaborator(index)" class="text-brand-red/80 hover:text-brand-red text-xs">
-                                             ✕ Remove
+                                             <x-ui-icon name="close" /> Remove
                                          </button>
                                      @endif
                                 </div>
@@ -394,7 +394,7 @@
                                 
                                 <div class="pt-2 border-t border-brand-white/5">
                                     <button type="submit" class="w-full rounded bg-amber-500 hover:bg-amber-400 text-brand-black py-2 text-xs font-bold uppercase tracking-wider transition">
-                                        💾 Save Collaborators List
+                                        <x-ui-icon name="save" /> Save Collaborators List
                                     </button>
                                 </div>
                             </div>

@@ -5,6 +5,8 @@
             <h2 class="text-3xl font-display text-brand-white">Manage Users</h2>
         </div>
     </x-slot>
+    @include('portal.partials.people-tabs')
+
 
     <x-auth-session-status class="mb-6" :status="session('status')" />
 
@@ -28,16 +30,16 @@
     <!-- Tab Controls -->
     <div class="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 border-b border-brand-white/10 pb-4">
         <a href="{{ route('admin.users') }}" class="px-4 py-2 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all {{ request('status') !== 'archived' ? 'bg-brand-white/10 text-brand-white border border-brand-white/15' : 'text-brand-white/60 hover:text-brand-white' }}">
-            👥 Active & Pending Directory
+            <x-ui-icon name="users" /> Active & Pending Directory
         </a>
         <a href="{{ route('admin.users', ['status' => 'archived']) }}" class="px-4 py-2 rounded-xl text-sm font-semibold uppercase tracking-wider transition-all {{ request('status') === 'archived' ? 'bg-brand-white/10 text-brand-white border border-brand-white/15' : 'text-brand-white/60 hover:text-brand-white' }}">
-            📦 Archive Directory
+            <x-ui-icon name="box" /> Archive Directory
         </a>
     </div>
 
     @php
         $canManageAdmins = auth()->user()->hasRole('super_admin');
-        $canArchiveUsers = auth()->user()->hasRole(['admin', 'super_admin']);
+        $canArchiveUsers = auth()->user()->hasRole(['admin', 'super_admin']) || auth()->user()->isCvoOrSuperAdmin();
         $departmentLabels = [
             'hr_admin'            => 'HR & Admin',
             'finance'             => 'Finance',
@@ -61,7 +63,7 @@
 
     @if(auth()->user()->access_role === 'super_admin' && $pendingProfileUsers->isNotEmpty())
         <div class="mb-8 glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-amber-400 mb-4">⏳ Pending Profile Level-up & Department Requests</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-amber-400 mb-4"><x-ui-icon name="clock" /> Pending Profile Level-up & Department Requests</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-brand-white/70">
                     <thead class="text-xs uppercase tracking-[0.2em] text-brand-ash">
@@ -397,7 +399,7 @@
                                         </button>
                                         
                                         @if($canArchiveUsers && auth()->id() !== $user->id)
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Are you sure you want to archive this user?');">
+                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" data-confirm="Are you sure you want to archive this user?">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="p-2 rounded-lg text-brand-white/40 hover:text-brand-red hover:bg-brand-red/10 transition-colors" title="Archive User">

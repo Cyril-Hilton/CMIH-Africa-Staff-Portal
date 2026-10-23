@@ -93,7 +93,7 @@
                             @if($survey->location_url)
                                 <a href="{{ $survey->location_url }}" target="_blank" rel="noopener"
                                    class="text-xs text-brand-red hover:text-brand-red-light underline underline-offset-2 transition mt-0.5 inline-block">
-                                    📍 View on Google Maps →
+                                    <x-ui-icon name="pin" /> View on Google Maps →
                                 </a>
                             @endif
                         </div>
@@ -107,12 +107,12 @@
                         <h3 class="text-base font-semibold text-brand-white leading-snug">{{ $survey->event->title }}</h3>
                         <div class="space-y-1.5 text-xs text-brand-white/70 font-mono">
                             <p class="flex items-center gap-2">
-                                <span>📅</span>
+                                <span><x-ui-icon name="calendar" /></span>
                                 <span>{{ $survey->event->starts_at->format('M d, Y') }}@if($survey->event->ends_at) — {{ $survey->event->ends_at->format('M d, Y') }}@endif</span>
                             </p>
                             @if($survey->event->location)
                                 <p class="flex items-center gap-2">
-                                    <span>📍</span>
+                                    <span><x-ui-icon name="pin" /></span>
                                     <span>{{ $survey->event->location }}</span>
                                 </p>
                             @endif

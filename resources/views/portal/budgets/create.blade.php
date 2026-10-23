@@ -75,14 +75,14 @@
                 <!-- File Import System -->
                 <div class="glass-panel rounded-xl p-4 border border-brand-white/10 bg-brand-white/[0.02] space-y-3">
                     <div class="flex items-center justify-between border-b border-brand-white/5 pb-2">
-                        <label class="block text-xs uppercase tracking-wider text-brand-ash font-bold">📥 Import from Device (Excel / Doc / PPT / Images / PDF / Text)</label>
+                        <label class="block text-xs uppercase tracking-wider text-brand-ash font-bold"><x-ui-icon name="download" /> Import from Device (Excel / Doc / PPT / Images / PDF / Text)</label>
                         <span class="text-[9px] uppercase tracking-wider bg-brand-white/10 px-2 py-0.5 rounded text-brand-ash">Optional</span>
                     </div>
                     <p class="text-[10px] text-brand-white/50">Upload any file from your device (Excel, Word, PowerPoint, PDF, Images, Text, etc.). The parser will dynamically extract text, render sheets/slides, embed images, or link documents directly inside the CKEditor budget content. Large spreadsheets will also populate the line items table below.</p>
                     <div class="flex items-center gap-3">
                         <input type="file" id="import_file" class="hidden" onchange="handleFileImport(this)">
                         <button type="button" onclick="document.getElementById('import_file').click()" class="rounded bg-brand-white/10 hover:bg-brand-white/20 border border-brand-white/15 px-4 py-2 text-xs font-semibold text-brand-white transition cursor-pointer">
-                            📂 Choose File...
+                            <x-ui-icon name="folder" /> Choose File...
                         </button>
                         <div class="flex flex-col">
                             <span id="import_file_name" class="text-xs text-brand-white/40 italic">No file chosen</span>
@@ -97,7 +97,7 @@
 
                 <!-- Imported Line Items Preview container -->
                 <div class="glass-panel rounded-xl p-4 border border-brand-white/10 bg-brand-white/[0.02] space-y-3">
-                    <h4 class="text-xs uppercase tracking-wider text-brand-ash font-bold border-b border-brand-white/5 pb-2">📊 Imported Budget Line Items Preview</h4>
+                    <h4 class="text-xs uppercase tracking-wider text-brand-ash font-bold border-b border-brand-white/5 pb-2"><x-ui-icon name="chart" /> Imported Budget Line Items Preview</h4>
                     <div id="imported_items_preview_container">
                         <p class="text-xs text-brand-white/30 italic">No line items loaded yet. Use the file import tool above to parse spreadsheets.</p>
                     </div>
@@ -131,7 +131,7 @@
                             this.collaborators.splice(index, 1);
                         }
                      }">
-                    <h3 class="text-xs uppercase tracking-wider text-brand-ash font-bold border-b border-brand-white/5 pb-2">👥 Collaborators</h3>
+                    <h3 class="text-xs uppercase tracking-wider text-brand-ash font-bold border-b border-brand-white/5 pb-2"><x-ui-icon name="users" /> Collaborators</h3>
                     
                     <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
                         <template x-for="(collab, index) in collaborators" :key="collab.user_id">
@@ -145,7 +145,7 @@
                                 <input type="hidden" :name="'collaborators[' + index + '][permission]'" :value="collab.permission">
 
                                 <button type="button" @click="removeCollaborator(index)" class="text-brand-red/80 hover:text-brand-red text-xs">
-                                    ✕ Remove
+                                    <x-ui-icon name="close" /> Remove
                                 </button>
                             </div>
                         </template>
@@ -254,7 +254,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-emerald-400 font-semibold';
-                    msgEl.innerHTML = `✅ Successfully embedded image!`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg> Successfully embedded image!`;
                     msgEl.classList.remove('hidden');
                 } catch (err) {
                     console.error(err);
@@ -287,7 +287,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-emerald-400 font-semibold';
-                    msgEl.innerHTML = `✅ Text file loaded into editor.`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg> Text file loaded into editor.`;
                     msgEl.classList.remove('hidden');
                 } catch (err) {
                     console.error(err);
@@ -304,7 +304,7 @@
                 const sizeKB = (file.size / 1024).toFixed(1);
                 const html = `
                     <div style="border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin: 10px 0; display: inline-block;">
-                        <strong>📎 Imported Reference File:</strong> ${file.name} (${sizeKB} KB)<br>
+                        <strong> Imported Reference File:</strong> ${file.name} (${sizeKB} KB)<br>
                         <span style="font-size: 11px; opacity: 0.6;">Type: ${file.type || 'Unknown'} - Loaded directly from device.</span>
                     </div><br>
                 `;
@@ -322,7 +322,7 @@
                 
                 const msgEl = document.getElementById('import_status_msg');
                 msgEl.className = 'text-[10px] mt-0.5 text-amber-400 font-semibold';
-                msgEl.innerHTML = `📎 Loaded reference card for ${file.name}.`;
+                msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-9 9a6 6 0 0 1-8-8L15 1a4 4 0 0 1 6 6L10 18a2 2 0 0 1-3-3l9-9"/></svg> Loaded reference card for ${file.name}.`;
                 msgEl.classList.remove('hidden');
             } catch (err) {
                 console.error(err);
@@ -353,7 +353,7 @@
                         
                         const msgEl = document.getElementById('import_status_msg');
                         msgEl.className = 'text-[10px] mt-0.5 text-emerald-400 font-semibold';
-                        msgEl.innerHTML = `✅ Word document loaded!`;
+                        msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg> Word document loaded!`;
                         msgEl.classList.remove('hidden');
                     })
                     .catch(function(err) {
@@ -362,7 +362,7 @@
                         
                         const msgEl = document.getElementById('import_status_msg');
                         msgEl.className = 'text-[10px] mt-0.5 text-red-400 font-semibold';
-                        msgEl.innerHTML = `❌ Failed to parse docx.`;
+                        msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg> Failed to parse docx.`;
                         msgEl.classList.remove('hidden');
                     })
                     .finally(function() {
@@ -426,7 +426,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-emerald-400 font-semibold';
-                    msgEl.innerHTML = `✅ PPTX slides parsed!`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg> PPTX slides parsed!`;
                     msgEl.classList.remove('hidden');
                 }).catch(err => {
                     console.error(err);
@@ -434,7 +434,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-red-400 font-semibold';
-                    msgEl.innerHTML = `❌ Failed to parse pptx.`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg> Failed to parse pptx.`;
                     msgEl.classList.remove('hidden');
                 }).finally(() => {
                     document.getElementById('import_spinner').classList.add('hidden');
@@ -624,7 +624,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-emerald-400 font-semibold';
-                    msgEl.innerHTML = `✅ Excel loaded! ${allItems.length} items extracted.`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg> Excel loaded! ${allItems.length} items extracted.`;
                     msgEl.classList.remove('hidden');
                 } catch (err) {
                     console.error(err);
@@ -632,7 +632,7 @@
                     
                     const msgEl = document.getElementById('import_status_msg');
                     msgEl.className = 'text-[10px] mt-0.5 text-red-400 font-semibold';
-                    msgEl.innerHTML = `❌ Failed to parse sheet.`;
+                    msgEl.innerHTML = `<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M6 18 18 6"/></svg> Failed to parse sheet.`;
                     msgEl.classList.remove('hidden');
                 } finally {
                     document.getElementById('import_spinner').classList.add('hidden');
@@ -686,7 +686,7 @@
                         <td class="py-2 font-mono">${item.unit_price.toFixed(2)}</td>
                         <td class="py-2 text-emerald-400 font-bold font-mono">${itemTotal.toFixed(2)}</td>
                         <td class="py-2 text-right">
-                            <button type="button" onclick="removeImportedItem(${index})" class="text-brand-red/70 hover:text-brand-red font-semibold cursor-pointer">✕ Remove</button>
+                            <button type="button" onclick="removeImportedItem(${index})" class="text-brand-red/70 hover:text-brand-red font-semibold cursor-pointer"> Remove</button>
                         </td>
                     </tr>
                 `;

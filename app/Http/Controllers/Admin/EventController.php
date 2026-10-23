@@ -29,26 +29,10 @@ class EventController extends Controller
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'registration_url' => ['nullable', 'url', 'max:255'],
             'status' => ['required', 'string', Rule::in(['published', 'draft'])],
-            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif,bmp,gif,tif,tiff', 'max:6144'],
+            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:6144'],
         ]);
 
-        $imagePath = null;
-
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('events', 'public');
-        }
-
-        Event::create([
-            'created_by' => $request->user()->id,
-            'title' => $validated['title'],
-            'summary' => $validated['summary'] ?? null,
-            'location' => $validated['location'] ?? null,
-            'starts_at' => $validated['starts_at'],
-            'ends_at' => $validated['ends_at'] ?? null,
-            'registration_url' => $validated['registration_url'] ?? null,
-            'status' => $validated['status'],
-            'image_path' => $imagePath,
-        ]);
+        app(\App\Services\Events\EventPublication::class)->save($validated, $request->user(), $request->file('image'));
 
         return back()->with('status', 'Event published.');
     }
@@ -56,7 +40,7 @@ class EventController extends Controller
     public function destroy(Event $event): RedirectResponse
     {
         if ($event->image_path) {
-            Storage::disk('public')->delete($event->image_path);
+            Storage::disk($event->image_disk ?: 'public')->delete($event->image_path);
         }
 
         $event->delete();
@@ -74,29 +58,10 @@ class EventController extends Controller
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'registration_url' => ['nullable', 'url', 'max:255'],
             'status' => ['required', 'string', Rule::in(['published', 'draft'])],
-            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,avif,bmp,gif,tif,tiff', 'max:6144'],
+            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:6144'],
         ]);
 
-        $imagePath = $event->image_path;
-
-        if ($request->hasFile('image')) {
-            if ($event->image_path) {
-                Storage::disk('public')->delete($event->image_path);
-            }
-
-            $imagePath = $request->file('image')->store('events', 'public');
-        }
-
-        $event->update([
-            'title' => $validated['title'],
-            'summary' => $validated['summary'] ?? null,
-            'location' => $validated['location'] ?? null,
-            'starts_at' => $validated['starts_at'],
-            'ends_at' => $validated['ends_at'] ?? null,
-            'registration_url' => $validated['registration_url'] ?? null,
-            'status' => $validated['status'],
-            'image_path' => $imagePath,
-        ]);
+        app(\App\Services\Events\EventPublication::class)->save($validated, $request->user(), $request->file('image'), $event);
 
         return back()->with('status', 'Event updated.');
     }

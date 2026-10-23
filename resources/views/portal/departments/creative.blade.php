@@ -17,7 +17,7 @@
         <div class="space-y-6">
             
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🎨 Submit Creative Design Task</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="palette" /> Submit Creative Design Task</h3>
                 <form method="POST" action="{{ route('portal.creative.briefs.store') }}" class="space-y-4 mb-6">
                     @csrf
                     <div class="grid gap-4 sm:grid-cols-3">
@@ -93,7 +93,7 @@
 
             <!-- Design File Version Control Check-in -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📁 Design File Version Control Check-In</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="folder" /> Design File Version Control Check-In</h3>
                 <form method="POST" action="{{ route('portal.creative.files.store') }}" enctype="multipart/form-data" class="space-y-4 mb-6">
                     @csrf
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -167,7 +167,7 @@
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="mb-5">
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Phase 3</p>
-                <h3 class="text-lg font-display text-brand-white uppercase">💬 Creative Proofing & Feedback Chain</h3>
+                <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="chat" /> Creative Proofing & Feedback Chain</h3>
             </div>
             <div class="grid gap-6 lg:grid-cols-[350px_1fr]">
                 {{-- Add Comment Form --}}

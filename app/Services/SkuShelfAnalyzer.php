@@ -4,9 +4,9 @@ namespace App\Services;
 
 use App\Models\Sku;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -28,7 +28,7 @@ class SkuShelfAnalyzer
         foreach ($this->providerOrder() as $provider) {
             $result = match ($provider) {
                 'openai' => $this->analyzeWithOpenAi($prompt, $imageBytes, $mime, $skus),
-                'gemini' => $this->analyzeWithGemini($prompt, $imageBytes, $mime, $skus),
+                'gemini', 'gemini_secondary' => $this->analyzeWithGemini($provider, $prompt, $imageBytes, $mime, $skus),
                 default => null,
             };
 
@@ -44,6 +44,7 @@ class SkuShelfAnalyzer
 
             if (($result['status'] ?? null) === 'completed') {
                 $result['attempts'] = $attempts;
+
                 return $result;
             }
         }
@@ -61,8 +62,8 @@ class SkuShelfAnalyzer
 
         return match ($provider) {
             'openai' => ['openai'],
-            'gemini' => ['gemini'],
-            default => ['openai', 'gemini'],
+            'gemini' => ['gemini', 'gemini_secondary', 'openai'],
+            default => ['gemini', 'gemini_secondary', 'openai'],
         };
     }
 
@@ -109,9 +110,9 @@ class SkuShelfAnalyzer
         }
     }
 
-    private function analyzeWithGemini(string $prompt, string $imageBytes, string $mime, Collection $skus): array
+    private function analyzeWithGemini(string $provider, string $prompt, string $imageBytes, string $mime, Collection $skus): array
     {
-        if (! config('services.gemini.api_key')) {
+        if (! config($provider === 'gemini_secondary' ? 'services.gemini.secondary_api_key' : 'services.gemini.api_key')) {
             return [
                 'status' => 'not_configured',
                 'message' => 'Gemini API key is not configured.',
@@ -124,7 +125,7 @@ class SkuShelfAnalyzer
 
         $baseUrl = rtrim((string) config('services.gemini.base_url'), '/');
         $model = config('services.gemini.model');
-        $url = "{$baseUrl}/v1beta/models/{$model}:generateContent?key=" . urlencode((string) config('services.gemini.api_key'));
+        $url = "{$baseUrl}/v1beta/models/{$model}:generateContent";
         $payload = [
             'contents' => [
                 [
@@ -142,7 +143,7 @@ class SkuShelfAnalyzer
         ];
 
         try {
-            $response = $this->aiHttp()->post($url, $payload);
+            $response = $this->aiHttp()->withHeaders(['x-goog-api-key' => config($provider === 'gemini_secondary' ? 'services.gemini.secondary_api_key' : 'services.gemini.api_key')])->post($url, $payload);
 
             if ($response->failed()) {
                 return $this->providerError('gemini', $model, $response->status(), $response->body());
@@ -167,8 +168,8 @@ class SkuShelfAnalyzer
         return [
             'status' => empty($detections) ? 'no_detection' : 'completed',
             'message' => empty($detections)
-                ? $this->providerLabel($provider) . ' could not confidently identify configured SKUs.'
-                : $this->providerLabel($provider) . ' detection completed. Please review and correct the results before submitting.',
+                ? $this->providerLabel($provider).' could not confidently identify configured SKUs.'
+                : $this->providerLabel($provider).' detection completed. Please review and correct the results before submitting.',
             'provider' => $provider,
             'model' => $model,
             'detections' => $detections,
@@ -182,7 +183,7 @@ class SkuShelfAnalyzer
     {
         return [
             'status' => 'provider_error',
-            'message' => $this->providerLabel($provider) . ' failed. Trying fallback if available.',
+            'message' => $this->providerLabel($provider).' failed. Trying fallback if available.',
             'provider' => $provider,
             'model' => $model,
             'detections' => [],
@@ -198,7 +199,7 @@ class SkuShelfAnalyzer
     {
         return [
             'status' => 'provider_exception',
-            'message' => $this->providerLabel($provider) . ' is temporarily unavailable. Trying fallback if available.',
+            'message' => $this->providerLabel($provider).' is temporarily unavailable. Trying fallback if available.',
             'provider' => $provider,
             'model' => $model,
             'detections' => [],
@@ -386,7 +387,7 @@ PROMPT;
 
     private function dataUrl(string $imageBytes, string $mime): string
     {
-        return 'data:' . $mime . ';base64,' . base64_encode($imageBytes);
+        return 'data:'.$mime.';base64,'.base64_encode($imageBytes);
     }
 
     private function providerLabel(string $provider): string

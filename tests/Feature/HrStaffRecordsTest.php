@@ -14,6 +14,7 @@ use ZipArchive;
 class HrStaffRecordsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\ReadsExcelExports;
 
     private function hr(): User
     {
@@ -63,7 +64,7 @@ class HrStaffRecordsTest extends TestCase
         $other = $this->staff(['name' => 'Do Not Export']);
         $response = $this->actingAs($this->hr())->post(route('portal.hr.staff.export'), ['scope' => 'selected', 'ids' => [$staff->id], 'format' => 'csv', 'fields' => ['date_of_birth', 'phone']]);
         $response->assertOk();
-        $csv = $response->streamedContent();
+        $csv = $this->excelText($response->getContent());
         $this->assertStringContainsString('1988-03-05', $csv);
         $this->assertStringContainsString("'=HYPERLINK", $csv);
         $this->assertStringContainsString("'+233240000000", $csv);
@@ -80,10 +81,10 @@ class HrStaffRecordsTest extends TestCase
         }
         $external = $this->staff(['name' => 'External Field Account', 'access_role' => 'merchandiser']);
         $this->actingAs($hr);
-        $csv = $this->post(route('portal.hr.staff.export'), ['scope' => 'filtered', 'q' => 'Export Person', 'format' => 'csv', 'fields' => ['name']])->assertOk()->streamedContent();
+        $csv = $this->excelText($this->post(route('portal.hr.staff.export'), ['scope' => 'filtered', 'q' => 'Export Person', 'format' => 'csv', 'fields' => ['name']])->assertOk()->getContent());
         $this->assertSame(28, substr_count($csv, 'Export Person'));
         $this->assertStringNotContainsString($hr->name, $csv);
-        $csv = $this->post(route('portal.hr.staff.export'), ['scope' => 'all', 'q' => 'no matches', 'format' => 'csv', 'fields' => ['name']])->assertOk()->streamedContent();
+        $csv = $this->excelText($this->post(route('portal.hr.staff.export'), ['scope' => 'all', 'q' => 'no matches', 'format' => 'csv', 'fields' => ['name']])->assertOk()->getContent());
         $this->assertStringContainsString($hr->name, $csv);
         $this->assertStringNotContainsString($external->name, $csv);
         $this->get(route('portal.hr.staff.show', $external))->assertNotFound();
@@ -104,11 +105,11 @@ class HrStaffRecordsTest extends TestCase
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($path));
         $prefix = 'staff-'.$staff->id.'/';
-        $this->assertStringContainsString($staff->name, $zip->getFromName($prefix.'profile.csv'));
-        $this->assertStringNotContainsString($staff->getRawOriginal('password'), $zip->getFromName($prefix.'profile.csv'));
-        $this->assertStringContainsString('Exported work history', $zip->getFromName($prefix.'attendance.csv'));
+        $this->assertStringContainsString($staff->name, $this->excelText($zip->getFromName($prefix.'profile.xlsx')));
+        $this->assertStringNotContainsString($staff->getRawOriginal('password'), $this->excelText($zip->getFromName($prefix.'profile.xlsx')));
+        $this->assertStringContainsString('Exported work history', $this->excelText($zip->getFromName($prefix.'attendance.xlsx')));
         $this->assertSame('test contract', $zip->getFromName($prefix.'documents/contract_path.pdf'));
-        $this->assertStringContainsString('File missing', $zip->getFromName($prefix.'documents.csv'));
+        $this->assertStringContainsString('File missing', $this->excelText($zip->getFromName($prefix.'documents.xlsx')));
         $zip->close();
         unlink($path);
         $this->get(route('portal.hr.staff.document', [$staff, 'contract_path']))->assertOk();
@@ -166,7 +167,11 @@ class HrStaffRecordsTest extends TestCase
         $staff = $this->staff();
         $this->actingAs($this->hr());
         $this->upload("Record ID,Name\n{$staff->id},Cyril Hilton\n");
-        $this->assertNotEmpty(session('hr_staff_import.errors'));
+        $this->assertEmpty(session('hr_staff_import.errors'));
+        $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
+        $this->assertSame('Cyril Hilton', $staff->fresh()->name);
+        $this->assertFalse($staff->fresh()->hasFullHrAccess());
+        $this->assertFalse($staff->fresh()->isLineManager());
         $this->upload("Record ID,Phone,Access Role\n{$staff->id},0241111111,super_admin\n");
         $this->assertSame(['access_role'], session('hr_staff_import.ignored'));
         $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
@@ -177,11 +182,21 @@ class HrStaffRecordsTest extends TestCase
     {
         $staff = $this->staff(['staff_id_number' => null, 'date_of_birth' => '1990-01-02']);
         $this->actingAs($this->hr());
-        $csv = $this->post(route('portal.hr.staff.export'), ['scope' => 'selected', 'ids' => [$staff->id], 'format' => 'csv', 'fields' => ['date_of_birth']])->assertOk()->streamedContent();
+        $csv = $this->excelText($this->post(route('portal.hr.staff.export'), ['scope' => 'selected', 'ids' => [$staff->id], 'format' => 'csv', 'fields' => ['date_of_birth']])->assertOk()->getContent());
         $this->assertStringContainsString('Record ID', $csv);
         $this->upload(str_replace('1990-01-02', '1991-02-03', $csv))->assertSessionHasNoErrors();
         $this->assertEmpty(session('hr_staff_import.errors'));
         $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
         $this->assertSame('1991-02-03', $staff->fresh()->date_of_birth->format('Y-m-d'));
+    }
+
+    public function test_excel_workbook_can_be_imported_without_losing_phone_zeroes(): void
+    {
+        $staff = $this->staff(['phone' => '0240000000']);
+        $bytes = app(\App\Services\BrandedSpreadsheet::class)->xlsx([['Record ID', 'Phone'], [(string) $staff->id, '0241111111']]);
+        $this->actingAs($this->hr())->post(route('portal.hr.staff.import.preview'), ['file' => UploadedFile::fake()->createWithContent('updates.xlsx', $bytes)])->assertSessionHasNoErrors();
+        $this->assertEmpty(session('hr_staff_import.errors'));
+        $this->post(route('portal.hr.staff.import.confirm'), ['token' => session('hr_staff_import.token')])->assertSessionHasNoErrors();
+        $this->assertSame('0241111111', $staff->fresh()->phone);
     }
 }

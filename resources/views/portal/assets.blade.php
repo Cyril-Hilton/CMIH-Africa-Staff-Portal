@@ -81,7 +81,7 @@
                         Reset
                     </a>
                     <a href="{{ route('portal.export', ['table' => 'assets']) }}" data-no-asset-async class="rounded-full border border-emerald-500/30 px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-300 transition hover:bg-emerald-500/10">
-                        Export CSV
+                        Export Excel
                     </a>
                     @if($canCreateAssets)
                         <button type="button" @click.prevent="showModal = true" class="ml-auto rounded-full bg-brand-white px-5 py-2 text-xs font-bold uppercase tracking-[0.2em] text-brand-black transition hover:bg-brand-white/85">

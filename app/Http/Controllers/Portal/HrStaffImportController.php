@@ -36,8 +36,26 @@ class HrStaffImportController extends Controller
     {
         abort_unless($request->user()?->hasFullHrAccess(), 403);
         $request->session()->forget('hr_staff_import');
-        $request->validate(['file' => ['required', 'file', 'max:5120', 'mimes:csv,txt', 'extensions:csv']]);
-        $preview = $importer->preview($request->file('file')->getRealPath(), $request->user(), $record);
+        $request->validate(['file' => ['required', 'file', 'max:5120', 'mimes:csv,txt,xlsx', 'extensions:csv,xlsx']]);
+        $file = $request->file('file');
+        $temporary = null;
+        try {
+            $path = $file->getRealPath();
+            if (strtolower($file->getClientOriginalExtension()) === 'xlsx') {
+                $temporary = tempnam(sys_get_temp_dir(), 'cmih-import-');
+                try {
+                    file_put_contents($temporary, app(\App\Services\BrandedSpreadsheet::class)->csvForImport($path));
+                } catch (\RuntimeException $e) {
+                    throw ValidationException::withMessages(['file' => $e->getMessage()]);
+                }
+                $path = $temporary;
+            }
+            $preview = $importer->preview($path, $request->user(), $record);
+        } finally {
+            if ($temporary && is_file($temporary)) {
+                unlink($temporary);
+            }
+        }
         $preview['token'] = Str::random(40);
         $preview['expires'] = now()->addMinutes(30)->timestamp;
         $preview['viewer'] = $request->user()->id;
@@ -52,7 +70,7 @@ class HrStaffImportController extends Controller
         $request->validate(['token' => ['required', 'string']]);
         $preview = $request->session()->get('hr_staff_import');
         if (! $preview || $preview['viewer'] !== $request->user()->id || ! hash_equals($preview['token'], $request->string('token')->toString()) || $preview['expires'] < now()->timestamp || $preview['errors']) {
-            throw ValidationException::withMessages(['file' => 'Upload a valid CSV and review a fresh preview before confirming.']);
+            throw ValidationException::withMessages(['file' => 'Upload a valid workbook and review a fresh preview before confirming.']);
         }
         $count = DB::transaction(function () use ($preview, $importer) {
             $count = 0;

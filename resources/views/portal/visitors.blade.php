@@ -26,7 +26,7 @@
         <div class="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
             {{-- Schedule Visitor Form --}}
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 h-fit">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🎟️ Schedule a Visitor</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="id" /> Schedule a Visitor</h3>
                 <form method="POST" action="{{ route('portal.hr.pre-tickets.store') }}" class="space-y-4">
                     @csrf
                     <div>
@@ -73,7 +73,7 @@
 
             {{-- Pre-Ticket Ledger --}}
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📋 Your Scheduled Visitors</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clipboard" /> Your Scheduled Visitors</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[500px] text-left text-xs text-brand-white/70">
                         <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">

@@ -14,7 +14,7 @@ class PortfolioPaymentController extends Controller
      */
     public function index(Request $request): View
     {
-        if ($request->user()->access_role !== 'super_admin') {
+        if (! $request->user()->isCvoOrSuperAdmin()) {
             abort(403, 'Unauthorized.');
         }
 

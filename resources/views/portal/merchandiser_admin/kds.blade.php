@@ -25,7 +25,7 @@
         @if($targetKd)
             <div class="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-6">
                 <div class="flex items-start gap-3">
-                    <span class="text-2xl">⚡</span>
+                    <span class="text-2xl"><x-ui-icon name="bolt" /></span>
                     <div>
                         <h3 class="text-lg font-bold text-amber-400">Cascading Reassignment Wizard</h3>
                         <p class="text-sm text-brand-white/80 mt-1">
@@ -37,7 +37,7 @@
                 <!-- Dependent list breakdown -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs bg-brand-black/40 p-4 rounded-xl border border-brand-white/5">
                     <div>
-                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold">🏪 Dependent Outlets ({{ count($dependents['outlets']) }})</p>
+                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold"><x-ui-icon name="store" /> Dependent Outlets ({{ count($dependents['outlets']) }})</p>
                         <ul class="list-disc pl-4 mt-2 text-brand-white/80 space-y-1">
                             @foreach($dependents['outlets'] as $out)
                                 <li>{{ $out->name }}</li>
@@ -45,7 +45,7 @@
                         </ul>
                     </div>
                     <div>
-                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold">👥 Merchandisers ({{ count($dependents['merchandisers']) }})</p>
+                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold"><x-ui-icon name="users" /> Merchandisers ({{ count($dependents['merchandisers']) }})</p>
                         <ul class="list-disc pl-4 mt-2 text-brand-white/80 space-y-1">
                             @foreach($dependents['merchandisers'] as $merch)
                                 <li>{{ $merch->name }}</li>
@@ -53,7 +53,7 @@
                         </ul>
                     </div>
                     <div>
-                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold">👔 Territory Managers ({{ count($dependents['tms']) }})</p>
+                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold"><x-ui-icon name="briefcase" /> Territory Managers ({{ count($dependents['tms']) }})</p>
                         <ul class="list-disc pl-4 mt-2 text-brand-white/80 space-y-1">
                             @foreach($dependents['tms'] as $tm)
                                 <li>{{ $tm->name }}</li>
@@ -61,7 +61,7 @@
                         </ul>
                     </div>
                     <div>
-                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold">💼 DSR Staff ({{ count($dependents['dsrs']) }})</p>
+                        <p class="text-brand-white/50 uppercase tracking-wider font-semibold"><x-ui-icon name="briefcase" /> DSR Staff ({{ count($dependents['dsrs']) }})</p>
                         <ul class="list-disc pl-4 mt-2 text-brand-white/80 space-y-1">
                             @foreach($dependents['dsrs'] as $dsr)
                                 <li>{{ $dsr->name }}</li>
@@ -95,7 +95,7 @@
         
         <!-- Add KD -->
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 h-fit">
-            <h3 class="text-lg font-semibold text-brand-white mb-4">🆕 Register Key Distributor</h3>
+            <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="plus" /> Register Key Distributor</h3>
             <form method="POST" action="{{ route('portal.merchandisers-admin.kds.store') }}" class="space-y-4">
                 @csrf
                 <div>
@@ -131,7 +131,7 @@
 
         <!-- KD Directory -->
         <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40">
-            <h3 class="text-lg font-semibold text-brand-white mb-4">🏬 Active Key Distributors Directory ({{ $kds->count() }})</h3>
+            <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="store" /> Active Key Distributors Directory ({{ $kds->count() }})</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-brand-white/70 min-w-[700px]">
                     <thead class="uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -162,7 +162,7 @@
                                     <button onclick="toggleEditKd('{{ $kd->id }}')" class="px-2 py-1 bg-brand-white/10 border border-brand-white/20 text-brand-white hover:bg-brand-white/20 uppercase font-semibold rounded mr-1">
                                         Edit
                                     </button>
-                                    <form method="POST" action="{{ route('portal.merchandisers-admin.kds.destroy', $kd) }}" onsubmit="return confirm('Are you sure you want to delete this Key Distributor? Depended staff and outlets will trigger the Reassignment Wizard.');" class="inline">
+                                    <form method="POST" action="{{ route('portal.merchandisers-admin.kds.destroy', $kd) }}" data-confirm="Are you sure you want to delete this Key Distributor? Depended staff and outlets will trigger the Reassignment Wizard." class="inline">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="px-2 py-1 bg-brand-red/10 border border-brand-red/20 text-brand-red hover:bg-brand-red/20 uppercase font-semibold rounded">

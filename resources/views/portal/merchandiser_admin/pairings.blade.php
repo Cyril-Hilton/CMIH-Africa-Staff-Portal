@@ -22,7 +22,7 @@
         
         <!-- Pending Activations -->
         <div class="glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5">
-            <h3 class="text-lg font-semibold text-amber-400 mb-4">⏳ Pending Merchandiser Registrations ({{ $pendingMerchandisers->count() }})</h3>
+            <h3 class="text-lg font-semibold text-amber-400 mb-4"><x-ui-icon name="clock" /> Pending Merchandiser Registrations ({{ $pendingMerchandisers->count() }})</h3>
             
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-brand-white/70 min-w-[900px]">
@@ -112,7 +112,7 @@
 
         <!-- Active Merchandisers Map Pairings -->
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40">
-            <h3 class="text-lg font-semibold text-brand-white mb-4">👥 Active Mapped Merchandisers ({{ $activeMerchandisers->count() }})</h3>
+            <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="users" /> Active Mapped Merchandisers ({{ $activeMerchandisers->count() }})</h3>
             
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-brand-white/70 min-w-[900px]">

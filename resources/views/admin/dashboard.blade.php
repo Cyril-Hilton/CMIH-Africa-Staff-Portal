@@ -220,7 +220,7 @@
                                 <div style="color: #000; font-family: sans-serif; padding: 4px; line-height: 1.4; min-width: 200px; max-width: 280px;">
                                     <strong style="font-size: 13px; color: #111;">${log.user.name}</strong><br>
                                     <span style="font-size: 11px; color: #666; font-weight: bold;">Dept: ${log.user.department ? log.user.department.toUpperCase().replace('_', ' ') : 'General'}</span><br>
-                                    <span style="font-size: 11px; font-weight: bold; color: ${statusColor};">📍 Source: ${log.source}</span><br>
+                                    <span style="font-size: 11px; font-weight: bold; color: ${statusColor};"> Source: ${log.source}</span><br>
                                     <span style="font-size: 11px; color: #444;">current location; <b id="lf-loc-name-${log.user.id}">${locInfo.name}</b></span><br>
                                     <span style="font-size: 11px; color: #444;">location map address ; <b id="lf-loc-addr-${log.user.id}">${locInfo.address}</b></span><br>
                                     <span style="font-size: 11px; color: #444;">Last Active: <b>${clockInTime}</b></span><br>
@@ -336,7 +336,7 @@
                                 <div style="color: #000; font-family: sans-serif; padding: 4px; line-height: 1.4; max-width: 280px;">
                                     <strong style="font-size: 13px; color: #111;">${log.user.name}</strong><br>
                                     <span style="font-size: 11px; color: #666; font-weight: bold;">Dept: ${log.user.department ? log.user.department.toUpperCase().replace('_', ' ') : 'General'}</span><br>
-                                    <span style="font-size: 11px; font-weight: bold; color: ${statusColor};">📍 Source: ${log.source}</span><br>
+                                    <span style="font-size: 11px; font-weight: bold; color: ${statusColor};"> Source: ${log.source}</span><br>
                                     <span style="font-size: 11px; color: #444;">current location; <b id="g-loc-name-${log.user.id}">${locInfo.name}</b></span><br>
                                     <span style="font-size: 11px; color: #444;">location map address ; <b id="g-loc-addr-${log.user.id}">${locInfo.address}</b></span><br>
                                     <span style="font-size: 11px; color: #444;">Last Active: <b>${clockInTime}</b></span><br>

@@ -73,7 +73,7 @@
                         <form method="POST" action="{{ route('admin.portfolio.image.destroy', $image) }}" class="touch-visible absolute inset-0 flex items-center justify-center bg-black/60 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                             @csrf
                             @method('DELETE')
-                            <button class="rounded-full bg-brand-red p-2 text-white hover:bg-brand-red-dark transition-colors" title="Delete Image" onclick="return confirm('Remove this image?');">
+                            <button class="rounded-full bg-brand-red p-2 text-white hover:bg-brand-red-dark transition-colors" title="Delete Image" data-confirm="Remove this image?">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         </form>

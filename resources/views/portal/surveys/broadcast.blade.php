@@ -10,7 +10,7 @@
             </a>
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Portal · Surveys · {{ Str::limit($survey->title, 40) }}</p>
-                <h2 class="text-3xl font-display text-brand-white">📣 Broadcast Email</h2>
+                <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="megaphone" /> Broadcast Email</h2>
             </div>
         </div>
     </x-slot>
@@ -60,13 +60,13 @@
 
                 {{-- Subject --}}
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 space-y-4">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white border-b border-brand-white/10 pb-3">✉️ Email Content</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white border-b border-brand-white/10 pb-3"><x-ui-icon name="mail" /> Email Content</h3>
 
                     <div>
                         <label class="block text-[10px] uppercase tracking-[0.2em] text-brand-ash font-medium mb-1" for="subject">Subject Line *</label>
                         <x-text-input id="subject" name="subject" type="text" required
                             class="w-full border border-brand-white/10 bg-brand-black/40 text-brand-white"
-                            placeholder="e.g. 🎉 Congratulations — You've Been Selected!"
+                            placeholder="e.g.  Congratulations — You've Been Selected!"
                             value="{{ old('subject') }}" />
                     </div>
 
@@ -85,7 +85,7 @@
                 {{-- Recipients Selection --}}
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                     <div class="flex items-center justify-between border-b border-brand-white/10 pb-3 mb-4">
-                        <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">👥 Recipients</h3>
+                        <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="users" /> Recipients</h3>
                         <div class="flex items-center gap-3">
                             <button type="button" onclick="selectAll(true)" class="text-[10px] text-emerald-400 hover:text-emerald-300 uppercase tracking-wider font-semibold">Select All</button>
                             <span class="text-brand-white/20">|</span>
@@ -117,7 +117,7 @@
 
                 {{-- Event Details --}}
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 space-y-4">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white border-b border-brand-white/10 pb-3">📅 Event Details <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white border-b border-brand-white/10 pb-3"><x-ui-icon name="calendar" /> Event Details <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
                     <p class="text-[11px] text-brand-white/40">These appear as a highlighted details card in the email body.</p>
 
                     <div>
@@ -161,12 +161,12 @@
 
                 {{-- Email Preview Card --}}
                 <div class="glass-panel rounded-2xl p-6 border border-emerald-500/20 bg-emerald-500/5 space-y-3">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-emerald-400">📬 What Recipients See</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-emerald-400"><x-ui-icon name="mail" /> What Recipients See</h3>
                     <div class="space-y-2 text-xs text-brand-white/60">
-                        <p>✅ <strong class="text-brand-white/80">From:</strong> support@cmih.africa</p>
-                        <p>✅ <strong class="text-brand-white/80">Personalised:</strong> Each email says "Hello [their name]"</p>
-                        <p>✅ <strong class="text-brand-white/80">Cost:</strong> Completely free — uses CMIH mail server</p>
-                        <p>✅ <strong class="text-brand-white/80">Branded:</strong> Dark CMIH-styled HTML email</p>
+                        <p><x-ui-icon name="check" /> <strong class="text-brand-white/80">From:</strong> support@cmih.africa</p>
+                        <p><x-ui-icon name="check" /> <strong class="text-brand-white/80">Personalised:</strong> Each email says "Hello [their name]"</p>
+                        <p><x-ui-icon name="check" /> <strong class="text-brand-white/80">Cost:</strong> Completely free — uses CMIH mail server</p>
+                        <p><x-ui-icon name="check" /> <strong class="text-brand-white/80">Branded:</strong> Dark CMIH-styled HTML email</p>
                     </div>
                 </div>
 
@@ -188,8 +188,8 @@
 
                     <button type="submit"
                         class="w-full rounded-xl bg-brand-red hover:bg-brand-red-dark py-3 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition shadow-lg flex items-center justify-center gap-2"
-                        :disabled="sending" x-text="sending ? 'Sending emails...' : '📣 Send Broadcast'">
-                        📣 Send Broadcast
+                        :disabled="sending" x-text="sending ? 'Sending emails...' : ' Send Broadcast'">
+                        <x-ui-icon name="megaphone" /> Send Broadcast
                     </button>
 
                     <p class="text-[9px] text-brand-white/30 text-center">Emails are sent immediately. This action cannot be undone.</p>

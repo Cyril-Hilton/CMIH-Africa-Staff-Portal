@@ -91,12 +91,9 @@ class MerchandiserRoutePlanner
                 ->whereDate('assigned_date', $date->toDateString())
                 ->count();
 
-            if ($existingCount >= $target) {
-                continue;
-            }
-
             $eligibleOutlets = $this->eligibleOutletsForDate($user, $outlets, $date, $dayIndex, $target, $frequency);
-            $needed = min($target - $existingCount, $eligibleOutlets->count());
+            // Every scheduled outlet remains visible; the daily target is a performance goal, not a truncation limit.
+            $needed = $eligibleOutlets->count();
             $window = $this->assignmentWindowForDate($date, $start, $end);
 
             for ($slot = 0; $slot < $needed; $slot++) {
@@ -137,7 +134,7 @@ class MerchandiserRoutePlanner
         $routeableOutletIds = $this->routeableOutletsFor($user)->pluck('id');
 
         if ($routeableOutletIds->isEmpty()) {
-            return new EloquentCollection();
+            return new EloquentCollection;
         }
 
         return MerchandiserOutletAssignment::with(['outlet.registeredBy'])
@@ -264,7 +261,7 @@ class MerchandiserRoutePlanner
         // Prioritize outlets that match this specific day of the week (via pivot visit_days or registration day)
         $daySpecificOutlets = $outlets->filter(fn (Outlet $outlet) => $this->outletMatchesDay($outlet, $dayOfWeek));
 
-        $candidatePool = $daySpecificOutlets->isNotEmpty() ? $daySpecificOutlets : $outlets;
+        $candidatePool = $daySpecificOutlets;
 
         $frequency = $frequency ?: $this->frequency($user);
 

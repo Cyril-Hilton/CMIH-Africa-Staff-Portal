@@ -151,42 +151,42 @@
                 <div class="flex items-center justify-between gap-3">
                     <x-application-logo class="h-8 w-auto" />
                     <button type="button" @click="sidebarOpen = false" class="lg:hidden text-brand-white/60 hover:text-brand-white text-lg transition-colors p-1" aria-label="Close menu">
-                        ✕
+                        <x-ui-icon name="close" />
                     </button>
                 </div>
 
                 <nav class="mt-8 space-y-2 text-xs uppercase tracking-[0.3em]">
                     <p class="text-[10px] uppercase font-bold tracking-[0.2em] text-brand-ash px-4 mb-2">Navigation</p>
-                    
+
                     <button @click="activeTab = 'outlets'; sidebarOpen = false" :class="activeTab === 'outlets' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        🏬 Visits & Clock-In
+                        <x-ui-icon name="store" /> Visits & Clock-In
                     </button>
                     <button @click="activeTab = 'profile'; sidebarOpen = false" :class="activeTab === 'profile' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        👤 Profile & Banking
+                        <x-ui-icon name="user" /> Profile & Banking
                     </button>
                     <button @click="activeTab = 'payroll'; sidebarOpen = false" :class="activeTab === 'payroll' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        📊 Payroll & Deductions
+                        <x-ui-icon name="chart" /> Payroll & Deductions
                     </button>
                     <button @click="activeTab = 'leaves'; sidebarOpen = false" :class="activeTab === 'leaves' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        📅 Leaves & Absences
+                        <x-ui-icon name="calendar" /> Leaves & Absences
                     </button>
                     <button @click="activeTab = 'claims'; sidebarOpen = false" :class="activeTab === 'claims' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        💰 Petty Cash Claims
+                        <x-ui-icon name="wallet" /> Petty Cash Claims
                     </button>
                     <button @click="activeTab = 'loans'; sidebarOpen = false" :class="activeTab === 'loans' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        💵 Salary Advances
+                        <x-ui-icon name="wallet" /> Salary Advances
                     </button>
                     <button @click="activeTab = 'appraisals'; sidebarOpen = false" :class="activeTab === 'appraisals' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        📝 Self-Appraisals
+                        <x-ui-icon name="edit" /> Self-Appraisals
                     </button>
                     <button @click="activeTab = 'inventory'; sidebarOpen = false" :class="activeTab === 'inventory' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        📁 Field Gear Check-out
+                        <x-ui-icon name="folder" /> Field Gear Check-out
                     </button>
                     <button @click="activeTab = 'surveys'; sidebarOpen = false" :class="activeTab === 'surveys' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        📋 Active Surveys
+                        <x-ui-icon name="clipboard" /> Active Surveys
                     </button>
                     <button @click="activeTab = 'notifications'; sidebarOpen = false" :class="activeTab === 'notifications' ? 'bg-brand-white/10 text-brand-white font-semibold shadow-inner' : 'text-brand-white/60 hover:text-brand-white'" class="w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-2 whitespace-nowrap">
-                        🔔 Notifications
+                        <x-ui-icon name="bell" /> Notifications
                     </button>
                 </nav>
             </aside>
@@ -248,8 +248,8 @@
                             <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Welcome back,</p>
                             <h1 class="text-3xl font-display text-brand-white mt-1">{{ auth()->user()->name }}</h1>
                             <p class="text-xs text-brand-white/60 mt-1">
-                                📍 Region: <span class="text-brand-white font-medium">{{ auth()->user()->merchandiserRegion->name ?? 'N/A' }}</span>
-                                | 🏬 KD: <span class="text-brand-white font-medium">{{ auth()->user()->merchandiserKd->name ?? 'N/A' }}</span>
+                                <x-ui-icon name="pin" /> Region: <span class="text-brand-white font-medium">{{ auth()->user()->merchandiserRegion->name ?? 'N/A' }}</span>
+                                | <x-ui-icon name="store" /> KD: <span class="text-brand-white font-medium">{{ auth()->user()->merchandiserKd->name ?? 'N/A' }}</span>
                             </p>
                         </div>
                         @if(isset($error))
@@ -286,7 +286,7 @@
                                             <p class="text-[10px] text-brand-white/50 mt-0.5">Target: 95% Overall</p>
                                         </div>
                                         <div class="w-10 h-10 rounded-full bg-lime-500/20 border border-lime-500/40 flex items-center justify-center text-lime-300 text-sm font-bold">
-                                            📐
+                                            <x-ui-icon name="image" />
                                         </div>
                                     </div>
 
@@ -297,7 +297,7 @@
                                             <p class="text-[10px] text-brand-white/50 mt-0.5">Target: 100% Alignment</p>
                                         </div>
                                         <div class="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 text-sm font-bold">
-                                            🖼️
+                                            <x-ui-icon name="image" />
                                         </div>
                                     </div>
 
@@ -308,7 +308,7 @@
                                             <p class="text-[10px] text-brand-white/50 mt-0.5">Category Unilever Share</p>
                                         </div>
                                         <div class="w-10 h-10 rounded-full bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-300 text-sm font-bold">
-                                            🏷️
+                                            <x-ui-icon name="id" />
                                         </div>
                                     </div>
                                 </div>
@@ -317,7 +317,7 @@
                                     <div class="lg:col-span-2 space-y-4">
                                         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                                             <div>
-                                                <h2 class="text-xl font-display text-brand-white tracking-wider">🏬 Assigned Outlets ({{ $scheduleLabel ?? ($dayLabels[$selectedDay] ?? 'Selected Day') }})</h2>
+                                                <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="store" /> Assigned Outlets ({{ $scheduleLabel ?? ($dayLabels[$selectedDay] ?? 'Selected Day') }})</h2>
                                                 <p class="mt-1 text-xs text-brand-white/45">{{ $merchMetrics['assigned_outlets_today'] }} planned for this view, {{ $merchMetrics['clockins_today'] }} clocked in, {{ $merchMetrics['outlets_scored_today'] }} scored, {{ $merchMetrics['not_covered_today'] }} not covered.</p>
                                             </div>
                                             <div class="w-full sm:w-80">
@@ -370,7 +370,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-4">
                                             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                                 <div>
@@ -473,7 +473,7 @@
                                                             ? 'bg-amber-500/10 text-amber-200 border-amber-500/20'
                                                             : 'bg-brand-red/10 text-brand-red border-brand-red/20'));
                                             @endphp
-                                            
+
                                             <div id="outlet-card-{{ $outlet->id }}" x-show="outletSearch === '' || @js($searchText).includes(outletSearch.toLowerCase())" class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.05)] transition-all duration-300 space-y-4">
                                                 <div class="flex items-start justify-between gap-3 flex-wrap">
                                                     <div>
@@ -518,7 +518,7 @@
                                                             @endif
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-4 py-2 text-xs text-brand-white/60">
                                                         PJP outlet visit
                                                     </div>
@@ -596,7 +596,7 @@
                                         @empty
                                             <div class="glass-panel rounded-2xl p-8 border border-brand-white/10 bg-brand-black/40 text-center space-y-4">
                                                 <div class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-white/5 text-brand-white/40 text-xl">
-                                                    🏬
+                                                    <x-ui-icon name="store" />
                                                 </div>
                                                 <div>
                                                     <h3 class="text-base font-bold text-brand-white">No outlets registered for your Key Distributor yet.</h3>
@@ -615,7 +615,7 @@
 
                                     <!-- Right performance widgets -->
                                     <div class="space-y-4">
-                                        <h2 class="text-xl font-display text-brand-white tracking-wider">📊 Stats Summary</h2>
+                                        <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="chart" /> Stats Summary</h2>
                                         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-black/40 space-y-6">
                                             <div class="grid grid-cols-2 gap-3 text-center">
                                                 <div class="p-3 bg-brand-white/5 rounded-xl border border-brand-white/5">
@@ -695,11 +695,11 @@
 
                             <!-- TAB 2: PROFILE & BANKING -->
                             <div x-show="activeTab === 'profile'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-6" style="display: none;">
-                                <h2 class="text-xl font-display text-brand-white tracking-wider">👤 Profile & Banking settings</h2>
+                                <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="user" /> Profile & Banking settings</h2>
                                 <form method="POST" action="{{ route('merchandisers.profile.update') }}" class="space-y-4" enctype="multipart/form-data">
                                     @csrf
                                     @method('PATCH')
-                                    
+
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <x-input-label for="name" value="Full Name" />
@@ -781,7 +781,7 @@
                             <!-- TAB 3: PAYROLL & LATENESS AUDIT -->
                             <div x-show="activeTab === 'payroll'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-6" style="display: none;">
                                 <div class="flex items-center justify-between">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">📊 Attendance-Based Payroll Audit</h2>
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="chart" /> Attendance-Based Payroll Audit</h2>
                                     <span class="text-xs px-2.5 py-1 bg-brand-red/10 text-brand-red border border-brand-red/20 rounded-lg font-bold">Month: {{ now()->format('F Y') }}</span>
                                 </div>
 
@@ -812,7 +812,7 @@
                                 <!-- Deductions Breakdown Audit -->
                                 <div class="border-t border-brand-white/10 pt-4 space-y-4">
                                     <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-ash">Audit & Punctuality Breakdown</h3>
-                                    
+
                                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div class="bg-brand-black/20 p-3 rounded-lg border border-brand-white/5 flex items-center justify-between">
                                             <span class="text-xs text-brand-white/70">Excused Leave Days</span>
@@ -829,9 +829,9 @@
                                     </div>
 
                                     <blockquote class="bg-brand-red/5 border-l-4 border-brand-red rounded p-4 text-xs text-brand-white/80 leading-relaxed">
-                                        💡 <strong>Deduction Penalty Policy:</strong> Base salary is audited against geofenced clock-in checkpoints. 
-                                        Each unexcused missed slot incurs a <strong>1% deduction</strong> penalty. 
-                                        Each late slot (occurring past the operational window buffer) incurs a <strong>0.5% deduction</strong> penalty. 
+                                        <x-ui-icon name="image" /> <strong>Deduction Penalty Policy:</strong> Base salary is audited against geofenced clock-in checkpoints.
+                                        Each unexcused missed slot incurs a <strong>1% deduction</strong> penalty.
+                                        Each late slot (occurring past the operational window buffer) incurs a <strong>0.5% deduction</strong> penalty.
                                         Days covered by an **Approved Leave Application** are excluded from penalty calculations.
                                     </blockquote>
                                 </div>
@@ -841,7 +841,7 @@
                             <div x-show="activeTab === 'leaves'" class="space-y-6" style="display: none;">
                                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
                                     <div class="flex items-center justify-between">
-                                        <h2 class="text-xl font-display text-brand-white tracking-wider">📅 Leaves & Absences</h2>
+                                        <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="calendar" /> Leaves & Absences</h2>
                                         <span class="text-xs px-2.5 py-1 bg-brand-white/10 text-brand-white border border-brand-white/20 rounded-lg font-bold">Leave Balance: {{ auth()->user()->leave_balance }} days</span>
                                     </div>
 
@@ -929,8 +929,8 @@
                             <!-- TAB 5: PETTY CASH CLAIMS -->
                             <div x-show="activeTab === 'claims'" class="space-y-6" style="display: none;">
                                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">💰 Petty Cash Claims (Out-of-pocket reimbursements)</h2>
-                                    
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="wallet" /> Petty Cash Claims (Out-of-pocket reimbursements)</h2>
+
                                     <form method="POST" action="{{ route('merchandisers.claims.store') }}" enctype="multipart/form-data" class="space-y-4">
                                         @csrf
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1002,8 +1002,8 @@
                             <!-- TAB 6: SALARY ADVANCES -->
                             <div x-show="activeTab === 'loans'" class="space-y-6" style="display: none;">
                                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">💵 Salary Advances (Employee Loans)</h2>
-                                    
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="wallet" /> Salary Advances (Employee Loans)</h2>
+
                                     <form method="POST" action="{{ route('merchandisers.loans.store') }}" class="space-y-4">
                                         @csrf
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1074,13 +1074,13 @@
                             <!-- TAB 7: APPRAISALS -->
                             <div x-show="activeTab === 'appraisals'" class="space-y-6" style="display: none;">
                                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">📝 Self-Appraisals ratings (Quarterly Submission)</h2>
-                                    
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="edit" /> Self-Appraisals ratings (Quarterly Submission)</h2>
+
                                     <form method="POST" action="{{ route('merchandisers.appraisals.store') }}" class="space-y-6">
                                         @csrf
                                         <div class="space-y-4">
                                             <h3 class="text-xs font-semibold uppercase tracking-wider text-brand-ash">Rate yourself from 1 (Low) to 10 (Excellent) in these categories</h3>
-                                            
+
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
                                                     <x-input-label for="score_attendance" value="Punctuality & Attendance Check-ins" />
@@ -1147,8 +1147,8 @@
                             <!-- TAB 8: POSM GEAR CHECKOUT -->
                             <div x-show="activeTab === 'inventory'" class="space-y-6" style="display: none;">
                                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">📁 Field POSM Materials & Gear Checkout</h2>
-                                    
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="folder" /> Field POSM Materials & Gear Checkout</h2>
+
                                     <form method="POST" action="{{ route('merchandisers.inventory.store') }}" enctype="multipart/form-data" class="space-y-4">
                                         @csrf
                                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1226,12 +1226,12 @@
                             <!-- TAB 9: ACTIVE SURVEYS -->
                             <div x-show="activeTab === 'surveys'" x-data="{ surveyView: 'list' }" class="space-y-6" style="display: none;">
                                 <div class="flex items-center justify-between border-b border-brand-white/10 pb-3">
-                                    <h2 class="text-xl font-display text-brand-white tracking-wider">📋 Broadcast Administrative Surveys</h2>
+                                    <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="clipboard" /> Broadcast Administrative Surveys</h2>
                                     <button type="button" @click="surveyView = (surveyView === 'list' ? 'create' : 'list')" class="px-4 py-2 bg-brand-red hover:bg-red-600 text-white text-xs uppercase tracking-wider font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5">
                                         <span x-text="surveyView === 'list' ? '+ Create New Survey' : '← Back to List'"></span>
                                     </button>
                                 </div>
-                                
+
                                 @if($googleForms->isNotEmpty())
                                     <div class="glass-panel rounded-2xl p-6 border border-sky-400/20 bg-sky-500/10 space-y-4">
                                         <div>
@@ -1290,7 +1290,7 @@
 
                                             <form method="POST" action="{{ route('merchandisers.surveys.respond', $survey) }}" class="space-y-4 border-t border-brand-white/5 pt-4">
                                                 @csrf
-                                                
+
                                                 @foreach($survey->questions as $index => $question)
                                                     <div class="space-y-1.5">
                                                         <x-input-label for="ans_{{ $question->id }}" value="{{ ($index+1) }}. {{ $question->question_text }}" />
@@ -1324,10 +1324,10 @@
 
                                 <div x-show="surveyView === 'create'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4" style="display: none;">
                                     <h3 class="text-lg font-bold text-brand-white">Build & Publish Survey</h3>
-                                    
+
                                     <form method="POST" action="{{ route('merchandisers.surveys.store') }}" class="space-y-6" x-data="merchSurveyBuilder()" x-init="addQuestion()">
                                         @csrf
-                                        
+
                                         <div class="grid gap-4 md:grid-cols-2">
                                             <div>
                                                 <x-input-label for="survey_title" value="Survey Title *" />
@@ -1342,7 +1342,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        
+
                                         <div>
                                             <x-input-label for="survey_description" value="Description / Welcome Message" />
                                             <textarea id="survey_description" name="description" rows="3" class="wysiwyg-editor mt-1 block w-full rounded-xl border border-brand-white/10 bg-brand-black/40 text-brand-white/80 p-2.5 text-xs focus:border-brand-red focus:ring-0" placeholder="Welcome message shown to users..."></textarea>
@@ -1369,14 +1369,14 @@
                                                     + Add Question
                                                 </button>
                                             </div>
-                                            
+
                                             <div class="space-y-4">
                                                 <template x-for="(q, qIndex) in questions" :key="qIndex">
                                                     <div class="rounded-xl border border-brand-white/5 bg-brand-black/25 p-4 relative space-y-3">
                                                         <button type="button" @click="removeQuestion(qIndex)" class="absolute top-3 right-3 text-brand-red hover:text-red-400 text-xs font-bold transition-colors">
-                                                            ✕ Remove
+                                                            <x-ui-icon name="close" /> Remove
                                                         </button>
-                                                        
+
                                                         <div class="grid gap-3 md:grid-cols-2">
                                                             <div>
                                                                 <label class="block text-[10px] uppercase tracking-wider text-brand-white/60 mb-1">Question Prompt</label>
@@ -1401,7 +1401,7 @@
                                                                 <template x-for="(opt, oIndex) in q.options" :key="oIndex">
                                                                     <div class="flex items-center gap-2">
                                                                         <input type="text" :name="'questions[' + qIndex + '][options][' + oIndex + ']'" x-model="q.options[oIndex]" required class="w-1/2 rounded-xl border border-brand-white/10 bg-brand-black/60 text-brand-white/80 px-2 py-1 text-xs focus:border-brand-red focus:ring-0">
-                                                                        <button type="button" @click="removeOption(qIndex, oIndex)" class="text-brand-white/40 hover:text-brand-red text-xs transition-colors">✕</button>
+                                                                        <button aria-label="Close" type="button" @click="removeOption(qIndex, oIndex)" class="text-brand-white/40 hover:text-brand-red text-xs transition-colors"><x-ui-icon name="close" /></button>
                                                                     </div>
                                                                 </template>
                                                             </div>
@@ -1434,12 +1434,12 @@
 
                             <!-- TAB 10: NOTIFICATIONS -->
                             <div x-show="activeTab === 'notifications'" class="space-y-6" style="display: none;">
-                                <h2 class="text-xl font-display text-brand-white tracking-wider">🔔 Announcements & Notifications</h2>
-                                
+                                <h2 class="text-xl font-display text-brand-white tracking-wider"><x-ui-icon name="bell" /> Announcements & Notifications</h2>
+
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <!-- Global Announcements -->
                                     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                        <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-ash mb-3">📢 Broadcast Announcements</h3>
+                                        <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-ash mb-3"><x-ui-icon name="megaphone" /> Broadcast Announcements</h3>
                                         <div class="space-y-4">
                                             @forelse($announcements as $ann)
                                                 <div class="p-4 bg-brand-white/5 rounded-xl border border-brand-white/5 space-y-2">
@@ -1449,7 +1449,7 @@
                                                     </div>
                                                     <p class="text-xs text-brand-white/60 leading-relaxed">{!! nl2br(e($ann->plainBody())) !!}</p>
                                                     @if($ann->pinned)
-                                                        <span class="inline-flex px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded text-[9px] uppercase font-bold">📌 Pinned</span>
+                                                        <span class="inline-flex px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded text-[9px] uppercase font-bold"><x-ui-icon name="pin" /> Pinned</span>
                                                     @endif
                                                 </div>
                                             @empty
@@ -1460,7 +1460,7 @@
 
                                     <!-- Personal Notifications -->
                                     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 hover:border-brand-red/20 transition-all duration-300 space-y-4">
-                                        <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-ash mb-3">👤 Personal Alerts</h3>
+                                        <h3 class="text-sm font-semibold uppercase tracking-wider text-brand-ash mb-3"><x-ui-icon name="user" /> Personal Alerts</h3>
                                         <div class="space-y-4">
                                             @forelse($notifications as $notif)
                                                 <div class="p-4 rounded-xl border {{ is_null($notif->read_at) ? 'bg-brand-red/5 border-brand-red/20 shadow-md' : 'bg-brand-white/5 border-brand-white/5' }} space-y-2">
@@ -1469,7 +1469,7 @@
                                                         <span class="text-[9px] text-brand-white/40">{{ $notif->created_at->diffForHumans() }}</span>
                                                     </div>
                                                     <p class="text-xs text-brand-white/60 leading-relaxed">{{ $notif->message }}</p>
-                                                    
+
                                                     @if(is_null($notif->read_at))
                                                         <div class="flex justify-end pt-1">
                                                             <form method="POST" action="{{ route('merchandisers.notifications.read', $notif) }}">
@@ -1480,7 +1480,7 @@
                                                             </form>
                                                         </div>
                                                     @else
-                                                        <span class="inline-flex px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded text-[9px] uppercase font-bold">✓ Read</span>
+                                                        <span class="inline-flex px-1.5 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded text-[9px] uppercase font-bold"><x-ui-icon name="check" /> Read</span>
                                                     @endif
                                                 </div>
                                             @empty

@@ -24,9 +24,9 @@
             'transport'      => 'bg-cyan-500',
         ];
         $priorityStyles = [
-            'High'   => ['bg' => 'border-red-500/30 bg-red-500/10 text-red-400', 'label' => '🔴 High'],
-            'Medium' => ['bg' => 'border-amber-500/30 bg-amber-500/10 text-amber-400', 'label' => '🟡 Medium'],
-            'Low'    => ['bg' => 'border-green-500/30 bg-green-500/10 text-green-400', 'label' => '🟢 Low'],
+            'High'   => ['bg' => 'border-red-500/30 bg-red-500/10 text-red-400', 'label' => ' High'],
+            'Medium' => ['bg' => 'border-amber-500/30 bg-amber-500/10 text-amber-400', 'label' => ' Medium'],
+            'Low'    => ['bg' => 'border-green-500/30 bg-green-500/10 text-green-400', 'label' => ' Low'],
         ];
         $toggleDir = $direction === 'asc' ? 'desc' : 'asc';
 
@@ -58,7 +58,7 @@
     {{-- Session flash --}}
     @if (session('status'))
         <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400 flex items-center gap-3">
-            <span class="text-lg">✅</span> {{ session('status') }}
+            <span class="text-lg"><x-ui-icon name="check" /></span> {{ session('status') }}
         </div>
     @endif
 
@@ -96,13 +96,13 @@
                                 @csrf
                                 <input type="hidden" name="action" value="approve">
                                 <button type="submit" class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition-all">
-                                    ✓ Approve Task
+                                    <x-ui-icon name="check" /> Approve Task
                                 </button>
                             </form>
 
                             <details class="relative inline-block text-left">
                                 <summary class="cursor-pointer rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-300 transition-all">
-                                    ↩ Send Back
+                                    <x-ui-icon name="refresh" /> Send Back
                                 </summary>
                                 <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-2xl border border-amber-500/30 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl">
                                     <form method="POST" action="{{ route('portal.tasks.completion-review', $approvalTask) }}" class="space-y-3 approval-action-form">
@@ -156,21 +156,21 @@
     {{-- Urgency Banner --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div class="glass-panel rounded-2xl p-5 border border-red-500/30 bg-red-500/5 flex items-center gap-4">
-            <div class="text-3xl">🔥</div>
+            <div class="text-3xl"><x-ui-icon name="bolt" /></div>
             <div>
                 <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">Overdue</p>
                 <p class="text-3xl font-bold text-red-400">{{ $overdueCount }}</p>
             </div>
         </div>
         <div class="glass-panel rounded-2xl p-5 border border-amber-500/30 bg-amber-500/5 flex items-center gap-4">
-            <div class="text-3xl">⚡</div>
+            <div class="text-3xl"><x-ui-icon name="bolt" /></div>
             <div>
                 <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">High Priority</p>
                 <p class="text-3xl font-bold text-amber-400">{{ $highPrioCount }}</p>
             </div>
         </div>
         <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5 flex items-center gap-4">
-            <div class="text-3xl">📋</div>
+            <div class="text-3xl"><x-ui-icon name="clipboard" /></div>
             <div>
                 <p class="text-[10px] uppercase tracking-[0.25em] text-brand-ash">Total Pending</p>
                 <p class="text-3xl font-bold text-brand-white">{{ $totalPending }}</p>
@@ -231,7 +231,7 @@
                                     <div class="text-xs text-brand-white/40 mt-0.5">{!! $task->details !!}</div>
                                 @endif
                                 @if($isOverdue)
-                                    <span class="text-[10px] text-red-400 font-bold uppercase tracking-wider">⚠ Overdue</span>
+                                    <span class="text-[10px] text-red-400 font-bold uppercase tracking-wider"><x-ui-icon name="alert" /> Overdue</span>
                                 @endif
                             </td>
                             <td class="py-4">
@@ -277,7 +277,7 @@
                     @empty
                         <tr>
                             <td colspan="7" class="py-12 text-center">
-                                <div class="text-4xl mb-2">🎉</div>
+                                <div class="text-4xl mb-2"><x-ui-icon name="spark" /></div>
                                 <p class="text-brand-white/50 text-sm">No pending tasks! Everything is up to date.</p>
                             </td>
                         </tr>
@@ -352,7 +352,7 @@
                 ? 'border-red-500/30 bg-red-950/90 text-red-200 shadow-red-950/50'
                 : 'border-emerald-500/30 bg-emerald-950/90 text-emerald-200 shadow-emerald-950/50'
         }`;
-        toast.innerHTML = `<span>${type === 'error' ? '⚠️' : '✓'}</span> <span>${message}</span>`;
+        toast.innerHTML = `<span>${type === 'error' ? '<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v4m0 3h.01"/></svg>' : '<svg class="ui-icon" aria-hidden="true" width="18" height="18" style="display:inline-block;vertical-align:-.15em;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>'}</span> <span>${message}</span>`;
 
         setTimeout(() => {
             toast.className = toast.className.replace('translate-y-0 opacity-100', 'translate-y-full opacity-0');

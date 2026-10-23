@@ -16,7 +16,7 @@
         <!-- Main Stats Summary -->
         <div class="grid gap-6 md:grid-cols-3">
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10">💵</div>
+                <div class="absolute top-0 right-0 p-4 opacity-10"><x-ui-icon name="wallet" /></div>
                 <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Basic Monthly Salary</p>
                 <p class="mt-3 text-3xl font-semibold text-brand-white">
                     {{ $salary ? 'GHS '.number_format($salary, 2) : 'Not set' }}
@@ -159,7 +159,7 @@
                     </div>
 
                     <div>
-                        <p class="text-xs font-semibold text-brand-ash uppercase tracking-wider mb-3">🆔 Statutory Identification numbers</p>
+                        <p class="text-xs font-semibold text-brand-ash uppercase tracking-wider mb-3"><x-ui-icon name="id" /> Statutory Identification numbers</p>
                         <div class="max-w-xl">
                             <x-input-label for="ssnit_number" :value="__('SSNIT ID number')" />
                             <x-text-input id="ssnit_number" name="ssnit_number" type="text" :value="old('ssnit_number', $user->ssnit_number)" placeholder="e.g. C02910300" class="mt-1 w-full" />
@@ -182,7 +182,7 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div class="flex items-center justify-between p-4 rounded-xl bg-brand-white/5 border border-brand-white/5">
                         <div class="flex items-center gap-3">
-                            <span class="text-2xl">📄</span>
+                            <span class="text-2xl"><x-ui-icon name="file" /></span>
                             <div>
                                 <p class="text-sm font-medium text-brand-white">Employment Contract</p>
                                 <p class="text-xs text-brand-white/40 font-mono">Official signed agreement</p>
@@ -190,7 +190,7 @@
                         </div>
                         @if($user->contract_path)
                             <a href="{{ route('portal.payroll.document', [$user, 'contract']) }}" target="_blank" class="text-xs uppercase tracking-[0.15em] text-amber-400 hover:text-amber-300 font-semibold transition-colors">
-                                Download 📥
+                                Download <x-ui-icon name="download" />
                             </a>
                         @else
                             <span class="text-xs text-brand-white/30 italic">Not Uploaded yet</span>
@@ -199,7 +199,7 @@
 
                     <div class="flex items-center justify-between p-4 rounded-xl bg-brand-white/5 border border-brand-white/5">
                         <div class="flex items-center gap-3">
-                            <span class="text-2xl">📋</span>
+                            <span class="text-2xl"><x-ui-icon name="clipboard" /></span>
                             <div>
                                 <p class="text-sm font-medium text-brand-white">Job Description</p>
                                 <p class="text-xs text-brand-white/40 font-mono">Roles & responsibilities outline</p>
@@ -207,7 +207,7 @@
                         </div>
                         @if($user->job_description_path)
                             <a href="{{ route('portal.payroll.document', [$user, 'job-description']) }}" target="_blank" class="text-xs uppercase tracking-[0.15em] text-amber-400 hover:text-amber-300 font-semibold transition-colors">
-                                Download 📥
+                                Download <x-ui-icon name="download" />
                             </a>
                         @else
                             <span class="text-xs text-brand-white/30 italic">Not Uploaded yet</span>
@@ -227,7 +227,7 @@
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 border-b border-brand-white/10 pb-5">
                     <div>
                         <h3 class="text-lg font-bold text-brand-white flex items-center gap-2">
-                            <span>🇬🇭</span> Staff Payroll & Banking Ledger
+                            <span><x-ui-icon name="flag" /></span> Staff Payroll & Banking Ledger
                         </h3>
                         <p class="text-xs text-brand-ash mt-1">Auto-calculates statutory SSNIT (5.5% employee / 13% employer) and GRA PAYE monthly tax brackets.</p>
                     </div>
@@ -237,7 +237,7 @@
                             <summary class="cursor-pointer text-xs font-bold uppercase tracking-wider text-emerald-200">
                                 Issue Payslips
                             </summary>
-                            <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="mt-4 space-y-3" onsubmit="return confirm('Generate and email payslips for the selected recipient(s)?')">
+                            <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="mt-4 space-y-3" data-confirm="Generate and email payslips for the selected recipient(s)?">
                                 @csrf
                                 <label class="block">
                                     <span class="text-[10px] uppercase tracking-wider text-brand-ash">Payslip Month</span>
@@ -264,22 +264,22 @@
                             </form>
                         </details>
                         {{-- HR Bulk Email Action --}}
-                        <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="hidden" onsubmit="return confirm('Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?')">
+                        <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="hidden" data-confirm="Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?">
                             @csrf
                             <input type="hidden" name="period" value="{{ now()->format('Y-m') }}">
                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-all shadow-lg">
-                                ✉️ Issue & Distribute Payslips (Email All)
+                                <x-ui-icon name="mail" /> Issue & Distribute Payslips (Email All)
                             </button>
                         </form>
 
                         {{-- HR Payroll Export --}}
                         <a href="{{ route('portal.payroll.export-register') }}" class="inline-flex items-center gap-2 rounded-xl border border-brand-white/10 bg-brand-white/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/20 transition-all">
-                            📊 Export Payroll Register (CSV)
+                            <x-ui-icon name="chart" /> Export Payroll Register (Excel)
                         </a>
 
                         {{-- HR Staff Directory Export --}}
                         <a href="{{ route('portal.payroll.export-staff-directory') }}" class="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-amber-300 hover:bg-amber-500/20 transition-all">
-                            👥 Export Staff Directory
+                            <x-ui-icon name="users" /> Export Staff Directory
                         </a>
                     </div>
                 </div>

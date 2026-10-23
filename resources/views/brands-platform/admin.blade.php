@@ -265,7 +265,7 @@
                                     <td class="px-3 py-3">{{ \Illuminate\Support\Str::headline($assignment->role) }}</td>
                                     <td class="px-3 py-3">{{ $assignment->assigner?->name ?: 'System' }}</td>
                                     <td class="px-3 py-3">
-                                        <form method="POST" action="{{ route('brands-platform.admin.assignments.destroy', $assignment) }}" onsubmit="return confirm('Remove this brand assignment?')">
+                                        <form method="POST" action="{{ route('brands-platform.admin.assignments.destroy', $assignment) }}" data-confirm="Remove this brand assignment?">
                                             @csrf
                                             @method('DELETE')
                                             <button class="rounded-md bg-brand-red/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-red hover:bg-brand-red hover:text-brand-white">Remove</button>

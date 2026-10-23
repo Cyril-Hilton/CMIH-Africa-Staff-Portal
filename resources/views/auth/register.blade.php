@@ -89,7 +89,7 @@
 
             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-3 text-xs text-brand-white/70 space-y-1">
                 <p>Staff ID number and ID expiry date are generated automatically after signup.</p>
-                <p class="text-brand-white/50">🔒 Password Policy: new passwords must be more than 8 characters and include at least one letter, one number, and one symbol.</p>
+                <p class="text-brand-white/50"><x-ui-icon name="lock" /> Password Policy: new passwords must be more than 8 characters and include at least one letter, one number, and one symbol.</p>
             </div>
 
             <div>

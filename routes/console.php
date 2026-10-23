@@ -27,6 +27,7 @@ Artisan::command('awards:backfill-autoclock {period? : Optional period in YYYY-M
         }
     } catch (\Throwable) {
         $this->error('Invalid period. Use YYYY-MM or YYYY.');
+
         return 1;
     }
 
@@ -45,12 +46,14 @@ Artisan::command('db:backup-sqlite {--keep=14 : Number of daily SQLite backups t
 
     if ($connection !== 'sqlite') {
         $this->info("Database backup skipped: current connection is {$connection}, not sqlite.");
+
         return 0;
     }
 
     $databasePath = config("database.connections.{$connection}.database");
     if (! is_string($databasePath) || $databasePath === '' || $databasePath === ':memory:') {
         $this->error('SQLite database path is not a file-backed database.');
+
         return 1;
     }
 
@@ -61,6 +64,7 @@ Artisan::command('db:backup-sqlite {--keep=14 : Number of daily SQLite backups t
     $realSource = realpath($source);
     if (! $realSource || ! is_file($realSource)) {
         $this->error("SQLite database file not found: {$source}");
+
         return 1;
     }
 
@@ -68,31 +72,33 @@ Artisan::command('db:backup-sqlite {--keep=14 : Number of daily SQLite backups t
     \Illuminate\Support\Facades\File::ensureDirectoryExists($backupDir);
 
     $stamp = now()->format('Ymd-His');
-    $target = $backupDir . DIRECTORY_SEPARATOR . "database-{$stamp}.sqlite";
+    $target = $backupDir.DIRECTORY_SEPARATOR."database-{$stamp}.sqlite";
     if (! copy($realSource, $target)) {
         $this->error("Failed to copy SQLite database to {$target}");
+
         return 1;
     }
 
     foreach (['-wal', '-shm'] as $suffix) {
-        $sidecar = $realSource . $suffix;
+        $sidecar = $realSource.$suffix;
         if (is_file($sidecar)) {
-            copy($sidecar, $target . $suffix);
+            copy($sidecar, $target.$suffix);
         }
     }
 
     $keep = max(1, (int) $this->option('keep'));
-    $backups = collect(glob($backupDir . DIRECTORY_SEPARATOR . 'database-*.sqlite') ?: [])
+    $backups = collect(glob($backupDir.DIRECTORY_SEPARATOR.'database-*.sqlite') ?: [])
         ->sortDesc()
         ->values();
 
     $backups->slice($keep)->each(function (string $oldBackup) {
         @unlink($oldBackup);
-        @unlink($oldBackup . '-wal');
-        @unlink($oldBackup . '-shm');
+        @unlink($oldBackup.'-wal');
+        @unlink($oldBackup.'-shm');
     });
 
     $this->info("SQLite database backup created: {$target}");
+
     return 0;
 })->purpose('Create a timestamped SQLite database backup and prune old backups');
 
@@ -118,11 +124,13 @@ Artisan::command('app:send-workday-reminders {period : morning or evening}', fun
 
     if (! $result) {
         $this->error('Invalid period. Use "morning" or "evening".');
+
         return 1;
     }
 
     if ($result['skipped'] ?? false) {
         $this->info("Workday {$period} reminders were already sent today.");
+
         return 0;
     }
 
@@ -131,7 +139,8 @@ Artisan::command('app:send-workday-reminders {period : morning or evening}', fun
         $summary .= " and {$result['manager_sent']} manager approval reminder(s)";
     }
 
-    $this->info($summary . '.');
+    $this->info($summary.'.');
+
     return 0;
 })->purpose('Send daily workday clock-in and clock-out reminders');
 
@@ -235,6 +244,7 @@ Artisan::command('metrics:audit {--from= : Start date, defaults to task cycle st
 
     if ($this->option('json')) {
         $this->line(json_encode($payload, JSON_PRETTY_PRINT));
+
         return 0;
     }
 
@@ -273,3 +283,55 @@ Artisan::command('metrics:audit {--from= : Start date, defaults to task cycle st
 
     return 0;
 })->purpose('Audit staff task, attendance, punctuality and merchandiser Perfect Store metrics for a date range');
+
+Artisan::command('performance:process', function () {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('performance_outbox')) {
+        $this->error('Run the performance migrations first.');
+
+        return 1;
+    }
+    $service = app(\App\Services\PerformanceAutomation::class);
+    $this->info('Exceptions evaluated: '.$service->sweep().'; notification records processed: '.$service->deliver());
+})->purpose('Evaluate performance exceptions and deliver dashboard/email outbox notifications');
+\Illuminate\Support\Facades\Schedule::command('performance:process')->hourly()->timezone('Africa/Accra')->withoutOverlapping();
+
+Artisan::command('performance:report {frequency}', function () {
+    $count = app(\App\Services\PerformanceAutomation::class)->reports($this->argument('frequency'));
+    $this->info("Report notifications prepared: {$count}");
+});
+\Illuminate\Support\Facades\Schedule::command('performance:report weekly')->weeklyOn(1, '07:00')->timezone('Africa/Accra')->withoutOverlapping();
+\Illuminate\Support\Facades\Schedule::command('performance:report monthly')->monthlyOn(1, '07:10')->timezone('Africa/Accra')->withoutOverlapping();
+\Illuminate\Support\Facades\Schedule::command('performance:report quarterly')->quarterlyOn(1, '07:20')->timezone('Africa/Accra')->withoutOverlapping();
+
+Artisan::command('events:fingerprint-existing', function () {
+    $prepared = 0;
+    $skipped = 0;
+    foreach (\App\Models\Event::whereNotNull('image_path')->cursor() as $event) {
+        if ($event->flyer_fingerprint) { continue; }
+        $disk = \Illuminate\Support\Facades\Storage::disk($event->image_disk ?: 'public');
+        if (! $disk->exists($event->image_path)) { $skipped++; continue; }
+        try {
+            $fingerprint = app(\App\Services\Events\FlyerFingerprint::class)->scan($disk->path($event->image_path));
+            $event->flyer_fingerprint = $fingerprint;
+            // Existing duplicate assets remain intact; visual fingerprints still detect them.
+            if (! \App\Models\Event::where('flyer_sha256', $fingerprint['sha256'])->whereKeyNot($event->id)->exists()) {
+                $event->flyer_sha256 = $fingerprint['sha256'];
+            }
+            $event->save();
+            $prepared++;
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->warn('Could not process event '.$event->id.'. Existing data was preserved.');
+            $skipped++;
+        }
+    }
+    $this->info("Existing flyers fingerprinted: {$prepared}; skipped: {$skipped}.");
+})->purpose('Prepare existing event flyers for duplicate detection without changing event details');
+
+Artisan::command('creative:import-history', function () {
+    $this->info('Historical creative records added: '.app(\App\Services\Creative\CreativeLegacyImport::class)->run());
+})->purpose('Link existing creative tasks and weekly records without inventing missing facts');
+
+Artisan::command('creative:reminders', function () { $this->info('Creative alerts evaluated: '.app(\App\Services\Creative\CreativeAccountability::class)->reminders()); });
+\Illuminate\Support\Facades\Schedule::command('creative:reminders')->hourly()->timezone('Africa/Accra')->withoutOverlapping();
+\Illuminate\Support\Facades\Schedule::command('creative:import-history')->hourly()->withoutOverlapping();

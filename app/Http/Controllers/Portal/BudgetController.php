@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -24,21 +23,21 @@ class BudgetController extends Controller
         if ($currency === 'GHC') {
             return 'GH₵';
         }
+
         return in_array($currency, self::ALLOWED_CURRENCIES, true)
             ? $currency : 'GH₵';
     }
 
     private function isCVO(User $user): bool
     {
-        return $user->job_level === 'super_admin'
-            || $user->access_role === 'super_admin';
+        return $user->isCvoOrSuperAdmin();
     }
 
     public function index(Request $request): View
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
         // 1. My Budgets (created by the user)
         $myBudgets = ProjectBudget::where('created_by', $user->id)
@@ -51,10 +50,10 @@ class BudgetController extends Controller
         $sharedBudgets = ProjectBudget::whereHas('collaborators', function ($query) use ($user) {
             $query->where('users.id', $user->id);
         })
-        ->with(['creator', 'items'])
-        ->latest()
-        ->paginate(10, ['*'], 'shared_page')
-        ->withQueryString();
+            ->with(['creator', 'items'])
+            ->latest()
+            ->paginate(10, ['*'], 'shared_page')
+            ->withQueryString();
 
         // 3. Review Queue (CVO and Finance department can see submitted budgets)
         $pendingBudgets = collect();
@@ -113,11 +112,11 @@ class BudgetController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'task_id'  => ['nullable', 'exists:tasks,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'task_id' => ['nullable', 'exists:tasks,id'],
             'currency' => ['nullable', 'string'],
-            'notes'    => ['nullable', 'string', 'max:2000'],
-            'content'  => ['nullable', 'string'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'content' => ['nullable', 'string'],
             'collaborators' => ['nullable', 'array'],
             'collaborators.*.user_id' => ['required', 'exists:users,id'],
             'collaborators.*.permission' => ['required', 'in:view,edit'],
@@ -128,12 +127,12 @@ class BudgetController extends Controller
 
         $budget = ProjectBudget::create([
             'created_by' => $request->user()->id,
-            'task_id'    => $request->input('task_id'),
-            'title'      => $request->input('title'),
-            'currency'   => $currency,
-            'notes'      => $request->input('notes'),
-            'content'    => $request->input('content'),
-            'status'     => 'Draft',
+            'task_id' => $request->input('task_id'),
+            'title' => $request->input('title'),
+            'currency' => $currency,
+            'notes' => $request->input('notes'),
+            'content' => $request->input('content'),
+            'status' => 'Draft',
         ]);
 
         // Sync Collaborators
@@ -152,20 +151,20 @@ class BudgetController extends Controller
                 $insertData = [];
                 $now = now();
                 foreach ($items as $item) {
-                    $qty = max((int)($item['quantity'] ?? 1), 1);
-                    $price = (float)($item['unit_price'] ?? 0.0);
+                    $qty = max((int) ($item['quantity'] ?? 1), 1);
+                    $price = (float) ($item['unit_price'] ?? 0.0);
                     $insertData[] = [
-                        'budget_id'   => $budget->id,
+                        'budget_id' => $budget->id,
                         'description' => trim($item['description'] ?? ''),
-                        'quantity'    => $qty,
-                        'unit_price'  => $price,
-                        'total'       => $qty * $price,
-                        'category'    => isset($item['category']) ? trim($item['category']) : null,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
+                        'quantity' => $qty,
+                        'unit_price' => $price,
+                        'total' => $qty * $price,
+                        'category' => isset($item['category']) ? trim($item['category']) : null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
-                if (!empty($insertData)) {
+                if (! empty($insertData)) {
                     ProjectBudgetItem::insert($insertData);
                 }
                 $budget->recalculateTotal();
@@ -179,12 +178,12 @@ class BudgetController extends Controller
     public function show(ProjectBudget $budget, Request $request): View
     {
         $user = $request->user();
-        if (!$budget->canView($user)) {
-            abort(403, '🔒 Access Denied. You are not authorized to view this budget.');
+        if (! $budget->canView($user)) {
+            abort(403, ' Access Denied. You are not authorized to view this budget.');
         }
 
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
         $isCVO = $this->isCVO($user);
 
@@ -200,8 +199,8 @@ class BudgetController extends Controller
     public function edit(ProjectBudget $budget, Request $request): View
     {
         $user = $request->user();
-        if (!$budget->canEdit($user)) {
-            abort(403, '🔒 Access Denied. You are not authorized to edit this budget.');
+        if (! $budget->canEdit($user)) {
+            abort(403, ' Access Denied. You are not authorized to edit this budget.');
         }
 
         $tasks = Task::where('assigned_to', $budget->created_by)
@@ -223,16 +222,16 @@ class BudgetController extends Controller
     public function update(Request $request, ProjectBudget $budget): RedirectResponse
     {
         $user = $request->user();
-        if (!$budget->canEdit($user)) {
-            abort(403, '🔒 Access Denied. You are not authorized to edit this budget.');
+        if (! $budget->canEdit($user)) {
+            abort(403, ' Access Denied. You are not authorized to edit this budget.');
         }
 
         $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'task_id'  => ['nullable', 'exists:tasks,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'task_id' => ['nullable', 'exists:tasks,id'],
             'currency' => ['nullable', 'string'],
-            'notes'    => ['nullable', 'string', 'max:2000'],
-            'content'  => ['nullable', 'string'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'content' => ['nullable', 'string'],
             'collaborators' => ['nullable', 'array'],
             'collaborators.*.user_id' => ['required', 'exists:users,id'],
             'collaborators.*.permission' => ['required', 'in:view,edit'],
@@ -247,16 +246,16 @@ class BudgetController extends Controller
         }
 
         $budget->update([
-            'task_id'  => $request->input('task_id'),
-            'title'    => $request->input('title'),
+            'task_id' => $request->input('task_id'),
+            'title' => $request->input('title'),
             'currency' => $currency,
-            'notes'    => $request->input('notes'),
-            'content'  => $request->input('content'),
-            'status'   => $newStatus,
+            'notes' => $request->input('notes'),
+            'content' => $request->input('content'),
+            'status' => $newStatus,
         ]);
 
         // Sync Collaborators
-        if ($budget->created_by === $user->id || $user->hasRole('super_admin')) {
+        if ($budget->created_by === $user->id || $user->isCvoOrSuperAdmin()) {
             $syncData = [];
             if ($request->has('sync_collaborators') || $request->has('collaborators')) {
                 foreach ($request->input('collaborators', []) as $collab) {
@@ -275,20 +274,20 @@ class BudgetController extends Controller
                 $insertData = [];
                 $now = now();
                 foreach ($items as $item) {
-                    $qty = max((int)($item['quantity'] ?? 1), 1);
-                    $price = (float)($item['unit_price'] ?? 0.0);
+                    $qty = max((int) ($item['quantity'] ?? 1), 1);
+                    $price = (float) ($item['unit_price'] ?? 0.0);
                     $insertData[] = [
-                        'budget_id'   => $budget->id,
+                        'budget_id' => $budget->id,
                         'description' => trim($item['description'] ?? ''),
-                        'quantity'    => $qty,
-                        'unit_price'  => $price,
-                        'total'       => $qty * $price,
-                        'category'    => isset($item['category']) ? trim($item['category']) : null,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
+                        'quantity' => $qty,
+                        'unit_price' => $price,
+                        'total' => $qty * $price,
+                        'category' => isset($item['category']) ? trim($item['category']) : null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ];
                 }
-                if (!empty($insertData)) {
+                if (! empty($insertData)) {
                     ProjectBudgetItem::insert($insertData);
                 }
                 $budget->recalculateTotal();
@@ -306,7 +305,7 @@ class BudgetController extends Controller
             abort(403, 'Only the creator can delete this budget.');
         }
 
-        if (!in_array($budget->status, ['Draft', 'Rejected'])) {
+        if (! in_array($budget->status, ['Draft', 'Rejected'])) {
             return back()->withErrors(['error' => 'Cannot delete a budget that has been submitted and is in review.']);
         }
 
@@ -319,7 +318,7 @@ class BudgetController extends Controller
     public function updateCollaborators(Request $request, ProjectBudget $budget): RedirectResponse
     {
         $user = $request->user();
-        if ($budget->created_by !== $user->id && !$user->hasRole('super_admin')) {
+        if ($budget->created_by !== $user->id && ! $user->isCvoOrSuperAdmin()) {
             abort(403, 'Only the creator or Super Admin can manage collaborators.');
         }
 
@@ -345,7 +344,7 @@ class BudgetController extends Controller
     public function submit(ProjectBudget $budget, Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($budget->created_by !== $user->id && !$this->isCVO($user)) {
+        if ($budget->created_by !== $user->id && ! $this->isCVO($user)) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -354,12 +353,12 @@ class BudgetController extends Controller
 
         if ($target === 'cvo') {
             $budget->update(['status' => 'Submitted to CVO']);
-            
+
             // Notify CVO/Super Admin
             $cvoUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('access_role', 'super_admin')
-                      ->orWhere('job_level', 'super_admin');
+                        ->orWhere('job_level', 'super_admin');
                 })
                 ->get();
             foreach ($cvoUsers as $cvo) {
@@ -371,15 +370,15 @@ class BudgetController extends Controller
                 );
             }
 
-            return back()->with('status', '⚡ Budget submitted directly to CVO for approval.');
+            return back()->with('status', ' Budget submitted directly to CVO for approval.');
         } else {
             $budget->update(['status' => 'Submitted to Finance']);
 
             // Notify Finance Users
             $financeUsers = User::internalStaff()->where('status', 'active')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('department', 'finance')
-                      ->orWhere('access_role', 'super_admin');
+                        ->orWhere('access_role', 'super_admin');
                 })
                 ->get();
             foreach ($financeUsers as $fin) {
@@ -391,7 +390,7 @@ class BudgetController extends Controller
                 );
             }
 
-            return back()->with('status', '📤 Budget submitted to Finance for approval.');
+            return back()->with('status', ' Budget submitted to Finance for approval.');
         }
     }
 
@@ -399,9 +398,9 @@ class BudgetController extends Controller
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
-        if (!$isFinance) {
+        if (! $isFinance) {
             abort(403, 'Only the Finance department can action budgets.');
         }
 
@@ -415,16 +414,19 @@ class BudgetController extends Controller
                 route('portal.finance.budgets.show', $budget),
                 $user->id
             );
-            return back()->with('status', '✅ Budget verified and approved by Finance. Sent to CVO.');
+
+            return back()->with('status', ' Budget verified and approved by Finance. Sent to CVO.');
         }
 
         if ($action === 'reject') {
             $budget->update(['status' => 'Rejected']);
+
             return back()->with('status', 'Budget rejected by Finance.');
         }
 
         if ($action === 'send_back') {
             $budget->update(['status' => 'Returned for Correction']);
+
             return back()->with('status', 'Budget sent back to the creator for correction.');
         }
 
@@ -439,12 +441,14 @@ class BudgetController extends Controller
 
         if ($action === 'approve') {
             $budget->update(['status' => 'CVO Approved']);
-            return back()->with('status', '✅ Budget approved by CVO.');
+
+            return back()->with('status', ' Budget approved by CVO.');
         }
 
         if ($action === 'reject') {
             $budget->update(['status' => 'Rejected']);
-            return back()->with('status', '✗ Budget rejected by CVO.');
+
+            return back()->with('status', ' Budget rejected by CVO.');
         }
 
         if ($action === 'send_back_finance') {
@@ -457,6 +461,7 @@ class BudgetController extends Controller
                 route('portal.finance.budgets.show', $budget),
                 $request->user()->id
             );
+
             return back()->with('status', 'Budget sent back to Finance for correction.');
         }
 
@@ -467,30 +472,30 @@ class BudgetController extends Controller
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
         // Check if user is creator or an assigned collaborator with edit permissions
-        if ($budget->created_by !== $user->id && !$isFinance && !$budget->canEdit($user)) {
+        if ($budget->created_by !== $user->id && ! $isFinance && ! $budget->canEdit($user)) {
             abort(403, 'Unauthorized action.');
         }
 
         $request->validate([
             'description' => ['required', 'string', 'max:255'],
-            'quantity'    => ['required', 'integer', 'min:1'],
-            'unit_price'  => ['required', 'numeric', 'min:0'],
-            'category'    => ['nullable', 'string', 'max:100'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'unit_price' => ['required', 'numeric', 'min:0'],
+            'category' => ['nullable', 'string', 'max:100'],
         ]);
 
-        $qty   = (int) $request->input('quantity');
+        $qty = (int) $request->input('quantity');
         $price = (float) $request->input('unit_price');
 
         ProjectBudgetItem::create([
-            'budget_id'   => $budget->id,
+            'budget_id' => $budget->id,
             'description' => $request->input('description'),
-            'quantity'    => $qty,
-            'unit_price'  => $price,
-            'total'       => $qty * $price,
-            'category'    => $request->input('category'),
+            'quantity' => $qty,
+            'unit_price' => $price,
+            'total' => $qty * $price,
+            'category' => $request->input('category'),
         ]);
 
         $budget->recalculateTotal();
@@ -506,9 +511,9 @@ class BudgetController extends Controller
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
-        if ($budget->created_by !== $user->id && !$isFinance && !$budget->canEdit($user)) {
+        if ($budget->created_by !== $user->id && ! $isFinance && ! $budget->canEdit($user)) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -525,18 +530,18 @@ class BudgetController extends Controller
     public function export(ProjectBudget $budget, Request $request): StreamedResponse
     {
         $user = $request->user();
-        if (!$budget->canView($user)) {
-            abort(403, '🔒 Access Denied.');
+        if (! $budget->canView($user)) {
+            abort(403, ' Access Denied.');
         }
 
         $headers = [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="budget_' . $budget->id . '_export.csv"',
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="budget_'.$budget->id.'_export.csv"',
         ];
 
         $callback = function () use ($budget) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['Description', 'Quantity', 'Unit Price', 'Category', 'Total (' . $budget->currency . ')']);
+            fputcsv($file, ['Description', 'Quantity', 'Unit Price', 'Category', 'Total ('.$budget->currency.')']);
 
             foreach ($budget->items as $item) {
                 fputcsv($file, [
@@ -557,9 +562,9 @@ class BudgetController extends Controller
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
-        if ($budget->created_by !== $user->id && !$isFinance && !$budget->canEdit($user)) {
+        if ($budget->created_by !== $user->id && ! $isFinance && ! $budget->canEdit($user)) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -575,7 +580,7 @@ class BudgetController extends Controller
         // Standard expected order: description, quantity, unit_price, category
         // We'll clean quotes/whitespaces to make it robust
         if ($header) {
-            $header = array_map(fn($col) => strtolower(trim(str_replace(['"', "'"], '', $col))), $header);
+            $header = array_map(fn ($col) => strtolower(trim(str_replace(['"', "'"], '', $col))), $header);
         }
 
         $rowNum = 0;
@@ -588,28 +593,28 @@ class BudgetController extends Controller
             }
 
             // Fallback column positions
-            $desc  = $row[0] ?? '';
-            $qty   = isset($row[1]) ? (int) $row[1] : 1;
+            $desc = $row[0] ?? '';
+            $qty = isset($row[1]) ? (int) $row[1] : 1;
             $price = isset($row[2]) ? (float) $row[2] : 0.0;
-            $cat   = $row[3] ?? null;
+            $cat = $row[3] ?? null;
 
             if (empty(trim($desc))) {
                 continue;
             }
 
             $insertData[] = [
-                'budget_id'   => $budget->id,
+                'budget_id' => $budget->id,
                 'description' => trim($desc),
-                'quantity'    => max($qty, 1),
-                'unit_price'  => $price,
-                'total'       => max($qty, 1) * $price,
-                'category'    => $cat ? trim($cat) : null,
-                'created_at'  => $now,
-                'updated_at'  => $now,
+                'quantity' => max($qty, 1),
+                'unit_price' => $price,
+                'total' => max($qty, 1) * $price,
+                'category' => $cat ? trim($cat) : null,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 
-        if (!empty($insertData)) {
+        if (! empty($insertData)) {
             ProjectBudgetItem::insert($insertData);
         }
 

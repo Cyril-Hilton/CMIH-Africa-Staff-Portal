@@ -39,7 +39,8 @@ class TaskStatsService
             'approved_by_user' => $approvedByUser,
             'pending' => $pending,
             'overdue' => $overdue,
-            'completion_rate' => $accountableTotal > 0 ? round(($completed / $accountableTotal) * 100, 1) : 0,
+            'awaiting_creative_review' => (clone $accountableQuery)->whereIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())->count(),
+            'completion_rate' => ($denominator=max(0,$accountableTotal-(clone $accountableQuery)->whereIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())->count())) > 0 ? round(($completed / $denominator) * 100, 1) : 0,
             'approval_label' => self::approvalLabel($user, $showsReviewerApprovals),
         ];
     }
@@ -57,7 +58,8 @@ class TaskStatsService
             'completed' => $completed,
             'pending' => $pending,
             'overdue' => $overdue,
-            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 1) : 0,
+            'awaiting_creative_review' => ($awaiting=(clone $taskQuery)->whereIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())->count()),
+            'completion_rate' => ($denominator=max(0,$total-$awaiting)) > 0 ? round(($completed / $denominator) * 100, 1) : 0,
         ];
     }
 
@@ -84,7 +86,8 @@ class TaskStatsService
             'completed' => $completed,
             'pending' => $pending,
             'overdue' => $overdue,
-            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 1) : 0,
+            'awaiting_creative_review' => ($awaiting=(clone $taskQuery)->whereIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())->count()),
+            'completion_rate' => ($denominator=max(0,$total-$awaiting)) > 0 ? round(($completed / $denominator) * 100, 1) : 0,
         ];
     }
 
@@ -123,6 +126,8 @@ class TaskStatsService
         if ($task->completion_review_status !== 'approved' || ! $task->completion_reviewed_by) {
             return false;
         }
+
+        if (\App\Services\Creative\CreativeAccountability::independentSignoff($task,$user)) return true;
 
         $expectedManagerIds = self::expectedApprovalManagerIds($task, $user);
 
@@ -220,6 +225,7 @@ class TaskStatsService
 
         return $query
             ->pendingFinalSignOff()
+            ->whereNotIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())
             ->whereNotNull('due_on')
             ->where('due_on', '<', $cutoff)
             ->count();

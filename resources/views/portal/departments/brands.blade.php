@@ -18,7 +18,7 @@
             
             <!-- POSM Material Stock list -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📦 Merchandiser & POSM Stock Hub</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="box" /> Merchandiser & POSM Stock Hub</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs text-brand-white/70">
                         <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -75,7 +75,7 @@
 
             <!-- Upload Brand Blueprint / Strategy Strategy Blueprint upload -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🚀 Compliance Parameters & Strategy Blueprints</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="bolt" /> Compliance Parameters & Strategy Blueprints</h3>
                 <form method="POST" action="{{ route('portal.brands.strategy.store') }}" enctype="multipart/form-data" class="space-y-4 mb-6">
                     @csrf
                     <div>
@@ -128,7 +128,7 @@
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="mb-5">
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Phase 3</p>
-                <h3 class="text-lg font-display text-brand-white uppercase">📋 POSM & Materials Deployment Ledger</h3>
+                <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="clipboard" /> POSM & Materials Deployment Ledger</h3>
             </div>
             <div class="space-y-6">
                 {{-- Create POSM Entry --}}
@@ -227,9 +227,9 @@
                                     <td class="py-3 text-brand-white/60">{{ $entry->creator?->name ?? 'System' }}</td>
                                     <td class="py-3 text-brand-ash">{{ $entry->created_at?->format('d M H:i') }}</td>
                                     <td class="py-3 text-right">
-                                        <form method="POST" action="{{ route('portal.brands.posm.destroy', $entry) }}" onsubmit="return confirm('Remove log entry?')">
+                                        <form method="POST" action="{{ route('portal.brands.posm.destroy', $entry) }}" data-confirm="Remove log entry?">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors">✕</button>
+                                            <button aria-label="Close" type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors"><x-ui-icon name="close" /></button>
                                         </form>
                                     </td>
                                 </tr>

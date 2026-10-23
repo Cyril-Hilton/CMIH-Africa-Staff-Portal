@@ -118,6 +118,7 @@ class Task extends Model
     protected function casts(): array
     {
         return [
+            'performance_weight' => 'integer', 'weight_approved_at' => 'datetime',
             'due_on'               => 'datetime',
             'progress'             => 'integer',
             'completion_review_requested_at' => 'datetime',

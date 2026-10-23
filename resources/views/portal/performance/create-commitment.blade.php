@@ -1,0 +1,16 @@
+<details class="panel"><summary class="text-lg font-semibold">Assign a measurable commitment</summary><form method="POST" action="{{ route('portal.performance.commitment') }}" class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">@csrf<input type="hidden" name="department" value="{{ $department }}">
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'source_task_id','type'=>'number','required'=>false,'label'=>'Existing task ID, if this is the same work (prevents duplicate scoring)']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'campaign_name','label'=>'Project / commitment title']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'performance_kpi_id','options'=>$kpis->pluck('name','id')->all(),'label'=>'Linked KPI']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'record_type','options'=>['deliverable'=>'Deliverable','milestone'=>'Milestone','outcome'=>'Outcome']]))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'lead_staff_id','options'=>$users,'label'=>'Accountable owner']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'reviewer_id','options'=>$users,'label'=>'Independent reviewer']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'team','required'=>false]))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'client_name','required'=>false]))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'week_start','type'=>'date','label'=>'Planned start']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'week_end','type'=>'date','label'=>'Deadline']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'deliverables','type'=>'textarea','label'=>'Expected output / acceptance criteria']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'target_value','type'=>'number','label'=>'Deliverable target (does not duplicate KPI period result)']))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'priority','options'=>array_combine(['Critical','High','Medium','Low'],['Critical','High','Medium','Low'])]))
+@include('portal.performance.field',array_merge(['options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>null],['name'=>'risk_level','options'=>array_combine(['low','medium','high','critical'],['Low','Medium','High','Critical'])]))
+<button type="submit">Assign commitment</button></form></details>

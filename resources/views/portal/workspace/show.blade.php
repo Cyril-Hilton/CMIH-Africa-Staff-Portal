@@ -10,11 +10,11 @@
                     ← Back to Dashboard
                 </a>
                 <a href="{{ route('portal.workspace.export', $workspace) }}" class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-brand-black bg-emerald-500 hover:bg-emerald-400 transition">
-                    📥 Export Document
+                    <x-ui-icon name="download" /> Export Document
                 </a>
                 @if ($permission === 'edit' || auth()->user()->hasRole('super_admin'))
                     <a href="{{ route('portal.workspace.edit', $workspace) }}" class="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-brand-black bg-amber-500 hover:bg-amber-400 transition">
-                        ✏️ Edit Content
+                        <x-ui-icon name="edit" /> Edit Content
                     </a>
                 @endif
             </div>
@@ -73,7 +73,7 @@
                         </div>
                     @else
                         <div class="flex flex-col items-center justify-center py-24 text-brand-white/30 italic">
-                            <span class="text-4xl mb-3">📝</span>
+                            <span class="text-4xl mb-3"><x-ui-icon name="edit" /></span>
                             <p>This document has no written body text yet.</p>
                         </div>
                     @endif
@@ -82,10 +82,10 @@
                 <!-- Attached File Card -->
                 @if ($workspace->file_path)
                     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                        <h3 class="text-base font-semibold text-brand-white mb-4">📎 Imported File Attachment</h3>
+                        <h3 class="text-base font-semibold text-brand-white mb-4"><x-ui-icon name="paperclip" /> Imported File Attachment</h3>
                         <div class="flex items-center justify-between p-4 rounded-xl bg-brand-black/50 border border-brand-white/5">
                             <div class="flex items-center gap-3">
-                                <span class="text-3xl">📄</span>
+                                <span class="text-3xl"><x-ui-icon name="file" /></span>
                                 <div>
                                     <p class="text-sm font-medium text-brand-white">{{ $workspace->file_name }}</p>
                                     <p class="text-xs text-brand-ash">Uploaded: {{ $workspace->created_at->format('M d, Y') }}</p>
@@ -149,9 +149,7 @@
                                                     <option value="view">View Only</option>
                                                     <option value="edit">Can Edit</option>
                                                 </select>
-                                                <button type="button" @click="removeCollab(collab.id)" class="text-brand-red font-bold hover:text-red-400 px-1.5 py-0.5">
-                                                    ✕
-                                                </button>
+                                                <button aria-label="Close" type="button" @click="removeCollab(collab.id)" class="text-brand-red font-bold hover:text-red-400 px-1.5 py-0.5"><x-ui-icon name="close" /></button>
                                             </div>
                                         </div>
                                     </template>
@@ -183,7 +181,7 @@
                 @if (($workspace->created_by === auth()->id() || $workspace->current_holder_id === auth()->id()) && in_array($workspace->status, ['draft']))
                     <div class="glass-panel rounded-2xl p-6 border border-amber-500/20 bg-amber-500/5">
                         <h3 class="text-base font-semibold text-brand-white mb-3 flex items-center gap-2">
-                            <span>📤</span> Submit for Review
+                            <span><x-ui-icon name="upload" /></span> Submit for Review
                         </h3>
                         
                         <form action="{{ route('portal.workspace.submit', $workspace) }}" method="POST" x-data="{ routeType: @js(old('route_target', 'manager')) }" class="space-y-4">
@@ -208,7 +206,7 @@
                                     @endforeach
                                 </select>
                                 @if ($lineManagers->isEmpty())
-                                    <p class="mt-2 rounded-xl bg-brand-black/40 border border-brand-red/20 px-3 py-2 text-xs text-brand-red font-semibold">⚠️ No active line managers are available. Please select coworker routing or contact admin.</p>
+                                    <p class="mt-2 rounded-xl bg-brand-black/40 border border-brand-red/20 px-3 py-2 text-xs text-brand-red font-semibold"><x-ui-icon name="alert" /> No active line managers are available. Please select coworker routing or contact admin.</p>
                                 @else
                                     <p class="mt-2 text-[10px] leading-relaxed text-brand-white/45">Select the manager who should review this document. Your saved manager is preselected when available.</p>
                                 @endif
@@ -225,7 +223,7 @@
                                     @endforeach
                                 </select>
                                 @if ($coworkerRecipients->isEmpty())
-                                    <p class="mt-2 rounded-xl bg-brand-black/40 border border-brand-red/20 px-3 py-2 text-xs text-brand-red font-semibold">⚠️ No coworker recipients are currently available.</p>
+                                    <p class="mt-2 rounded-xl bg-brand-black/40 border border-brand-red/20 px-3 py-2 text-xs text-brand-red font-semibold"><x-ui-icon name="alert" /> No coworker recipients are currently available.</p>
                                 @endif
                             </div>
 
@@ -240,7 +238,7 @@
                 @if ($workspace->current_holder_id === auth()->id() && $workspace->status === 'under_review')
                     <div class="glass-panel rounded-2xl p-6 border border-emerald-500/30 bg-emerald-500/5">
                         <h3 class="text-base font-semibold text-brand-white mb-4 flex items-center gap-2">
-                            <span>⚡</span> Action Required
+                            <span><x-ui-icon name="bolt" /></span> Action Required
                         </h3>
                         
                         <div x-data="{ actionType: 'approve' }" class="space-y-4">

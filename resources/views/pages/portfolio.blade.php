@@ -298,7 +298,7 @@
                             Proceed to Payment
                         </button>
                         <p class="text-center mt-3 text-[10px] text-brand-white/40">
-                            🔒 Secured by Paystack. Card, Mobile Money, and Bank Transfer accepted.
+                            <x-ui-icon name="lock" /> Secured by Paystack. Card, Mobile Money, and Bank Transfer accepted.
                         </p>
                     </div>
 

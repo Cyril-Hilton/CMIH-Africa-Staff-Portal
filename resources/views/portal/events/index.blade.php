@@ -1,0 +1,15 @@
+<x-app-layout>
+<div class="mx-auto max-w-6xl space-y-6">
+<header><p class="text-xs uppercase tracking-widest text-brand-ash">Public Website</p><h1 class="mt-2 text-3xl font-semibold">Events & Activations</h1><p class="mt-2 text-brand-ash">Publish upcoming events together. Check the shared list before adding a flyer.</p></header>
+@if(session('status'))<div role="status" class="rounded-xl border border-green-500/40 p-4">{{ session('status') }}</div>@endif
+@if($errors->any())<div role="alert" class="rounded-xl border border-brand-red p-4"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+<details class="rounded-2xl border border-brand-white/15 p-5" @if($errors->any())open @endif><summary class="cursor-pointer text-lg font-semibold">Add an Upcoming Event</summary>
+<form method="POST" enctype="multipart/form-data" action="{{ route('portal.events.store') }}" class="mt-5 grid gap-4 sm:grid-cols-2" data-confirm="Publish this event to the public website, or save it as the selected draft?">@csrf
+@include('portal.events.fields',['event'=>null])<button class="rounded-xl bg-brand-red px-5 py-3 font-semibold text-white" type="submit">Save Event</button></form></details>
+<section><h2 class="text-xl font-semibold">Shared Event List</h2><p class="mt-1 text-sm text-brand-ash">Duplicates are checked by event name/date, file contents, visual similarity and meaningful filenames. Use the existing event when a duplicate is flagged.</p>
+<div class="mt-4 grid gap-5 md:grid-cols-2">@forelse($events as $event)<article class="min-w-0 rounded-2xl border border-brand-white/15 p-5">
+@if($event->image_path)<img src="{{ route('portal.events.flyer',['event'=>$event,'v'=>substr(hash('sha256',$event->image_path),0,16)]) }}" alt="{{ $event->title }} flyer" loading="lazy" decoding="async" width="640" height="800" class="mb-4 max-h-80 w-full rounded-xl object-contain">@endif
+<p class="text-xs uppercase tracking-widest text-brand-ash">{{ ucfirst($event->status) }} · {{ $event->starts_at->format('d M Y') }}</p><h3 class="mt-2 text-xl font-semibold">{{ $event->title }}</h3><p class="mt-2 text-sm text-brand-ash">{{ $event->location }} · Added by {{ $event->creator?->name ?? 'Team member' }}</p>
+@if((int)$event->created_by===auth()->id() || auth()->user()->isLineManager() || auth()->user()->isCvoOrSuperAdmin())<details class="mt-4"><summary class="cursor-pointer font-semibold">Edit or Unpublish</summary><form method="POST" enctype="multipart/form-data" action="{{ route('portal.events.update',$event) }}" class="mt-4 grid gap-4" data-confirm="Save these event changes to the public website feed?">@csrf @method('PATCH')<input type="hidden" name="revision" value="{{ $event->revision }}">@include('portal.events.fields',['event'=>$event])<button type="submit" class="rounded-xl bg-brand-red p-3 font-semibold text-white">Save Changes</button></form></details>@endif
+</article>@empty<p class="rounded-xl border border-brand-white/15 p-5">No events yet. Add the first upcoming activation above.</p>@endforelse</div><div class="mt-6">{{ $events->links() }}</div></section></div>
+</x-app-layout>

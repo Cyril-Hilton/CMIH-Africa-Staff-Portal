@@ -19,8 +19,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const MERCHANDISER_ROLE = 'merchandiser';
+
     public const MERCHANDISER_SUPERVISOR_ROLE = 'merchandiser_supervisor';
+
     public const BRAND_PROMOTER_ROLE = 'brand_promoter';
+
     public const MERCHANDISER_FIELD_ROLES = [
         self::MERCHANDISER_ROLE,
         self::MERCHANDISER_SUPERVISOR_ROLE,
@@ -40,7 +43,7 @@ class User extends Authenticatable
     /**
      * Route notifications for the mail channel.
      *
-     * @return  array<string, string>|string
+     * @return array<string, string>|string
      */
     public function routeNotificationForMail(\Illuminate\Notifications\Notification $notification): array|string
     {
@@ -271,8 +274,8 @@ class User extends Authenticatable
     public function conversations(): BelongsToMany
     {
         return $this->belongsToMany(Conversation::class, 'conversation_user')
-                    ->withPivot('is_admin')
-                    ->withTimestamps();
+            ->withPivot('is_admin')
+            ->withTimestamps();
     }
 
     public function tasksAssigned(): HasMany
@@ -312,11 +315,7 @@ class User extends Authenticatable
      */
     public function hasFullHrAccess(): bool
     {
-        if ($this->access_role === 'super_admin') {
-            return true;
-        }
-
-        if (in_array(strtolower(trim($this->name)), ['cyril hilton', 'cyril hilton wemegah', 'curtis barnor', 'curtis banor'], true)) {
+        if ($this->isCvoOrSuperAdmin()) {
             return true;
         }
 
@@ -456,8 +455,8 @@ class User extends Authenticatable
         $pos = strtolower(trim($this->position_title ?? ''));
 
         // Identify Level 3 roles: Administrator / Front Desk, Transport, Supporting Staff / Driver / Handyman
-        $isLevel3 = str_contains($title, 'admin') 
-            || str_contains($title, 'front desk') 
+        $isLevel3 = str_contains($title, 'admin')
+            || str_contains($title, 'front desk')
             || str_contains($title, 'reception')
             || str_contains($title, 'transport')
             || str_contains($title, 'driver')
@@ -487,7 +486,7 @@ class User extends Authenticatable
         }
 
         // 2. superadmin edits managers and everyone
-        if ($viewer->access_role === 'super_admin' || in_array(strtolower(trim($viewer->name)), ['cyril hilton', 'cyril hilton wemegah', 'curtis barnor', 'curtis banor'], true)) {
+        if ($viewer->access_role === 'super_admin') {
             return true;
         }
 
@@ -500,6 +499,7 @@ class User extends Authenticatable
         // 4. HR edits everyone except superadmin and cvo
         if ($viewer->hasFullHrAccess()) {
             $targetIsCvo = ($target->position_title === 'CVO' || $target->job_level === 'CVO' || strtolower(trim($target->position_title ?? '')) === 'cvo');
+
             return ! $targetIsCvo;
         }
 
@@ -653,7 +653,8 @@ class User extends Authenticatable
         if (! $this->last_seen_at) {
             return 'Offline';
         }
-        return 'Last seen ' . $this->last_seen_at->diffForHumans();
+
+        return 'Last seen '.$this->last_seen_at->diffForHumans();
     }
 
     public function hasRole(string|array $roles): bool
@@ -686,7 +687,7 @@ class User extends Authenticatable
 
     public function isLineManager(): bool
     {
-        if ($this->isCvoOrSuperAdmin() || $this->isCyrilHilton()) {
+        if ($this->isCvoOrSuperAdmin()) {
             return true;
         }
 
@@ -696,6 +697,15 @@ class User extends Authenticatable
             || $this->job_level === 'manager'
             || in_array($position, ['manager', 'department head', 'assistant manager'], true)
             || $this->subordinates()->exists();
+    }
+
+    public function canManageOperationsPrintingRequests(): bool
+    {
+        return $this->isActive() && (
+            $this->isCvoOrSuperAdmin() ||
+            (self::normalizeDepartmentKey($this->department) === 'operations_projects' && $this->isLineManager())
+            || $this->isActingForOperationsDepartmentLead()
+        );
     }
 
     public function isOperationsDepartmentLead(): bool
@@ -734,7 +744,7 @@ class User extends Authenticatable
 
     public function canEditWarehouseAssets(): bool
     {
-        if ($this->isSuperAdmin() || $this->isOperationsDepartmentLead() || $this->isActingForOperationsDepartmentLead()) {
+        if ($this->isCvoOrSuperAdmin() || $this->isOperationsDepartmentLead() || $this->isActingForOperationsDepartmentLead()) {
             return true;
         }
 
@@ -849,8 +859,8 @@ class User extends Authenticatable
             return false;
         }
 
-        $myDept      = static::normalizeDepartmentKey((string) $this->department);
-        $theirDept   = static::normalizeDepartmentKey((string) $absentManager->department);
+        $myDept = static::normalizeDepartmentKey((string) $this->department);
+        $theirDept = static::normalizeDepartmentKey((string) $absentManager->department);
 
         return $myDept !== '' && $myDept === $theirDept;
     }
@@ -1006,10 +1016,10 @@ class User extends Authenticatable
     {
         return $query->where(function ($q) {
             $q->whereNull('access_role')
-              ->orWhereNotIn('access_role', [
-                  ...self::MERCHANDISER_FIELD_ROLES,
-                  self::BRAND_PROMOTER_ROLE,
-              ]);
+                ->orWhereNotIn('access_role', [
+                    ...self::MERCHANDISER_FIELD_ROLES,
+                    self::BRAND_PROMOTER_ROLE,
+                ]);
         });
     }
 
@@ -1091,10 +1101,15 @@ class User extends Authenticatable
     public function profilePhotoUrl(): string
     {
         if ($this->profile_photo_path) {
-            return Storage::disk('public')->url($this->profile_photo_path);
+            return route('profile.photo', $this);
         }
 
-        return asset('images/CMIH%20WEB%20ASSETS/Company%20logo/CMIH%20Logo_light%20theme.png');
+        $parts = preg_split('/\s+/u', trim($this->name ?: 'Staff'));
+        $initials = mb_strtoupper(mb_substr($parts[0], 0, 1).(count($parts) > 1 ? mb_substr($parts[1], 0, 1) : ''));
+        $initials = htmlspecialchars($initials, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="#171717"/><text x="48" y="50" dominant-baseline="middle" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" fill="#ffffff">'.$initials.'</text></svg>';
+
+        return 'data:image/svg+xml,'.rawurlencode($svg);
     }
 
     public function idCardReady(): bool

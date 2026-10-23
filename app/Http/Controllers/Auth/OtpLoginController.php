@@ -122,7 +122,15 @@ class OtpLoginController extends Controller
             return redirect()->route('merchandisers.dashboard');
         }
 
-        $redirectTo = $user->hasRole(['admin', 'super_admin'])
+        // Executives start on the same operational dashboard as the sidebar.
+        // Administrative tools remain available through Admin Overview.
+        if ($user->isCvoOrSuperAdmin()) {
+            $request->session()->forget('url.intended');
+
+            return redirect()->route('dashboard');
+        }
+
+        $redirectTo = $user->hasRole(['admin'])
             ? route('admin.dashboard', absolute: false)
             : route('dashboard', absolute: false);
 

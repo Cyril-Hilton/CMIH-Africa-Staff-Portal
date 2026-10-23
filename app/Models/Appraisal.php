@@ -72,11 +72,11 @@ class Appraisal extends Model
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
-            'draft'            => '📝 Draft',
-            'self_assessment'  => '📋 Awaiting Self-Assessment',
-            'submitted'        => '⏳ Pending Manager Review',
-            'manager_reviewed' => '🔍 Pending HR Audit',
-            'approved'         => '✅ Approved',
+            'draft'            => ' Draft',
+            'self_assessment'  => ' Awaiting Self-Assessment',
+            'submitted'        => ' Pending Manager Review',
+            'manager_reviewed' => ' Pending HR Audit',
+            'approved'         => ' Approved',
             default            => ucfirst($this->status),
         };
     }

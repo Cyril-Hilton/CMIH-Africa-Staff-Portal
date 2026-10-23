@@ -344,7 +344,7 @@ class LeaveController extends Controller
         ]);
         $this->notifyLeaveApplicantStatus($leave->fresh(), 'Returned for Correction', $reason);
 
-        return back()->with('status', '🔄 Leave request returned to user for correction.');
+        return back()->with('status', ' Leave request returned to user for correction.');
     }
 
     /**

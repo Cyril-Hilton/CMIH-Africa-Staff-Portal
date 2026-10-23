@@ -73,7 +73,7 @@ class UserManagementTest extends TestCase
         $response = $this->actingAs($hrManager)->get('/profile');
 
         $response->assertOk();
-        $response->assertSee('href="' . route('admin.users') . '"', false);
+        $response->assertSee('href="' . route('portal.people') . '"', false);
         $response->assertDontSee('href="' . route('admin.dashboard') . '"', false);
         $response->assertDontSee('href="' . route('admin.content') . '"', false);
         $response->assertDontSee('href="' . route('admin.tasks') . '"', false);

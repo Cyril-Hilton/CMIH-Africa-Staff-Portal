@@ -3,45 +3,45 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\PerformanceAward;
 use App\Mail\AwardCertificateMail;
+use App\Models\PerformanceAward;
+use App\Models\User;
 use App\Services\PerformanceScoringService;
 use App\Services\TaskStatsService;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 
 class PerformanceAwardController extends Controller
 {
     private const DEPARTMENTS = [
-        'hr_admin'            => 'HR & Admin',
-        'finance'             => 'Finance',
-        'client_relations'    => 'Client Relations',
+        'hr_admin' => 'HR & Admin',
+        'finance' => 'Finance',
+        'client_relations' => 'Client Relations',
         'operations_projects' => 'Operations / Projects',
-        'brands_marketing'    => 'Brands & Marketing',
-        'creatives'           => 'Creatives',
+        'brands_marketing' => 'Brands & Marketing',
+        'creatives' => 'Creatives',
     ];
 
     private const DEPARTMENT_MAPPING = [
-        'hr_admin'            => ['hr_admin', 'admin', 'transport'],
-        'finance'             => ['finance'],
-        'client_relations'    => ['client_relations', 'client_service'],
+        'hr_admin' => ['hr_admin', 'admin', 'transport'],
+        'finance' => ['finance'],
+        'client_relations' => ['client_relations', 'client_service'],
         'operations_projects' => ['operations_projects', 'operations'],
-        'brands_marketing'    => ['brands_marketing', 'brands'],
-        'creatives'           => ['creatives'],
+        'brands_marketing' => ['brands_marketing', 'brands'],
+        'creatives' => ['creatives'],
     ];
 
     private function checkPermission(User $user): void
     {
         $isSuperOrAdmin = in_array($user->access_role, ['super_admin', 'admin']);
-        $userDept       = strtolower(trim($user->department ?? ''));
-        $isHR           = in_array($userDept, ['hr_admin', 'admin'], true);
+        $userDept = strtolower(trim($user->department ?? ''));
+        $isHR = in_array($userDept, ['hr_admin', 'admin'], true);
 
-        if (!$isSuperOrAdmin && !$isHR) {
-            abort(403, '🔒 Access Denied. Only HR staff or administrators can lock awards.');
+        if (! $isSuperOrAdmin && ! $isHR) {
+            abort(403, ' Access Denied. Only HR staff or administrators can lock awards.');
         }
     }
 
@@ -52,7 +52,7 @@ class PerformanceAwardController extends Controller
     {
         $period = $request->query('period', Carbon::now()->format('Y-m'));
         $standings = $this->calculateStandingsData($period);
-        
+
         // Check if there is already a locked award for this period
         $lockedAwards = PerformanceAward::with(['winner', 'firstRunnerUp', 'secondRunnerUp'])
             ->where('period', $period)
@@ -78,7 +78,7 @@ class PerformanceAwardController extends Controller
                     'first_runner_up_score' => $award->first_runner_up_score,
                     'second_runner_up_score' => $award->second_runner_up_score,
                 ];
-            })
+            }),
         ]);
     }
 
@@ -111,7 +111,7 @@ class PerformanceAwardController extends Controller
             $request->only([
                 'winner_id', 'first_runner_up_id', 'second_runner_up_id',
                 'winner_val', 'first_runner_up_val', 'second_runner_up_val',
-                'winner_score', 'first_runner_up_score', 'second_runner_up_score'
+                'winner_score', 'first_runner_up_score', 'second_runner_up_score',
             ])
         );
 
@@ -119,7 +119,8 @@ class PerformanceAwardController extends Controller
         $sentCount = $this->dispatchAwardCertificates($award);
 
         $awardTypeLabel = ucwords(str_replace('_', ' ', $request->input('award_type')));
-        return back()->with('status', "🏆 {$awardTypeLabel} awards locked & certificates sent successfully to {$sentCount} recipient(s) for period: {$request->input('period')}!");
+
+        return back()->with('status', " {$awardTypeLabel} awards locked & certificates sent successfully to {$sentCount} recipient(s) for period: {$request->input('period')}!");
     }
 
     /**
@@ -132,7 +133,7 @@ class PerformanceAwardController extends Controller
             || $user->access_role === 'admin'
             || $user->hasFullHrAccess();
 
-        abort_unless($canResend, 403, '🔒 Access Denied. Only HR staff, Admins, and Super Admins can resend award certificates.');
+        abort_unless($canResend, 403, ' Access Denied. Only HR staff, Admins, and Super Admins can resend award certificates.');
 
         $request->validate([
             'award_type' => ['required', 'string'],
@@ -151,7 +152,7 @@ class PerformanceAwardController extends Controller
 
         $awardTypeLabel = ucwords(str_replace('_', ' ', $award->award_type));
 
-        return back()->with('status', "🏆 {$awardTypeLabel} certificates successfully resent to {$sentCount} recipient(s) for period: {$award->period}!");
+        return back()->with('status', " {$awardTypeLabel} certificates successfully resent to {$sentCount} recipient(s) for period: {$award->period}!");
     }
 
     private function dispatchAwardCertificates(PerformanceAward $award): int
@@ -171,7 +172,7 @@ class PerformanceAwardController extends Controller
                         ));
                         $count++;
                     } catch (\Exception $e) {
-                        logger()->error("Award certificate email failed for {$winner->name}: " . $e->getMessage());
+                        logger()->error("Award certificate email failed for {$winner->name}: ".$e->getMessage());
                     }
                 }
             }
@@ -196,7 +197,7 @@ class PerformanceAwardController extends Controller
                             ));
                             $count++;
                         } catch (\Exception $e) {
-                            logger()->error("Award certificate email failed for department member {$member->name}: " . $e->getMessage());
+                            logger()->error("Award certificate email failed for department member {$member->name}: ".$e->getMessage());
                         }
                     }
                 }
@@ -253,11 +254,17 @@ class PerformanceAwardController extends Controller
                 'attendance_weighted' => $score['attendance_weighted'],
                 'expected_workdays' => $score['expected_workdays'],
                 'attendance_days' => $score['attendance_days'],
+                'kpi_rate' => $score['kpi_rate'] ?? null,
+                'kpi_weighted' => $score['kpi_weighted'] ?? null,
+                'score_complete' => $score['complete'] ?? true,
+                'score_components' => $score['components'] ?? null,
+                'formula_version' => $score['formula_version'] ?? 'legacy',
+                'measured_subtotal' => $score['subtotal'] ?? $score['score'],
             ];
         }
 
         // Sort descending
-        usort($employeeStandings, function($a, $b) {
+        usort($employeeStandings, function ($a, $b) {
             return $b['score'] <=> $a['score'];
         });
 
@@ -284,8 +291,10 @@ class PerformanceAwardController extends Controller
                 ]);
             });
 
-            $deptScore = $memberScores->isNotEmpty() ? $memberScores->avg('score') : 0;
-            $deptTaskRate = $memberScores->isNotEmpty() ? $memberScores->avg('task_rate') : 0;
+            $teamScore = $endDate->gte(Carbon::parse(config('performance.score_effective_from')))
+                ? app(\App\Services\StaffPerformanceScore::class)->team($deptUsers, $startDate, $endDate) : null;
+            $deptScore = $teamScore ? $teamScore['score'] : ($memberScores->isNotEmpty() ? $memberScores->avg('score') : 0);
+            $deptTaskRate = $teamScore ? ($teamScore['components']['completion']['raw'] ?? 0) : ($memberScores->isNotEmpty() ? $memberScores->avg('task_rate') : 0);
             $deptPunctuality = $memberScores->isNotEmpty() ? $memberScores->avg('punctuality') : 0;
             $deptAttendanceRate = $memberScores->isNotEmpty() ? $memberScores->avg('attendance_rate') : 0;
             $memberCount = $deptUsers->count();
@@ -293,8 +302,11 @@ class PerformanceAwardController extends Controller
             $deptStandings[] = [
                 'key' => $key,
                 'label' => $label,
-                'score' => round($deptScore, 1),
+                'score' => $deptScore === null ? null : round($deptScore, 1),
+                'score_complete' => $teamScore['complete'] ?? true,
+                'score_components' => $teamScore['components'] ?? null,
                 'task_rate' => round($deptTaskRate, 1),
+                'kpi_rate' => $teamScore['components']['kpi']['raw'] ?? null,
                 'punctuality' => round($deptPunctuality, 1),
                 'attendance_rate' => round($deptAttendanceRate, 1),
                 'member_count' => $memberCount,
@@ -303,7 +315,7 @@ class PerformanceAwardController extends Controller
                     ->sortByDesc('score')
                     ->values()
                     ->map(fn (array $memberScore) => array_merge($memberScore, [
-                        'score_contribution' => $memberCount > 0 ? round($memberScore['score'] / $memberCount, 1) : 0.0,
+                        'score_contribution' => $teamScore ? null : ($memberCount > 0 ? round(($memberScore['score'] ?? 0) / $memberCount, 1) : 0.0),
                         'task_contribution' => $memberCount > 0 ? round($memberScore['task_rate'] / $memberCount, 1) : 0.0,
                         'punctuality_contribution' => $memberCount > 0 ? round($memberScore['punctuality'] / $memberCount, 1) : 0.0,
                         'attendance_contribution' => $memberCount > 0 ? round($memberScore['attendance_rate'] / $memberCount, 1) : 0.0,
@@ -313,13 +325,15 @@ class PerformanceAwardController extends Controller
         }
 
         // Sort descending
-        usort($deptStandings, function($a, $b) {
+        usort($deptStandings, function ($a, $b) {
             return $b['score'] <=> $a['score'];
         });
 
         return [
-            'employees' => array_slice($employeeStandings, 0, 10), // Top 10
-            'departments' => $deptStandings
+            'employees' => array_slice(array_values(array_filter($employeeStandings, fn ($row) => $row['score_complete'])), 0, 10),
+            'departments' => array_values(array_filter($deptStandings, fn ($row) => $row['score_complete'])),
+            'incomplete_employees' => array_values(array_filter($employeeStandings, fn ($row) => ! $row['score_complete'])),
+            'incomplete_departments' => array_values(array_filter($deptStandings, fn ($row) => ! $row['score_complete'])),
         ];
     }
 
@@ -332,6 +346,9 @@ class PerformanceAwardController extends Controller
 
     private function scoreUserForPeriod(User $user, Carbon $startDate, Carbon $endDate, bool $includeInactiveAsZero = false): array
     {
+        if ($endDate->gte(Carbon::parse(config('performance.score_effective_from')))) {
+            return app(\App\Services\StaffPerformanceScore::class)->user($user, $startDate, $endDate);
+        }
         $taskStats = TaskStatsService::forUser($user, $startDate, $endDate);
         $totalTasks = $taskStats['accountable_total'];
         $attendanceSummary = PerformanceScoringService::attendanceSummary($user, $startDate, $endDate);

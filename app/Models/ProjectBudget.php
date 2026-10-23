@@ -51,7 +51,7 @@ class ProjectBudget extends Model
             return true;
         }
 
-        if ($user->access_role === 'super_admin' || $user->job_level === 'super_admin') {
+        if ($user->isCvoOrSuperAdmin()) {
             return true;
         }
 
@@ -69,7 +69,7 @@ class ProjectBudget extends Model
             return true;
         }
 
-        if ($user->access_role === 'super_admin' || $user->job_level === 'super_admin') {
+        if ($user->isCvoOrSuperAdmin()) {
             return true;
         }
 

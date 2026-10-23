@@ -7,7 +7,7 @@
 
 @if ($isPassword)
     <div class="relative mt-1 w-full" x-data="{ show: false }">
-        <input 
+        <input type="password"
             :type="show ? 'text' : 'password'"
             @disabled($disabled) 
             {{ $attributes->merge(['class' => 'w-full rounded-md border border-brand-white/10 bg-brand-black/40 pl-3 pr-10 py-2.5 text-sm text-brand-white placeholder-brand-white/40 focus:border-brand-red focus:ring-brand-red'])->except('type') }}
@@ -16,6 +16,8 @@
             type="button" 
             class="absolute inset-y-0 right-0 pr-3 flex items-center text-brand-white/50 hover:text-brand-white transition-colors"
             @click="show = !show"
+            :aria-label="show ? 'Hide password' : 'Show password'"
+            :aria-pressed="show.toString()"
         >
             <!-- Open Eye Icon (when show is false) -->
             <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

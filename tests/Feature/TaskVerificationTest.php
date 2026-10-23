@@ -301,7 +301,7 @@ class TaskVerificationTest extends TestCase
         $cyril = User::factory()->create([
             'name' => 'Cyril Hilton',
             'email' => 'cyrilhilton@cmih.africa',
-            'access_role' => 'staff',
+            'access_role' => 'manager',
             'status' => 'active',
             'department' => 'creatives',
         ]);
@@ -678,7 +678,7 @@ class TaskVerificationTest extends TestCase
     {
         $cyril = User::factory()->create([
             'name' => 'Cyril Hilton',
-            'access_role' => 'staff',
+            'access_role' => 'manager',
             'status' => 'active',
             'department' => 'creatives',
         ]);
@@ -716,7 +716,7 @@ class TaskVerificationTest extends TestCase
         $owner = $this->staffMembers['creatives'];
         $cyril = User::factory()->create([
             'name' => 'Cyril Hilton',
-            'access_role' => 'staff',
+            'access_role' => 'manager',
             'status' => 'active',
             'department' => 'creatives',
         ]);
@@ -756,7 +756,7 @@ class TaskVerificationTest extends TestCase
     {
         $cyril = User::factory()->create([
             'name' => 'Cyril Hilton',
-            'access_role' => 'staff',
+            'access_role' => 'manager',
             'status' => 'active',
             'department' => 'creatives',
         ]);

@@ -3,7 +3,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Financial Tools</p>
-                <h2 class="text-3xl font-display text-brand-white">📊 Project Budgets</h2>
+                <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="chart" /> Project Budgets</h2>
             </div>
             <a href="{{ route('portal.finance.budgets.create') }}" class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-4 py-2.5 text-xs uppercase tracking-[0.2em] font-bold text-white transition-all">
                 + Create Project Budget
@@ -21,14 +21,14 @@
         <!-- Tab navigation -->
         <div class="flex border-b border-brand-white/10 space-x-4 mb-6">
             <button @click="activeTab = 'my-budgets'" :class="activeTab === 'my-budgets' ? 'border-amber-500 text-amber-500 font-semibold' : 'border-transparent text-brand-white/60 hover:text-brand-white'" class="py-3 px-4 border-b-2 text-sm uppercase tracking-wider transition-colors focus:outline-none">
-                📁 My Budgets
+                <x-ui-icon name="folder" /> My Budgets
             </button>
             <button @click="activeTab = 'shared-budgets'" :class="activeTab === 'shared-budgets' ? 'border-amber-500 text-amber-500 font-semibold' : 'border-transparent text-brand-white/60 hover:text-brand-white'" class="py-3 px-4 border-b-2 text-sm uppercase tracking-wider transition-colors focus:outline-none">
-                🤝 Shared Budgets
+                <x-ui-icon name="handshake" /> Shared Budgets
             </button>
             @if(strtolower(trim(auth()->user()->department ?? '')) === 'finance' || auth()->user()->access_role === 'super_admin' || auth()->user()->job_level === 'super_admin')
                 <button @click="activeTab = 'review-queue'" :class="activeTab === 'review-queue' ? 'border-amber-500 text-amber-500 font-semibold' : 'border-transparent text-brand-white/60 hover:text-brand-white'" class="py-3 px-4 border-b-2 text-sm uppercase tracking-wider transition-colors focus:outline-none">
-                    📥 Review Queue
+                    <x-ui-icon name="download" /> Review Queue
                 </button>
             @endif
         </div>
@@ -49,7 +49,7 @@
 
         <!-- TAB 1: My Budgets -->
         <div x-show="activeTab === 'my-budgets'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📁 Budgets Created By Me</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="folder" /> Budgets Created By Me</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-brand-white/70">
                     <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -103,7 +103,7 @@
 
         <!-- TAB 2: Shared Budgets -->
         <div x-show="activeTab === 'shared-budgets'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5" style="display: none;">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🤝 Budgets Shared With Me</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="handshake" /> Budgets Shared With Me</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs text-brand-white/70">
                     <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -162,7 +162,7 @@
             <div x-show="activeTab === 'review-queue'" class="space-y-6" style="display: none;">
                 <!-- Pending review list -->
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📥 Budgets Awaiting Review</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="download" /> Budgets Awaiting Review</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs text-brand-white/70">
                             <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -214,7 +214,7 @@
 
                 <!-- Review history list -->
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📜 Review History / Processed Budgets</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="file" /> Review History / Processed Budgets</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs text-brand-white/70">
                             <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">

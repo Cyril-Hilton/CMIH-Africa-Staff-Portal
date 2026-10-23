@@ -7,8 +7,8 @@ use App\Models\CollaborativeDocument;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class WorkspaceController extends Controller
 {
@@ -26,10 +26,10 @@ class WorkspaceController extends Controller
 
         // Shared with me (excluding ones I created)
         $sharedDocuments = CollaborativeDocument::where('created_by', '!=', $user->id)
-            ->whereHas('collaborators', function($query) use ($user) {
+            ->whereHas('collaborators', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
-            ->with(['collaborators' => function($query) use ($user) {
+            ->with(['collaborators' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             }])
             ->orderByDesc('updated_at')
@@ -111,13 +111,13 @@ class WorkspaceController extends Controller
 
         // Check permission: owner or collaborator
         $isCollaborator = $workspace->collaborators()->where('user_id', $user->id)->exists();
-        if ($workspace->created_by !== $user->id && !$isCollaborator && $workspace->current_holder_id !== $user->id && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. You are not authorized to view this document.');
+        if ($workspace->created_by !== $user->id && ! $isCollaborator && $workspace->current_holder_id !== $user->id && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. You are not authorized to view this document.');
         }
 
         // Fetch user's permission level
         $collabRecord = $workspace->collaborators()->where('user_id', $user->id)->first();
-        $permission = $collabRecord ? $collabRecord->pivot->permission : (($workspace->created_by === $user->id || $user->hasRole('super_admin')) ? 'edit' : 'view');
+        $permission = $collabRecord ? $collabRecord->pivot->permission : (($workspace->created_by === $user->id || $user->isCvoOrSuperAdmin()) ? 'edit' : 'view');
 
         // Fetch eligible recipients for submissions
         $allUsers = User::internalStaff()->where('status', 'active')->where('id', '!=', $user->id)->orderBy('name')->get();
@@ -141,8 +141,8 @@ class WorkspaceController extends Controller
 
         // Guard: owner or editor collaborator
         $isEditor = $workspace->collaborators()->where('user_id', $user->id)->where('permission', 'edit')->exists();
-        if ($workspace->created_by !== $user->id && !$isEditor && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. You only have view permissions for this document.');
+        if ($workspace->created_by !== $user->id && ! $isEditor && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. You only have view permissions for this document.');
         }
 
         $users = User::internalStaff()
@@ -163,8 +163,8 @@ class WorkspaceController extends Controller
 
         // Guard: owner or editor collaborator
         $isEditor = $workspace->collaborators()->where('user_id', $user->id)->where('permission', 'edit')->exists();
-        if ($workspace->created_by !== $user->id && !$isEditor && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. You only have view permissions for this document.');
+        if ($workspace->created_by !== $user->id && ! $isEditor && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. You only have view permissions for this document.');
         }
 
         $request->validate([
@@ -202,8 +202,8 @@ class WorkspaceController extends Controller
     {
         $user = Auth::user();
 
-        if ($workspace->created_by !== $user->id && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. Only the creator can delete this document.');
+        if ($workspace->created_by !== $user->id && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. Only the creator can delete this document.');
         }
 
         if ($workspace->file_path) {
@@ -225,8 +225,8 @@ class WorkspaceController extends Controller
         $user = Auth::user();
 
         // Only the owner can manage collaborators
-        if ($workspace->created_by !== $user->id && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. Only the document owner can manage collaborators.');
+        if ($workspace->created_by !== $user->id && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. Only the document owner can manage collaborators.');
         }
 
         $validated = $request->validate([
@@ -254,8 +254,8 @@ class WorkspaceController extends Controller
     {
         $user = Auth::user();
 
-        if ($workspace->created_by !== $user->id && $workspace->current_holder_id !== $user->id && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. Only the owner or current holder can route this document.');
+        if ($workspace->created_by !== $user->id && $workspace->current_holder_id !== $user->id && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. Only the owner or current holder can route this document.');
         }
 
         $request->validate([
@@ -268,7 +268,7 @@ class WorkspaceController extends Controller
 
         if ($target === 'manager') {
             $recipientId = $recipientId ?: $workspace->creator->line_manager_id;
-            if (!$recipientId) {
+            if (! $recipientId) {
                 return back()->withErrors(['recipient_id' => 'Please select a line manager to route this document to.'])->withInput();
             }
 
@@ -280,7 +280,7 @@ class WorkspaceController extends Controller
                 return back()->withErrors(['recipient_id' => 'Please select a valid active line manager.'])->withInput();
             }
         } else {
-            if (!$recipientId) {
+            if (! $recipientId) {
                 return back()->withErrors(['recipient_id' => 'Please select a coworker to route to.'])->withInput();
             }
 
@@ -317,8 +317,8 @@ class WorkspaceController extends Controller
     {
         $user = Auth::user();
 
-        if ($workspace->current_holder_id !== $user->id && !$user->hasRole('super_admin')) {
-            abort(403, '🔒 Access Denied. Only the current holder can perform workflow actions.');
+        if ($workspace->current_holder_id !== $user->id && ! $user->isCvoOrSuperAdmin()) {
+            abort(403, ' Access Denied. Only the current holder can perform workflow actions.');
         }
 
         $request->validate([
@@ -332,6 +332,7 @@ class WorkspaceController extends Controller
                 'status' => 'finalized',
                 'current_holder_id' => $workspace->created_by, // Return back to creator
             ]);
+
             return redirect()->route('portal.workspace.show', $workspace)
                 ->with('status', 'Document approved and marked as finalized.');
         } else {
@@ -355,7 +356,7 @@ class WorkspaceController extends Controller
 
         // Check view permission
         $isCollaborator = $workspace->collaborators()->where('user_id', $user->id)->exists();
-        if ($workspace->created_by !== $user->id && !$isCollaborator && $workspace->current_holder_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ($workspace->created_by !== $user->id && ! $isCollaborator && $workspace->current_holder_id !== $user->id && ! $user->isCvoOrSuperAdmin()) {
             abort(403);
         }
 
@@ -383,14 +384,15 @@ class WorkspaceController extends Controller
         </head>
         <body>
             <h1>{$workspace->title}</h1>
-            <p><strong>Status:</strong> " . strtoupper($workspace->status) . "</p>
+            <p><strong>Status:</strong> ".strtoupper($workspace->status)."</p>
             <p><strong>Creator:</strong> {$workspace->creator->name}</p>
             <hr/>
             <div>{$workspace->content}</div>
         </body>
         </html>";
 
-        $fileName = str_replace(' ', '_', $workspace->title) . '_export.html';
+        $fileName = str_replace(' ', '_', $workspace->title).'_export.html';
+
         return response($content, 200, [
             'Content-Type' => 'text/html',
             'Content-Disposition' => "attachment; filename=\"{$fileName}\"",

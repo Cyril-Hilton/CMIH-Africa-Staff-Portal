@@ -4,20 +4,20 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
-use App\Models\Task;
-use App\Models\User;
 use App\Models\Attendance;
 use App\Models\Campaign;
 use App\Models\DashboardColumn;
+use App\Models\Task;
+use App\Models\User;
 use App\Models\WeeklyConsolidatedColumn;
 use App\Models\WeeklyConsolidatedItem;
 use App\Services\PerformanceScoringService;
 use App\Services\TaskStatsService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
@@ -49,7 +49,7 @@ class DashboardController extends Controller
 
         $hasTodayTask = Task::where(function ($q) use ($user) {
             $q->where('assigned_to', $user->id)
-              ->orWhere('assigned_by', $user->id);
+                ->orWhere('assigned_by', $user->id);
         })->whereDate('created_at', Carbon::today())->exists();
 
         // 1. Individual KPIs
@@ -65,22 +65,23 @@ class DashboardController extends Controller
         $myPunctualityScore = round($attendanceSummary['punctuality_score']);
 
         $totalOvertimeMinutes = Attendance::where('user_id', $user->id)->sum('overtime_minutes');
-        $myOvertimeHours      = round($totalOvertimeMinutes / 60, 1);
+        $myOvertimeHours = round($totalOvertimeMinutes / 60, 1);
 
+        $staffPerformanceScore = app(\App\Services\StaffPerformanceScore::class)->user($user, Carbon::today()->startOfMonth(), Carbon::today()->endOfMonth());
         $individualStats = [
-            'completion_rate'   => $myTaskCompletionRate,
+            'completion_rate' => $myTaskCompletionRate,
             'open_deliverables' => $myOpenDeliverables,
             'punctuality_score' => $myPunctualityScore,
             'expected_attendance_days' => $attendanceSummary['expected_workdays'],
             'clocked_attendance_days' => $attendanceSummary['attendance_days'],
-            'overtime_hours'    => $myOvertimeHours,
+            'overtime_hours' => $myOvertimeHours,
         ];
 
         // 2. Collective KPIs
         $globalTaskStats = TaskStatsService::global();
-        $targetActivations   = $globalTaskStats['total'];
-        $reachedActivations  = $globalTaskStats['completed'];
-        $agencyWinRate       = $globalTaskStats['completion_rate'];
+        $targetActivations = $globalTaskStats['total'];
+        $reachedActivations = $globalTaskStats['completed'];
+        $agencyWinRate = $globalTaskStats['completion_rate'];
         $criticalBottlenecks = Task::query()
             ->realWork()
             ->whereRaw('LOWER(priority) = ?', ['high'])
@@ -94,42 +95,42 @@ class DashboardController extends Controller
             })->count();
 
         $collectiveStats = [
-            'target_activations'  => $targetActivations,
+            'target_activations' => $targetActivations,
             'reached_activations' => $reachedActivations,
-            'win_rate'            => $agencyWinRate,
-            'bottlenecks'         => $criticalBottlenecks,
+            'win_rate' => $agencyWinRate,
+            'bottlenecks' => $criticalBottlenecks,
         ];
 
         // 3. Departmental Golden Badge
         $departments = [
-            'hr_admin'            => 'HR & Admin',
-            'finance'             => 'Finance',
-            'client_relations'    => 'Client Relations',
+            'hr_admin' => 'HR & Admin',
+            'finance' => 'Finance',
+            'client_relations' => 'Client Relations',
             'operations_projects' => 'Operations / Projects',
-            'brands_marketing'    => 'Brands & Marketing',
-            'creatives'           => 'Creatives',
+            'brands_marketing' => 'Brands & Marketing',
+            'creatives' => 'Creatives',
         ];
 
         $currentMonth = Carbon::now()->format('Y-m');
-        $currentYear  = Carbon::now()->format('Y');
+        $currentYear = Carbon::now()->format('Y');
         $awardStandings = app(PerformanceAwardController::class)->calculateStandingsData($currentMonth);
         $awardDepartmentScores = collect($awardStandings['departments'] ?? [])->keyBy('key');
 
         $deptPerformances = [];
-        $winningDept      = null;
-        $maxPerformance   = -1;
+        $winningDept = null;
+        $maxPerformance = -1;
 
         $deptMapping = [
-            'hr_admin'            => ['hr_admin', 'admin', 'transport'],
-            'finance'             => ['finance'],
-            'client_relations'    => ['client_relations', 'client_service'],
+            'hr_admin' => ['hr_admin', 'admin', 'transport'],
+            'finance' => ['finance'],
+            'client_relations' => ['client_relations', 'client_service'],
             'operations_projects' => ['operations_projects', 'operations'],
-            'brands_marketing'    => ['brands_marketing', 'brands'],
-            'creatives'           => ['creatives'],
+            'brands_marketing' => ['brands_marketing', 'brands'],
+            'creatives' => ['creatives'],
         ];
 
         foreach ($departments as $key => $label) {
-            $mappedDepts   = $deptMapping[$key] ?? [$key];
+            $mappedDepts = $deptMapping[$key] ?? [$key];
             $departmentTaskStats = TaskStatsService::forDepartments($mappedDepts);
             $awardDepartmentScore = $awardDepartmentScores->get($key, []);
             $performance = (float) ($awardDepartmentScore['score'] ?? 0);
@@ -137,8 +138,8 @@ class DashboardController extends Controller
             $activeMemberCount = (int) ($awardDepartmentScore['active_member_count'] ?? 0);
 
             $deptPerformances[$key] = [
-                'label'     => $label,
-                'total'     => $departmentTaskStats['total'],
+                'label' => $label,
+                'total' => $departmentTaskStats['total'],
                 'completed' => $departmentTaskStats['completed'],
                 'member_count' => $memberCount,
                 'active_member_count' => $activeMemberCount,
@@ -147,29 +148,29 @@ class DashboardController extends Controller
 
             if ($memberCount > 0 && $performance > $maxPerformance) {
                 $maxPerformance = $performance;
-                $winningDept    = $key;
+                $winningDept = $key;
             }
         }
 
         // 4. Charts
         $departmentChartData = [];
         foreach ($departments as $key => $label) {
-            $mappedDepts   = $deptMapping[$key] ?? [$key];
+            $mappedDepts = $deptMapping[$key] ?? [$key];
             $departmentTaskStats = TaskStatsService::forDepartments($mappedDepts);
             $departmentChartData[] = [
-                'department'  => $label,
-                'completed'   => $departmentTaskStats['completed'],
+                'department' => $label,
+                'completed' => $departmentTaskStats['completed'],
                 'in_progress' => $departmentTaskStats['pending'],
-                'delayed'     => $departmentTaskStats['overdue'],
+                'delayed' => $departmentTaskStats['overdue'],
             ];
         }
 
         $weeklyTrends = [];
         for ($i = 3; $i >= 0; $i--) {
             $start = Carbon::now()->subWeeks($i)->startOfWeek();
-            $end   = Carbon::now()->subWeeks($i)->endOfWeek();
+            $end = Carbon::now()->subWeeks($i)->endOfWeek();
             $weeklyTrends[] = [
-                'week'      => 'Week ' . (4 - $i),
+                'week' => 'Week '.(4 - $i),
                 'completed' => Task::whereBetween('updated_at', [$start, $end])
                     ->approvedForPerformance()
                     ->count(),
@@ -177,14 +178,14 @@ class DashboardController extends Controller
         }
 
         // 5. Recent Items
-        $recentTasks           = Task::with(['assigner', 'assignee'])->where('assigned_to', $user->id)->realWork()->latest()->take(5)->get();
-        $announcements         = Announcement::visibleTo($user)->with('user')->latest()->take(3)->get();
-        $teamActiveCount       = User::internalStaff()->where('status', 'active')->count();
+        $recentTasks = Task::with(['assigner', 'assignee'])->where('assigned_to', $user->id)->realWork()->latest()->take(5)->get();
+        $announcements = Announcement::visibleTo($user)->with('user')->latest()->take(3)->get();
+        $teamActiveCount = User::internalStaff()->where('status', 'active')->count();
         $pendingApprovalsCount = User::internalStaff()->where('status', 'pending')->count();
-        $allStaff              = User::internalStaff()->orderBy('name')->get();
+        $allStaff = User::internalStaff()->orderBy('name')->get();
 
         // 6. Mega Table + Dynamic Custom Columns
-        $departmentTables  = [];
+        $departmentTables = [];
         $departmentColumns = [];
         $megaPerPage = 10;
         foreach ($departments as $key => $label) {
@@ -199,7 +200,7 @@ class DashboardController extends Controller
 
             $searchQuery = $request->query("search_mega_{$key}");
 
-            if (!empty($searchQuery)) {
+            if (! empty($searchQuery)) {
                 $request->merge(["mega_{$key}_page" => 1]);
             }
 
@@ -217,8 +218,8 @@ class DashboardController extends Controller
             $departmentColumns[$key] = DashboardColumn::forDepartment($key);
         }
 
-        $canViewAllWeeklyDepartments = $user->isCvoOrSuperAdmin();
-        $defaultWeeklyDepartment = $canViewAllWeeklyDepartments
+        $canViewAllWeeklyDepartments = true; // Shared percentage-only cross-department review is available to every staff member.
+        $defaultWeeklyDepartment = $user->isCvoOrSuperAdmin()
             ? 'all'
             : $this->normalizeDepartment((string) $user->department);
         if (! array_key_exists($defaultWeeklyDepartment, $departments)) {
@@ -234,26 +235,47 @@ class DashboardController extends Controller
         }
 
         $searchWeekly = $request->query('search_weekly');
+        $publicCrmProgress = \Illuminate\Support\Facades\Schema::hasTable('crm_weekly_progress')
+            ? \App\Services\ClientRelationsPipeline::publicRows(is_string($searchWeekly) ? $searchWeekly : null)
+                ->when($request->filled('weekly_from'), fn ($q) => $q->whereDate('week_start', '>=', $request->query('weekly_from')))
+                ->when($request->filled('weekly_to'), fn ($q) => $q->whereDate('week_start', '<=', $request->query('weekly_to')))
+                ->paginate(8, ['*'], 'crm_page')->withQueryString()->appends(['weekly_department' => 'client_relations'])
+            : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 8);
+
         $isAllWeeklyDepartments = $weeklyDepartmentFilter === 'all';
         $weeklyDepartmentQueryValues = $isAllWeeklyDepartments ? [] : $this->departmentQueryValues([$weeklyDepartmentFilter]);
         $hasWeeklyItemsTable = \Illuminate\Support\Facades\Schema::hasTable('weekly_consolidated_items');
         $hasWeeklyColsTable = \Illuminate\Support\Facades\Schema::hasTable('weekly_consolidated_columns');
         $today = Carbon::today();
+        $weeklyAccountability = app(\App\Services\WeeklyAccountabilityService::class)->summarize(collect());
 
         if ($hasWeeklyItemsTable) {
-            $weeklyBaseQuery = WeeklyConsolidatedItem::query();
+            $weeklyBaseQuery = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy')->whereNotIn('department', User::departmentAliases('client_relations'));
+            // Legacy Finance narratives may contain amounts; public visibility uses the safe KPI projection instead.
+            if (! $user->isCvoOrSuperAdmin() && User::normalizeDepartmentKey($user->department) !== 'finance') {
+                $weeklyBaseQuery->whereNotIn('department', User::departmentAliases('finance'));
+            }
             if (! $isAllWeeklyDepartments) {
                 $weeklyBaseQuery->whereIn('department', $weeklyDepartmentQueryValues);
             }
 
-            $weeklyFilteredBaseQuery = $this->applyWeeklyConsolidatedSearch($weeklyBaseQuery, $searchWeekly);
-
-            if (! empty($searchWeekly)) {
-                $request->merge(['weekly_page' => 1]);
+            $request->validate([
+                'weekly_from' => ['nullable', 'date_format:Y-m-d'],
+                'weekly_to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('weekly_from') ? ['after_or_equal:weekly_from'] : [])],
+            ]);
+            if ($request->filled('weekly_from')) {
+                $weeklyBaseQuery->whereDate('week_start', '>=', $request->query('weekly_from'));
             }
+            if ($request->filled('weekly_to')) {
+                $weeklyBaseQuery->whereDate('week_start', '<=', $request->query('weekly_to'));
+            }
+            $weeklyFilteredBaseQuery = $this->applyWeeklyConsolidatedSearch($weeklyBaseQuery, $searchWeekly);
+            $weeklyAccountability = app(\App\Services\WeeklyAccountabilityService::class)->summarize(
+                (clone $weeklyFilteredBaseQuery)->with(['leadStaff', 'actionOwner'])->get()
+            );
 
             $weeklyConsolidatedItems = $this->applyWeeklyConsolidatedSort(
-                (clone $weeklyFilteredBaseQuery)->with(['leadStaff', 'creator', 'updater']),
+                (clone $weeklyFilteredBaseQuery)->with(['leadStaff', 'creator', 'updater', 'actionOwner']),
                 $weeklySort,
                 $weeklySortDirection
             )
@@ -289,7 +311,7 @@ class DashboardController extends Controller
                     ->count(),
                 'blocked' => (clone $weeklyFilteredBaseQuery)->whereIn('status', ['Blocked', 'Deferred'])->count(),
                 'overdue' => (clone $weeklyFilteredBaseQuery)
-                    ->whereNotIn('status', ['Done', 'Blocked', 'Deferred'])
+                    ->where('status', '!=', 'Done')
                     ->where(function ($query) use ($today) {
                         $query->whereDate('week_end', '<', $today)
                             ->orWhere(function ($fallbackQuery) use ($today) {
@@ -344,6 +366,12 @@ class DashboardController extends Controller
                 ->keyBy('award_type')
             : collect();
 
+        if ($weeklyDepartmentFilter === 'client_relations') {
+            $canManageActiveWeeklyDepartment = false;
+            $weeklyConsolidatedDisplayColumns = collect();
+            $myWeeklyConsolidatedColumns = collect();
+        }
+
         $lockedDepartmentAward = $lockedAwards->get('department_of_the_month');
         $topAwardDepartment = collect($awardStandings['departments'] ?? [])->first();
         $winningDept = $lockedDepartmentAward?->winner_val ?: ($topAwardDepartment['key'] ?? $winningDept);
@@ -353,6 +381,17 @@ class DashboardController extends Controller
                 ->latest()
                 ->get()
             : collect();
+
+        $sharedWeeklyPerformance = app(\App\Services\SharedWeeklyPerformance::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
+        foreach ($sharedWeeklyPerformance as $sharedDepartmentKey => $sharedDepartment) {
+            if ($weeklyDepartmentFilter !== 'all' && $weeklyDepartmentFilter !== $sharedDepartmentKey) {
+                continue;
+            }
+            $weeklyConsolidatedMetrics['completed'] += $sharedDepartment['summary']['verified'];
+            $weeklyConsolidatedMetrics['pending'] += $sharedDepartment['summary']['total'] - $sharedDepartment['summary']['verified'];
+            $weeklyConsolidatedMetrics['overdue'] += $sharedDepartment['summary']['overdue'];
+        }
+        $weeklyDepartmentTables = app(\App\Services\WeeklyDepartmentTables::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
 
         return view('portal.dashboard', compact(
             'user', 'individualStats', 'collectiveStats', 'winningDept',
@@ -367,7 +406,7 @@ class DashboardController extends Controller
             'weeklyDepartmentFilter', 'megaSort', 'megaSortDirection',
             'weeklySort', 'weeklySortDirection', 'weeklyDepartmentHasBreakdown',
             'canManageActiveWeeklyDepartment', 'isAllWeeklyDepartments',
-            'actionPoints'
+            'actionPoints', 'weeklyAccountability', 'publicCrmProgress', 'staffPerformanceScore', 'weeklyDepartmentTables', 'sharedWeeklyPerformance'
         ));
     }
 
@@ -392,7 +431,7 @@ class DashboardController extends Controller
             ->where(function ($query) use ($mappedDepts, $deptUserIds) {
                 $query->whereIn('department', $mappedDepts);
 
-                if (!empty($deptUserIds)) {
+                if (! empty($deptUserIds)) {
                     $query->orWhereIn('assigned_to', $deptUserIds)
                         ->orWhere(function ($supportingQuery) use ($deptUserIds) {
                             foreach ($deptUserIds as $staffId) {
@@ -416,7 +455,7 @@ class DashboardController extends Controller
             return $query;
         }
 
-        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
 
         return $query->where(function (Builder $searchQuery) use ($like) {
             $searchQuery->where('title', 'like', $like)
@@ -443,7 +482,7 @@ class DashboardController extends Controller
                 ->orderByRaw("COALESCE(completion_reviewed_at, updated_at, created_at) {$direction}")
                 ->latest('tasks.created_at'),
             'client' => $query
-                ->orderByRaw('(select client_name from campaigns where campaigns.id = tasks.campaign_id) ' . $direction)
+                ->orderByRaw('(select client_name from campaigns where campaigns.id = tasks.campaign_id) '.$direction)
                 ->orderBy('client_name', $direction)
                 ->latest('tasks.created_at'),
             'campaign' => $query
@@ -471,7 +510,7 @@ class DashboardController extends Controller
             return $query;
         }
 
-        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
 
         return $query->where(function (Builder $searchQuery) use ($like) {
             $searchQuery->where('client_name', 'like', $like)
@@ -519,7 +558,7 @@ class DashboardController extends Controller
 
     private function isWeeklyConsolidatedOverdue(WeeklyConsolidatedItem $item): bool
     {
-        if (in_array($item->status, ['Done', 'Blocked', 'Deferred'], true)) {
+        if ($item->status === 'Done') {
             return false;
         }
 
@@ -540,17 +579,18 @@ class DashboardController extends Controller
         $this->authorizeColumnManagement($request->user(), $request->input('department'));
         $request->validate([
             'department' => ['required', 'string'],
-            'label'      => ['required', 'string', 'max:100'],
-            'type'       => ['required', 'string', 'in:text,number,date,status,dropdown'],
+            'label' => ['required', 'string', 'max:100'],
+            'type' => ['required', 'string', 'in:text,number,date,status,dropdown'],
         ]);
         $maxOrder = DashboardColumn::where('department', $request->department)->max('order') ?? 0;
         DashboardColumn::create([
             'department' => $request->department,
             'column_key' => \Illuminate\Support\Str::slug($request->label, '_'),
-            'label'      => $request->label,
-            'type'       => $request->type,
-            'order'      => $maxOrder + 1,
+            'label' => $request->label,
+            'type' => $request->type,
+            'order' => $maxOrder + 1,
         ]);
+
         return back()->with('status', 'Custom column added to the department table.');
     }
 
@@ -559,6 +599,7 @@ class DashboardController extends Controller
         $this->authorizeColumnManagement($request->user(), $column->department);
         $request->validate(['label' => ['required', 'string', 'max:100']]);
         $column->update(['label' => $request->label]);
+
         return back()->with('status', 'Column label updated.');
     }
 
@@ -566,6 +607,7 @@ class DashboardController extends Controller
     {
         $this->authorizeColumnManagement($request->user(), $column->department);
         $column->delete();
+
         return back()->with('status', 'Custom column removed.');
     }
 
@@ -581,6 +623,7 @@ class DashboardController extends Controller
         $validated['week_end'] = $validated['week_end'] ?? Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
         $validated['progress_percent'] = $this->normalizeWeeklyProgress($validated['progress_percent'] ?? null, $validated['status']);
 
+        $validated['completed_at'] = $validated['status'] === 'Done' ? now() : null;
         WeeklyConsolidatedItem::create($validated);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -592,6 +635,7 @@ class DashboardController extends Controller
 
     public function updateWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
+        abort_unless($item->workflow_state === 'legacy', 422, 'Use the performance hub workflow for this commitment.');
         $department = $this->normalizeWeeklyConsolidatedDepartmentInput($request, $item->department);
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $department, $item);
 
@@ -603,17 +647,19 @@ class DashboardController extends Controller
             $validated['updated_by'] = $request->user()->id;
             $validated['progress_percent'] = $this->normalizeWeeklyProgress(null, $validated['status']);
 
+            $validated['completed_at'] = $validated['status'] === 'Done'
+                ? ($item->completed_at ?? ($item->status !== 'Done' ? now() : null)) : null;
             $item->update($validated);
 
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Status updated to ' . $item->status,
-                    'status'  => $item->status,
+                    'message' => 'Status updated to '.$item->status,
+                    'status' => $item->status,
                 ]);
             }
 
-            return back()->with('status', 'Status updated to ' . $item->status);
+            return back()->with('status', 'Status updated to '.$item->status);
         }
 
         $validated = $this->validateWeeklyConsolidated($request);
@@ -622,6 +668,8 @@ class DashboardController extends Controller
         $validated['week_end'] = $validated['week_end'] ?? Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
         $validated['progress_percent'] = $this->normalizeWeeklyProgress($validated['progress_percent'] ?? null, $validated['status']);
 
+        $validated['completed_at'] = $validated['status'] === 'Done'
+            ? ($item->completed_at ?? ($item->status !== 'Done' ? now() : null)) : null;
         $item->update($validated);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -633,6 +681,7 @@ class DashboardController extends Controller
 
     public function destroyWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
+        abort_unless($item->workflow_state === 'legacy', 422, 'Use the performance hub workflow for this commitment.');
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $item->department, $item);
         $item->delete();
 
@@ -661,7 +710,7 @@ class DashboardController extends Controller
         $suffix = 2;
 
         while (WeeklyConsolidatedColumn::where('user_id', $request->user()->id)->where('department', $department)->where('column_key', $key)->exists()) {
-            $key = $baseKey . '_' . $suffix++;
+            $key = $baseKey.'_'.$suffix++;
         }
 
         $maxOrder = WeeklyConsolidatedColumn::where('user_id', $request->user()->id)
@@ -722,7 +771,7 @@ class DashboardController extends Controller
     private function authorizeColumnManagement(User $user, string $department): void
     {
         $isSuperOrAdmin = $user->isCvoOrSuperAdmin() || $user->access_role === 'admin';
-        
+
         if ($isSuperOrAdmin) {
             return;
         }
@@ -730,27 +779,27 @@ class DashboardController extends Controller
         if ($user->access_role === 'manager' || $user->access_role === 'staff') {
             $userDept = strtolower(trim($user->department ?? ''));
             $deptNormMap = [
-                'admin'              => 'hr_admin',
-                'transport'          => 'hr_admin',
-                'client_service'     => 'client_relations',
-                'operations'         => 'operations_projects',
-                'brands'             => 'brands_marketing',
-                'hr_admin'           => 'hr_admin',
-                'finance'            => 'finance',
-                'client_relations'   => 'client_relations',
-                'operations_projects'=> 'operations_projects',
-                'brands_marketing'   => 'brands_marketing',
-                'creatives'          => 'creatives',
+                'admin' => 'hr_admin',
+                'transport' => 'hr_admin',
+                'client_service' => 'client_relations',
+                'operations' => 'operations_projects',
+                'brands' => 'brands_marketing',
+                'hr_admin' => 'hr_admin',
+                'finance' => 'finance',
+                'client_relations' => 'client_relations',
+                'operations_projects' => 'operations_projects',
+                'brands_marketing' => 'brands_marketing',
+                'creatives' => 'creatives',
             ];
             $userNormDept = $deptNormMap[$userDept] ?? $userDept;
-            $reqNormDept  = $deptNormMap[strtolower($department)] ?? strtolower($department);
+            $reqNormDept = $deptNormMap[strtolower($department)] ?? strtolower($department);
 
             if ($userNormDept === $reqNormDept) {
                 return;
             }
         }
 
-        abort(403, '🔒 Access Denied. You cannot customise dashboard columns for other departments.');
+        abort(403, ' Access Denied. You cannot customise dashboard columns for other departments.');
     }
 
     private function validateWeeklyConsolidated(Request $request): array
@@ -768,6 +817,7 @@ class DashboardController extends Controller
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
             'week_start' => ['required', 'date'],
             'week_end' => ['nullable', 'date', 'after_or_equal:week_start'],
+            'brief_received_on' => ['nullable', 'date', 'before_or_equal:week_end'],
             'client_name' => ['nullable', 'string', 'max:255'],
             'campaign_name' => ['nullable', 'string', 'max:255'],
             'lead_staff_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -783,9 +833,30 @@ class DashboardController extends Controller
             'priority' => ['nullable', 'string', 'max:50'],
             'progress_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            'objective' => ['nullable', 'string', 'max:500'],
+            'kpi_name' => ['nullable', 'string', 'max:255'],
+            'measurement_unit' => ['nullable', 'string', 'max:50'],
+            'measurement_direction' => ['nullable', 'in:higher,lower'],
+            'target_value' => ['nullable', 'numeric', 'min:0', 'max:99999999999999'],
+            'actual_value' => ['nullable', 'numeric', 'min:0', 'max:99999999999999'],
+            'evidence_url' => ['nullable', 'url:http,https', 'max:2000'],
+            'issue_impact' => ['nullable', 'string', 'max:5000'],
+            'corrective_action' => ['nullable', 'string', 'max:5000'],
+            'action_owner_id' => ['nullable', 'integer', 'exists:users,id'],
+            'action_due_date' => ['nullable', 'date'],
             'custom_fields' => ['nullable', 'array'],
             'custom_fields.*' => ['nullable', 'string', 'max:15000'],
         ]);
+
+        // Known department KPIs have one shared definition, unit and direction.
+        $definition = collect(config('department_kpis.'.$validated['department'], []))
+            ->firstWhere('name', $validated['kpi_name'] ?? null);
+        if ($definition) {
+            $validated['measurement_unit'] = $definition['unit'];
+            $validated['measurement_direction'] = $definition['direction'];
+        } else {
+            $validated['measurement_direction'] = $validated['measurement_direction'] ?? 'higher';
+        }
 
         $validated['supporting_staff_ids'] = $supportingStaffIds;
         $validated['supporting_roles'] = $supportingRoles;

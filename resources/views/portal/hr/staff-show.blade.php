@@ -3,7 +3,7 @@
     <div class="space-y-6 text-brand-white">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <a href="{{ route('portal.hr.staff.index') }}" class="underline">Back to staff register</a>
-            <form method="POST" action="{{ route('portal.hr.staff.export') }}" class="flex gap-3">@csrf<input type="hidden" name="scope" value="selected"><input type="hidden" name="ids[]" value="{{ $staffMember->id }}">@foreach($record->fields() as $field)<input type="hidden" name="fields[]" value="{{ $field }}">@endforeach<button name="format" value="csv" class="rounded-lg border border-brand-white/20 px-4 py-2">Export profile CSV</button><button name="format" value="zip" class="rounded-lg bg-brand-red text-white px-4 py-2">Download full record</button></form>
+            <form method="POST" action="{{ route('portal.hr.staff.export') }}" class="flex gap-3">@csrf<input type="hidden" name="scope" value="selected"><input type="hidden" name="ids[]" value="{{ $staffMember->id }}">@foreach($record->fields() as $field)<input type="hidden" name="fields[]" value="{{ $field }}">@endforeach<button name="format" value="xlsx" class="rounded-lg border border-brand-white/20 px-4 py-2">Export Profile Excel</button><button name="format" value="zip" class="rounded-lg bg-brand-red text-white px-4 py-2">Download full record</button></form>
         </div>
         <p class="text-sm text-brand-ash">{{ $staffMember->staff_id_number ?: 'No staff ID' }} · {{ ucfirst($staffMember->status) }} · {{ \App\Models\User::departmentLabel($staffMember->department) }}</p>
         @if(session('status'))<p role="status" class="rounded-xl bg-emerald-500/10 p-4 text-emerald-300">{{ session('status') }}</p>@endif

@@ -23,10 +23,16 @@ class Sku extends Model
         'reference_image_path',
         'aliases',
         'ai_reference_notes',
+        'facing_target',
+        'track_planogram',
+        'sos_target',
     ];
 
     protected $casts = [
         'aliases' => 'array',
+        'facing_target' => 'integer',
+        'track_planogram' => 'boolean',
+        'sos_target' => 'decimal:2',
         'track_osa' => 'boolean',
         'osa_drop_size' => 'integer',
         'track_npd' => 'boolean',

@@ -1,3 +1,4 @@
+@import './creative-studio.css';
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -146,6 +147,31 @@
         background: var(--glass-bg);
         border: 1px solid var(--glass-border);
         backdrop-filter: blur(16px);
+    }
+
+    /* Stable opaque surfaces avoid backdrop recompositing while the dashboard scrolls. */
+    .dashboard-metric-card {
+        min-width: 0;
+        min-height: 132px;
+        background: #171719;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    :root[data-theme='light'] .dashboard-metric-card {
+        background: #ffffff;
+        border-color: #e5e7eb;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    }
+
+    /* Table pills must remain one intact badge, even in narrow status columns. */
+    main table span.rounded-full.border {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        flex-shrink: 0;
+        width: max-content;
+        line-height: 1.25;
+        vertical-align: middle;
     }
 
     .scrollbar-none::-webkit-scrollbar {
@@ -575,3 +601,14 @@
         font-size: 0.75rem;
     }
 }
+
+.cmih-confirmation { margin: auto; position: fixed; inset: 0; width: min(440px, calc(100vw - 32px)); padding: 28px; border: 1px solid #dce4ee; border-radius: 20px; background: #fff; color: #17243a; box-shadow: 0 24px 80px #0005; }
+.cmih-confirmation::backdrop { background: #08101d99; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+.cmih-confirmation h2 { font-size: 21px; font-weight: 700; margin-bottom: 12px; }
+.cmih-confirmation p { font-size: 14px; line-height: 1.6; color: #526278; }
+.cmih-confirmation-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.cmih-confirmation button { min-height: 44px; padding: 10px 20px; border: 1px solid #dce4ee; border-radius: 10px; font-weight: 600; }
+.cmih-confirmation .cmih-confirmation-primary { background: #d9252a; border-color: #d9252a; color: white; }
+.cmih-confirmation button:focus-visible { outline: 3px solid #639de6; outline-offset: 3px; }
+
+body.cmih-confirmation-open > :not(.cmih-confirmation) { filter: blur(4px); }

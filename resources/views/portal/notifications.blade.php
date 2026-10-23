@@ -47,7 +47,7 @@
                                     <p class="mt-1 text-xs text-brand-white/70">{{ $notification->message }}</p>
                                     @if($notification->url)
                                         <span class="inline-flex items-center gap-1 mt-2 text-[10px] uppercase tracking-wider text-amber-400 font-bold hover:underline">
-                                            Go to item ➜
+                                            Go to item <x-ui-icon name="arrow" />
                                         </span>
                                     @endif
                                 </div>

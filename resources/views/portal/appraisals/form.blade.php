@@ -50,7 +50,7 @@
                                                             @foreach($metric->table_template ?? [] as $col)
                                                                 <th class="px-3 py-2" style="width: {{ $col['width'] ?? 'auto' }}">{{ $col['label'] }}</th>
                                                             @endforeach
-                                                            <th class="px-2 py-2 w-10 text-center">✕</th>
+                                                            <th class="px-2 py-2 w-10 text-center"><x-ui-icon name="close" /></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -79,7 +79,7 @@
                                                                     </td>
                                                                 @endforeach
                                                                 <td class="px-2 py-2 text-center">
-                                                                    <button type="button" @click="rows.splice(idx, 1)" class="text-brand-red hover:text-red-400 font-bold">✕</button>
+                                                                    <button aria-label="Close" type="button" @click="rows.splice(idx, 1)" class="text-brand-red hover:text-red-400 font-bold"><x-ui-icon name="close" /></button>
                                                                 </td>
                                                             </tr>
                                                         </template>

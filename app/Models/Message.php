@@ -123,7 +123,7 @@ class Message extends Model
     public function displayBody(): string
     {
         if ($this->is_deleted) {
-            return '🚫 This message was deleted';
+            return ' This message was deleted';
         }
         return $this->body ?? '';
     }

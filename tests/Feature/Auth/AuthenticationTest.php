@@ -49,6 +49,16 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('admin.dashboard', absolute: false));
     }
 
+    public function test_executives_land_on_the_sidebar_dashboard_even_with_an_old_intended_page(): void
+    {
+        foreach ([['access_role' => 'super_admin'], ['access_role' => 'staff', 'job_level' => 'CVO', 'position_title' => 'Chief Visionary Leader']] as $role) {
+            $user = User::factory()->create(array_merge(['status' => 'active', 'department' => 'creatives'], $role));
+            $this->withSession(['url.intended' => route('portal.performance.index')])->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('dashboard'));
+            $this->assertAuthenticatedAs($user);
+            $this->post('/logout');
+        }
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create([
@@ -91,7 +101,7 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticated();
         $user->refresh();
         $this->assertNotNull($user->remember_token);
-        
+
         $cookieName = \Illuminate\Support\Facades\Auth::guard('web')->getRecallerName();
         $response->assertCookie($cookieName);
     }

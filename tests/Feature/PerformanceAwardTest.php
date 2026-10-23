@@ -134,8 +134,10 @@ class PerformanceAwardTest extends TestCase
 
         $data = $response->json();
         $this->assertEquals($period, $data['period']);
-        $this->assertNotEmpty($data['calculated']['employees']);
-        $this->assertEquals($employee->name, $data['calculated']['employees'][0]['name']);
+        $this->assertEmpty($data['calculated']['employees']);
+        $this->assertEquals($employee->name, $data['calculated']['incomplete_employees'][0]['name']);
+        $this->assertNull($data['calculated']['incomplete_employees'][0]['score']);
+        $this->assertFalse($data['calculated']['incomplete_employees'][0]['score_complete']);
     }
 
     public function test_award_score_penalizes_missed_workday_clock_ins_even_with_full_task_completion(): void
@@ -313,7 +315,7 @@ class PerformanceAwardTest extends TestCase
         $response = $this->actingAs($cyril)->getJson("/portal/awards/standings?period={$period}");
         $response->assertStatus(200);
 
-        $employees = $response->json('calculated.employees');
+        $employees = array_merge($response->json('calculated.employees'), $response->json('calculated.incomplete_employees'));
         $employeeNames = collect($employees)->pluck('name')->toArray();
 
         // Cyril Hilton should be in the list, but General Super Admin should be excluded

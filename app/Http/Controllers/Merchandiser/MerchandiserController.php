@@ -230,15 +230,7 @@ class MerchandiserController extends Controller
         }
 
         if (!$user->kd_id || !$user->region_id) {
-            return view('merchandisers.dashboard', [
-                'outlets' => collect(),
-                'attendances' => collect(),
-                'outletAttendanceByOutlet' => collect(),
-                'scoredOutletIdsToday' => collect(),
-                'clockWindow' => MerchandiserClockWindows::visitWindow('Africa/Accra'),
-                'dailyPerformanceChart' => ['labels' => [], 'scheduled' => [], 'clocked' => [], 'scored' => [], 'coverage' => []],
-                'error' => 'Your account is active but has not been paired with a Key Distributor (KD) or Region yet. Please ask an admin to pair your profile.'
-            ]);
+            return view('merchandisers.awaiting-pairing', ['merchTenant' => $merchTenant ?? []]);
         }
 
         $timezone = $user->merchandiserRegion->timezone ?? 'Africa/Accra';

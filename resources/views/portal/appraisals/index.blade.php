@@ -40,14 +40,14 @@
         {{-- Tabs Navigation --}}
         <div class="mb-8 flex flex-wrap gap-2 border-b border-brand-white/10 pb-4">
             <button @click="activeTab = 'appraisals'" :class="activeTab === 'appraisals' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-brand-white/5 text-brand-ash hover:text-white border-transparent'" class="px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-xl border transition-all">
-                📋 Appraisal Cycles
+                <x-ui-icon name="clipboard" /> Appraisal Cycles
             </button>
             <button @click="activeTab = 'ledger'" :class="activeTab === 'ledger' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-brand-white/5 text-brand-ash hover:text-white border-transparent'" class="px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-xl border transition-all">
-                📊 Profile Tracking Ledger
+                <x-ui-icon name="chart" /> Profile Tracking Ledger
             </button>
             @if(count($transparencyMatrix) > 0)
                 <button @click="activeTab = 'matrix'" :class="activeTab === 'matrix' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-brand-white/5 text-brand-ash hover:text-white border-transparent'" class="px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-xl border transition-all">
-                    🔭 Manager Transparency Matrix
+                    <x-ui-icon name="eye" /> Manager Transparency Matrix
                 </button>
             @endif
         </div>
@@ -55,7 +55,7 @@
         {{-- Tab 1: Appraisal History --}}
         <div x-show="activeTab === 'appraisals'" class="grid gap-8 lg:grid-cols-2">
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📋 My Appraisal History</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clipboard" /> My Appraisal History</h3>
                 <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                     @forelse($appraisals as $ap)
                         <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-4">
@@ -80,13 +80,13 @@
                                 @if(in_array($ap->status, ['draft', 'self_assessment']) && $ap->user_id === $user->id)
                                     <a href="{{ route('portal.appraisals.self.form', $ap) }}"
                                        class="rounded-lg bg-brand-red px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-white hover:bg-brand-red-dark transition-all">
-                                        ✏️ Submit Self-Assessment
+                                        <x-ui-icon name="edit" /> Submit Self-Assessment
                                     </a>
                                 @endif
                                 @if($ap->status === 'submitted' && in_array($user->access_role, ['admin', 'manager', 'super_admin']))
                                     <a href="{{ route('portal.appraisals.manager.form', $ap) }}"
                                        class="rounded-lg bg-sky-600 px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-white hover:bg-sky-700 transition-all">
-                                        🔍 Manager Review
+                                        <x-ui-icon name="search" /> Manager Review
                                     </a>
                                 @endif
                                 @if($ap->status === 'manager_reviewed')
@@ -94,7 +94,7 @@
                                     @if($isHR)
                                         <a href="{{ route('portal.appraisals.audit.form', $ap) }}"
                                            class="rounded-lg bg-purple-600 px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-white hover:bg-purple-700 transition-all">
-                                            🏛️ HR Audit
+                                            <x-ui-icon name="building" /> HR Audit
                                         </a>
                                     @endif
                                 @endif
@@ -102,7 +102,7 @@
                                     <form method="POST" action="{{ route('portal.appraisals.unlock', $ap) }}" class="inline">
                                         @csrf
                                         <button type="submit" class="rounded-lg bg-amber-600/20 border border-amber-500/30 px-3 py-1 text-[10px] uppercase tracking-wider font-semibold text-amber-400 hover:bg-amber-600/30 transition-all">
-                                            🔓 Unlock
+                                            <x-ui-icon name="lock" /> Unlock
                                         </button>
                                     </form>
                                 @endif
@@ -127,7 +127,7 @@
                 @endphp
                 @if($isHR)
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🗂️ Open New Appraisal Cycle</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="folder" /> Open New Appraisal Cycle</h3>
                     <form method="POST" action="{{ route('portal.appraisals.create') }}" class="space-y-4">
                         @csrf
                         <div class="grid gap-4 sm:grid-cols-3">
@@ -164,7 +164,7 @@
 
                 @if($staffAppraisals->isNotEmpty())
                 <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🔭 Staff Performance Matrix</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="eye" /> Staff Performance Matrix</h3>
                     <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         @foreach($staffAppraisals as $ap)
                             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 flex items-center justify-between text-xs">
@@ -196,7 +196,7 @@
         <div x-show="activeTab === 'ledger'" class="grid gap-8 lg:grid-cols-2" style="display: none;">
             {{-- My Recent Tasks --}}
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📋 My Recent Tasks Ledger</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clipboard" /> My Recent Tasks Ledger</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
@@ -240,7 +240,7 @@
 
             {{-- My Recent Clock-ins --}}
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">⏰ My Attendance & Overtime Ledger</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="clock" /> My Attendance & Overtime Ledger</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
@@ -288,7 +288,7 @@
         {{-- Tab 3: Manager Transparency Matrix --}}
         @if(count($transparencyMatrix) > 0)
         <div x-show="activeTab === 'matrix'" class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5" style="display: none;">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">🔭 Departmental Transparency & KPI Matrix</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="eye" /> Departmental Transparency & KPI Matrix</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
@@ -343,7 +343,7 @@
                                 <td class="py-3.5 text-right">
                                     <a href="{{ route('portal.appraisals.report', $item['user']) }}" target="_blank"
                                        class="inline-block rounded-xl bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-amber-400 hover:bg-amber-500/30 transition-all">
-                                        📄 Get Accountability Report
+                                        <x-ui-icon name="file" /> Get Accountability Report
                                     </a>
                                 </td>
                             </tr>

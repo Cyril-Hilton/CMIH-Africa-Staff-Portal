@@ -9,7 +9,7 @@
         <div class="space-y-4">
             <a href="{{ route('merchandisers.login') }}" class="flex items-center justify-between rounded-xl border border-brand-white/10 bg-brand-white/5 hover:bg-brand-white/10 px-5 py-4 transition group">
                 <div>
-                    <h3 class="text-base font-semibold text-brand-white group-hover:text-amber-500 transition-colors">🔐 Merchandiser Login</h3>
+                    <h3 class="text-base font-semibold text-brand-white group-hover:text-amber-500 transition-colors"><x-ui-icon name="lock" /> Merchandiser Login</h3>
                     <p class="text-xs text-brand-white/50">Access your active dashboard, clock-in, and capture visits.</p>
                 </div>
                 <span class="text-brand-white/30 group-hover:text-brand-white text-lg transition-all">→</span>
@@ -17,7 +17,7 @@
 
             <a href="{{ route('merchandisers.register') }}" class="flex items-center justify-between rounded-xl border border-brand-white/10 bg-brand-white/5 hover:bg-brand-white/10 px-5 py-4 transition group">
                 <div>
-                    <h3 class="text-base font-semibold text-brand-white group-hover:text-amber-500 transition-colors">📝 Apply as Merchandiser</h3>
+                    <h3 class="text-base font-semibold text-brand-white group-hover:text-amber-500 transition-colors"><x-ui-icon name="edit" /> Apply as Merchandiser</h3>
                     <p class="text-xs text-brand-white/50">Create a new field profile and submit for activation.</p>
                 </div>
                 <span class="text-brand-white/30 group-hover:text-brand-white text-lg transition-all">→</span>

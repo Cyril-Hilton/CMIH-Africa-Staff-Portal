@@ -2756,7 +2756,7 @@ class MerchandiserPortalTest extends TestCase
         ]);
     }
     #[Test]
-    public function ai_detection_uses_gemini_when_openai_fails()
+    public function ai_detection_prefers_gemini_before_openai()
     {
         Storage::fake('public');
         Http::fake([
@@ -2845,10 +2845,9 @@ class MerchandiserPortalTest extends TestCase
         $pollResponse->assertJsonPath('status', 'completed');
         $pollResponse->assertJsonPath('provider', 'gemini');
         $pollResponse->assertJsonPath('detections.0.quantity', 6);
-        $pollResponse->assertJsonPath('attempts.0.provider', 'openai');
-        $pollResponse->assertJsonPath('attempts.0.status', 'provider_error');
-        $pollResponse->assertJsonPath('attempts.1.provider', 'gemini');
-        $pollResponse->assertJsonPath('attempts.1.status', 'completed');
+        $pollResponse->assertJsonPath('attempts.0.provider', 'gemini');
+        $pollResponse->assertJsonPath('attempts.0.status', 'completed');
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.openai.com'));
     }
     #[Test]
     public function brands_admin_can_manage_sku_reference_images_for_ai_catalog()
@@ -4166,7 +4165,7 @@ class MerchandiserPortalTest extends TestCase
         $response = $this->get(route('merchandisers.admin.export', 'merchandisers') . '?format=csv');
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'text/csv; charset=utf-8');
-        $response->assertHeader('Content-Disposition', 'attachment; filename="merchandiser_merchandisers_' . now()->format('Y-m-d') . '.csv"');
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertHeader('Content-Disposition', 'attachment; filename="merchandiser_merchandisers_' . now()->format('Y-m-d') . '.xlsx"');
     }
 }

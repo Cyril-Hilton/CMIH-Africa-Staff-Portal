@@ -31,7 +31,7 @@
 
         {{-- ── 1. SURVEY DETAILS ──────────────────────────────────────── --}}
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">📝 Survey Details</h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="edit" /> Survey Details</h3>
             <div class="grid gap-6 md:grid-cols-2">
                 <div class="space-y-4">
                     <div>
@@ -80,7 +80,7 @@
 
         {{-- ── 2. LOGO BRANDING ────────────────────────────────────────── --}}
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-1">🎨 Logo Branding <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-1"><x-ui-icon name="palette" /> Logo Branding <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
             <p class="text-[11px] text-brand-white/40 mb-5">Logos appear side-by-side at the top of the public survey. Ideal for co-branded activations.</p>
 
             <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -103,7 +103,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-[10px] text-brand-white/70 truncate logo-filename"></p>
                         </div>
-                        <button type="button" onclick="clearLogo('client_logo','client1_preview')" class="text-brand-red text-xs shrink-0">✕</button>
+                        <button aria-label="Close" type="button" onclick="clearLogo('client_logo','client1_preview')" class="text-brand-red text-xs shrink-0"><x-ui-icon name="close" /></button>
                     </div>
                 </div>
 
@@ -125,7 +125,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-[10px] text-brand-white/70 truncate logo-filename"></p>
                         </div>
-                        <button type="button" onclick="clearLogo('client_logo_2','client2_preview')" class="text-brand-red text-xs shrink-0">✕</button>
+                        <button aria-label="Close" type="button" onclick="clearLogo('client_logo_2','client2_preview')" class="text-brand-red text-xs shrink-0"><x-ui-icon name="close" /></button>
                     </div>
                 </div>
 
@@ -146,14 +146,14 @@
                     <div class="flex-1 min-w-0">
                         <p class="text-[10px] text-brand-white/70 truncate logo-filename"></p>
                     </div>
-                    <button type="button" onclick="clearLogo('cmih_logo','cmih_preview')" class="text-brand-red text-xs shrink-0">✕</button>
+                    <button aria-label="Close" type="button" onclick="clearLogo('cmih_logo','cmih_preview')" class="text-brand-red text-xs shrink-0"><x-ui-icon name="close" /></button>
                 </div>
             </div>
         </div>
 
         {{-- ── 3. CUSTOM SUCCESS MESSAGE ───────────────────────────────── --}}
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-1">✅ Custom Confirmation Message <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
+            <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-1"><x-ui-icon name="check" /> Custom Confirmation Message <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
             <p class="text-[11px] text-brand-white/40 mb-4">This message is shown to the consumer after they submit the survey. If left blank, a default message is shown.</p>
             <textarea id="success_message" name="success_message" rows="6"
                 class="w-full rounded-xl border border-brand-white/10 bg-brand-black/40 px-4 py-3 text-sm text-brand-white focus:border-brand-red focus:ring-0 placeholder-brand-white/20"
@@ -164,7 +164,7 @@
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5" x-data="{ locationOn: {{ old('location_enabled') ? 'true' : 'false' }} }">
             <div class="flex items-center justify-between mb-1">
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">📍 Location <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="pin" /> Location <span class="text-brand-ash font-normal normal-case text-xs">(Optional)</span></h3>
                     <p class="text-[11px] text-brand-white/40 mt-0.5">When enabled, the event location appears on the confirmation message page.</p>
                 </div>
                 <label class="inline-flex items-center cursor-pointer">
@@ -205,7 +205,7 @@
              x-init="addQuestion()">
 
             <div class="flex items-center justify-between border-b border-brand-white/10 pb-3 mb-6">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">🛠️ Question Builder</h3>
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white"><x-ui-icon name="spark" /> Question Builder</h3>
                 <button type="button" @click="addQuestion()" class="rounded-lg border border-brand-white/20 hover:border-brand-red px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brand-white/80 hover:text-brand-red transition">
                     + Add Question
                 </button>
@@ -243,10 +243,10 @@
 
                         {{-- Type hint badge --}}
                         <div x-show="q.question_type === 'radio'" class="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-[9px] uppercase tracking-wider text-blue-400 font-semibold">
-                            🔘 Single select — consumer picks exactly ONE option
+                            <x-ui-icon name="circle" /> Single select — consumer picks exactly ONE option
                         </div>
                         <div x-show="q.question_type === 'checkbox'" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[9px] uppercase tracking-wider text-emerald-400 font-semibold">
-                            ☑️ Multi select — consumer can pick MULTIPLE options
+                            <x-ui-icon name="check" /> Multi select — consumer can pick MULTIPLE options
                         </div>
 
                         {{-- Options builder --}}
@@ -258,7 +258,7 @@
                                         <span class="text-brand-white/30 text-[10px]" x-text="(oIndex + 1) + '.'"></span>
                                         <input type="text" :name="'questions[' + qIndex + '][options][' + oIndex + ']'" x-model="q.options[oIndex]" required
                                             class="flex-1 rounded-md border border-brand-white/10 bg-brand-black/50 px-3 py-1 text-xs text-brand-white focus:border-brand-red focus:ring-0">
-                                        <button type="button" @click="removeOption(qIndex, oIndex)" class="text-brand-white/40 hover:text-brand-red text-xs">✕</button>
+                                        <button aria-label="Close" type="button" @click="removeOption(qIndex, oIndex)" class="text-brand-white/40 hover:text-brand-red text-xs"><x-ui-icon name="close" /></button>
                                     </div>
                                 </template>
                             </div>

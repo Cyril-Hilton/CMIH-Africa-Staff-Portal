@@ -883,8 +883,8 @@ class LeaveWorkflowTest extends TestCase
 
         $response = $this->actingAs($staff)->post('/portal/leaves', [
             'leave_type' => 'annual',
-            'start_date' => now()->addDays(5)->toDateString(),
-            'end_date' => now()->addDays(9)->toDateString(), // 5 days (greater than 3)
+            'start_date' => now()->addWeeks(2)->startOfWeek()->toDateString(),
+            'end_date' => now()->addWeeks(2)->startOfWeek()->addDays(4)->toDateString(), // Five weekdays exceed the three-day balance.
             'line_manager_id' => $manager->id,
             'covering_staff_id' => $cover->id,
         ]);

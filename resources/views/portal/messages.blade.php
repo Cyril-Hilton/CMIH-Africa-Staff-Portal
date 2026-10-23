@@ -36,6 +36,7 @@
     <div x-data="{
             newGroupModal: @json($groupModalHasErrors),
             newDmModal: false,
+            showChats: @json(!$conversation),
             manageMembersModal: false,
             forwardModal: false,
             forwardMessageId: null,
@@ -53,10 +54,11 @@
                     .filter(el => el.dataset.staffName.toLowerCase().includes(this.dmSearch.toLowerCase()));
             }
         }"
-         class="relative flex h-[calc(100vh-7rem)] min-h-[600px] overflow-hidden rounded-2xl border border-brand-white/10 bg-brand-black/80 shadow-2xl">
+         class="relative" data-messenger-root>
+        <div class="relative flex h-[calc(100dvh-12rem)] min-h-[480px] md:h-[calc(100vh-7rem)] md:min-h-[600px] overflow-hidden rounded-2xl border border-brand-white/10 bg-brand-black/80 shadow-2xl">
 
         {{-- ═══════════════════════ SIDEBAR ═══════════════════════ --}}
-        <aside class="flex w-72 shrink-0 flex-col border-r border-brand-white/10 bg-brand-black/60 backdrop-blur-xl">
+        <aside :class="showChats ? 'flex' : 'hidden md:flex'" class="w-full md:w-72 shrink-0 flex-col border-r border-brand-white/10 bg-brand-black/60 backdrop-blur-xl">
             {{-- Header --}}
             <div class="flex items-center justify-between px-5 py-4 border-b border-brand-white/10">
                 <p class="text-xs font-semibold uppercase tracking-[0.25em] text-brand-ash">Messages</p>
@@ -242,7 +244,8 @@
         </aside>
 
         {{-- ═══════════════════════ MAIN CHAT AREA ═══════════════════════ --}}
-        <div class="flex flex-1 flex-col overflow-hidden">
+        <div :class="showChats ? 'hidden md:flex' : 'flex'" class="min-w-0 flex-1 flex-col overflow-hidden">
+            <button type="button" @click="showChats = true" class="md:hidden border-b border-brand-white/10 px-4 py-3 text-left text-sm font-semibold">← Conversations</button>
 
             @if(! $conversation)
                 {{-- Welcome Screen / Empty Chat State --}}
@@ -390,9 +393,7 @@
                                     @endif
 
                                     <div class="rounded-2xl px-4 py-2.5 text-sm relative
-                                                {{ $isMine
-                                                    ? 'rounded-br-sm bg-brand-red text-white'
-                                                    : 'rounded-bl-sm bg-brand-white/10 text-brand-white/90 backdrop-blur' }}">
+                                                {{ $isMine ? 'rounded-br-sm bg-brand-red text-white' : 'rounded-bl-sm bg-brand-white/10 text-brand-white/90 backdrop-blur' }}">
                                         
                                         {{-- Inline edit field --}}
                                         <div x-show="editMessageId === {{ $msg->id }}" x-cloak class="space-y-2">
@@ -927,7 +928,7 @@
                                         @csrf
                                         <button type="submit"
                                                 class="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] uppercase tracking-wider text-red-400 hover:bg-red-500/10 transition"
-                                                onclick="return confirm('Remove {{ $member->name }} from the group?')">
+                                                data-confirm="Remove {{ $member->name }} from the group?">
                                             Remove
                                         </button>
                                     </form>
@@ -982,46 +983,6 @@
     {{-- Auto-scroll to bottom and real-time polling script --}}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const groupModal = document.getElementById('new-group-chat-modal');
-            const groupRoot = groupModal?.closest('[x-data]');
-            const setGroupModalState = (isOpen) => {
-                if (!groupRoot || !window.Alpine || typeof window.Alpine.$data !== 'function') {
-                    return;
-                }
-
-                const data = window.Alpine.$data(groupRoot);
-                if (data && Object.prototype.hasOwnProperty.call(data, 'newGroupModal')) {
-                    data.newGroupModal = isOpen;
-                }
-            };
-            const showGroupModal = () => {
-                if (!groupModal) return;
-                setGroupModalState(true);
-                groupModal.removeAttribute('x-cloak');
-                groupModal.classList.remove('hidden');
-                groupModal.style.setProperty('display', 'flex', 'important');
-                groupModal.querySelector('input[name="name"]')?.focus({ preventScroll: true });
-            };
-            const hideGroupModal = () => {
-                if (!groupModal) return;
-                setGroupModalState(false);
-                groupModal.style.setProperty('display', 'none', 'important');
-            };
-
-            document.querySelectorAll('[data-open-group-chat]').forEach((button) => {
-                button.addEventListener('click', showGroupModal);
-            });
-
-            document.querySelectorAll('[data-close-group-chat]').forEach((button) => {
-                button.addEventListener('click', hideGroupModal);
-            });
-
-            groupModal?.addEventListener('click', (event) => {
-                if (event.target === groupModal) {
-                    hideGroupModal();
-                }
-            });
-
             const feed = document.getElementById('chat-messages');
             if (feed) feed.scrollTop = feed.scrollHeight;
 

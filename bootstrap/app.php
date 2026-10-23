@@ -17,12 +17,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\AddSecurityHeaders::class,
+            \App\Http\Middleware\FormatSpreadsheetDownloads::class,
             \App\Http\Middleware\UpdateLastSeen::class,
             \App\Http\Middleware\LogSlowRequests::class,
+            \App\Http\Middleware\ProtectCreativeWorkflow::class,
         ]);
         $middleware->alias([
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
-            'role'   => \App\Http\Middleware\EnsureUserHasRole::class,
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'clocked_in' => \App\Http\Middleware\EnsureUserIsClockedIn::class,
             'identity_docs' => \App\Http\Middleware\EnsureIdentityDocumentComplete::class,
         ]);
@@ -37,11 +39,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e, \Illuminate\Http\Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Unable to send email. The mail server took too long to respond. Please check your mail server configuration.'
+                    'message' => 'Unable to send email. The mail server took too long to respond. Please check your mail server configuration.',
                 ], 500);
             }
+
             return back()->withInput()->withErrors([
-                'email' => 'Unable to send email. The mail server took too long to respond. Please verify your mail configuration in .env.'
+                'email' => 'Unable to send email. The mail server took too long to respond. Please verify your mail configuration in .env.',
             ]);
         });
     })->create();

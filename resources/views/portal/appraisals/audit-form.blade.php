@@ -137,8 +137,8 @@
                     <x-input-label for="final_decision" :value="__('Final Decision')" />
                     <select id="final_decision" name="final_decision" required
                             class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white">
-                        <option value="approved">✅ Approve & Finalise</option>
-                        <option value="revision_requested">🔄 Request Revision (send back)</option>
+                        <option value="approved">Approve & Finalise</option>
+                        <option value="revision_requested">Request Revision (send back)</option>
                     </select>
                 </div>
                 <div class="flex items-center justify-between gap-4 pt-2">
