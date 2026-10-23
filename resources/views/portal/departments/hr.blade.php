@@ -30,6 +30,7 @@
         </div>
     @endif
 
+    @if($errors->any())<div role="alert" class="mb-5 rounded-xl border border-red-400/30 p-4"><strong>Please Check Your Entries</strong><ul class="mt-2 list-disc pl-5 text-sm">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     @include('portal.partials.hr-workspace-navigation')
 
     @if(auth()->user()->canReviewIdentityDocuments())

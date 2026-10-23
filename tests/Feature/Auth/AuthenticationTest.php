@@ -33,6 +33,15 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    public function test_background_live_poll_is_not_used_as_the_login_landing_page(): void
+    {
+        $user = User::factory()->create(['status' => 'active', 'access_role' => 'staff']);
+        $this->withSession(['url.intended' => url('/portal/dashboard/live?weekly_department=brands_marketing')])
+            ->post('/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_admins_are_redirected_to_admin_dashboard(): void
     {
         $user = User::factory()->create([

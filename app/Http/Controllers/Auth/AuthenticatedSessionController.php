@@ -67,6 +67,11 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('dashboard');
         }
 
+        // Background polling must not become the landing page after sign-in.
+        if (parse_url((string) $request->session()->get('url.intended'), PHP_URL_PATH) === '/portal/dashboard/live') {
+            $request->session()->forget('url.intended');
+        }
+
         $redirectTo = $user->hasRole(['admin'])
             ? route('admin.dashboard', absolute: false)
             : route('dashboard', absolute: false);

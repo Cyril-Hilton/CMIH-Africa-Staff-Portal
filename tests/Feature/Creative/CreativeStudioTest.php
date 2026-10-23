@@ -10,8 +10,23 @@ class CreativeStudioTest extends TestCase {
  use RefreshDatabase;
  private function staff(string $department='client_relations',string $role='staff'):User{return User::factory()->create(['status'=>'active','department'=>$department,'access_role'=>$role,'must_reset_password'=>false,'profile_photo_path'=>'fixtures/test.jpg']);}
  private function brief(User $requester, array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->create($requester,array_replace(['title'=>'Dove creative campaign','brief'=>'Create approved artwork for the campus campaign.','creative_type'=>'Flyer / Poster','priority'=>'High','client'=>'Dove','visibility'=>'shared','requested_deadline'=>now()->addWeek()],$extra));}
- private function plan(CreativeRequest $r,User $lead,User $owner,User $reviewer):CreativeRequest{return app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>$reviewer->id,'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Assigned against the creative brief','override_reason'=>'Capacity will be confirmed in this local test']);}
- private function move(CreativeRequest $r,User $u,string $stage,array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->transition($r,$u,array_replace(['revision'=>$r->revision,'stage'=>$stage,'reason'=>'Recorded workflow action','quality_score'=>null],$extra));}
+ private function plan(CreativeRequest $r,User $lead,User $owner,User $reviewer):CreativeRequest{return app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>($owner->id===$lead->id ? $this->staff('creatives','manager')->id : $lead->id),'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Assigned against the creative brief','override_reason'=>'Capacity will be confirmed in this local test']);}
+ private function move(CreativeRequest $r,User $u,string $stage,array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->transition($r,$u,array_replace(['revision'=>$r->revision,'stage'=>$stage,'reason'=>'Recorded workflow action','quality_score'=>null,'client_approved'=>$stage==='completed'], $extra));}
+ public function test_intake_merge_preserves_existing_dates_ownership_and_feedback_history():void {
+  $sender=$this->staff();$r=$this->brief($sender);$r->update(['stage'=>'backlog']);
+  $correction=$this->brief($sender);$correction->update(['stage'=>'changes_requested']);
+  $correction->updates()->create(['author_id'=>$sender->id,'kind'=>'changes_requested','body'=>'Retain this correction history']);
+  $received=$r->received_at->toISOString();
+  $migration=require database_path('migrations/2026_10_23_090000_merge_creative_intake_stages.php');$migration->up();$migration->up();
+  $this->assertSame('brief_received',$r->fresh()->stage);$this->assertSame($received,$r->fresh()->received_at->toISOString());$this->assertSame($sender->id,$r->fresh()->requester_id);
+  $this->assertSame('in_progress',$correction->fresh()->stage);$this->assertSame('Retain this correction history',$correction->updates()->first()->body);
+ }
+ public function test_creative_who_also_sent_the_brief_cannot_bypass_the_post_review_manager_gate():void {
+  $owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($owner),$lead,$owner,$lead);
+  $r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/final-artwork']);
+  $this->assertSame([],app(CreativeWorkflow::class)->allowed($r,$owner));
+  $r=$this->move($r,$lead,'delivered');$this->assertSame([],app(CreativeWorkflow::class)->allowed($r,$owner));
+ }
  public function test_all_departments_can_submit_and_neutral_staff_can_follow_shared_timeline():void {
   $sender=$this->staff();$neutral=$this->staff('finance');$this->actingAs($sender)->postJson(route('portal.creative.store'),['title'=>'Dove artwork request','brief'=>'Create campaign artwork with suitable print formats.','creative_type'=>'Flyer / Poster','priority'=>'High','visibility'=>'shared','requested_deadline'=>now()->addDays(5)->toIso8601String(),'requester_id'=>$neutral->id,'received_at'=>'2000-01-01'])->assertCreated();
   $r=CreativeRequest::firstOrFail();$this->assertSame($sender->id,$r->requester_id);$this->assertTrue($r->received_at->isToday());$this->assertSame('client_relations',$r->department);
@@ -31,9 +46,9 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');
   $this->actingAs($owner)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'in_review'])->assertUnprocessable()->assertJsonValidationErrors('reference_url');
   $r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/artwork-v1']);$first=$r->first_submitted_at->toIso8601String();
-  $this->actingAs($sender)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'changes_requested','reason'=>''])->assertUnprocessable()->assertJsonValidationErrors('reason');
-  $r=$this->move($r,$sender,'changes_requested',['feedback_type'=>'correction','reason'=>'Please correct the approved colour.']);$this->travel(1)->hours();$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/artwork-v2']);$this->assertSame($first,$r->first_submitted_at->toIso8601String());$this->assertSame(2,$r->iteration);
-  $r=$this->move($r,$sender,'delivered');$this->assertSame('pending',$r->task->completion_review_status);
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'changes_requested','reason'=>''])->assertUnprocessable()->assertJsonValidationErrors('reason');
+  $r=$this->move($r,$lead,'changes_requested',['feedback_type'=>'correction','reason'=>'Please correct the approved colour.']);$this->travel(1)->hours();$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/artwork-v2']);$this->assertSame($first,$r->first_submitted_at->toIso8601String());$this->assertSame(2,$r->iteration);
+  $r=$this->move($r,$lead,'delivered');$this->assertSame('pending',$r->task->completion_review_status);
   $this->actingAs($owner)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>90])->assertForbidden();
   $r=$this->move($r,$lead,'completed',['quality_score'=>95]);$this->assertSame('approved',$r->task->fresh()->completion_review_status);$this->assertSame($lead->id,$r->task->fresh()->completion_reviewed_by);$this->assertTrue(\App\Services\TaskStatsService::wasApprovedByExpectedManager($r->task->fresh(),$owner));
   $this->actingAs($this->staff('finance'))->getJson(route('portal.creative.show',$r))->assertOk()->assertJsonCount(2,'rounds')->assertJsonPath('rounds.0.feedback','Please correct the approved colour.')->assertJsonPath('rounds.1.iteration',2);$this->assertSame(2,$r->updates()->where('kind','in_review')->count());$this->assertGreaterThan(0,PerformanceOutbox::count());
@@ -53,7 +68,7 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$owner=$this->staff('creatives');$r=$this->brief($sender);$r->update(['assignee_id'=>$owner->id,'planned_start'=>'2026-10-22 09:00:00','internal_eta'=>'2026-10-27 17:00:00','estimated_hours'=>20]);$cap=app(CreativeCapacity::class);$this->assertSame(10.0,$cap->hours($r->fresh(),\Illuminate\Support\Carbon::parse('2026-10-19'),\Illuminate\Support\Carbon::parse('2026-10-25')));$this->assertSame(10.0,$cap->hours($r->fresh(),\Illuminate\Support\Carbon::parse('2026-10-26'),\Illuminate\Support\Carbon::parse('2026-11-01')));$summary=$cap->summary($sender,\Illuminate\Support\Carbon::parse('2026-10-19'),\Illuminate\Support\Carbon::parse('2026-10-25'));$this->assertNull($summary[0]['available']);
  }
  public function test_review_waiting_is_neutral_for_creative_and_review_obligation_is_measured_against_reviewer():void {
-  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/proof']);$this->assertContains($r->task_id,CreativeAccountability::neutralTaskIds());$this->travelTo($r->review_due_at->copy()->addHour());$measure=CreativeAccountability::reviewerMeasure($sender,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(0.0,$measure['achievement']);
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/proof']);$this->assertContains($r->task_id,CreativeAccountability::neutralTaskIds());$this->travelTo($r->review_due_at->copy()->addHour());$measure=CreativeAccountability::reviewerMeasure($lead,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(0.0,$measure['achievement']);
   $this->assertSame(1,app(CreativeAccountability::class)->reminders());$count=PerformanceOutbox::count();app(CreativeAccountability::class)->reminders();$this->assertSame($count,PerformanceOutbox::count());
  }
  public function test_exports_are_real_excel_and_pdf_and_apply_visibility():void {
@@ -63,10 +78,10 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');
   $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-05 09:00:00'));
   $r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/version-one']);
-  $firstDue=$r->review_due_at->copy();$this->travelTo($firstDue->copy()->subHour());$r=$this->move($r,$sender,'changes_requested',['feedback_type'=>'correction','reason'=>'Correct the logo placement.']);
+  $firstDue=$r->review_due_at->copy();$this->travelTo($firstDue->copy()->subHour());$r=$this->move($r,$lead,'changes_requested',['feedback_type'=>'correction','reason'=>'Correct the logo placement.']);
   $r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/version-two']);$this->travelTo($r->review_due_at->copy()->addHour());
-  $measure=CreativeAccountability::reviewerMeasure($sender,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(2,$measure['total']);$this->assertSame(1,$measure['on_time']);$this->assertSame(50.0,$measure['achievement']);
-  $submission=$r->updates()->where('kind','in_review')->oldest('id')->firstOrFail();$this->assertSame($sender->id,$submission->metadata['reviewer_id']);$this->assertSame($firstDue->toIso8601String(),$submission->metadata['review_due_at']);
+  $measure=CreativeAccountability::reviewerMeasure($lead,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(2,$measure['total']);$this->assertSame(1,$measure['on_time']);$this->assertSame(50.0,$measure['achievement']);
+  $submission=$r->updates()->where('kind','in_review')->oldest('id')->firstOrFail();$this->assertSame($lead->id,$submission->metadata['reviewer_id']);$this->assertSame($firstDue->toIso8601String(),$submission->metadata['review_due_at']);
   $this->expectException(\LogicException::class);$submission->update(['body'=>'Overwrite the original submission']);
  }
 
@@ -77,7 +92,7 @@ class CreativeStudioTest extends TestCase {
   $this->travel(1)->hours();$this->postJson(route('portal.creative.acknowledge',$r))->assertOk();$this->assertTrue($r->fresh()->acknowledged_at->eq($ack));$this->assertSame(1,PerformanceEvent::where('entity_type','creative_request')->where('entity_id',$r->id)->where('action','acknowledged')->count());
  }
  public function test_archiving_verified_work_preserves_earned_independent_signoff():void {
-  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/proof']);$r=$this->move($r,$sender,'delivered');$r=$this->move($r,$lead,'completed',['quality_score'=>90]);$r=$this->move($r,$lead,'archived');
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/proof']);$r=$this->move($r,$lead,'delivered');$r=$this->move($r,$lead,'completed',['quality_score'=>90]);$r=$this->move($r,$lead,'archived');
   $this->assertTrue(CreativeAccountability::independentSignoff($r->task->fresh(),$owner));$this->assertNotNull($r->completed_at);$this->assertSame('approved',$r->task->fresh()->completion_review_status);
  }
  public function test_date_filter_includes_this_weeks_submission_even_if_deadline_was_earlier():void {
@@ -90,7 +105,7 @@ class CreativeStudioTest extends TestCase {
   $r=app(CreativeWorkflow::class)->plan($r,$lead,$r->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','requested_deadline','priority'])+['revision'=>$r->revision,'performance_weight'=>12,'reason'=>'High impact campaign milestone','override_reason'=>'Test capacity']);
   $this->assertSame(12,\App\Services\DeliveryImpact::points($r->task->fresh(),$owner));$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/weighted-artwork']);
   $pending=app(\App\Services\StaffPerformanceScore::class)->user($owner,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(1,$pending['awaiting_creative_review']);$this->assertSame(0,$pending['completion_verified']);$this->assertNull($pending['task_rate']);
-  $r=$this->move($r,$sender,'delivered');$r=$this->move($r,$lead,'completed',['quality_score'=>95]);$verified=app(\App\Services\StaffPerformanceScore::class)->user($owner,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(12,$verified['completion_points_verified']);$this->assertSame(100.0,$verified['task_rate']);$this->assertSame(65.0,$verified['task_weighted']);
+  $r=$this->move($r,$lead,'delivered');$r=$this->move($r,$lead,'completed',['quality_score'=>95]);$verified=app(\App\Services\StaffPerformanceScore::class)->user($owner,now()->startOfMonth(),now()->endOfMonth());$this->assertSame(12,$verified['completion_points_verified']);$this->assertSame(100.0,$verified['task_rate']);$this->assertSame(65.0,$verified['task_weighted']);
  }
 
  public function test_shared_feed_is_paginated_when_thousands_of_briefs_exist():void {
@@ -113,7 +128,7 @@ class CreativeStudioTest extends TestCase {
  }
 
  public function test_later_deadline_change_does_not_rewrite_first_submission_timeliness():void {
-  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r->update(['requested_deadline'=>now()->subHour()]);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/late-first-version']);$r=$this->move($r,$sender,'changes_requested',['feedback_type'=>'scope_change','reason'=>'Newly requested scope needs a revised date.']);
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r->update(['requested_deadline'=>now()->subHour()]);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/late-first-version']);$r=$this->move($r,$lead,'changes_requested',['feedback_type'=>'scope_change','reason'=>'Newly requested scope needs a revised date.']);
   $r=app(CreativeWorkflow::class)->plan($r,$lead,$r->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','priority'])+['requested_deadline'=>now()->addWeek(),'revision'=>$r->revision,'reason'=>'Deadline changed for new scope','override_reason'=>'Synthetic capacity']);
   $this->actingAs($sender)->getJson(route('portal.creative.show',$r))->assertOk()->assertJsonPath('on_time_submission',false);
  }
@@ -205,8 +220,8 @@ class CreativeStudioTest extends TestCase {
   $this->actingAs($lead)->postJson(route('portal.creative.split',$parent),$payload)->assertOk();
   $this->assertTrue($parent->fresh()->is_group);$this->assertNull($parent->fresh()->task_id);$this->assertSame(2,$parent->parts()->count());
   foreach($parent->parts()->get() as $n=>$part){
-   $this->assertSame($sender->id,$part->requester_id);$this->assertTrue($part->received_at->equalTo($parent->received_at));$this->assertSame('backlog',$part->stage);
-   $assignee=$n===0?$lead:$owner;$part=$this->plan($part,$lead,$assignee,$sender);$part=$this->move($part,$assignee,'in_progress');$part=$this->move($part,$assignee,'in_review',['reference_url'=>'https://example.test/deliverable']);$part=$this->move($part,$sender,'delivered');$this->move($part,$verifier,'completed',['quality_score'=>90]);
+   $this->assertSame($sender->id,$part->requester_id);$this->assertTrue($part->received_at->equalTo($parent->received_at));$this->assertSame('brief_received',$part->stage);
+   $assignee=$n===0?$lead:$owner;$part=$this->plan($part,$lead,$assignee,$sender);$part=$this->move($part,$assignee,'in_progress');$part=$this->move($part,$assignee,'in_review',['reference_url'=>'https://example.test/deliverable']);$part=$this->move($part,$verifier,'delivered');$this->move($part,$verifier,'completed',['quality_score'=>90]);
   }
   $this->assertSame('completed',$parent->fresh()->stage);$this->assertDatabaseCount('tasks',2);
   $this->actingAs($lead)->postJson(route('portal.creative.split',$parent),$payload)->assertStatus(409);
@@ -214,10 +229,10 @@ class CreativeStudioTest extends TestCase {
 
  public function test_creative_can_pause_and_resume_production_without_losing_assignment_or_deadline():void {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->move($this->plan($this->brief($sender),$lead,$owner,$sender),$owner,'in_progress');$due=$r->requested_deadline->toIso8601String();
-  $r=$this->move($r,$owner,'backlog');$this->assertSame('backlog',$r->stage);$this->assertSame($owner->id,$r->assignee_id);$this->assertSame($due,$r->requested_deadline->toIso8601String());$this->assertSame('Deferred',$r->task->fresh()->status);
+  $r=$this->move($r,$owner,'brief_received');$this->assertSame('brief_received',$r->stage);$this->assertSame($owner->id,$r->assignee_id);$this->assertSame($due,$r->requested_deadline->toIso8601String());$this->assertSame('Open',$r->task->fresh()->status);
   $this->assertEquals(0,app(CreativeCapacity::class)->hours($r,now()->startOfWeek(),now()->endOfWeek(),true));
-  $r=$this->move($r,$owner,'brief_received');$r=$this->move($r,$owner,'scheduled');$r=$this->move($r,$owner,'in_progress');$this->assertSame('in_progress',$r->stage);$this->assertSame('In Progress',$r->task->fresh()->status);
-  $r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/current-artwork']);$r=$this->move($r,$owner,'backlog');$this->assertNotNull($r->first_submitted_at);$this->assertSame('backlog',$r->stage);
+  $r=$this->move($r,$owner,'scheduled');$r=$this->move($r,$owner,'in_progress');$this->assertSame('in_progress',$r->stage);$this->assertSame('In Progress',$r->task->fresh()->status);
+  $r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/current-artwork']);$r=$this->move($r,$lead,'brief_received');$this->assertNotNull($r->first_submitted_at);$this->assertSame('brief_received',$r->stage);
  }
 
  public function test_mega_creative_daily_entries_are_separate_from_weekly_studio_workflow():void {
@@ -232,16 +247,16 @@ class CreativeStudioTest extends TestCase {
 
  public function test_assigned_creative_can_move_backward_and_forward_between_all_operational_columns():void {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');
-  foreach(['backlog','brief_received','scheduled','in_progress','in_review','delivered','completed'] as $source){
-   foreach(['backlog','brief_received','scheduled','in_progress'] as $destination){
+  foreach(['brief_received','scheduled','in_progress','in_review','delivered','completed'] as $source){
+   foreach(['brief_received','scheduled','in_progress'] as $destination){
     if($source===$destination)continue;
     $r=$this->plan($this->brief($sender),$lead,$owner,$sender);
-    if(in_array($source,['backlog','brief_received']))$r=$this->move($r,$owner,$source);
+    if(in_array($source,['brief_received']))$r=$this->move($r,$owner,$source);
     if(in_array($source,['in_progress','in_review','delivered','completed']))$r=$this->move($r,$owner,'in_progress');
     if(in_array($source,['in_review','delivered','completed']))$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/approved-work']);
-    if(in_array($source,['delivered','completed']))$r=$this->move($r,$sender,'delivered');
+    if(in_array($source,['delivered','completed']))$r=$this->move($r,$lead,'delivered');
     if($source==='completed')$r=$this->move($r,$lead,'completed',['quality_score'=>95]);
-    $r=$this->move($r,$owner,$destination);$this->assertSame($destination,$r->stage,$source.' -> '.$destination);$this->assertNull($r->fresh()->completed_at);$this->assertNotSame('approved',$r->task->fresh()->completion_review_status);
+    $r=$this->move($r,in_array($source,['in_review','delivered','completed'])?$lead:$owner,$destination,['feedback_type'=>'correction']);$this->assertSame($destination,$r->stage,$source.' -> '.$destination);$this->assertNull($r->fresh()->completed_at);$this->assertNotSame('approved',$r->task->fresh()->completion_review_status);
    }
   }
  }
@@ -261,6 +276,43 @@ class CreativeStudioTest extends TestCase {
   for($i=1;$i<=15;$i++)$this->brief($sender,['title'=>sprintf('Paged Creative %02d',$i),'priority'=>'High']);
   $this->brief($sender,['title'=>'Paged Creative Wrong Priority','priority'=>'Low']);
   $this->actingAs($sender)->getJson(route('portal.creative.data',['q'=>'Paged Creative','priority'=>'High','sort'=>'title','per_page'=>12,'page'=>2]))->assertOk()->assertJsonPath('pagination.page',2)->assertJsonPath('pagination.total',15)->assertJsonPath('pagination.last',2)->assertJsonCount(3,'items')->assertJsonPath('items.0.title','Paged Creative 13');
+ }
+
+ public function test_creative_lead_controls_both_approvals_and_client_approval_is_explicit():void {
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->brief($sender);
+  $plan=['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>$sender->id,'planned_start'=>now()->toIso8601String(),'internal_eta'=>now()->addDay()->toIso8601String(),'requested_deadline'=>now()->addWeek()->toIso8601String(),'estimated_hours'=>5,'priority'=>'High','reason'=>'Assign production','override_reason'=>'Synthetic capacity'];
+  $this->actingAs($lead)->postJson(route('portal.creative.plan',$r),$plan)->assertUnprocessable();
+  $r=$this->plan($r,$lead,$owner,$lead);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/final-artwork']);
+  foreach([$sender,$owner] as $actor)$this->actingAs($actor)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'delivered','reason'=>'Attempt approval'])->assertForbidden();
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>95,'client_approved'=>true,'reason'=>'Client approved artwork'])->assertForbidden();
+  $r=$this->move($r,$lead,'delivered');
+  foreach([$sender,$owner] as $actor)$this->actingAs($actor)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>95,'client_approved'=>true,'reason'=>'Attempt verification'])->assertForbidden();
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>95,'reason'=>'Client approval must be confirmed'])->assertUnprocessable()->assertJsonValidationErrors('client_approved');
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>95,'client_approved'=>true,'reason'=>''])->assertUnprocessable()->assertJsonValidationErrors('client_approved');
+  $r=$this->move($r,$lead,'completed',['quality_score'=>95,'reason'=>'Client approved the final artwork by email.','client_approved'=>true]);
+  $this->assertSame($lead->id,$r->verified_by);$this->assertSame('approved',$r->task->fresh()->completion_review_status);
+  $this->assertTrue($r->updates()->where('kind','completed')->latest('id')->first()->metadata['client_approved']);
+ }
+ public function test_requester_corrections_after_lead_approval_return_to_production_with_audit():void {
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$lead);
+  $r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/draft']);$r=$this->move($r,$lead,'delivered');
+  $r=$this->move($r,$sender,'changes_requested',['feedback_type'=>'correction','reason'=>'Client requests a revised logo size.']);
+  $this->assertSame('in_progress',$r->stage);$this->assertNull($r->completed_at);$this->assertDatabaseHas('creative_updates',['creative_request_id'=>$r->id,'kind'=>'changes_requested','body'=>'Client requests a revised logo size.']);
+ }
+ public function test_creative_staff_can_submit_brief_but_cannot_self_assign():void {
+  $owner=$this->staff('creatives');$r=$this->brief($owner);$this->assertSame('brief_received',$r->stage);$this->assertNull($r->assignee_id);
+  $this->actingAs($owner)->postJson(route('portal.creative.plan',$r),['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>$owner->id,'planned_start'=>now()->toIso8601String(),'internal_eta'=>now()->addDay()->toIso8601String(),'requested_deadline'=>now()->addWeek()->toIso8601String(),'estimated_hours'=>5,'priority'=>'High','reason'=>'Attempt self assignment'])->assertForbidden();
+  $this->actingAs($owner)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'scheduled'])->assertForbidden();
+ }
+
+ public function test_unassigned_intake_cannot_skip_planning_and_self_assigned_lead_cannot_approve_own_work():void {
+  $sender=$this->staff();$lead=$this->staff('creatives','manager');$verifier=$this->staff('creatives','manager');$r=$this->brief($sender);
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'scheduled','reason'=>'Skip assignment'])->assertUnprocessable()->assertJsonValidationErrors('assignee_id');
+  $r=$this->plan($r,$lead,$lead,$verifier);$r=$this->move($r,$lead,'in_progress');$r=$this->move($r,$lead,'in_review',['reference_url'=>'https://example.test/lead-artwork']);
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'delivered','reason'=>'Self approval attempt'])->assertForbidden();
+  $r=$this->move($r,$verifier,'delivered');
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>100,'client_approved'=>true,'reason'=>'Self final approval attempt'])->assertForbidden();
+  $this->assertSame('pending',$r->task->fresh()->completion_review_status);
  }
 
 }
