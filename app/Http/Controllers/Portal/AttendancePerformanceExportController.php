@@ -41,6 +41,9 @@ class AttendancePerformanceExportController extends Controller
                 ->orderBy('name')
                 ->chunk(100, function (Collection $staffMembers) use ($handle, $start, $end) {
                     foreach ($staffMembers as $staff) {
+                        if ($staff->isCvoOrSuperAdmin() || strtolower((string) $staff->access_role) === 'cvo') {
+                            continue;
+                        }
                         fputcsv($handle, $this->rowFor($staff, $start, $end));
                     }
                 });
