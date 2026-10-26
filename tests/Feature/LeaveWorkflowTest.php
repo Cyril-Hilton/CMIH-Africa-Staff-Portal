@@ -695,6 +695,7 @@ class LeaveWorkflowTest extends TestCase
 
     public function test_tier2_manager_leave_workflow(): void
     {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 10:00:00', 'Africa/Accra'));
         $manager = User::factory()->create([
             'status' => 'active',
             'access_role' => 'staff',
@@ -758,6 +759,7 @@ class LeaveWorkflowTest extends TestCase
 
     public function test_tier3_hr_leave_workflow(): void
     {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 10:00:00', 'Africa/Accra'));
         $hr = User::factory()->create([
             'status'         => 'active',
             'access_role'    => 'manager',

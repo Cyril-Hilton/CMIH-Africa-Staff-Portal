@@ -101,6 +101,7 @@ class CreativeStudioTest extends TestCase {
  }
 
  public function test_studio_delivery_uses_manager_impact_weight_and_no_credit_while_review_is_pending():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 10:00:00', 'Africa/Accra'));
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);
   $r=app(CreativeWorkflow::class)->plan($r,$lead,$r->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','requested_deadline','priority'])+['revision'=>$r->revision,'performance_weight'=>12,'reason'=>'High impact campaign milestone','override_reason'=>'Test capacity']);
   $this->assertSame(12,\App\Services\DeliveryImpact::points($r->task->fresh(),$owner));$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/weighted-artwork']);
@@ -171,6 +172,14 @@ class CreativeStudioTest extends TestCase {
   $this->actingAs($lead)->get(route('portal.creative.reports',['format'=>'pdf','period'=>'weekly','anchor'=>now()->toDateString()]))->assertOk()->assertHeader('Content-Type','application/pdf');
  }
 
+ public function test_new_plan_counts_proposed_effort_even_before_scheduling():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 10:00:00','Africa/Accra'));
+  $owner=$this->staff('creatives');$r=$this->brief($this->staff());
+  DB::table('creative_capacities')->insert(['user_id'=>$owner->id,'weekly_hours'=>8,'updated_by'=>$owner->id,'created_at'=>now(),'updated_at'=>now()]);
+  $r->fill(['assignee_id'=>$owner->id,'planned_start'=>now()->addWeek()->startOfWeek(),'internal_eta'=>now()->addWeek()->endOfWeek(),'estimated_hours'=>40]);
+  $this->assertEquals(0,app(CreativeCapacity::class)->hours($r,$r->planned_start,$r->internal_eta,true));
+  $this->assertStringContainsString('40h remaining against 8h available',implode(' ',app(CreativeCapacity::class)->warnings($r)));
+ }
  public function test_plan_preview_is_authorised_read_only_and_reports_conflicts():void {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->brief($sender);
   $payload=['assignee_id'=>$owner->id,'planned_start'=>now()->addWeeks(2)->startOfWeek()->toIso8601String(),'internal_eta'=>now()->addWeeks(2)->endOfWeek()->toIso8601String(),'requested_deadline'=>now()->addDay()->toIso8601String(),'estimated_hours'=>40];
@@ -228,6 +237,7 @@ class CreativeStudioTest extends TestCase {
  }
 
  public function test_creative_can_pause_and_resume_production_without_losing_assignment_or_deadline():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 10:00:00', 'Africa/Accra'));
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->move($this->plan($this->brief($sender),$lead,$owner,$sender),$owner,'in_progress');$due=$r->requested_deadline->toIso8601String();
   $r=$this->move($r,$owner,'brief_received');$this->assertSame('brief_received',$r->stage);$this->assertSame($owner->id,$r->assignee_id);$this->assertSame($due,$r->requested_deadline->toIso8601String());$this->assertSame('Open',$r->task->fresh()->status);
   $this->assertEquals(0,app(CreativeCapacity::class)->hours($r,now()->startOfWeek(),now()->endOfWeek(),true));

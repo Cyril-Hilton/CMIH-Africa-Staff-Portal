@@ -12,7 +12,7 @@ class CreativeCapacity {
  }
  public function hours(CreativeRequest $r,Carbon $from,Carbon $to,bool $remaining=false):?float {
   if(!$r->planned_start||!$r->internal_eta||$r->estimated_hours===null)return null;
-  if($remaining && in_array($r->stage,['backlog','completed','archived','delivered','in_review']))return 0;
+  if($remaining && in_array($r->stage,['backlog','brief_received','needs_info','completed','archived','delivered','in_review']))return 0;
   $days=$this->workingDates($r->planned_start,$r->internal_eta,$r->assignee_id);if(!$days)return 0;
   $first=$from->toDateString();$last=$to->toDateString();if($remaining)$first=max($first,today(config('creative.timezone'))->toDateString());
   return round($r->estimated_hours*count(array_filter($days,fn($d)=>$d>=$first&&$d<=$last))/count($days),2);
@@ -32,8 +32,9 @@ class CreativeCapacity {
  public function warnings(CreativeRequest $r):array {
   $warnings=[];if($r->internal_eta && $r->requested_deadline && $r->internal_eta->gt($r->requested_deadline))$warnings[]='Internal ETA is later than the requested deadline. Agree the difference with the requester.';
   if(!$r->assignee_id||!$r->planned_start||!$r->internal_eta)return $warnings;
+  $proposed=clone $r;if(in_array($proposed->stage,['backlog','brief_received','needs_info']))$proposed->stage='scheduled';
 
-  for($week=$r->planned_start->copy()->startOfWeek();$week->lte($r->internal_eta);$week->addWeek()){$end=$week->copy()->endOfWeek();$available=$this->available($r->assignee_id,$week,$end);if($available===null){$warnings[]=$week->format('d M').' week: capacity has not been recorded for this creative.';continue;}$others=CreativeRequest::where('assignee_id',$r->assignee_id)->whereKeyNot($r->id)->whereDate('planned_start','<=',$end)->whereDate('internal_eta','>=',$week)->get();$load=$others->sum(fn($o)=>$this->hours($o,$week,$end,true)??0)+($this->hours($r,$week,$end,true)??0);if($load>$available)$warnings[]=$week->format('d M').' week: '.round($load,1).'h remaining against '.round($available,1).'h available.';}
+  for($week=$r->planned_start->copy()->startOfWeek();$week->lte($r->internal_eta);$week->addWeek()){$end=$week->copy()->endOfWeek();$available=$this->available($r->assignee_id,$week,$end);if($available===null){$warnings[]=$week->format('d M').' week: capacity has not been recorded for this creative.';continue;}$others=CreativeRequest::where('assignee_id',$r->assignee_id)->whereKeyNot($r->id)->whereDate('planned_start','<=',$end)->whereDate('internal_eta','>=',$week)->get();$load=$others->sum(fn($o)=>$this->hours($o,$week,$end,true)??0)+($this->hours($proposed,$week,$end,true)??0);if($load>$available)$warnings[]=$week->format('d M').' week: '.round($load,1).'h remaining against '.round($available,1).'h available.';}
   return $warnings;
  }
 }
