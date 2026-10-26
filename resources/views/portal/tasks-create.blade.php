@@ -15,11 +15,7 @@
             <div>
                 <p class="text-sm font-semibold text-emerald-400">Task Created Successfully</p>
                 <p class="text-xs text-emerald-400/70 mt-1">{{ session('status') }}</p>
-                @if (!$todayAttendance)
-                    <a href="{{ route('dashboard') }}" class="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 text-xs uppercase tracking-[0.2em] font-bold text-white transition-all">
-                        Clock In
-                    </a>
-                @endif
+
             </div>
         </div>
     @endif
@@ -36,7 +32,7 @@
 
     <div class="max-w-6xl mx-auto">
         {{-- Clock-in tip banner (only if user hasn't created a task today) --}}
-        @if (!$hasTodayTask)
+        @if (!$todayAttendance && !$hasTodayTask)
             <div class="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 flex items-start gap-4">
                 <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300" aria-hidden="true">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm1 4a1 1 0 1 0-2 0v4a1 1 0 0 0 .553.894l3 1.5a1 1 0 0 0 .894-1.788L11 9.382V6Z" clip-rule="evenodd"/></svg>
@@ -54,12 +50,13 @@
             </span>
                     <div>
                         <p class="text-sm font-semibold text-emerald-400">Today's task registered</p>
-                        <p class="text-xs text-emerald-400/70">You're good to clock in. Head to the dashboard to proceed.</p>
+                        <p class="text-xs text-emerald-400/70">Your task is saved. Click Clock In Now to start your workday.</p>
                     </div>
                 </div>
-                <a href="{{ route('dashboard') }}" class="shrink-0 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 text-xs uppercase tracking-[0.2em] font-bold text-white transition-all whitespace-nowrap">
-                    Clock In Now
-                </a>
+                <form method="POST" action="{{ route('portal.attendance.clock-in') }}" data-clock-in-form>
+                    @csrf
+                    <button type="submit" data-clock-in-submit class="shrink-0 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-5 py-2.5 text-xs uppercase tracking-[0.2em] font-bold text-white transition-all whitespace-nowrap">Clock In Now</button>
+                </form>
             </div>
         @else
             <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-4">
@@ -251,7 +248,7 @@
             </div>
             <div class="rounded-2xl border border-brand-white/5 bg-brand-white/[0.03] p-4">
                 <div class="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-300" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm1 4a1 1 0 1 0-2 0v4a1 1 0 0 0 .553.894l3 1.5a1 1 0 0 0 .894-1.788L11 9.382V6Z" clip-rule="evenodd"/></svg></div>
-                <p class="text-xs text-brand-white/50 leading-relaxed">Creating a task unlocks your daily clock-in on the dashboard</p>
+                <p class="text-xs text-brand-white/50 leading-relaxed">Your daily clock-in is available above after you save a task.</p>
             </div>
         </div>
     </div>

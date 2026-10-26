@@ -33,7 +33,7 @@ class AttendanceController extends Controller
             ->first();
 
         if ($existing) {
-            return back()->withErrors(['attendance' => 'You have already clocked in today. Clock-out will become available after 6:00 PM.']);
+            return redirect()->route('dashboard')->with('status', 'You are already clocked in for today.');
         }
 
         // Enforce: Clock in only works after you add a task
@@ -68,7 +68,7 @@ class AttendanceController extends Controller
             'remote_notes' => $request->input('remote_notes'),
         ]);
 
-        return back()->with('status', 'Successfully clocked in for today!');
+        return redirect()->route('dashboard')->with('status', 'Successfully clocked in for today!');
     }
 
     /**

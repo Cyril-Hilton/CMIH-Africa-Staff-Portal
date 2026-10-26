@@ -397,6 +397,51 @@ class TaskVerificationTest extends TestCase
         $createPage->assertDontSee('Go Clock In');
     }
 
+    public function test_first_task_clock_in_button_submits_attendance_directly_for_every_department(): void
+    {
+        Carbon::setTestNow('2026-10-26 08:45:00');
+        $manager = User::factory()->create(['name' => 'Clock Flow Manager', 'status' => 'active', 'access_role' => 'manager']);
+        foreach ($this->staffMembers as $department => $staff) {
+            $this->actingAs($staff)->withHeader('X-Test-Enforce-ClockIn', 'true');
+            $this->post(route('portal.tasks.store'), [
+                'title' => 'First task for ' . $department, 'priority' => 'medium',
+                'completion_manager_id' => $manager->id,
+            ])->assertSessionHasNoErrors();
+            $page = $this->get(route('portal.tasks', ['view' => 'create']))->assertOk();
+            $page->assertSee('data-clock-in-form', false)->assertSee('Clock In Now');
+            $page->assertDontSee('Head to the dashboard to proceed.');
+            $this->assertMatchesRegularExpression('/<form method="POST" action="[^"]*attendance\/clock-in" data-clock-in-form>\s*<input[^>]+>\s*<button[^>]+data-clock-in-submit/s', $page->getContent());
+            $this->from(route('portal.tasks', ['view' => 'create']))->post(route('portal.attendance.clock-in'))
+                ->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+            $this->get(route('dashboard'))->assertOk()->assertDontSee('data-clock-in-form>', false);
+            $this->post(route('portal.tasks.store'), [
+                'title' => 'Second task for ' . $department, 'priority' => 'medium',
+                'completion_manager_id' => $manager->id,
+            ])->assertSessionHasNoErrors();
+            $this->get(route('portal.tasks', ['view' => 'create']))->assertOk()
+                ->assertSee("Today's clock-in is complete", false)->assertDontSee('data-clock-in-form>', false);
+            $this->assertSame(1, Attendance::where('user_id', $staff->id)->count());
+        }
+    }
+
+    public function test_clocked_in_staff_without_a_task_today_are_not_asked_to_clock_in_again(): void
+    {
+        Carbon::setTestNow('2026-10-26 10:00:00');
+        $staff = $this->staffMembers['finance'];
+        Attendance::create(['user_id' => $staff->id, 'clock_in_at' => now(), 'daily_objective' => 'Existing work', 'status' => 'Late']);
+        $this->actingAs($staff)->get(route('portal.tasks', ['view' => 'create']))->assertOk()
+            ->assertSee("Today's clock-in is complete", false)->assertDontSee('Add Your First Task Today to Clock In');
+    }
+
+    public function test_manager_who_creates_a_task_for_someone_else_can_clock_in_from_create_page(): void
+    {
+        Carbon::setTestNow('2026-10-26 08:45:00');
+        $manager = User::factory()->create(['name' => 'Task Assigning Manager', 'status' => 'active', 'access_role' => 'manager']);
+        Task::create(['title' => 'Delegated daily task', 'assigned_by' => $manager->id, 'assigned_to' => $this->staffMembers['finance']->id, 'department' => 'finance', 'status' => 'Open', 'priority' => 'Medium']);
+        $this->actingAs($manager)->get(route('portal.tasks', ['view' => 'create']))->assertOk()
+            ->assertSee('Clock In Now')->assertDontSee('Add Your First Task Today to Clock In');
+    }
+
     public function test_task_awaiting_approval_notifies_approvers(): void
     {
         $owner = $this->staffMembers['creatives'];

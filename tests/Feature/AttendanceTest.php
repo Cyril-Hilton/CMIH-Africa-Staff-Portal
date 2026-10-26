@@ -140,7 +140,8 @@ class AttendanceTest extends TestCase
 
         $this->actingAs($user)->post('/portal/attendance/clock-in', [
             'daily_objective' => 'Trying to clock in twice.',
-        ])->assertSessionHasErrors(['attendance']);
+        ])->assertRedirect(route('dashboard'))->assertSessionHasNoErrors();
+        $this->assertSame('Start the day properly.', Attendance::where('user_id', $user->id)->first()->daily_objective);
 
         $this->assertSame(1, Attendance::where('user_id', $user->id)
             ->whereDate('clock_in_at', Carbon::today())

@@ -153,7 +153,7 @@ class TaskController extends Controller
 
         //  Create Task view 
         // Also serves as the fallback default if ?view=create
-        $hasTodayTask = Task::where('assigned_to', $user->id)
+        $hasTodayTask = Task::where(fn ($q) => $q->where('assigned_to', $user->id)->orWhere('assigned_by', $user->id))
             ->whereDate('created_at', today())->exists();
         $todayAttendance = Attendance::where('user_id', $user->id)
             ->whereDate('clock_in_at', today())
@@ -321,7 +321,7 @@ class TaskController extends Controller
             ->first();
         $message = $todayAttendance
             ? 'Task created successfully. You are already clocked in for today.'
-            : 'Task created! Head to the dashboard to clock in.';
+            : 'Task created! Use Clock In Now to start your workday.';
 
         return redirect()->route('portal.tasks', ['view' => 'create'])->with('status', $message);
     }
