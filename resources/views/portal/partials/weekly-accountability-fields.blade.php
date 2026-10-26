@@ -7,7 +7,7 @@
     <legend class="px-2 text-sm font-semibold text-brand-white">Outcome & accountability</legend>
     <p class="mb-3 text-xs text-brand-ash">Use one measurable result per row. Keep different units and KPIs on separate rows.</p>
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        @foreach(['objective' => 'Business objective', 'kpi_name' => 'Department KPI', 'measurement_unit' => 'Unit (GHS, hours, jobs, %)', 'target_value' => 'Approved target', 'actual_value' => 'Actual result', 'evidence_url' => 'Evidence link'] as $key => $label)
+        @foreach(['objective' => 'Business objective', 'kpi_name' => 'Department KPI', 'measurement_unit' => 'Unit (GH₵, hours, jobs, %)', 'target_value' => 'Approved target', 'actual_value' => 'Actual result', 'evidence_url' => 'Evidence link'] as $key => $label)
             <label class="min-w-0 text-xs text-brand-ash">{{ $label }}
                 <input name="{{ $key }}" value="{{ $fieldValue($key) }}" type="{{ in_array($key, ['target_value', 'actual_value']) ? 'number' : ($key === 'evidence_url' ? 'url' : 'text') }}"
                     @if(in_array($key, ['target_value', 'actual_value'])) min="0" max="99999999999999" step="0.0001" @endif

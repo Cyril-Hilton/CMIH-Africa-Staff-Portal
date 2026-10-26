@@ -51,6 +51,23 @@ class VendorPrintingRequestTest extends TestCase
         $this->assertDatabaseHas('performance_events', ['entity_type' => 'printing_request', 'entity_id' => $record->id, 'action' => 'download']);
     }
 
+    public function test_cvo_and_super_admin_have_full_printing_access_and_menu_visibility(): void
+    {
+        foreach ([['access_role'=>'staff','position_title'=>'CVO','job_level'=>'cvo'], ['access_role'=>'super_admin','position_title'=>'Super Admin','job_level'=>'super_admin']] as $role) {
+            $user=User::factory()->create($role+['department'=>null,'status'=>'active']);
+            $this->actingAs($user)->withHeader('X-Test-Enforce-ClockIn','1');
+            $this->get(route('portal.printing-requests.index'))->assertOk()->assertSee('Vendor Printing Requests');
+            $this->get(route('portal.printing-requests.create'))->assertOk()->assertSee('Save & download PDF',false);
+            $this->post(route('portal.printing-requests.store'),$this->payload())->assertSessionHasNoErrors();
+            $record=VendorPrintingRequest::latest('id')->firstOrFail();
+            $this->get(route('portal.printing-requests.edit',$record))->assertOk();
+            $this->put(route('portal.printing-requests.update',$record),$this->payload()+['revision'=>$record->revision])->assertSessionHasNoErrors();
+            $this->get(route('portal.printing-requests.preview',$record))->assertOk();
+            $pdf=$this->get(route('portal.printing-requests.download',$record))->assertOk();
+            $this->assertStringStartsWith('%PDF',$pdf->getContent());
+        }
+    }
+
     public function test_other_staff_and_other_department_managers_cannot_use_any_printing_endpoint(): void
     {
         $manager = $this->manager();

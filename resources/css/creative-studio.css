@@ -121,3 +121,6 @@
 .cs-dialog .cs-plan-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px;padding:4px}
 .cs-dialog .cs-plan-actions .cs-btn{margin:0;max-width:100%;white-space:normal}
 @media(max-width:480px){.cs-dialog .cs-plan-actions .cs-btn{flex:1 1 100%}}
+/* Keep summary labels and filter controls readable on narrow dashboard panels. */
+.cs-studio [data-cs-stats]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}
+@media(max-width:480px){.cs-studio .cs-filters{grid-template-columns:minmax(0,1fr)}.cs-studio[data-embedded="true"]{padding:12px}.cs-studio .cs-filter-actions{grid-column:1/-1}}

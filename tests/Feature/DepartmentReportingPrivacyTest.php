@@ -26,6 +26,9 @@ class DepartmentReportingPrivacyTest extends TestCase
         $this->assertDatabaseCount('crm_weekly_progress', 1);
         app(\App\Services\ClientRelationsPipeline::class)->publish(\App\Models\CrmPipelineProject::first());
         $this->assertDatabaseCount('crm_weekly_progress', 1);
+        $this->assertNull(CrmWeeklyProgress::first()->achievement_percent);
+        $project=\App\Models\CrmPipelineProject::first();
+        app(\App\Services\RevenueReview::class)->act('project',$project->id,$this->user('finance'),['revision'=>$project->revision,'action'=>'confirm','reason'=>'Revenue checked independently by Finance']);
         $this->assertEqualsWithDelta(50, (float) CrmWeeklyProgress::first()->achievement_percent, 0.01);
         $this->get(route('portal.crm.index'))->assertOk()->assertSee('123,457.89')->assertSee('PRIVATE-CONTACT-TOKEN');
         $this->actingAs($staff)->get(route('portal.crm.index'))->assertForbidden();

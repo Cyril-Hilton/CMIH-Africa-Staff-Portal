@@ -70,4 +70,12 @@ class WeeklyReportingHistoryTest extends TestCase {
   $u=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$source=$this->source($u);$draft=app(WeeklyReportingHistory::class)->carry($source,'2026-10-26');$draft->update(['status'=>'Done']);
   $this->actingAs($u)->get(route('dashboard',['weekly_department'=>'brands_marketing','weekly_from'=>'2026-10-01','weekly_to'=>'2026-10-31']))->assertOk()->assertViewHas('weeklyConsolidatedMetrics',fn($stats)=>$stats['completed']===1&&$stats['pending']===0&&$stats['planned']===0);
  }
+ public function test_every_department_can_navigate_to_a_previous_explicit_week():void {
+  $u=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
+  foreach(array_keys(config('performance.departments')) as $department){
+   WeeklyConsolidatedItem::create(['department'=>$department,'week_start'=>'2026-10-19','week_end'=>'2026-10-25','campaign_name'=>'Preserved weekly work','deliverables'=>'Original report','status'=>'In Progress','created_by'=>$u->id]);
+   $this->actingAs($u)->get(route('dashboard',['weekly_department'=>$department,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))
+    ->assertOk()->assertSee('Department reporting week navigation')->assertSee('Previous Week')->assertSee('weekly_from=2026-10-12',false)->assertSee('weekly_to=2026-10-18',false);
+  }
+ }
 }

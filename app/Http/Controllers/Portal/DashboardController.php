@@ -660,6 +660,7 @@ class DashboardController extends Controller
         $validated['project_starts_on']=$request->input('project_starts_on', $validated['week_start']);
         $validated['project_ends_on']=$projectEnd;
         WeeklyConsolidatedItem::create($validated);
+        if ($department==='creatives') app(\App\Services\Creative\CreativeLegacyImport::class)->run();
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => 'Weekly consolidated item added successfully.']);

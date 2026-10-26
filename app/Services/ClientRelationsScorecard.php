@@ -9,6 +9,7 @@ class ClientRelationsScorecard
 {
     public function build(Collection $projects, Collection $records): array
     {
+        $projects=$projects->map(fn($p)=>RevenueReview::projection($p));
         $active = $projects->whereNotIn('stage', ['lost', 'cancelled']);
         $opportunities = $active->whereNotIn('stage', ['project_ongoing', 'project_completed']);
         $financial = fn ($field) => ['value' => $projects->whereNotNull($field)->isEmpty() ? null : (float) $projects->whereNotNull($field)->sum($field), 'coverage' => $projects->whereNotNull($field)->count(), 'total' => $projects->count()];

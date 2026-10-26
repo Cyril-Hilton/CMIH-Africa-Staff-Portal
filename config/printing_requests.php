@@ -20,7 +20,7 @@ return [
     ],
     'vendor' => [
         'quotation_required' => ['Quotation required', 'yesno'], 'delivery_required' => ['Delivery required', 'yesno'],
-        'installation_required' => ['Installation required', 'yesno'], 'quotation_amount' => ['Quotation amount (GHS)', 'number'],
+        'installation_required' => ['Installation required', 'yesno'], 'quotation_amount' => ['Quotation amount (GH₵)', 'number'],
         'approval_status' => ['Approval status', 'select'], 'approved_by' => ['Approved by', 'text'],
         'vendor_confirmation' => ['Vendor confirmation', 'select'], 'delivery_date' => ['Delivery date', 'date'],
         'additional_notes' => ['Additional notes', 'textarea'],

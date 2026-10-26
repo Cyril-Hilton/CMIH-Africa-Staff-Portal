@@ -14,6 +14,13 @@
         </div>
     @endif
 
+    @if(auth()->user()->canManageOperationsPrintingRequests())
+    <section class="mb-5 rounded-2xl border border-brand-white/20 p-5" aria-label="Operations request forms">
+        <h3 class="font-semibold">Vendor Printing Requests</h3>
+        <p class="mt-2 text-sm text-brand-ash">Prepare print specifications, keep saved requests and download the vendor PDF. Available to Operations leadership, CVO and Super Admin.</p>
+        <div class="mt-4 flex flex-wrap gap-3"><a href="{{ route('portal.printing-requests.create') }}" class="rounded-xl border border-brand-white/30 px-4 py-3">Create printing request</a><a href="{{ route('portal.printing-requests.index') }}" class="rounded-xl border border-brand-white/20 px-4 py-3">View saved requests</a></div>
+    </section>
+    @endif
     @include('portal.operations.handover-workspace')
     <div class="space-y-8">
         <!-- BTL Campaigns & Live-Share Panel -->

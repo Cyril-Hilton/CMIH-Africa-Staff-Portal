@@ -1,7 +1,7 @@
 <div class="my-3 rounded-xl border border-sky-300/20 p-3 text-xs">
 <p class="font-semibold">Report: {{ ucwords(str_replace('_',' ',$item->report_status??'legacy_unreviewed')) }}</p>
 <p class="mt-1 text-brand-ash">Work: {{ $item->status }} · Reporting approval does not verify task completion.</p>
-@if($item->carried_from_id)<p class="mt-2 text-brand-ash">Carried from report #{{ $item->carried_from_id }}. Previous progress: {{ $item->previous_week_reference['progress_percent']??'Not recorded' }}% (reference only).</p>@endif
+@if($item->carried_from_id)<p class="mt-2 text-brand-ash">Carried from report #{{ $item->carried_from_id }}. Previous progress: {{ isset($item->previous_week_reference['progress_percent'])?$item->previous_week_reference['progress_percent'].'%':'Not recorded' }} (reference only).</p>@endif
 @if($item->week_start?->lt(now()->startOfWeek()))
 <form data-no-ajax data-no-silent method="POST" action="{{ route('portal.dashboard.weekly-consolidated.carry',$item) }}" class="mt-3">@csrf<button class="weekly-consolidated-action-button border border-sky-300/30">Copy to This Week</button></form>
 @endif

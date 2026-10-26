@@ -55,7 +55,7 @@ class EnsureUserIsClockedIn
         $currentRoute = $request->route() ? $request->route()->getName() : null;
 
         $isDeveloper = in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah', 'curtis barnor', 'curtis banor'], true);
-        $bypassesClockIn = $isDeveloper || $user->access_role === 'super_admin';
+        $bypassesClockIn = $isDeveloper || $user->isCvoOrSuperAdmin();
 
         $clockedIn = \App\Models\Attendance::where('user_id', $user->id)
             ->whereDate('clock_in_at', Carbon::today())

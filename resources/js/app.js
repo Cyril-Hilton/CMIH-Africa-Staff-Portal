@@ -1,3 +1,4 @@
+import './weekly-entry-editors';
 import './operations-handover';
 import './client-relations-centre';
 import './creative-studio';

@@ -142,6 +142,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/operations/handovers/{handover}/plan', [\App\Http\Controllers\Portal\OperationsHandoverController::class, 'file'])->name('operations.handovers.file');
     Route::post('/client-relations/financial-register/{entry}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'financialUpdate'])->name('crm.centre.financial-update');
     Route::post('/client-relations/allocations/{allocation}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'allocationUpdate'])->name('crm.centre.allocation-update');
+    Route::post('/client-relations/revenue/{type}/{id}/review', [\App\Http\Controllers\Portal\RevenueReviewController::class, 'store'])->middleware('throttle:60,1')->name('crm.revenue.review');
     Route::get('/client-relations/centre/data', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'data'])->name('crm.centre.data');
     Route::get('/client-relations/centre/export/{format}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'export'])->name('crm.centre.export');
     Route::post('/client-relations/account-targets/{target}/result', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'targetResult'])->name('crm.centre.target-result');

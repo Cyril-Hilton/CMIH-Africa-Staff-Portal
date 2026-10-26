@@ -1,11 +1,6 @@
+@include('portal.partials.department-workspace-styles')
 @php($initialPerformanceDepartment = array_key_exists($weeklyDepartmentFilter, $sharedWeeklyPerformance) ? $weeklyDepartmentFilter : array_key_first($sharedWeeklyPerformance))
-<section x-data="{ department: @js($initialPerformanceDepartment), init() {
-const storageKey = 'cmih.sharedWeeklyTab.{{ auth()->id() }}';
-if (@js($weeklyDepartmentFilter) === 'all') {
-try { const saved = sessionStorage.getItem(storageKey); if (@js(array_keys($sharedWeeklyPerformance)).includes(saved)) this.department = saved; } catch (_) {}
-}
-this.$watch('department', value => { try { sessionStorage.setItem(storageKey, value); } catch (_) {} });
-} }" id="staff-weekly-performance" class="mt-6 space-y-4" aria-label="Staff-wide departmental performance">
+<section x-data="{ department: @js($initialPerformanceDepartment) }" id="staff-weekly-performance" class="mt-6 space-y-4" aria-label="Staff-wide departmental performance">
 <div class="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5"><h3 class="text-xl font-semibold text-brand-white">Weekly Departmental Performance</h3><p class="mt-2 text-sm text-brand-ash">View each department’s targets, progress and results.</p></div>
 <div role="tablist" aria-label="Weekly performance departments" class="flex flex-wrap gap-2 border-b border-brand-white/10 pb-3">
 @foreach($sharedWeeklyPerformance as $key=>$department)
@@ -13,6 +8,7 @@ this.$watch('department', value => { try { sessionStorage.setItem(storageKey, va
 @endforeach
 </div>
 @foreach($sharedWeeklyPerformance as $key=>$department)
+@continue($key !== $initialPerformanceDepartment)
 <div role="tabpanel" data-department="{{ $key }}" id="performance-panel-{{ $key }}" aria-labelledby="performance-tab-{{ $key }}" x-show="department === @js($key)" @if($key !== $initialPerformanceDepartment) style="display: none" @endif class="rounded-2xl border border-brand-white/15 bg-brand-white/5 p-4"><div class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-brand-white"><strong>{{ $department['label'] }}</strong><span class="text-xs text-brand-ash">
 @if($key === 'creatives')
 Live Creative Workflow & Evidence

@@ -90,6 +90,7 @@ class StaffPerformanceAndHrReportsTest extends TestCase
     {
         $owner = User::factory()->create();
         $project = new CrmPipelineProject(['client_name' => 'Example client', 'project_name' => 'Example project', 'owner_id' => $owner->id, 'stage' => 'proposal_sent', 'new_business' => true, 'target_amount' => 100, 'actual_amount' => 50, 'proposed_amount' => 200, 'rate_card_value' => 120, 'po_amount' => 100, 'execution_value' => 80, 'invoiced_amount' => 60, 'po_state' => 'received']);
+        $project->revenue_state='confirmed';$project->revenue_submitted_by=$owner->id;$project->revenue_finance_by=$owner->id+1;$project->revenue_confirmed_at=now();
         $invoice = new CrmClientRecord(['kind' => 'invoice', 'client_name' => 'Example client', 'status' => 'part_paid', 'data' => ['amount' => 60, 'paid_amount' => 20]]);
         $feedback = new CrmClientRecord(['kind' => 'satisfaction', 'client_name' => 'Example client', 'status' => 'recorded', 'data' => ['score' => 4, 'maximum_score' => 5]]);
         $s = app(ClientRelationsScorecard::class)->build(collect([$project]), collect([$invoice, $feedback]));

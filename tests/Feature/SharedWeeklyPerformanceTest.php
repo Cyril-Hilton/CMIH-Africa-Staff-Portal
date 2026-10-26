@@ -25,7 +25,7 @@ class SharedWeeklyPerformanceTest extends TestCase
         PerformanceObservation::create(['scope_key' => 'private-actual', 'target_plan_id' => $plan->id, 'kpi_id' => $k->id, 'owner_id' => $owner->id, 'period_start' => today()->startOfWeek(), 'period_end' => today()->endOfWeek(), 'target' => 246913.78, 'actual' => 123456.89, 'source_reference' => 'PRIVATE-LEDGER-REFERENCE', 'approved_at' => now(), 'approved_by' => $reviewer->id]);
         foreach (array_keys(config('performance.departments')) as $department) {
             $staff = User::factory()->create(['department' => $department, 'access_role' => 'staff', 'status' => 'active']);
-            $page = $this->actingAs($staff)->get(route('dashboard', ['weekly_department' => 'all']))->assertOk()->assertSee('Shared client')->assertSee('Shared project')->assertSee('GH₵ 123,456.89')->assertSee('GH₵ 246,913.78')->assertDontSee('PRIVATE-BASELINE-NOTE')->assertDontSee('PRIVATE-LEDGER-REFERENCE');
+            $page = $this->actingAs($staff)->get(route('dashboard', ['weekly_department' => 'client_relations']))->assertOk()->assertSee('Shared client')->assertSee('Shared project')->assertSee('GH₵ 123,456.89')->assertSee('GH₵ 246,913.78')->assertDontSee('PRIVATE-BASELINE-NOTE')->assertDontSee('PRIVATE-LEDGER-REFERENCE');
             $public = json_encode($page->viewData('sharedWeeklyPerformance'));
             $this->assertStringContainsString('123,456.89', $public);
             if ($department !== 'client_relations') {

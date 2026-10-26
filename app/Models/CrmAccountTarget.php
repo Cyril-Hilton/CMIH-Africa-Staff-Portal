@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CrmAccountTarget extends Model
 {
+    use \App\Models\Concerns\ReviewsRevenue;
+
     protected $guarded = ['id'];
 
     public function owner(){return $this->belongsTo(User::class, 'owner_id');}

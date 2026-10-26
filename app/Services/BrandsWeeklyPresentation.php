@@ -5,10 +5,10 @@ use App\Models\User;
 use DOMDocument;
 class BrandsWeeklyPresentation
 {
-    public function build(string $from,string $to, array $filters=[]): \Illuminate\Pagination\LengthAwarePaginator
+    public function build(?string $from,?string $to, array $filters=[]): \Illuminate\Pagination\LengthAwarePaginator
     {
         $v=\Illuminate\Support\Facades\Validator::make($filters,['q'=>'nullable|string|max:200','status'=>'nullable|in:Planned,In Progress,Done,Blocked,Deferred','sort'=>'nullable|in:workstream,deadline,newest'])->validate();
-        $query=WeeklyConsolidatedItem::with(['leadStaff','creator'])->whereIn('department',User::departmentAliases('brands_marketing'))->where('workflow_state','legacy')->whereDate('week_start','<=',$to)->whereDate('week_end','>=',$from);
+        $query=WeeklyConsolidatedItem::with(['leadStaff','creator'])->whereIn('department',User::departmentAliases('brands_marketing'))->where('workflow_state','legacy')->when($to,fn($q)=>$q->whereDate('week_start','<=',$to))->when($from,fn($q)=>$q->whereDate('week_end','>=',$from));
         if(!empty($v['q'])) $query->where(fn($q)=>$q->where('campaign_name','like','%'.$v['q'].'%')->orWhere('client_name','like','%'.$v['q'].'%')->orWhere('deliverables','like','%'.$v['q'].'%')->orWhereHas('leadStaff',fn($u)=>$u->where('name','like','%'.$v['q'].'%')));
         if(!empty($v['status']))$query->where('status',$v['status']);
         match($v['sort']??'workstream'){'deadline'=>$query->orderBy('week_end'),'newest'=>$query->orderByDesc('week_start'),default=>$query->orderBy('campaign_name')};
@@ -16,7 +16,7 @@ class BrandsWeeklyPresentation
         $supportIds=$items->getCollection()->flatMap(fn($item)=>$item->supporting_staff_ids??[])->unique();
         $names=User::whereIn('id',$supportIds)->pluck('name','id');
         return $items->through(function($item)use($names){
-            return ['id'=>$item->id,'reference'=>$item->brandsTaskId(),'workstream'=>$item->campaign_name?:'Uncategorised Workstream','task'=>$item->client_name?:'Untitled Activity','owner'=>$item->creator?->name??'Unavailable Owner','lead'=>$item->leadStaff?->name??'Unassigned','support'=>collect($item->supporting_staff_ids??[])->map(fn($id)=>['name'=>$names[$id]??'Unavailable Staff','role'=>$item->supporting_roles[$id]??null])->all(),'brief'=>$this->content($item->deliverables),'kpis'=>$this->content($item->target_breakdown),'start'=>$item->week_start?->format('d M Y'),'due'=>$item->week_end?->format('d M Y'),'report_status'=>$item->report_status,'project_starts_on'=>$item->project_starts_on?->format('d M Y'),'project_ends_on'=>$item->project_ends_on?->format('d M Y'),'carried_from_id'=>$item->carried_from_id,'previous_week_reference'=>$item->previous_week_reference,'status'=>$item->status?:'Planned'];
+            return ['source'=>$item,'id'=>$item->id,'reference'=>$item->brandsTaskId(),'workstream'=>$item->campaign_name?:'Uncategorised Workstream','task'=>$item->client_name?:'Untitled Activity','owner'=>$item->creator?->name??'Unavailable Owner','lead'=>$item->leadStaff?->name??'Unassigned','support'=>collect($item->supporting_staff_ids??[])->map(fn($id)=>['name'=>$names[$id]??'Unavailable Staff','role'=>$item->supporting_roles[$id]??null])->all(),'brief'=>$this->content($item->deliverables),'kpis'=>$this->content($item->target_breakdown),'start'=>$item->week_start?->format('d M Y'),'due'=>$item->week_end?->format('d M Y'),'report_status'=>$item->report_status,'project_starts_on'=>$item->project_starts_on?->format('d M Y'),'project_ends_on'=>$item->project_ends_on?->format('d M Y'),'carried_from_id'=>$item->carried_from_id,'previous_week_reference'=>$item->previous_week_reference,'status'=>$item->status?:'Planned'];
         });
     }
 

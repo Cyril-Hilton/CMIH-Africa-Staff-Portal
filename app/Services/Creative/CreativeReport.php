@@ -28,6 +28,7 @@ class CreativeReport
                 }
                 $q->orWhere(fn($q) => $q->where('planned_start','<=',$end)->where('internal_eta','>=',$start));
                 $q->orWhereHas('updates', fn($q) => $q->whereBetween('created_at', [$start, $end]));
+                CreativeReportingPeriod::includeHistory($q,$start,$end);
             });
         $items = $query->with(['assignee','requester','reviewer','attachments','firstSubmission','updates'=>fn($q)=>$q->where('created_at','<=',$end)])->get();
         $inside = fn($date) => $date && $date->betweenIncluded($start, $end);
@@ -48,7 +49,7 @@ class CreativeReport
         }
         $gallery = $items->filter(fn($i)=>$i->attachments->contains(fn($a)=>$a->kind==='deliverable'))->sortByDesc('submitted_at')->take($period==='yearly'?12:6)->values()->map(function($i) use ($images) {
             $file=$i->attachments->first(fn($a)=>$a->kind==='deliverable' && in_array($a->mime,['image/jpeg','image/png','image/webp','video/mp4','video/webm']));
-            return ['id'=>$i->id,'title'=>$i->title,'brand'=>$i->client?:'Internal','creative'=>$i->assignee?->name?:'Unassigned','stage'=>config('creative.stages.'.$i->stage),'preview'=>$file?route('portal.creative.attachment',$file):null,'mime'=>$file?->mime,'image'=>$images&&$file?$this->thumbnail($file):null];
+            return ['id'=>$i->id,'title'=>$i->title,'brand'=>$i->client?:'Internal','creative'=>$i->assignee?->name?:'Unassigned','stage'=>CreativeProjection::stageLabel($i),'preview'=>$file?route('portal.creative.attachment',$file):null,'mime'=>$file?->mime,'image'=>$images&&$file?$this->thumbnail($file):null];
         })->all();
         $events = $items->flatMap(function($i) use($inside) {
             $result=[];
@@ -56,9 +57,12 @@ class CreativeReport
             return $result;
         })->sortBy('date')->values();
         $actions = $items->filter(fn($i)=>!in_array($i->stage,['completed','archived']))->sortBy('requested_deadline')->map(fn($i)=>['id'=>$i->id,'title'=>$i->title,'action'=>$i->blocker?:($i->stage==='in_review'?'Feedback Needed':'Continue '.config('creative.stages.'.$i->stage)),'owner'=>$i->blocker_owner?:match($i->stage){'in_review'=>$i->reviewer?->name?:'Reviewer Needed','delivered'=>'Creative HOD: Record Client Approval','brief_received','backlog'=>'Creative HOD: Planning','needs_info'=>$i->requester?->name?:'Requester',default=>$i->assignee?->name?:'Assignment Needed'},'deadline'=>$i->requested_deadline?->format('d M Y')?:'Not Recorded'])->values();
+        $weekly = \App\Models\WeeklyConsolidatedItem::whereIn('department', User::departmentAliases('creatives'))->where('workflow_state','legacy')->whereBetween('week_start',[$start->toDateString(),$end->toDateString()])
+            ->when($filters['assignee']??null,fn($q,$id)=>$q->where(fn($q)=>$q->where('lead_staff_id',$id)->orWhereJsonContains('supporting_staff_ids',(int)$id)))
+            ->when($filters['q']??null,fn($q,$term)=>$q->where(fn($q)=>$q->where('campaign_name','like','%'.$term.'%')->orWhere('client_name','like','%'.$term.'%')->orWhere('deliverables','like','%'.$term.'%')))->get();
         $waiting = $items->filter(fn($i)=>$i->stage==='in_review');
         return ['period'=>$period,'from'=>$start->toDateString(),'to'=>$end->toDateString(),'label'=>match($period){'yearly'=>$start->format('Y'),'quarterly'=>'Q'.$start->quarter.' '.$start->year,'monthly'=>$start->format('F Y'),default=>$start->format('d M').' – '.$end->format('d M Y')},
-            'total'=>$items->count(),'received'=>$items->filter(fn($i)=>$inside($i->received_at))->count(),'submitted'=>$submitted->count(),'verified'=>$verified->count(),'on_time'=>$onTime->count()?round(100*$onTimeCount/$onTime->count()):null,
+            'weekly_snapshot'=>['entries'=>$weekly->count(),'reported_statuses'=>$weekly->countBy('status')->all()],'total'=>$items->count(),'received'=>$items->filter(fn($i)=>$inside($i->received_at))->count(),'submitted'=>$submitted->count(),'verified'=>$verified->count(),'on_time'=>$onTime->count()?round(100*$onTimeCount/$onTime->count()):null,
             'waiting'=>$waiting->count(),'review_wait_hours'=>$waiting->sum(fn($i)=>$i->submitted_at?max(0, $i->submitted_at->diffInHours(min(now(),$end),false)):0),
             'stages'=>$items->countBy('stage')->all(),'buckets'=>$buckets,'gallery'=>$gallery,'gallery_total'=>$items->filter(fn($i)=>$i->attachments->contains(fn($a)=>$a->kind==='deliverable'))->count(),
             'timeline'=>$events->take(24)->all(),'timeline_total'=>$events->count(),'actions'=>$actions->take(12)->all(),'actions_total'=>$actions->count(),

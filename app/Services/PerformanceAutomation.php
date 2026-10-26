@@ -134,10 +134,10 @@ class PerformanceAutomation
         return $count;
     }
 
-    public function deliver(): int
+    public function deliver(?string $url = null): int
     {
         $sent = 0;
-        PerformanceOutbox::where(function ($q) {
+        PerformanceOutbox::when($url, fn ($q) => $q->where('url', $url))->where(function ($q) {
             $q->whereNull('dashboard_at');
             if (config('performance.email_enabled')) {
                 $q->orWhereNull('emailed_at');

@@ -422,33 +422,13 @@ class DashboardCustomizationTest extends TestCase
             ]);
         }
 
-        $firstPage = $this->actingAs($manager)->get(route('dashboard', [
-            'weekly_department' => 'brands_marketing',
-        ]));
-
-        $firstPage->assertOk();
-        $firstPage->assertSee('data-weekly-pagination', false);
-        $firstPage->assertSee('weekly_page=2', false);
-        $firstPage->assertViewHas('weeklyConsolidatedItems', function ($paginator) {
-            return $paginator instanceof LengthAwarePaginator
-                && $paginator->total() === 11
-                && $paginator->count() === 8
-                && $paginator->currentPage() === 1;
-        });
-
-        $secondPage = $this->actingAs($manager)->get(route('dashboard', [
-            'weekly_department' => 'brands_marketing',
-            'weekly_page' => 2,
-            'search_weekly' => 'Weekly Pagination Client',
-        ]));
-
-        $secondPage->assertOk();
-        $secondPage->assertViewHas('weeklyConsolidatedItems', function ($paginator) {
-            return $paginator instanceof LengthAwarePaginator
-                && $paginator->total() === 11
-                && $paginator->count() === 3
-                && $paginator->currentPage() === 2;
-        });
+        $period=['weekly_department'=>'brands_marketing','weekly_from'=>now()->startOfWeek()->subWeeks(12)->toDateString(),'weekly_to'=>now()->endOfWeek()->toDateString()];
+        $firstPage=$this->actingAs($manager)->get(route('dashboard',$period));
+        $firstPage->assertOk()->assertSee('brands_page=2',false)->assertDontSee('Earlier Weekly Entries &amp; Row Editing',false);
+        $page=app(\App\Services\BrandsWeeklyPresentation::class)->build($period['weekly_from'],$period['weekly_to']);
+        $this->assertSame(11,$page->total());$this->assertCount(8,$page->items());
+        $secondPage=$this->actingAs($manager)->get(route('dashboard',$period+['brands_page'=>2]));
+        $secondPage->assertOk();$this->assertSame(3,substr_count($secondPage->getContent(),'data-weekly-entry-actions='));
     }
 
     public function test_weekly_department_tabs_drop_stale_weekly_search_and_page_state(): void
@@ -633,7 +613,8 @@ class DashboardCustomizationTest extends TestCase
         $response->assertViewHas('weeklyDepartmentFilter', 'all');
         $response->assertSee('All Departments');
         $response->assertSee('Brands Latest Row');
-        $response->assertSee('Finance Earlier Row');
+        $response->assertSee('Finance');
+        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance']))->assertOk()->assertSee('Finance Earlier Row');
         $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) use ($brandsRow) {
             return $paginator instanceof LengthAwarePaginator
                 && $paginator->total() === 2
@@ -969,12 +950,15 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertOk();
         $dashboard->assertSee('Manage Columns');
         $dashboard->assertSee('Client Risk Notes');
-        $dashboard->assertSee('Retail audit support');
-        $dashboard->assertSee('<table><tr><td>Target</td><td>25</td></tr></table>', false);
+        $creativeId=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')->where('source_id',$item->id)->value('creative_request_id');
+        $detail=$this->actingAs($manager)->getJson('/portal/creative-studio/requests/'.$creativeId)->assertOk()->json('weekly_reports_html');
+        $this->assertStringContainsString('Retail audit support',$detail);
+        $this->assertStringContainsString('<table><tr><td>Target</td><td>25</td></tr></table>',$detail);
 
         $otherDashboard = $this->actingAs($otherManager)->get(route('dashboard', ['weekly_department' => 'creatives']));
         $otherDashboard->assertOk();
-        $otherDashboard->assertSee('Client Risk Notes');
+        $otherDetail=$this->actingAs($otherManager)->getJson('/portal/creative-studio/requests/'.$creativeId)->assertOk()->json('weekly_reports_html');
+        $this->assertStringContainsString('Client Risk Notes',$otherDetail);
         $otherDashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.columns.update', $column), false);
     }
 
@@ -1013,10 +997,13 @@ class DashboardCustomizationTest extends TestCase
             'updated_by' => $manager->id,
         ]);
 
+        app(\App\Services\Creative\CreativeLegacyImport::class)->run();
         $dashboard = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => 'creatives']));
         $dashboard->assertOk();
         $dashboard->assertSee('weekly-support-row-template', false);
-        $dashboard->assertSee('data-weekly-support-add="weekly-support-rows-'.$item->id.'"', false);
+        $creativeId=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')->where('source_id',$item->id)->value('creative_request_id');
+        $detail=$this->actingAs($manager)->getJson('/portal/creative-studio/requests/'.$creativeId)->assertOk()->json('weekly_reports_html');
+        $this->assertStringContainsString('data-weekly-support-add="weekly-support-rows-'.$item->id.'"',$detail);
 
         $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
             'department' => 'creatives',
@@ -1042,7 +1029,8 @@ class DashboardCustomizationTest extends TestCase
         $refreshedDashboard = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => 'creatives']));
         $refreshedDashboard->assertOk();
         $refreshedDashboard->assertSee($newSupport->name);
-        $refreshedDashboard->assertSee('Added rollout support');
+        $refreshedDetail=$this->actingAs($manager)->getJson('/portal/creative-studio/requests/'.$creativeId)->assertOk()->json('weekly_reports_html');
+        $this->assertStringContainsString('Added rollout support',$refreshedDetail);
     }
 
     public function test_brands_line_manager_can_create_update_and_delete_weekly_consolidated_rows(): void
@@ -1086,15 +1074,11 @@ class DashboardCustomizationTest extends TestCase
         ]));
 
         $dashboard->assertOk();
-        preg_match('/<table[^>]*data-table-key="weekly-consolidated-brands_marketing"[^>]*>(.*?)<\/thead>/s', $dashboard->getContent(), $headerMatch);
-        $this->assertNotEmpty($headerMatch, 'The existing Brands editing table must remain available.');
-        $headerText=strip_tags($headerMatch[1]);
-        $position=0;
-        foreach(['Task ID','Project','Project Brief','Task Name','Assigned To','KPIS','Start Date','Due Date','Update'] as $heading) {
-            $found=strpos($headerText,$heading,$position);
-            $this->assertNotFalse($found, 'Preserved Brands heading: '.$heading);
-            $position=$found+strlen($heading);
-        }
+        $dashboard->assertSee('Responsibilities');
+        $dashboard->assertSee('KPI Commitments');
+        $dashboard->assertSee('Edit Weekly Update');
+        $dashboard->assertSee('Permanent Reporting Start');
+        $dashboard->assertDontSee('Earlier Weekly Entries &amp; Row Editing', false);
         $dashboard->assertSee('Guinness Trade Campaign');
         $dashboard->assertSee('Pending');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
