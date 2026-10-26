@@ -13,6 +13,7 @@ class WeeklyConsolidatedItem extends Model
     protected $attributes = ['workflow_state' => 'legacy', 'revision' => 1, 'risk_level' => 'low', 'measurement_direction' => 'higher'];
 
     protected $fillable = [
+        'report_series','project_starts_on','project_ends_on','carried_from_id','report_status','previous_week_reference','report_submitted_at','report_submitted_by','report_reviewed_at','report_reviewed_by',
         'source_task_id', 'performance_kpi_id', 'workflow_state', 'record_type', 'team', 'reviewer_id',
         'accepted_at', 'submitted_at', 'verified_at', 'closed_at', 'quality_score', 'risk_level',
         'root_cause', 'management_decision', 'department_data', 'revision', 'escalation_level', 'exception_since',
@@ -44,6 +45,7 @@ class WeeklyConsolidatedItem extends Model
     protected function casts(): array
     {
         return [
+            'project_starts_on'=>'date','project_ends_on'=>'date','previous_week_reference'=>'array','report_submitted_at'=>'datetime','report_reviewed_at'=>'datetime',
             'performance_weight' => 'integer', 'weight_approved_at' => 'datetime',            'accepted_at' => 'datetime', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'closed_at' => 'datetime',
             'exception_since' => 'datetime', 'department_data' => 'array', 'quality_score' => 'float',
             'completed_at' => 'datetime',
@@ -72,7 +74,7 @@ class WeeklyConsolidatedItem extends Model
 
     public function dueDate(): ?\Illuminate\Support\Carbon
     {
-        return $this->week_end?->copy()->endOfDay() ?? $this->week_start?->copy()->endOfWeek();
+        return ($this->project_ends_on ?? $this->week_end)?->copy()->endOfDay() ?? $this->week_start?->copy()->endOfWeek();
     }
 
     public function isOverdue(): bool

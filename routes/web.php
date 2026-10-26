@@ -408,6 +408,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/dashboard/live', [\App\Http\Controllers\Portal\DashboardController::class, 'live'])->name('dashboard.live');
     Route::post('/dashboard/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeColumn'])->name('dashboard.columns.store');
     Route::post('/dashboard/weekly-consolidated', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidated'])->name('dashboard.weekly-consolidated.store');
+    Route::post('/dashboard/weekly-consolidated/{item}/carry', [\App\Http\Controllers\Portal\DashboardController::class, 'carryWeeklyReport'])->name('dashboard.weekly-consolidated.carry');
+    Route::post('/dashboard/weekly-consolidated/{item}/report-state', [\App\Http\Controllers\Portal\DashboardController::class, 'weeklyReportState'])->name('dashboard.weekly-consolidated.report-state');
     Route::post('/dashboard/weekly-consolidated/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidatedColumn'])->name('dashboard.weekly-consolidated.columns.store');
 
     // ── Performance Awards Leaderboard & Locking ──────────────────────────────

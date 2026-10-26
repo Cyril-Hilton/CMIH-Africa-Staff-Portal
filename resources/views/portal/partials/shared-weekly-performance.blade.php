@@ -21,8 +21,10 @@ Live Creative Workflow & Evidence
 @endif
 </span></div>
 @if($key === 'creatives')
+@include('portal.partials.weekly-report-summary')
 @include('portal.creative.workspace',['embedded'=>true])
 @elseif($key === 'client_relations')
+@include('portal.partials.weekly-report-summary')
 @include('portal.client-relations.public-weekly')
 @include('portal.client-relations.kpi-scorecards')
 @else

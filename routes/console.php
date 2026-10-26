@@ -335,3 +335,8 @@ Artisan::command('creative:import-history', function () {
 Artisan::command('creative:reminders', function () { $this->info('Creative alerts evaluated: '.app(\App\Services\Creative\CreativeAccountability::class)->reminders()); });
 \Illuminate\Support\Facades\Schedule::command('creative:reminders')->hourly()->timezone('Africa/Accra')->withoutOverlapping();
 \Illuminate\Support\Facades\Schedule::command('creative:import-history')->hourly()->withoutOverlapping();
+
+\Illuminate\Support\Facades\Artisan::command('weekly:carry-forward', function () {
+    $this->info(app(\App\Services\WeeklyReportingHistory::class)->rollForward().' weekly drafts created; original reports preserved.');
+})->purpose('Open separate reporting drafts for ongoing projects');
+\Illuminate\Support\Facades\Schedule::command('weekly:carry-forward')->dailyAt('06:00');

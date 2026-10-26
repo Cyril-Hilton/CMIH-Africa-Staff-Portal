@@ -812,7 +812,8 @@
             @endif
         </div>
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                 <p class="text-[10px] uppercase tracking-[0.22em] text-emerald-200/70">Completed</p>
                 <p class="mt-2 text-2xl font-semibold text-emerald-200">{{ $weeklyConsolidatedMetrics['completed'] }}</p>
@@ -821,6 +822,7 @@
                 <p class="text-[10px] uppercase tracking-[0.22em] text-amber-200/70">Pending</p>
                 <p class="mt-2 text-2xl font-semibold text-amber-200">{{ $weeklyConsolidatedMetrics['pending'] }}</p>
             </div>
+            <div class="rounded-2xl border border-sky-300/20 bg-sky-300/5 p-4"><p class="text-[10px] uppercase tracking-[0.22em] text-sky-200">Planned</p><p class="mt-2 text-2xl font-semibold text-sky-100">{{ $weeklyConsolidatedMetrics['planned']??0 }}</p></div>
             <div class="rounded-2xl border border-brand-red/20 bg-brand-red/10 p-4">
                 <p class="text-[10px] uppercase tracking-[0.22em] text-brand-red/80">Blocked / Deferred</p>
                 <p class="mt-2 text-2xl font-semibold text-brand-red">{{ $weeklyConsolidatedMetrics['blocked'] }}</p>
@@ -945,11 +947,11 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Week Start</label>
-                        <input type="date" name="week_start" value="{{ old('week_start', now()->startOfWeek()->toDateString()) }}" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                        <input type="date" name="week_start" value="{{ old('week_start', now()->startOfWeek()->toDateString()) }}" readonly required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
                     </div>
                     <div>
                         <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}</label>
-                        <input type="date" name="week_end" value="{{ old('week_end', now()->endOfWeek()->toDateString()) }}" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                        <input type="date" name="week_end" value="{{ old('week_end', now()->endOfWeek()->toDateString()) }}" readonly class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
                         @if($isCreativeWeeklyDepartment)<label class="mt-3 block text-xs text-brand-ash">Date brief was received<input type="date" name="brief_received_on" value="{{ old('brief_received_on') }}" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white"></label>@endif
                     </div>
                     <div>
@@ -971,6 +973,7 @@
                     </div>
                 </div>
 
+                <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs">Project Start<input type="date" name="project_starts_on" value="{{ now()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label><label class="text-xs">Expected Project End<input type="date" name="project_ends_on" value="{{ now()->endOfWeek()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label></div>
                 <div class="mt-4 rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-[10px] uppercase tracking-widest text-brand-ash">Supporting Staff + Role</p>
@@ -1243,19 +1246,23 @@
                                     <div class="weekly-consolidated-actions">
                                         <div class="flex flex-col gap-1 mb-1">
                                             <label class="text-[9px] uppercase tracking-wider text-brand-ash font-bold">Quick Status</label>
-                                            <select data-update-url="{{ route('portal.dashboard.weekly-consolidated.update', $item) }}"
+                                            <select @disabled($item->week_end?->isPast()||in_array($item->report_status,['submitted','reviewed'])) title="Use Edit Row with a reason to correct an earlier report" data-update-url="{{ route('portal.dashboard.weekly-consolidated.update', $item) }}"
                                                     class="weekly-quick-status-select w-full rounded-xl border border-brand-white/15 bg-brand-black/90 px-2.5 py-1.5 text-xs font-semibold text-brand-white focus:border-brand-red focus:outline-none cursor-pointer hover:border-brand-white/30 transition-all">
                                                 @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $st)
                                                     <option value="{{ $st }}" @selected($item->status === $st)>{{ $st }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
+                                        @include('portal.partials.weekly-report-controls')
                                         <details>
                                             <summary class="weekly-consolidated-action-button cursor-pointer border border-brand-white/10 bg-brand-white/10 hover:bg-brand-white/15">Edit Row</summary>
                                             <div class="weekly-consolidated-edit-panel mt-3 rounded-xl border border-brand-white/10 bg-brand-black p-4 shadow-2xl">
                                             <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.update', $item) }}" class="space-y-4" data-weekly-edit-form>
                                                 @csrf
                                                 @method('PATCH')
+                                                <p class="text-xs text-brand-ash">Reporting dates are permanent. Extend the project timeline below; ongoing work gets a separate weekly draft.</p>
+                                                <div class="grid gap-3 sm:grid-cols-2"><label>Project Start<input type="date" name="project_starts_on" value="{{ ($item->project_starts_on??$item->week_start)?->toDateString() }}"></label><label>Expected Project End<input type="date" name="project_ends_on" value="{{ ($item->project_ends_on??$item->week_end)?->toDateString() }}"></label></div>
+                                                <label class="block text-xs">Correction / update reason<input name="correction_reason" maxlength="2000" @required($item->week_end?->isPast()||in_array($item->report_status,['submitted','reviewed'])) class="mt-2 w-full rounded-lg border border-brand-white/15 bg-brand-black p-3" placeholder="What changed and why?"></label>
                                                 <div class="grid gap-2 md:grid-cols-3">
                                                     @if($isBrandsWeeklyDepartment)
                                                         <input type="text" name="brands_task_id" value="{{ $item->brandsTaskId() }}" placeholder="Task ID (e.g. BR-GNS-001)" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
@@ -1265,8 +1272,8 @@
                                                             <option value="{{ $key }}" @selected(\App\Models\User::normalizeDepartmentKey($item->department) === $key)>{{ $label }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <input type="date" name="week_start" value="{{ $item->week_start?->toDateString() }}" required class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
-                                                    <input type="date" name="week_end" value="{{ $item->week_end?->toDateString() }}" title="{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    <input type="date" name="week_start" value="{{ $item->week_start?->toDateString() }}" readonly required class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
+                                                    <input type="date" name="week_end" value="{{ $item->week_end?->toDateString() }}" readonly title="{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                     @if($isCreativeWeeklyDepartment)<label class="block text-xs">Date brief was received<input type="date" name="brief_received_on" value="{{ $item->brief_received_on?->toDateString() }}" class="mt-1 rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white"></label>@endif
                                                     <input type="text" name="client_name" value="{{ $item->client_name }}" placeholder="{{ $isBrandsWeeklyDepartment ? 'Task Name' : 'Client' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">
                                                     <input type="text" name="campaign_name" value="{{ $item->campaign_name }}" placeholder="{{ $isBrandsWeeklyDepartment ? 'Project' : 'Campaign' }}" class="rounded-lg border border-brand-white/10 bg-brand-black/80 px-2 py-2 text-xs text-brand-white">

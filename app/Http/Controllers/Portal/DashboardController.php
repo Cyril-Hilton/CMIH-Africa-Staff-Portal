@@ -341,34 +341,18 @@ class DashboardController extends Controller
                     })
                     ->exists();
 
+            $latestWork=(clone $weeklyFilteredBaseQuery)->get()->sortByDesc(fn($row)=>$row->week_start->toDateString().'|'.str_pad((string)$row->id,12,'0',STR_PAD_LEFT))->unique(fn($row)=>$row->report_series??'legacy-'.$row->id);
             $weeklyConsolidatedMetrics = [
-                'completed' => (clone $weeklyFilteredBaseQuery)->where('status', 'Done')->count(),
-                'pending' => (clone $weeklyFilteredBaseQuery)
-                    ->whereIn('status', ['Planned', 'In Progress'])
-                    ->where(function ($query) use ($today) {
-                        $query->whereDate('week_end', '>=', $today)
-                            ->orWhere(function ($fallbackQuery) use ($today) {
-                                $fallbackQuery->whereNull('week_end')
-                                    ->whereDate('week_start', '>=', $today->copy()->startOfWeek());
-                            });
-                    })
-                    ->count(),
-                'blocked' => (clone $weeklyFilteredBaseQuery)->whereIn('status', ['Blocked', 'Deferred'])->count(),
-                'overdue' => (clone $weeklyFilteredBaseQuery)
-                    ->where('status', '!=', 'Done')
-                    ->where(function ($query) use ($today) {
-                        $query->whereDate('week_end', '<', $today)
-                            ->orWhere(function ($fallbackQuery) use ($today) {
-                                $fallbackQuery->whereNull('week_end')
-                                    ->whereDate('week_start', '<', $today->copy()->startOfWeek());
-                            });
-                    })
-                    ->count(),
+                'completed'=>$latestWork->where('status','Done')->count(),
+                'pending'=>$latestWork->where('status','In Progress')->count(),
+                'planned'=>$latestWork->where('status','Planned')->count(),
+                'blocked'=>$latestWork->whereIn('status',['Blocked','Deferred'])->count(),
+                'overdue'=>$latestWork->filter(fn($row)=>$row->isOverdue())->count(),
             ];
         } else {
             $weeklyConsolidatedItems = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 8);
             $weeklyDepartmentHasBreakdown = false;
-            $weeklyConsolidatedMetrics = ['completed' => 0, 'pending' => 0, 'blocked' => 0, 'overdue' => 0];
+            $weeklyConsolidatedMetrics = ['completed' => 0, 'planned' => 0, 'pending' => 0, 'blocked' => 0, 'overdue' => 0];
         }
 
         $canManageWeeklyConsolidated = $this->canManageWeeklyConsolidated($user);
@@ -606,7 +590,7 @@ class DashboardController extends Controller
             return false;
         }
 
-        $dueDate = $item->week_end ?? $item->week_start?->copy()->endOfWeek();
+        $dueDate = $item->dueDate();
 
         return $dueDate !== null && $dueDate->copy()->endOfDay()->lt(now());
     }
@@ -665,9 +649,16 @@ class DashboardController extends Controller
         $validated['updated_by'] = $request->user()->id;
         $validated['custom_fields'] = $this->validatedWeeklyCustomFields($request->user()->id, $request, $validated['department']);
         $validated['week_end'] = $validated['week_end'] ?? Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
+        $projectEnd=$request->input('project_ends_on', $validated['week_end']);
+        $validated['week_start']=Carbon::parse($validated['week_start'])->startOfWeek()->toDateString();
+        $validated['week_end']=Carbon::parse($validated['week_start'])->endOfWeek()->toDateString();
         $validated['progress_percent'] = $this->normalizeWeeklyProgress($validated['progress_percent'] ?? null, $validated['status']);
 
         $validated['completed_at'] = $validated['status'] === 'Done' ? now() : null;
+        $validated['report_series']=(string) \Illuminate\Support\Str::uuid();
+        $validated['report_status']='draft';
+        $validated['project_starts_on']=$request->input('project_starts_on', $validated['week_start']);
+        $validated['project_ends_on']=$projectEnd;
         WeeklyConsolidatedItem::create($validated);
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -679,9 +670,19 @@ class DashboardController extends Controller
 
     public function updateWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
+        return \Illuminate\Support\Facades\DB::transaction(fn () => $this->applyWeeklyConsolidatedUpdate($request, WeeklyConsolidatedItem::lockForUpdate()->findOrFail($item->id)));
+    }
+
+    private function applyWeeklyConsolidatedUpdate(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
         abort_unless($item->workflow_state === 'legacy', 422, 'Use the performance hub workflow for this commitment.');
         $department = $this->normalizeWeeklyConsolidatedDepartmentInput($request, $item->department);
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $department, $item);
+
+        $request->validate(['correction_reason'=>'nullable|string|max:2000']);
+        $history=app(\App\Services\WeeklyReportingHistory::class);
+        $history->validateUpdate($item,$request->only(['week_start','week_end']),$request->input('correction_reason'));
+        $history->record($item,'before_correction',$request->input('correction_reason'));
 
         // Check for Quick Status Update from ACTIONS column
         if ($request->has('status') && ! $request->has('deliverables') && ! $request->has('week_start')) {
@@ -693,6 +694,7 @@ class DashboardController extends Controller
 
             $validated['completed_at'] = $validated['status'] === 'Done'
                 ? ($item->completed_at ?? ($item->status !== 'Done' ? now() : null)) : null;
+            if (in_array($item->report_status,['submitted','reviewed'])) $validated += ['report_status'=>'draft','report_submitted_at'=>null,'report_submitted_by'=>null,'report_reviewed_at'=>null,'report_reviewed_by'=>null];
             $item->update($validated);
 
             if ($request->wantsJson() || $request->ajax()) {
@@ -714,7 +716,11 @@ class DashboardController extends Controller
 
         $validated['completed_at'] = $validated['status'] === 'Done'
             ? ($item->completed_at ?? ($item->status !== 'Done' ? now() : null)) : null;
+        if (in_array($item->report_status,['submitted','reviewed'])) {
+            $validated['report_status']='draft';$validated['report_submitted_at']=null;$validated['report_submitted_by']=null;$validated['report_reviewed_at']=null;$validated['report_reviewed_by']=null;
+        }
         $item->update($validated);
+        if ($item->project_ends_on?->gte(now()->startOfWeek())) app(\App\Services\WeeklyReportingHistory::class)->rollForward();
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => 'Weekly consolidated item updated successfully.']);
@@ -723,10 +729,42 @@ class DashboardController extends Controller
         return back()->with('status', 'Weekly consolidated item updated.');
     }
 
+    public function carryWeeklyReport(Request $request, WeeklyConsolidatedItem $item): RedirectResponse
+    {
+        $this->authorizeWeeklyConsolidatedManagement($request->user(),$item->department,$item);
+        abort_unless($item->workflow_state==='legacy',422,'Use this project’s existing workflow.');
+        $row=app(\App\Services\WeeklyReportingHistory::class)->carry($item,now()->startOfWeek()->toDateString(),$request->user()->id);
+        return redirect()->route('dashboard',['weekly_department'=>$item->department,'weekly_from'=>$row->week_start->toDateString(),'weekly_to'=>$row->week_end->toDateString()])->with('status','A separate weekly draft is ready. The original report is preserved.');
+    }
+
+    public function weeklyReportState(Request $request, WeeklyConsolidatedItem $item): RedirectResponse
+    {
+        return \Illuminate\Support\Facades\DB::transaction(fn () => $this->applyWeeklyReportState($request, WeeklyConsolidatedItem::lockForUpdate()->findOrFail($item->id)));
+    }
+
+    private function applyWeeklyReportState(Request $request, WeeklyConsolidatedItem $item): RedirectResponse
+    {
+        $this->authorizeWeeklyConsolidatedManagement($request->user(),$item->department,$item);
+        abort_unless($item->workflow_state==='legacy',422);
+        $v=$request->validate(['report_action'=>'required|in:submit,review','reason'=>'required|string|min:5|max:2000']);
+        if($v['report_action']==='review'){
+            abort_unless($request->user()->isCvoOrSuperAdmin() || ($request->user()->isLineManager() && $this->normalizeDepartment($request->user()->department)===$this->normalizeDepartment($item->department)),403,'A department line manager or executive must review this report.');
+            abort_unless($item->report_status==='submitted',422,'Submit this weekly report first.');
+            abort_if(((int)$item->updated_by===(int)$request->user()->id || (int)$item->report_submitted_by===(int)$request->user()->id),403,'Another authorised manager must review this report.');
+        } else {
+            abort_if(!trim(strip_tags($item->deliverables??'')),422,'Enter this week’s actual update before submitting.');
+        }
+        app(\App\Services\WeeklyReportingHistory::class)->record($item,$v['report_action'],$v['reason']);
+        $item->forceFill($v['report_action']==='submit'?['report_status'=>'submitted','report_submitted_at'=>now(),'report_submitted_by'=>$request->user()->id,'report_reviewed_at'=>null,'report_reviewed_by'=>null]:['report_status'=>'reviewed','report_reviewed_at'=>now(),'report_reviewed_by'=>$request->user()->id])->save();
+        return back()->with('status','Weekly report '.$item->report_status.'. Project completion is tracked separately.');
+    }
+
     public function destroyWeeklyConsolidated(Request $request, WeeklyConsolidatedItem $item): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         abort_unless($item->workflow_state === 'legacy', 422, 'Use the performance hub workflow for this commitment.');
         $this->authorizeWeeklyConsolidatedManagement($request->user(), $item->department, $item);
+        abort_if($item->week_end?->isPast() || in_array($item->report_status,['submitted','reviewed']),422,'Historical and submitted reports must be corrected with a reason, not deleted.');
+        app(\App\Services\WeeklyReportingHistory::class)->record($item,'before_delete',$request->input('correction_reason'));
         $item->delete();
 
         if ($request->wantsJson() || $request->ajax()) {
@@ -861,6 +899,8 @@ class DashboardController extends Controller
             'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
             'week_start' => ['required', 'date'],
             'week_end' => ['nullable', 'date', 'after_or_equal:week_start'],
+            'project_starts_on' => ['nullable','date'],
+            'project_ends_on' => ['nullable','date',...($request->filled('project_starts_on')?['after_or_equal:project_starts_on']:[])],
             'brief_received_on' => ['nullable', 'date', 'before_or_equal:week_end'],
             'client_name' => ['nullable', 'string', 'max:255'],
             'campaign_name' => ['nullable', 'string', 'max:255'],
