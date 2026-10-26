@@ -42,4 +42,4 @@
 @endforeach
 </dl></td>
 </tr>
-@empty<tr><td colspan="5">No approved Brand Activities records for this period.</td></tr>@endforelse</tbody></table></div>
+@empty<tr><td colspan="5">No new approved activity-register submissions for this period. Existing weekly reports are shown below.</td></tr>@endforelse</tbody></table></div>

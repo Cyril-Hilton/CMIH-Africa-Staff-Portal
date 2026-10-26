@@ -5,6 +5,7 @@ $design = [
 'brands_marketing'=>['Brands & Marketing','Brand Insight. Retail Impact.','Brand Analytics, Shopper Marketing & Retail Coordination','#f9a8d4','Brand & Retail Reporting'],
 'hr_admin'=>['HR & Admin','People Make It Happen','People, Workplace & Service Delivery','#c4b5fd','Department Register'],
 ][$key];
+$savedWeeklyCount=\App\Models\WeeklyConsolidatedItem::where('workflow_state','legacy')->whereIn('department',\App\Models\User::departmentAliases($key))->when(request('weekly_from'),fn($q,$date)=>$q->whereDate('week_end','>=',$date))->when(request('weekly_to'),fn($q,$date)=>$q->whereDate('week_start','<=',$date))->count();
 $total=$department['summary']['total']; $verified=$department['summary']['verified'];
 $rate=$total?round(100*$verified/$total):null;
 $needsAttention=collect($department['deliverables'])->where('overdue',true);
@@ -21,7 +22,7 @@ $needsAttention=collect($department['deliverables'])->where('overdue',true);
 @endonce
 <div class="dw" data-kind="{{ $key }}" style="--dw:{{ $design[3] }}" x-data="{brandSearch:'',brandStatus:'',section:'{{ $key==='hr_admin'?(auth()->user()->hasFullHrAccess() && request()->has('attendance_period')?'attendance':'people'):($key==='brands_marketing'?'weekly':'results') }}'}">
 <div class="dw-hero"><div><p class="dw-kicker">{{ $design[1] }}</p><h4>{{ $design[0] }}</h4><p class="dw-sub">{{ $design[2] }}</p></div><div class="dw-ring" style="--rate:{{ $rate??0 }}"><div><strong>{{ $rate===null?'—':$rate.'%' }}</strong><small>Verified Delivery</small></div></div></div>
-<div class="dw-strip"><div><strong>{{ $total }}</strong><span>Commitments</span></div><div><strong>{{ $verified }}</strong><span>Verified</span></div><div><strong class="{{ $needsAttention->count()?'text-rose-300':'' }}">{{ $needsAttention->count() }}</strong><span>Overdue</span></div><div><strong>{{ count($department['kpis']) }}</strong><span>KPI Targets</span></div></div>
+<div class="dw-strip"><div><strong>{{ $savedWeeklyCount }}</strong><span>Saved Weekly Entries</span></div><div><strong>{{ $total }}</strong><span>Commitments</span></div><div><strong>{{ $verified }}</strong><span>Verified</span></div><div><strong class="{{ $needsAttention->count()?'text-rose-300':'' }}">{{ $needsAttention->count() }}</strong><span>Overdue</span></div><div><strong>{{ count($department['kpis']) }}</strong><span>KPI Targets</span></div></div>
 <div class="dw-tabs" role="tablist" aria-label="{{ $design[0] }} Reporting Views">
 @foreach(($key==='hr_admin'?['people'=>'People & Workplace']+(auth()->user()->hasFullHrAccess()?['attendance'=>'Attendance']:[]):[])+($key==='brands_marketing'?['weekly'=>'Weekly Workstreams']:[])+($key==='operations_projects'?['handover'=>'Plans & Handovers']:[])+['results'=>'KPI Results','delivery'=>($key==='brands_marketing'?'Team Activity & Delivery':'Delivery & Deadlines'),'register'=>$design[4]] as $view=>$label)<button type="button" role="tab" id="dw-tab-{{ $key }}-{{ $view }}" aria-controls="dw-panel-{{ $key }}-{{ $view }}" :aria-selected="section===@js($view)" @click="section=@js($view)" @keydown.right.prevent="$el.nextElementSibling?.click(); $el.nextElementSibling?.focus()" @keydown.left.prevent="$el.previousElementSibling?.click(); $el.previousElementSibling?.focus()">{{ $label }}</button>@endforeach
 </div>

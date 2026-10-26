@@ -255,6 +255,26 @@ class DashboardController extends Controller
             $weeklyDepartmentFilter = $defaultWeeklyDepartment;
         }
 
+        // Respect explicit periods; otherwise make the latest saved departmental work visible.
+        if (((! $request->filled('weekly_from') && ! $request->filled('weekly_to')) || $request->query('weekly_auto') === '1')
+            && in_array($weeklyDepartmentFilter, ['brands_marketing', 'operations_projects', 'finance', 'hr_admin'], true)
+            && \Illuminate\Support\Facades\Schema::hasTable('weekly_consolidated_items')) {
+            $savedWeeks = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy')
+                ->whereIn('department', $this->departmentQueryValues([$weeklyDepartmentFilter]));
+            $current = WeeklyConsolidatedItem::query()->whereIn('department', $this->departmentQueryValues([$weeklyDepartmentFilter]))->whereDate('week_start', '<=', now()->endOfWeek()->toDateString())
+                ->whereDate('week_end', '>=', now()->startOfWeek()->toDateString())->exists();
+            if (\Illuminate\Support\Facades\Schema::hasTable('performance_registers')) {
+                $current = $current || \App\Models\PerformanceRegister::where('department', $weeklyDepartmentFilter)->whereDate('period_start', '<=', now()->endOfWeek()->toDateString())->whereDate('period_end', '>=', now()->startOfWeek()->toDateString())->exists();
+            }
+            $latest = (clone $savedWeeks)->whereDate('week_start', '<=', now()->toDateString())->orderByDesc('week_start')->first();
+            if (! $current && $latest && ((! $request->filled('weekly_from') && ! $request->filled('weekly_to')) || ($request->query('weekly_from') === $latest->week_start->toDateString() && $request->query('weekly_to') === $latest->week_end->toDateString()))) {
+                $request->query->set('weekly_from', $latest->week_start->toDateString());
+                $request->query->set('weekly_to', $latest->week_end->toDateString());
+                $request->query->set('weekly_auto', '1');
+                $request->attributes->set('showing_latest_saved_week', true);
+            }
+        }
+
         $searchWeekly = $request->query('search_weekly');
         $publicCrmProgress = \Illuminate\Support\Facades\Schema::hasTable('crm_weekly_progress')
             ? \App\Services\ClientRelationsPipeline::publicRows(is_string($searchWeekly) ? $searchWeekly : null)
@@ -284,10 +304,10 @@ class DashboardController extends Controller
                 'weekly_from' => ['nullable', 'date_format:Y-m-d'],
                 'weekly_to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('weekly_from') ? ['after_or_equal:weekly_from'] : [])],
             ]);
-            if ($request->filled('weekly_from')) {
+            if ($request->filled('weekly_from') && ! $request->attributes->get('showing_latest_saved_week')) {
                 $weeklyBaseQuery->whereDate('week_start', '>=', $request->query('weekly_from'));
             }
-            if ($request->filled('weekly_to')) {
+            if ($request->filled('weekly_to') && ! $request->attributes->get('showing_latest_saved_week')) {
                 $weeklyBaseQuery->whereDate('week_start', '<=', $request->query('weekly_to'));
             }
             $weeklyFilteredBaseQuery = $this->applyWeeklyConsolidatedSearch($weeklyBaseQuery, $searchWeekly);

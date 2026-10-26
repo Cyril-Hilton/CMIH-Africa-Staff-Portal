@@ -874,6 +874,13 @@
             @endif
         </form>
 
+        @if(request()->attributes->get('showing_latest_saved_week'))
+            <p role="status" class="mt-4 rounded-xl border border-brand-white/20 p-4 text-sm text-brand-ash">
+                Showing the latest saved week: {{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M Y') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}. Your earlier entries are preserved.
+                <a class="ml-2 underline text-brand-white" href="{{ route('dashboard', ['weekly_department'=>$weeklyDepartmentFilter,'weekly_from'=>now()->startOfWeek()->toDateString(),'weekly_to'=>now()->endOfWeek()->toDateString()]) }}#staff-weekly-performance">View this week</a>
+            </p>
+        @endif
+
         @if($canManageActiveWeeklyDepartment)
             <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
