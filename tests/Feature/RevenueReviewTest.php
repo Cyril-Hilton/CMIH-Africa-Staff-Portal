@@ -152,7 +152,7 @@ class RevenueReviewTest extends TestCase
             $this->assertSame($cr->name, $data['accounts'][0]['owner']);
         }
         foreach (['finance', 'client_relations'] as $dept) {
-            $this->actingAs($fin)->get(route('dashboard', ['weekly_department' => $dept, 'revenue_view' => 1]))->assertOk()->assertSee('Revenue, Confirmed Together')->assertSee('GH₵ 90.00')->assertSee('Dove Care');
+            $this->actingAs($fin)->get(route('dashboard', ['weekly_department' => $dept, 'revenue_view' => 1]))->assertOk()->assertSee('Confirmed Revenue')->assertSee('GH₵ 90.00')->assertSee('Dove Care');
         }
     }
 
