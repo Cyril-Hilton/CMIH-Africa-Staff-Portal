@@ -56,7 +56,7 @@ class AppraisalController extends Controller
                 ->paginate(5, ['*'], 'staff_appraisals_page')
                 ->withQueryString();
         } elseif (in_array($user->access_role, ['admin', 'manager'])) {
-            $deptStaff = User::where('department', $user->department)
+            $deptStaff = User::humanAccounts()->where('department', $user->department)
                 ->where('id', '!=', $user->id)
                 ->pluck('id');
             $staffAppraisals = Appraisal::with('employee')
@@ -99,7 +99,7 @@ class AppraisalController extends Controller
         if ($this->isHR($user)) {
             $matrixStaff = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
         } elseif (in_array($user->access_role, ['admin', 'manager'])) {
-            $matrixStaff = User::where('department', $user->department)
+            $matrixStaff = User::humanAccounts()->where('department', $user->department)
                 ->internalStaff()
                 ->where('status', 'active')
                 ->where('id', '!=', $user->id)

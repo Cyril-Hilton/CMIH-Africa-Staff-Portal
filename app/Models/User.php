@@ -195,6 +195,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'is_service_account' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'start_date' => 'date',
@@ -1012,9 +1013,19 @@ class User extends Authenticatable
             ->all();
     }
 
+    public function isServiceAccount(): bool
+    {
+        return (bool) $this->is_service_account;
+    }
+
+    public function scopeHumanAccounts($query)
+    {
+        return $query->where($this->qualifyColumn('is_service_account'), false);
+    }
+
     public function scopeInternalStaff($query)
     {
-        return $query->where(function ($q) {
+        return $query->humanAccounts()->where(function ($q) {
             $q->whereNull('access_role')
                 ->orWhereNotIn('access_role', [
                     ...self::MERCHANDISER_FIELD_ROLES,

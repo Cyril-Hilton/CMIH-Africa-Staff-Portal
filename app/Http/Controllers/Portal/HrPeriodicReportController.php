@@ -30,7 +30,7 @@ class HrPeriodicReportController extends Controller
         $r->validate(['frequency' => 'nullable|in:weekly,monthly']);
         $reports = HrPeriodicReport::with(['entries' => fn ($q) => $q->whereIn('section', array_keys($this->schema($r))), 'previous.entries' => fn ($q) => $q->whereIn('section', array_keys($this->schema($r))), 'preparer'])->when($r->frequency, fn ($q) => $q->where('frequency', $r->frequency))->orderByDesc('period_start')->paginate(6);
         $schema = $this->schema($r);
-        $staff = User::where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+        $staff = User::humanAccounts()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
 
         return view('portal.hr-reporting.index', compact('reports', 'schema', 'staff'));
     }

@@ -17,6 +17,9 @@ class PerformanceScoringService
         $rangeStart = $startDate->copy()->startOfDay();
         $rangeEnd = self::effectiveEndDate($startDate, $endDate);
 
+        if ($user->isServiceAccount()) {
+            return ['expected_workdays'=>0,'attendance_days'=>0,'punctual_days'=>0,'attendance_rate'=>0.0,'punctuality_score'=>0.0,'excluded'=>true];
+        }
         if (! $rangeEnd) {
             return [
                 'expected_workdays' => 0,
@@ -66,7 +69,7 @@ class PerformanceScoringService
 
     public static function trackingStartedAt(): ?Carbon
     {
-        $firstClockIn = Attendance::whereNotNull('clock_in_at')->min('clock_in_at');
+        $firstClockIn = Attendance::whereHas('user',fn($q)=>$q->humanAccounts())->whereNotNull('clock_in_at')->min('clock_in_at');
 
         return $firstClockIn ? Carbon::parse($firstClockIn)->startOfDay() : null;
     }

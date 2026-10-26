@@ -16,6 +16,9 @@ class StaffPerformanceScore
 
     public function user(User $user, Carbon $start, Carbon $end): array
     {
+        if ($user->isServiceAccount()) {
+            return $this->combine(null,null,null)+['excluded'=>true,'awaiting_creative_review'=>0,'task_rate'=>null,'punctuality'=>null,'kpi_rate'=>null,'attendance_rate'=>null,'task_weighted'=>0,'punctuality_weighted'=>0,'kpi_weighted'=>0,'attendance_weighted'=>0,'expected_workdays'=>0,'attendance_days'=>0,'punctual_days'=>0,'completion_points_total'=>0,'completion_points_verified'=>0,'completion_total'=>0,'completion_verified'=>0,'kpi_expected'=>0,'kpi_measured'=>0,'kpis'=>collect(),'has_activity'=>false,'source_tasks'=>[],'source_commitments'=>[]];
+        }
         $departments = User::departmentAliases($user->department);
         if (PerformanceAccess::department($user) === 'hr_admin') {
             $departments[] = 'admin_drivers';
@@ -76,7 +79,7 @@ class StaffPerformanceScore
 
     private function managerSignedOff(?User $reviewer, User $owner): bool
     {
-        return $reviewer && $reviewer->id !== $owner->id
+        return $reviewer && !$reviewer->isServiceAccount() && $reviewer->id !== $owner->id
             && ((int) $owner->line_manager_id === $reviewer->id || PerformanceAccess::manages($reviewer, PerformanceAccess::department($owner)));
     }
 
@@ -109,6 +112,7 @@ class StaffPerformanceScore
 
     public function team(Collection $users, Carbon $start, Carbon $end): array
     {
+        $users=$users->reject(fn($u)=>$u->isServiceAccount());
         $members = $users->map(fn ($u) => $this->user($u, $start, $end));
         $expected = $members->sum('expected_workdays');
         $punctual = $members->sum('punctual_days');

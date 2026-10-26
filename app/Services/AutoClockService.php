@@ -145,9 +145,9 @@ class AutoClockService
 
     public static function isAutoClockUser(User $user): bool
     {
-        return $user->access_role === 'super_admin'
+        return !$user->isServiceAccount() && ($user->access_role === 'super_admin'
             || self::isCyril($user)
-            || self::isCurtisBarnor($user);
+            || self::isCurtisBarnor($user));
     }
 
     public static function backfillCurrentMonthForUser(User $user, ?Carbon $date = null): void

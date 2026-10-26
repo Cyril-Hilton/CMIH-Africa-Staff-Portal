@@ -43,7 +43,7 @@ class NotificationService
      */
     public static function activeSuperAdminIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->where('access_role', 'super_admin')
             ->when($excludeUserId, fn ($query) => $query->where('id', '!=', $excludeUserId))
             ->pluck('id')
@@ -56,7 +56,7 @@ class NotificationService
      */
     public static function activeCvoApproverIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->where(function ($query) {
                 $query->where('access_role', 'super_admin')
                     ->orWhere('job_level', 'super_admin');
@@ -72,7 +72,7 @@ class NotificationService
      */
     public static function activeFinanceApproverIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->where(function ($query) {
                 $query->where('department', 'finance')
                     ->orWhere('access_role', 'super_admin');
@@ -88,7 +88,7 @@ class NotificationService
      */
     public static function activeMerchandiserPortalAdminIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->get()
             ->filter(fn (User $user) => $user->isMerchandiserPortalAdmin())
             ->reject(fn (User $user) => $excludeUserId && $user->id === $excludeUserId)
@@ -102,7 +102,7 @@ class NotificationService
      */
     public static function activeHrApproverIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->get()
             ->filter(fn (User $user) => $user->hasFullHrAccess())
             ->reject(fn (User $user) => $excludeUserId && $user->id === $excludeUserId)
@@ -116,7 +116,7 @@ class NotificationService
      */
     public static function activeFleetApproverIds(?int $excludeUserId = null): array
     {
-        return User::where('status', 'active')
+        return User::humanAccounts()->where('status', 'active')
             ->get()
             ->filter(fn (User $user) => $user->canApproveFleetRequests())
             ->reject(fn (User $user) => $excludeUserId && $user->id === $excludeUserId)
@@ -162,7 +162,7 @@ class NotificationService
      */
     public static function broadcast(string $title, string $message, ?string $url = null, ?int $excludeUserId = null): void
     {
-        $users = User::where('status', 'active');
+        $users = User::humanAccounts()->where('status', 'active');
         if ($excludeUserId) {
             $users->where('id', '!=', $excludeUserId);
         }

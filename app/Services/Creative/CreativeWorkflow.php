@@ -26,7 +26,7 @@ class CreativeWorkflow {
  }
  public function plan(CreativeRequest $record,User $actor,array $d):CreativeRequest {
   abort_unless(CreativeAccess::lead($actor),403);
-  return DB::transaction(function()use($record,$actor,$d){$r=$this->lock($record,$d['revision']);abort_if($r->is_group,422,'Assign the individual brief parts, not the parent brief.');abort_if(in_array($r->stage,['completed','archived','in_review','delivered']),409,'Return work to production or reopen it before replanning.');$before=$r->getAttributes();$assignee=User::whereKey($d['assignee_id'])->where('status','active')->firstOrFail();abort_unless(User::normalizeDepartmentKey($assignee->department)==='creatives',422,'Choose an active creative executive.');
+  return DB::transaction(function()use($record,$actor,$d){$r=$this->lock($record,$d['revision']);abort_if($r->is_group,422,'Assign the individual brief parts, not the parent brief.');abort_if(in_array($r->stage,['completed','archived','in_review','delivered']),409,'Return work to production or reopen it before replanning.');$before=$r->getAttributes();$assignee=User::humanAccounts()->whereKey($d['assignee_id'])->where('status','active')->firstOrFail();abort_unless(User::normalizeDepartmentKey($assignee->department)==='creatives',422,'Choose an active creative executive.');
    $reviewer=User::findOrFail($d['reviewer_id']);abort_unless(CreativeAccess::lead($reviewer)&&$reviewer->id!==$assignee->id,422,'Choose an active Creative HOD or line manager other than the assignee.');
    $r->fill(collect($d)->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','requested_deadline','priority','blocker','blocker_owner'])->all());$r->planned_by=$actor->id;if((int)($before['assignee_id']??0)!==$assignee->id)$r->acknowledged_at=null;$r->assignee_snapshot=CreativeAccess::snapshot($assignee);
    if(!app(CreativeCapacity::class)->workingDates($r->planned_start,$r->internal_eta,$assignee->id))throw ValidationException::withMessages(['planned_start'=>'Choose a work window with an available working day.']);
@@ -93,7 +93,7 @@ class CreativeWorkflow {
  }
  private function lock(CreativeRequest $r,int $revision):CreativeRequest {$r=CreativeRequest::lockForUpdate()->findOrFail($r->id);abort_if($r->revision!==$revision,409,'This work changed in another session. Refresh before saving.');return $r;}
  public function event(CreativeRequest $r,User $actor,string $action,array $before,string $reason):void {PerformanceWorkflow::record('creative_request',$r->id,$actor->id,$action,$before,$r->getAttributes(),$reason);}
- public function leads():array{return User::where('status','active')->get()->filter(fn($u)=>CreativeAccess::lead($u))->pluck('id')->all();}
+ public function leads():array{return User::humanAccounts()->where('status','active')->get()->filter(fn($u)=>CreativeAccess::lead($u))->pluck('id')->all();}
  public function notify(CreativeRequest $r,array $ids,string $title,string $message,?string $key=null):void {
   foreach(array_unique(array_filter($ids)) as $id){
    $dedupe=$key??'creative:'.$r->id.':'.$r->revision.':'.$title;

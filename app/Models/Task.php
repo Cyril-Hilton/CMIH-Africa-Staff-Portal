@@ -144,6 +144,7 @@ class Task extends Model
     public function scopeRealWork($query)
     {
         return $query
+            ->where(fn($q)=>$q->whereNull('assigned_to')->orWhereNotIn('assigned_to', \App\Models\User::where('is_service_account', true)->select('id')))
             ->where('created_at', '>=', self::TASK_CYCLE_START)
             ->where(function ($workQuery) {
                 $workQuery->whereNull('completion_review_status')

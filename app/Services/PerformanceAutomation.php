@@ -43,7 +43,7 @@ class PerformanceAutomation
                         $locked->save();
                         PerformanceWorkflow::record('commitment', $locked->id, null, 'escalate', $before, $locked->getAttributes(), 'Automated deadline/risk rule');
                     }
-                    $recipients = User::where('status', 'active')->get()->filter(fn ($u) => ($level === 2 ? PerformanceAccess::executive($u) : PerformanceAccess::manages($u, $locked->department)) || $u->id === $locked->reviewer_id || $u->id === $locked->lead_staff_id);
+                    $recipients = User::humanAccounts()->where('status', 'active')->get()->filter(fn ($u) => ($level === 2 ? PerformanceAccess::executive($u) : PerformanceAccess::manages($u, $locked->department)) || $u->id === $locked->reviewer_id || $u->id === $locked->lead_staff_id);
                     foreach ($recipients as $user) {
                         PerformanceWorkflow::notify($user->id, 'escalation:'.$locked->id.':'.$level, 'Performance intervention required', 'WCT-'.$locked->id.' · Level '.$level.' · '.($overdue ? 'Overdue commitment' : 'Critical risk').'.');
                     }
@@ -71,7 +71,7 @@ class PerformanceAutomation
                 $executive = $case->priority === 'Critical' || $days >= (int) $policy['rules']['executive_after_days'];
                 $recipients = [$case->owner_id, $case->reviewer_id];
                 if ($executive) {
-                    $recipients = array_merge($recipients, User::where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::executive($u))->pluck('id')->all());
+                    $recipients = array_merge($recipients, User::humanAccounts()->where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::executive($u))->pluck('id')->all());
                 }
                 foreach (array_unique($recipients) as $id) {
                     PerformanceWorkflow::notify($id, 'case:'.$case->id.':'.$case->revision.':'.($executive ? 2 : 1), 'Accountability action requires attention', 'CASE-'.$case->id.' · '.$case->priority.' · '.$case->status.' · deadline '.$case->due_on->toDateString());
@@ -81,12 +81,12 @@ class PerformanceAutomation
         });
         $sourceExceptions = app(PerformanceExceptions::class)->build(\App\Models\PerformanceRegister::whereNotNull('approved_at')->get());
         foreach ($sourceExceptions as $exception) {
-            foreach (User::where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::manages($u, $exception['department']) && ($exception['level'] === 1 || PerformanceAccess::executive($u))) as $recipient) {
+            foreach (User::humanAccounts()->where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::manages($u, $exception['department']) && ($exception['level'] === 1 || PerformanceAccess::executive($u))) as $recipient) {
                 PerformanceWorkflow::notify($recipient->id, 'source-exception:'.$exception['source_id'].':'.$exception['rule'].':'.$exception['level'], 'Department reporting exception', $exception['reference'].' · '.$exception['rule'].' · '.$exception['days'].' days overdue');
             }
             $count++;
         }
-        $crmUsers = User::where('status', 'active')->get()->filter(fn ($user) => ClientRelationsPipeline::member($user));
+        $crmUsers = User::humanAccounts()->where('status', 'active')->get()->filter(fn ($user) => ClientRelationsPipeline::member($user));
         \App\Models\CrmAccountTarget::where('needs_reconciliation', true)->get()->groupBy('owner_id')->each(function ($targets, $ownerId) use ($crmUsers, &$count) {
             $signature = hash('sha256', $targets->sortBy('id')->map(fn ($target) => $target->id.':'.$target->revision)->implode('|'));
             foreach ($crmUsers->filter(fn ($user) => $user->isLineManager() || $user->id === (int) $ownerId) as $recipient) {
@@ -96,7 +96,7 @@ class PerformanceAutomation
         });
         $approvedHistory = PerformanceObservation::whereNotNull('approved_at')->whereDate('period_end', '<=', today())->with(['kpi', 'targetPlan'])->get();
         foreach (app(RepeatedPerformanceFailures::class)->detect($approvedHistory, (int) $policy['rules']['repeated_failure_periods']) as $failure) {
-            $executives = User::where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::executive($u))->pluck('id')->all();
+            $executives = User::humanAccounts()->where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::executive($u))->pluck('id')->all();
             foreach (array_unique(array_filter(array_merge([$failure['owner_id'], $failure['reviewer_id']], $executives))) as $recipient) {
                 PerformanceWorkflow::notify($recipient, 'repeated-kpi:'.$failure['kpi_id'].':'.$failure['owner_id'].':'.$failure['latest_id'], 'Repeated KPI underperformance', $failure['name'].' · '.$failure['periods'].' approved reporting periods below the minimum threshold. Review causes and agree corrective actions.');
             }
@@ -118,7 +118,7 @@ class PerformanceAutomation
             'weekly' => $end->copy()->startOfWeek(),'monthly' => $end->copy()->startOfMonth(),default => $end->copy()->startOfQuarter()
         };
         $count = 0;
-        foreach (User::where('status', 'active')->get() as $user) {
+        foreach (User::humanAccounts()->where('status', 'active')->get() as $user) {
             if (! $user->isLineManager() && ! PerformanceAccess::executive($user)) {
                 continue;
             }

@@ -15,7 +15,7 @@ class ClientRelationsPipeline
 
     public static function staffMember(User $user): bool
     {
-        return $user->isActive() && User::normalizeDepartmentKey($user->department) === 'client_relations';
+        return $user->isActive() && !$user->isServiceAccount() && User::normalizeDepartmentKey($user->department) === 'client_relations';
     }
 
     /** Historical attribution never reactivates a former staff member or grants access. */

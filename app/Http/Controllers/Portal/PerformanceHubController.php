@@ -164,7 +164,7 @@ class PerformanceHubController extends Controller
 
     private function activeUser(int $id, string $department): void
     {
-        $user = User::whereKey($id)->where('status', 'active')->firstOrFail();
+        $user = User::humanAccounts()->whereKey($id)->where('status', 'active')->firstOrFail();
         abort_unless(Access::department($user) === ($department === 'admin_drivers' ? 'hr_admin' : $department) || Access::executive($user), 422, 'Choose an active owner/reviewer in this function.');
     }
 

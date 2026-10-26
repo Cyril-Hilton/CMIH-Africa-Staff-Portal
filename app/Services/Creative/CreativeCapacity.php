@@ -23,7 +23,7 @@ class CreativeCapacity {
   $total=0;foreach($this->workingDates($from,$to,$user) as $date){$exception=$exceptions->first(fn($e)=>$e->starts_on<=$date&&$e->ends_on>=$date);$hours=$exception?->weekly_hours??$base;if($hours===null)return null;$total+=(float)$hours/5;}return round($total,2);
  }
  public function summary(User $actor,Carbon $from,Carbon $to):array {
-  $staff=User::whereIn('department',User::departmentAliases('creatives'))->where('status','active')->get();
+  $staff=User::humanAccounts()->whereIn('department',User::departmentAliases('creatives'))->where('status','active')->get();
   $requests=CreativeRequest::whereNotNull('assignee_id')->whereDate('planned_start','<=',$to)->whereDate('internal_eta','>=',$from)->get();
   $capacities=DB::table('creative_capacities')->pluck('weekly_hours','user_id');$nominal=count($this->workingDates($from,$to));
   return $staff->map(function($u)use($requests,$capacities,$from,$to,$nominal,$actor){$own=$requests->where('assignee_id',$u->id);$capacity=$capacities->get($u->id);$available=$this->available($u->id,$from,$to);$planned=$own->sum(fn($r)=>$this->hours($r,$from,$to)??0);$remaining=$own->sum(fn($r)=>$this->hours($r,$from,$to,true)??0);return ['id'=>$u->id,'name'=>$u->name,'weekly_capacity'=>$capacity===null?null:(float)$capacity,'available'=>$available,'planned'=>round($planned,2),'remaining'=>round($remaining,2),'overload'=>$available===null?null:max(0,round($remaining-$available,2)),'exceptions'=>DB::table('creative_capacity_exceptions')->where('user_id',$u->id)->where('ends_on','>=',$from->toDateString())->orderBy('starts_on')->get(['starts_on','ends_on','weekly_hours'])->all(),'restricted_assignments'=>$own->filter(fn($r)=>!CreativeAccess::view($actor,$r))->count()];})->all();

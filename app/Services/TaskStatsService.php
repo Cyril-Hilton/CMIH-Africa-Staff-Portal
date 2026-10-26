@@ -11,6 +11,9 @@ class TaskStatsService
 {
     public static function forUser(User $user, ?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
+        if ($user->isServiceAccount()) {
+            return array_fill_keys(['assigned_total','created_total','assigned_or_created_total','accountable_total','completed','approved','approved_own_work','approved_by_user','pending','overdue','awaiting_creative_review','completion_rate'],0)+['approval_label'=>'Excluded service account','excluded'=>true];
+        }
         $assignedQuery = self::assignedToUserQuery($user, $startDate, $endDate);
         $createdQuery = self::createdByUserQuery($user, $startDate, $endDate);
         $assignedOrCreatedQuery = self::assignedOrCreatedQuery($user, $startDate, $endDate);

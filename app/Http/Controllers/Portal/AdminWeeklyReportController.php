@@ -21,7 +21,7 @@ class AdminWeeklyReportController extends Controller
     {
         $this->authorizeReport($r);
         $reports = AdminWeeklyReport::with(['lines.owner', 'preparer'])->orderByDesc('period_start')->paginate(6);
-        $staff = User::where('status', 'active')->orderBy('name')->get(['id', 'name']);
+        $staff = User::humanAccounts()->where('status', 'active')->orderBy('name')->get(['id', 'name']);
         $previous = AdminWeeklyReport::whereNotNull('approved_at')->with('lines')->orderByDesc('period_end')->first();
 
         return view('portal.admin-weekly.index', compact('reports', 'staff', 'previous'));

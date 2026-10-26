@@ -29,7 +29,7 @@ class ClientRelationsPipelineController extends Controller
         $projects = $q->orderByDesc('week_start')->orderByDesc('source_row')->paginate(15)->withQueryString();
         $clientRecords = \App\Models\CrmClientRecord::with('owner')->when($r->filled('q'), fn ($q) => $q->where('client_name', 'like', '%'.$filters['q'].'%'))->when($r->filled('owner'), fn ($q) => $q->where('owner_id', $filters['owner']))->latest()->get();
         $scorecard = app(\App\Services\ClientRelationsScorecard::class)->build($scorecardProjects, $clientRecords);
-        $staff = User::where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->where('name','not like','Import custodian%')->orderBy('name')->get();
+        $staff = User::humanAccounts()->where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->where('name','not like','Import custodian%')->orderBy('name')->get();
         $clientNames = CrmPipelineProject::query()->select('client_name')->distinct()->orderBy('client_name')->pluck('client_name')->merge(\App\Models\CrmFinancialRegister::pluck('client_name'))->merge(\App\Models\CrmAccountAllocation::pluck('client_name'))->unique()->sort()->values();
         $targets = CrmAccountTarget::orderByDesc('period_start')->get();
 
@@ -197,7 +197,7 @@ class ClientRelationsPipelineController extends Controller
             $before = $item->getAttributes();
             $item->update(['proposed_correction' => collect($v)->only(['period_start', 'period_end', 'frequency', 'target_amount'])->all(), 'correction_submitted_by' => $r->user()->id, 'correction_reason' => $v['reason'], 'revision' => $item->revision + 1]);
             PerformanceWorkflow::record('crm_target', $item->id, $r->user()->id, 'propose_correction', $before, $item->getAttributes(), $v['reason']);
-            User::where('status', 'active')->get()->filter(fn ($user) => $user->id !== $r->user()->id && Pipeline::member($user) && $user->isLineManager())->each(function ($reviewer) use ($item) {
+            User::humanAccounts()->where('status', 'active')->get()->filter(fn ($user) => $user->id !== $r->user()->id && Pipeline::member($user) && $user->isLineManager())->each(function ($reviewer) use ($item) {
                 PerformanceWorkflow::notify($reviewer->id, "crm-correction:{$item->id}:{$item->revision}", 'Client Relations Correction Awaiting Confirmation', 'An imported target needs independent confirmation. Open the private correction queue.', route('portal.crm.index').'#crm-target-corrections');
             });
         });

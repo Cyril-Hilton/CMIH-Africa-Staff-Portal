@@ -19,9 +19,9 @@ class PerformanceTargetController extends Controller
         $v = $request->validate(['kpi_id' => 'required|integer|exists:performance_kpis,id', 'scope_type' => 'required|in:individual,department', 'owner_id' => 'required|integer|exists:users,id', 'period_start' => 'required|date', 'period_end' => 'required|date|after_or_equal:period_start', 'target' => 'required|numeric|min:0|max:99999999999999', 'weight' => 'required|numeric|min:0.01|max:100', 'client' => 'nullable|string|max:255', 'project' => 'nullable|string|max:255', 'rationale' => 'required|string|max:3000']);
         $kpi = PerformanceKpi::with('objective')->findOrFail($v['kpi_id']);
         abort_unless(PerformanceAccess::manages($request->user(), $kpi->department), 403);
-        $owner = User::whereKey($v['owner_id'])->where('status', 'active')->firstOrFail();
+        $owner = User::humanAccounts()->whereKey($v['owner_id'])->where('status', 'active')->firstOrFail();
         abort_unless(PerformanceAccess::department($owner) === $kpi->department, 422, 'The accountable owner must belong to this department.');
-        $reviewer = User::whereKey($kpi->reviewer_id)->where('status', 'active')->firstOrFail();
+        $reviewer = User::humanAccounts()->whereKey($kpi->reviewer_id)->where('status', 'active')->firstOrFail();
         if (! PerformanceAccess::manages($reviewer, $kpi->department)) {
             throw ValidationException::withMessages(['kpi_id' => 'This KPI needs an active departmental manager as target reviewer.']);
         }
