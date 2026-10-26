@@ -390,7 +390,7 @@ class PerformanceHubController extends Controller
         $rules = [];
         foreach ($schema as $key => $type) {
             $rules['data.'.$key] = match ($type) {
-                'money','number' => 'nullable|numeric|min:0|max:99999999999999','date' => 'nullable|date',default => 'nullable|string|max:2000'
+                'money','number' => 'nullable|numeric|min:0|max:99999999999999','date' => 'nullable|date',default => in_array($key,['insights','bottleneck','next_action','description','key_issue','action_required','resolution','mitigation','outstanding_actions'],true)?'nullable|string|max:15000':'nullable|string|max:2000'
             };
         }
         $details = $r->validate($rules);

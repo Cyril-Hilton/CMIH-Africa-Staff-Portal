@@ -357,7 +357,7 @@
                                     'bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'removeFormat', '|',
                                     'bulletedList', 'numberedList', 'todoList', '|',
                                     'outdent', 'indent', 'alignment', '|',
-                                    'insertTable', 'link', 'blockQuote', 'horizontalLine', 'pageBreak', 'specialCharacters', '|',
+                                    'insertTable', 'insertImage', 'link', 'blockQuote', 'horizontalLine', 'pageBreak', 'specialCharacters', '|',
                                     'sourceEditing'
                                 ],
                                 shouldNotGroupWhenFull: true

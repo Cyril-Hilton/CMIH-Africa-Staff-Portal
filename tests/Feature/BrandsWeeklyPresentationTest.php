@@ -38,4 +38,27 @@ class BrandsWeeklyPresentationTest extends TestCase {
   }
   $this->assertDatabaseCount('weekly_consolidated_items',4);
  }
+ public function test_existing_crm_weekly_reports_remain_available_without_creating_sales_figures():void {
+  $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
+  WeeklyConsolidatedItem::create(['department'=>'client_relations','workflow_state'=>'legacy','client_name'=>'Original CRM Client','campaign_name'=>'Original client project','week_start'=>'2026-10-12','week_end'=>'2026-10-18','deliverables'=>'Original client service narrative','created_by'=>$admin->id,'status'=>'Planned']);
+  $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>'client_relations']))->assertOk()->assertSee('Original client service narrative');
+  $this->assertDatabaseCount('crm_pipeline_projects',0);
+ }
+ public function test_old_hr_and_finance_narratives_stay_out_of_other_departments_dashboards():void {
+  $staff=User::factory()->create(['access_role'=>'staff','status'=>'active','department'=>'brands_marketing']);
+  foreach(['hr_admin','finance'] as $dept){
+   WeeklyConsolidatedItem::create(['department'=>$dept,'workflow_state'=>'legacy','campaign_name'=>'Restricted source','week_start'=>now()->startOfWeek(),'week_end'=>now()->endOfWeek(),'deliverables'=>'PRIVATE NARRATIVE '.$dept,'created_by'=>$staff->id,'status'=>'Planned']);
+  }
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->actingAs($staff)->get(route('dashboard',['weekly_department'=>'all']))->assertOk()->assertDontSee('PRIVATE NARRATIVE');
+ }
+ public function test_department_weekly_entry_round_trip_preserves_rich_content():void {
+  $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
+  $html='<h3 style="text-align:center">Weekly report</h3><ol><li><strong>Priority</strong> H<sub>2</sub>O</li></ol><table><tr><td>Target</td><td>95%</td></tr></table><img src="https://example.com/evidence.jpg">';
+  foreach(['brands_marketing','operations_projects','finance','hr_admin','creatives'] as $dept){
+   $this->actingAs($admin)->post(route('portal.dashboard.weekly-consolidated.store'),['department'=>$dept,'week_start'=>'2026-10-19','week_end'=>'2026-10-25','campaign_name'=>'Rich report '.$dept,'deliverables'=>$html,'target_breakdown'=>$html,'status'=>'Planned'])->assertSessionHasNoErrors();
+   $row=WeeklyConsolidatedItem::where('department',$dept)->firstOrFail();
+   $this->assertSame($html,$row->deliverables);$this->assertSame($html,$row->target_breakdown);
+   $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk()->assertSee('<table>',false)->assertSee('text-align:center',false);
+  }
+ }
 }

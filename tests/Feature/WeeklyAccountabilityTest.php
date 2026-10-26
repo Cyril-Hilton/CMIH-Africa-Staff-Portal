@@ -93,7 +93,7 @@ class WeeklyAccountabilityTest extends TestCase
             $response = $this->actingAs($manager)->get(route('dashboard', ['weekly_department' => $department,
                 'weekly_from' => '2026-10-19', 'weekly_to' => '2026-10-25']));
             if ($department === 'client_relations') {
-                $response->assertOk()->assertViewHas('weeklyAccountability', fn ($summary) => $summary['total'] === 0);
+                $response->assertOk()->assertViewHas('weeklyAccountability', fn ($summary) => $summary['total'] === 1);
             } else {
                 $response->assertOk()->assertSee($definitions[0]['name'])->assertViewHas('weeklyAccountability', fn ($summary) => $summary['total'] === 1);
             }

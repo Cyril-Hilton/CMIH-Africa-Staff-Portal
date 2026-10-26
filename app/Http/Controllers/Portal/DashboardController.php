@@ -291,10 +291,13 @@ class DashboardController extends Controller
         $weeklyAccountability = app(\App\Services\WeeklyAccountabilityService::class)->summarize(collect());
 
         if ($hasWeeklyItemsTable) {
-            $weeklyBaseQuery = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy')->whereNotIn('department', User::departmentAliases('client_relations'));
+            $weeklyBaseQuery = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy');
             // Legacy Finance narratives may contain amounts; public visibility uses the safe KPI projection instead.
             if (! $user->isCvoOrSuperAdmin() && User::normalizeDepartmentKey($user->department) !== 'finance') {
                 $weeklyBaseQuery->whereNotIn('department', User::departmentAliases('finance'));
+            }
+            if (! $user->hasFullHrAccess()) {
+                $weeklyBaseQuery->whereNotIn('department', User::departmentAliases('hr_admin'));
             }
             if (! $isAllWeeklyDepartments) {
                 $weeklyBaseQuery->whereIn('department', $weeklyDepartmentQueryValues);

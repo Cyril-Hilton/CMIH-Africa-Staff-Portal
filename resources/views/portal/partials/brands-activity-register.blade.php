@@ -31,7 +31,7 @@
 @endforeach
 
 @unless(collect($row)->filter(fn($v,$k)=>str_ends_with($k,'_percent') && $v!==null)->isNotEmpty())<p class="dw-meta">No retail KPI figures recorded.</p>@endunless</div></td>
-<td style="vertical-align:top;overflow-wrap:break-word"><dl class="space-y-3">@foreach(['insights'=>'Insights','bottleneck'=>'Bottleneck','next_action'=>'Next Action','action_due_on'=>'Action Due'] as $field=>$label)@if(isset($row[$field]) && $row[$field]!=='')<div><dt class="dw-meta">{{ $label }}</dt><dd style="white-space:pre-line">{{ $row[$field] }}</dd></div>
+<td style="vertical-align:top;overflow-wrap:break-word"><dl class="space-y-3">@foreach(['insights'=>'Insights','bottleneck'=>'Bottleneck','next_action'=>'Next Action','action_due_on'=>'Action Due'] as $field=>$label)@if(isset($row[$field]) && $row[$field]!=='')<div><dt class="dw-meta">{{ $label }}</dt><dd class="weekly-rich-content">{!! \App\Support\ReportRichText::html((string)$row[$field]) !!}</dd></div>
 @endif
 
 @endforeach

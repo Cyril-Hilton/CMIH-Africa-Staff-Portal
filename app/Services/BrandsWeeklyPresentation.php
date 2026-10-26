@@ -23,7 +23,7 @@ class BrandsWeeklyPresentation
     /** Convert saved rich text into escaped text and structured table cells; no source HTML executes. */
     public function content(?string $html): array
     {
-        if(!trim($html??'')) return ['text'=>'','tables'=>[]];
+        if(!trim($html??'')) return ['text'=>'','tables'=>[],'html'=>''];
         $doc=new DOMDocument();
         $prior=libxml_use_internal_errors(true);
         try { $doc->loadHTML('<?xml encoding="utf-8" ?><html><body>'.$html.'</body></html>',LIBXML_NONET|LIBXML_NOERROR|LIBXML_NOWARNING); }
@@ -40,6 +40,6 @@ class BrandsWeeklyPresentation
         $markup=$body?$doc->saveHTML($body):'';
         $text=html_entity_decode(strip_tags(preg_replace('/<\/?(?:p|div|li|h[1-6]|br|ul|ol)\b[^>]*>/i',"\n",$markup)),ENT_QUOTES|ENT_HTML5,'UTF-8');
         $text=trim(preg_replace('/\n[\s\x{00a0}]*\n+/u',"\n\n",$text));
-        return ['text'=>$text,'tables'=>$tables];
+        return ['text'=>$text,'tables'=>$tables,'html'=>\App\Support\ReportRichText::html($html)];
     }
 }

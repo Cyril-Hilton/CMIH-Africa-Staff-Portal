@@ -1133,7 +1133,7 @@
                                     <div class="mt-2 text-[10px] text-brand-white/30">Owner: {{ $item->creator?->name ?? 'Unknown' }}</div>
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                    <div class="weekly-rich-content">{!! $item->deliverables !!}</div>
+                                    <div class="weekly-rich-content">{!! \App\Support\ReportRichText::html($item->deliverables) !!}</div>
                                     @include('portal.partials.weekly-accountability-result')
                                 </td>
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs font-semibold text-brand-white">
@@ -1198,7 +1198,7 @@
                                 </div>
                             </td>
                             <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
-                                <div class="weekly-rich-content">{!! $item->deliverables !!}</div>
+                                <div class="weekly-rich-content">{!! \App\Support\ReportRichText::html($item->deliverables) !!}</div>
                                     @include('portal.partials.weekly-accountability-result')
                             </td>
                             @if($weeklyDepartmentHasBreakdown)
@@ -1214,7 +1214,7 @@
                             @foreach($weeklyConsolidatedDisplayColumns as $column)
                                 <td class="border-y border-brand-white/10 bg-brand-black/35 px-5 py-5 text-xs">
                                     @if((int) $column->user_id === (int) $item->created_by && $item->customFieldValue($column))
-                                        <div class="weekly-rich-content">{!! $item->customFieldValue($column) !!}</div>
+                                        <div class="weekly-rich-content">{!! \App\Support\ReportRichText::html($item->customFieldValue($column)) !!}</div>
                                     @else
                                         <span class="text-brand-white/25"></span>
                                     @endif
