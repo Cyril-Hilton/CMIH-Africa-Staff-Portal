@@ -24,9 +24,40 @@ class WeeklyReportingHistory
    $source=WeeklyConsolidatedItem::lockForUpdate()->findOrFail($source->id);
    if(!$source->report_series){$source->report_series=(string)Str::uuid();$source->save();}
    $existing=WeeklyConsolidatedItem::where('report_series',$source->report_series)->whereDate('week_start',$start->toDateString())->first();if($existing)return $existing;
-   $row=WeeklyConsolidatedItem::create(['department'=>$source->department,'week_start'=>$start->toDateString(),'week_end'=>$end->toDateString(),'client_name'=>$source->client_name,'campaign_name'=>$source->campaign_name,'lead_staff_id'=>$source->lead_staff_id,'supporting_staff_ids'=>$source->supporting_staff_ids,'supporting_roles'=>$source->supporting_roles,'objective'=>$source->objective,'deliverables'=>'','status'=>in_array($source->status,['In Progress','Blocked','Deferred'],true)?$source->status:'Planned','progress_percent'=>0,'priority'=>$source->priority,'created_by'=>$actor??$source->created_by,'updated_by'=>$actor??$source->updated_by,'workflow_state'=>'legacy']);
-   $row->forceFill(['report_series'=>$source->report_series,'project_starts_on'=>$source->project_starts_on??$source->week_start,'project_ends_on'=>$source->project_ends_on,'carried_from_id'=>$source->id,'report_status'=>'draft','previous_week_reference'=>['id'=>$source->id,'week_start'=>$source->week_start->toDateString(),'status'=>$source->status,'progress_percent'=>$source->progress_percent]])->save();
+   $row=WeeklyConsolidatedItem::create(['department'=>$source->department,'week_start'=>$start->toDateString(),'week_end'=>$end->toDateString(),'client_name'=>$source->client_name,'campaign_name'=>$source->campaign_name,'lead_staff_id'=>$source->lead_staff_id,'supporting_staff_ids'=>$source->supporting_staff_ids,'supporting_roles'=>$source->supporting_roles,'objective'=>$source->objective,'target_breakdown'=>$source->target_breakdown,'kpi_name'=>$source->kpi_name,'measurement_unit'=>$source->measurement_unit,'measurement_direction'=>$source->measurement_direction,'target_value'=>$source->target_value,'custom_fields'=>$this->copyColumns($source,$actor??$source->created_by),'deliverables'=>'','status'=>in_array($source->status,['In Progress','Blocked','Deferred'],true)?$source->status:'Planned','progress_percent'=>0,'priority'=>$source->priority,'created_by'=>$actor??$source->created_by,'updated_by'=>$actor??$source->updated_by,'workflow_state'=>'legacy']);
+   $row->forceFill(['report_series'=>$source->report_series,'project_starts_on'=>$source->project_starts_on??$source->week_start,'project_ends_on'=>$source->project_ends_on,'carried_from_id'=>$source->id,'report_status'=>'draft','previous_week_reference'=>['id'=>$source->id,'week_start'=>$source->week_start->toDateString(),'status'=>$source->status,'progress_percent'=>$source->progress_percent,'content'=>['deliverables'=>$source->deliverables,'target_breakdown'=>$source->target_breakdown,'achieved_breakdown'=>$source->achieved_breakdown,'gap_breakdown'=>$source->gap_breakdown,'custom_fields'=>$source->custom_fields]]])->save();
    $this->record($row,'carried_forward','New weekly draft; previous results and approvals were not copied.');return $row;
+  });
+ }
+ private function copyColumns(WeeklyConsolidatedItem $source,int $actor):array {
+  $values=[];
+  foreach(\App\Models\WeeklyConsolidatedColumn::where('user_id',$source->created_by)->whereIn('department',User::departmentAliases($source->department))->get() as $column){
+   $existing=\App\Models\WeeklyConsolidatedColumn::where('user_id',$actor)->where('department',$source->department)->where('column_key',$column->column_key)->first();
+   $key=$column->column_key;
+   if($existing && ($existing->label!==$column->label||$existing->type!==$column->type))$key=$key.'_'.substr(hash('sha256',$column->id.'|'.$column->label),0,8);
+   $target=\App\Models\WeeklyConsolidatedColumn::firstOrCreate(['user_id'=>$actor,'department'=>$source->department,'column_key'=>$key],['label'=>$column->label,'type'=>$column->type,'order'=>$column->order]);
+   // Outcomes and evidence are references, never new weekly achievements.
+   $values[$target->column_key]=preg_match('/actual|achiev|result|progress|evidence|complete|revenue|receipt|invoice|paid|amount|performance|gap/i',$column->label)?null:($source->custom_fields[$column->column_key]??null);
+  }
+  return $values;
+ }
+
+ public function weekSources(string $department,string $week) {
+  $start=CarbonImmutable::parse($week)->startOfWeek();
+  return WeeklyConsolidatedItem::where('workflow_state','legacy')->whereIn('department',User::departmentAliases($department))->whereBetween('week_start',[$start->toDateString(),$start->endOfWeek()->toDateString()])->orderBy('id');
+ }
+
+ public function copyWeek(string $department,string $sourceWeek,string $targetWeek,array $ids,int $actor):array {
+  $target=CarbonImmutable::parse($targetWeek)->startOfWeek();$source=CarbonImmutable::parse($sourceWeek)->startOfWeek();
+  if($target->lte($source)||$target->gt(CarbonImmutable::now()->startOfWeek()))throw ValidationException::withMessages(['target_week'=>'Choose a later week that has already begun.']);
+  return DB::transaction(function()use($department,$sourceWeek,$target,$ids,$actor){
+   $rows=$this->weekSources($department,$sourceWeek)->whereIn('id',$ids)->lockForUpdate()->get();
+   if($rows->count()!==count(array_unique($ids)))throw ValidationException::withMessages(['items'=>'Some selected activities no longer belong to this source week. Preview again.']);
+   $created=0;$existing=0;
+   foreach($rows as $row){$prior=$row->report_series?WeeklyConsolidatedItem::where('report_series',$row->report_series)->whereDate('week_start',$target->toDateString())->first():null;
+    $this->carry($row,$target->toDateString(),$actor);$prior?$existing++:$created++;
+   }
+   return compact('created','existing');
   });
  }
  public function rollForward():int {

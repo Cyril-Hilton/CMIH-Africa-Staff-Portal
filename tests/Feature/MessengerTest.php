@@ -35,7 +35,7 @@ class MessengerTest extends TestCase
         $response->assertSee('hideSidebar()', false);
         $response->assertSee('aria-label="Toggle navigation menu"', false);
         $response->assertSee('aria-label="Hide navigation"', false);
-        $response->assertSee('x-show="! sidebarCollapsed || sidebarOpen"', false);
+        $response->assertSee('x-show="(sidebarDesktop && ! sidebarCollapsed) || sidebarOpen"', false);
     }
 
     public function test_user_can_view_conversation_they_have_access_to()

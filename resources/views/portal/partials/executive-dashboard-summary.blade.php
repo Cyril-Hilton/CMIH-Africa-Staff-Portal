@@ -1,12 +1,14 @@
 @if(auth()->user()->isCvoOrSuperAdmin())
 @php($executiveQueues=app(\App\Services\ExecutiveDashboardSummary::class)->build(auth()->user()))
+@php($activeExecutiveQueues=collect($executiveQueues)->filter(fn($queue)=>$queue['count']>0))
 <section class="glass-panel rounded-2xl p-5 sm:p-6 mb-6" aria-label="Executive Review Queues">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div><h2 class="text-xl font-semibold">Executive Reviews</h2><p class="text-sm text-brand-ash mt-1">Your approval queues, alongside every department’s weekly results below.</p></div>
         <a href="#staff-weekly-performance" class="text-sm underline underline-offset-4">View Department Performance</a>
     </div>
+    @if($activeExecutiveQueues->isEmpty())<p class="text-sm text-brand-ash">Your review queues are clear. Department reports and management tools remain available below.</p>@endif
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        @foreach($executiveQueues as $queue)
+        @foreach($activeExecutiveQueues as $queue)
         <a href="{{ route($queue['route']) }}" class="block rounded-xl border border-brand-white/10 p-4 hover:bg-brand-white/5 transition">
             <span class="text-sm font-semibold">{{ $queue['label'] }}</span>
             <strong class="block text-3xl mt-2">{{ number_format($queue['count']) }}</strong>
@@ -16,6 +18,7 @@
     </div>
     <details class="mt-5"><summary class="cursor-pointer text-sm font-semibold">Management Tools</summary>
         <nav class="flex flex-wrap gap-3 mt-3 text-sm" aria-label="Executive Management Tools">
+            @foreach($executiveQueues as $queue)<a class="rounded-lg border border-brand-white/10 px-3 py-2" href="{{ route($queue['route']) }}">{{ $queue['label'] }} · {{ $queue['count'] }}</a>@endforeach
             @foreach(['portal.people'=>'People Management','portal.hr'=>'HR & Admin','portal.finance'=>'Finance','portal.appraisals.index'=>'Appraisals','portal.leaves'=>'Leave Management'] as $route=>$label)
             <a class="rounded-lg border border-brand-white/10 px-3 py-2 hover:bg-brand-white/5" href="{{ route($route) }}">{{ $label }}</a>
             @endforeach

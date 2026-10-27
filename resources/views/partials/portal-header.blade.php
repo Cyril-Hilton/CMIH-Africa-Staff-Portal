@@ -68,7 +68,7 @@
                 Profile
             </a>
             
-            @if (!$isHeaderAutoClocked)
+            @if (!$isHeaderAutoClocked && !$headerUser->isCvoOrSuperAdmin() && !request()->routeIs('dashboard','portal.dashboard.live'))
                 @if (!$todayAtt)
                     @if($headerHasTodayTask)
                         <form method="POST" action="{{ route('portal.attendance.clock-in') }}" data-clock-in-form>

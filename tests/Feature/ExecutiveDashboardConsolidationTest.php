@@ -33,7 +33,7 @@ class ExecutiveDashboardConsolidationTest extends TestCase
             $executive=User::factory()->create($role+['status'=>'active']);
             foreach (config('performance.departments') as $department=>$label) {
                 $this->actingAs($executive)->get(route('dashboard',['weekly_department'=>$department]))
-                    ->assertOk()->assertSee($label)->assertSee('Weekly Departmental Performance');
+                    ->assertOk()->assertSee($label)->assertSee('Weekly Department Reports');
             }
         }
     }

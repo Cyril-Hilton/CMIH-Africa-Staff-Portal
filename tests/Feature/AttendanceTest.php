@@ -183,7 +183,7 @@ class AttendanceTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_and_header_offer_clock_in_after_today_task_exists(): void
+    public function test_dashboard_offers_one_clock_in_action_after_today_task_exists(): void
     {
         $user = User::factory()->create([
             'status' => 'active',
@@ -212,9 +212,9 @@ class AttendanceTest extends TestCase
         preg_match_all('/<form[^>]+action="' . preg_quote(route('portal.attendance.clock-in'), '/') . '"[^>]+data-clock-in-form[^>]*>/', $html, $clockInForms);
         preg_match_all('/<button[^>]+type="submit"[^>]+data-clock-in-submit[^>]*>/', $html, $clockInButtons);
 
-        $this->assertCount(2, $clockInForms[0]);
-        $this->assertCount(2, $clockInButtons[0]);
-        $this->assertSame(2, substr_count($html, 'action="' . route('portal.attendance.clock-in') . '"'));
+        $this->assertCount(1, $clockInForms[0]);
+        $this->assertCount(1, $clockInButtons[0]);
+        $this->assertSame(1, substr_count($html, 'action="' . route('portal.attendance.clock-in') . '"'));
     }
 
     public function test_clock_in_lateness_after_nine_am(): void

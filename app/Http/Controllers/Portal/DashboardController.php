@@ -53,7 +53,9 @@ class DashboardController extends Controller
         })->whereDate('created_at', Carbon::today())->exists();
 
         // 1. Individual KPIs
-        $userTaskStats = TaskStatsService::forUser($user);
+        $insightFrom = now()->startOfMonth();
+        $insightTo = now();
+        $userTaskStats = TaskStatsService::forUser($user, $insightFrom, $insightTo);
         $myTaskCompletionRate = round($userTaskStats['completion_rate']);
         $myOpenDeliverables = $userTaskStats['pending'];
 
@@ -64,7 +66,7 @@ class DashboardController extends Controller
         );
         $myPunctualityScore = round($attendanceSummary['punctuality_score']);
 
-        $totalOvertimeMinutes = Attendance::where('user_id', $user->id)->sum('overtime_minutes');
+        $totalOvertimeMinutes = Attendance::where('user_id', $user->id)->whereBetween('clock_in_at', [$insightFrom, $insightTo])->sum('overtime_minutes');
         $myOvertimeHours = round($totalOvertimeMinutes / 60, 1);
 
         $staffPerformanceScore = app(\App\Services\StaffPerformanceScore::class)->user($user, Carbon::today()->startOfMonth(), Carbon::today()->endOfMonth());
@@ -78,19 +80,20 @@ class DashboardController extends Controller
         ];
 
         // 2. Collective KPIs
-        $globalTaskStats = TaskStatsService::global();
+        $globalTaskStats = TaskStatsService::global($insightFrom, $insightTo);
         $targetActivations = $globalTaskStats['total'];
         $reachedActivations = $globalTaskStats['completed'];
         $agencyWinRate = $globalTaskStats['completion_rate'];
         $criticalBottlenecks = Task::query()
             ->realWork()
+            ->whereBetween('created_at', [$insightFrom, $insightTo])
             ->whereRaw('LOWER(priority) = ?', ['high'])
             ->where(function (Builder $query) {
                 $query->whereIn('status', ['Delayed', 'At Risk', 'Overdue', 'Rejected', 'delayed', 'at_risk', 'overdue', 'rejected'])
                     ->orWhere(function (Builder $dueQuery) {
                         $dueQuery->pendingFinalSignOff()
                             ->whereNotNull('due_on')
-                            ->where('due_on', '<', now()->startOfDay());
+                            ->where('due_on', '<', now());
                     });
             })->count();
 
@@ -98,6 +101,8 @@ class DashboardController extends Controller
             'target_activations' => $targetActivations,
             'reached_activations' => $reachedActivations,
             'win_rate' => $agencyWinRate,
+            'eligible_total' => max(0, $globalTaskStats['total'] - $globalTaskStats['awaiting_creative_review']),
+            'awaiting_review' => $globalTaskStats['awaiting_creative_review'],
             'bottlenecks' => $criticalBottlenecks,
         ];
 
@@ -152,30 +157,10 @@ class DashboardController extends Controller
             }
         }
 
-        // 4. Charts
-        $departmentChartData = [];
-        foreach ($departments as $key => $label) {
-            $mappedDepts = $deptMapping[$key] ?? [$key];
-            $departmentTaskStats = TaskStatsService::forDepartments($mappedDepts);
-            $departmentChartData[] = [
-                'department' => $label,
-                'completed' => $departmentTaskStats['completed'],
-                'in_progress' => $departmentTaskStats['pending'],
-                'delayed' => $departmentTaskStats['overdue'],
-            ];
-        }
-
-        $weeklyTrends = [];
-        for ($i = 3; $i >= 0; $i--) {
-            $start = Carbon::now()->subWeeks($i)->startOfWeek();
-            $end = Carbon::now()->subWeeks($i)->endOfWeek();
-            $weeklyTrends[] = [
-                'week' => 'Week '.(4 - $i),
-                'completed' => Task::whereBetween('updated_at', [$start, $end])
-                    ->approvedForPerformance()
-                    ->count(),
-            ];
-        }
+        // Monthly task cohorts; review waiting is neutral and never stacked twice.
+        $insights = app(\App\Services\DashboardInsights::class);
+        $departmentChartData = $insights->departments($departments, $deptMapping, $insightFrom, $insightTo);
+        $weeklyTrends = $insights->completionTrend();
 
         // 5. Recent Items
         $recentTasks = Task::with(['assigner', 'assignee'])->where('assigned_to', $user->id)->realWork()->latest()->take(5)->get();
@@ -243,8 +228,8 @@ class DashboardController extends Controller
         $defaultWeeklyDepartment = $user->isCvoOrSuperAdmin()
             ? 'all'
             : $this->normalizeDepartment((string) $user->department);
-        if (! array_key_exists($defaultWeeklyDepartment, $departments)) {
-            $defaultWeeklyDepartment = $canViewAllWeeklyDepartments ? 'all' : array_key_first($departments);
+        if ($defaultWeeklyDepartment !== 'all' && ! array_key_exists($defaultWeeklyDepartment, $departments)) {
+            $defaultWeeklyDepartment = array_key_first($departments);
         }
 
         $weeklyDepartmentOptions = $canViewAllWeeklyDepartments
@@ -255,24 +240,25 @@ class DashboardController extends Controller
             $weeklyDepartmentFilter = $defaultWeeklyDepartment;
         }
 
-        // Respect explicit periods; otherwise make the latest saved departmental work visible.
-        if (((! $request->filled('weekly_from') && ! $request->filled('weekly_to')) || $request->query('weekly_auto') === '1')
-            && in_array($weeklyDepartmentFilter, ['brands_marketing', 'operations_projects', 'finance', 'hr_admin'], true)
-            && \Illuminate\Support\Facades\Schema::hasTable('weekly_consolidated_items')) {
-            $savedWeeks = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy')
-                ->whereIn('department', $this->departmentQueryValues([$weeklyDepartmentFilter]));
-            $current = WeeklyConsolidatedItem::query()->whereIn('department', $this->departmentQueryValues([$weeklyDepartmentFilter]))->whereDate('week_start', '<=', now()->endOfWeek()->toDateString())
-                ->whereDate('week_end', '>=', now()->startOfWeek()->toDateString())->exists();
-            if (\Illuminate\Support\Facades\Schema::hasTable('performance_registers')) {
-                $current = $current || \App\Models\PerformanceRegister::where('department', $weeklyDepartmentFilter)->whereDate('period_start', '<=', now()->endOfWeek()->toDateString())->whereDate('period_end', '>=', now()->startOfWeek()->toDateString())->exists();
-            }
-            $latest = (clone $savedWeeks)->whereDate('week_start', '<=', now()->toDateString())->orderByDesc('week_start')->first();
-            if (! $current && $latest && ((! $request->filled('weekly_from') && ! $request->filled('weekly_to')) || ($request->query('weekly_from') === $latest->week_start->toDateString() && $request->query('weekly_to') === $latest->week_end->toDateString()))) {
-                $request->query->set('weekly_from', $latest->week_start->toDateString());
-                $request->query->set('weekly_to', $latest->week_end->toDateString());
-                $request->query->set('weekly_auto', '1');
-                $request->attributes->set('showing_latest_saved_week', true);
-            }
+        // The current week is always explicit. Historical weeks are selected, never substituted.
+        $request->validate(['weekly_from'=>'nullable|date_format:Y-m-d', 'weekly_to'=>'nullable|date_format:Y-m-d']);
+        $request->query->set('weekly_from', $request->query('weekly_from') ?: ($request->filled('weekly_to') ? Carbon::parse($request->query('weekly_to'))->startOfWeek()->toDateString() : now()->startOfWeek()->toDateString()));
+        $request->query->set('weekly_to', $request->query('weekly_to') ?: Carbon::parse($request->query('weekly_from'))->endOfWeek()->toDateString());
+        $request->query->remove('weekly_auto');
+        $reportAsOf = Carbon::parse($request->query('weekly_to'))->endOfDay()->min(now());
+        $savedWeeks = WeeklyConsolidatedItem::query()
+            ->when($weeklyDepartmentFilter !== 'all', fn($q) => $q->whereIn('department', User::departmentAliases($weeklyDepartmentFilter)))
+            ->select('week_start')->distinct()->orderByDesc('week_start')->get()->pluck('week_start');
+
+        if(in_array($weeklyDepartmentFilter,['all','client_relations'],true) && \Illuminate\Support\Facades\Schema::hasTable('crm_weekly_progress')) {
+            $savedWeeks=$savedWeeks->merge(\App\Models\CrmWeeklyProgress::select('week_start')->distinct()->pluck('week_start'));
+        }
+        if(in_array($weeklyDepartmentFilter,['all','creatives'],true) && \Illuminate\Support\Facades\Schema::hasTable('creative_requests')) {
+            $creativeWeeks=\App\Models\CreativeRequest::visibleTo($user)->get(['received_at','planned_start','internal_eta','submitted_at','completed_at','source_recorded_at']);
+            $savedWeeks=$savedWeeks->merge($creativeWeeks->flatMap(fn($r)=>collect(['received_at','planned_start','internal_eta','submitted_at','completed_at','source_recorded_at'])->map(fn($field)=>$r->$field)->filter()));
+        }
+        if(\Illuminate\Support\Facades\Schema::hasTable('performance_registers')) {
+            $savedWeeks=$savedWeeks->merge(\App\Models\PerformanceRegister::whereNotNull('approved_at')->when($weeklyDepartmentFilter!=='all',fn($q)=>$q->where('department',$weeklyDepartmentFilter))->select('period_start')->distinct()->pluck('period_start'));
         }
 
         $searchWeekly = $request->query('search_weekly');
@@ -315,7 +301,7 @@ class DashboardController extends Controller
             }
             $weeklyFilteredBaseQuery = $this->applyWeeklyConsolidatedSearch($weeklyBaseQuery, $searchWeekly);
             $weeklyAccountability = app(\App\Services\WeeklyAccountabilityService::class)->summarize(
-                (clone $weeklyFilteredBaseQuery)->with(['leadStaff', 'actionOwner'])->get()
+                (clone $weeklyFilteredBaseQuery)->with(['leadStaff', 'actionOwner'])->get(), $reportAsOf
             );
 
             $weeklyConsolidatedItems = $this->applyWeeklyConsolidatedSort(
@@ -347,7 +333,7 @@ class DashboardController extends Controller
                 'pending'=>$latestWork->where('status','In Progress')->count(),
                 'planned'=>$latestWork->where('status','Planned')->count(),
                 'blocked'=>$latestWork->whereIn('status',['Blocked','Deferred'])->count(),
-                'overdue'=>$latestWork->filter(fn($row)=>$row->isOverdue())->count(),
+                'overdue'=>$latestWork->filter(fn($row)=>$row->isOverdue($reportAsOf))->count(),
             ];
         } else {
             $weeklyConsolidatedItems = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 8);
@@ -411,14 +397,6 @@ class DashboardController extends Controller
             : collect();
 
         $sharedWeeklyPerformance = app(\App\Services\SharedWeeklyPerformance::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
-        foreach ($sharedWeeklyPerformance as $sharedDepartmentKey => $sharedDepartment) {
-            if ($weeklyDepartmentFilter !== 'all' && $weeklyDepartmentFilter !== $sharedDepartmentKey) {
-                continue;
-            }
-            $weeklyConsolidatedMetrics['completed'] += $sharedDepartment['summary']['verified'];
-            $weeklyConsolidatedMetrics['pending'] += $sharedDepartment['summary']['total'] - $sharedDepartment['summary']['verified'];
-            $weeklyConsolidatedMetrics['overdue'] += $sharedDepartment['summary']['overdue'];
-        }
         $weeklyDepartmentTables = app(\App\Services\WeeklyDepartmentTables::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
 
         return view('portal.dashboard', compact(
@@ -434,7 +412,7 @@ class DashboardController extends Controller
             'weeklyDepartmentFilter', 'megaSort', 'megaSortDirection',
             'weeklySort', 'weeklySortDirection', 'weeklyDepartmentHasBreakdown',
             'canManageActiveWeeklyDepartment', 'isAllWeeklyDepartments',
-            'actionPoints', 'weeklyAccountability', 'publicCrmProgress', 'staffPerformanceScore', 'weeklyDepartmentTables', 'sharedWeeklyPerformance'
+            'insightFrom', 'insightTo', 'reportAsOf', 'savedWeeks', 'actionPoints', 'weeklyAccountability', 'publicCrmProgress', 'staffPerformanceScore', 'weeklyDepartmentTables', 'sharedWeeklyPerformance'
         ));
     }
 

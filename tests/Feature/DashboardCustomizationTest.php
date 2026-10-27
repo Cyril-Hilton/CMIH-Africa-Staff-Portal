@@ -529,7 +529,7 @@ class DashboardCustomizationTest extends TestCase
         ]);
 
         $response = $this->actingAs($manager)->get(route('dashboard', [
-            'weekly_department' => 'brands_marketing',
+            'weekly_department' => 'brands_marketing', 'weekly_from'=>'2026-07-20', 'weekly_to'=>'2026-07-26',
         ]));
 
         $response->assertOk();
@@ -560,7 +560,7 @@ class DashboardCustomizationTest extends TestCase
 
         $creativeResponse->assertOk();
         $creativeResponse->assertViewHas('weeklyDepartmentFilter', 'creatives');
-        $creativeResponse->assertDontSee('+ Add Weekly Row');
+        $creativeResponse->assertDontSee('+ Add Activity');
     }
 
     public function test_cvo_weekly_consolidated_defaults_to_all_departments_latest_activity(): void
@@ -612,13 +612,13 @@ class DashboardCustomizationTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('weeklyDepartmentFilter', 'all');
         $response->assertSee('All Departments');
-        $response->assertSee('Brands Latest Row');
+        $response->assertSee('Open weekly reports & activities',false);
+        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'brands_marketing','weekly_from'=>'2026-07-20','weekly_to'=>'2026-07-26']))->assertOk()->assertSee('Brands Latest Row');
         $response->assertSee('Finance');
-        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance']))->assertOk()->assertSee('Finance Earlier Row');
+        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance','weekly_from'=>'2026-07-13','weekly_to'=>'2026-07-19']))->assertOk()->assertSee('Finance Earlier Row');
         $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) use ($brandsRow) {
             return $paginator instanceof LengthAwarePaginator
-                && $paginator->total() === 2
-                && $paginator->first()?->id === $brandsRow->id;
+                && $paginator->total() === 0;
         });
     }
 
@@ -724,7 +724,7 @@ class DashboardCustomizationTest extends TestCase
 
         $managerDashboard = $this->actingAs($manager)->get(route('dashboard'));
         $managerDashboard->assertOk();
-        $managerDashboard->assertSee('Weekly Consolidated Table');
+        $managerDashboard->assertSee('Weekly Department Reports');
         $managerDashboard->assertSee('Open Market Activations');
         $managerDashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
 
@@ -732,10 +732,10 @@ class DashboardCustomizationTest extends TestCase
             'weekly_department' => 'operations_projects',
         ]));
         $staffDashboard->assertOk();
-        $staffDashboard->assertSee('Weekly Consolidated Table');
+        $staffDashboard->assertSee('Weekly Department Reports');
         $staffDashboard->assertSee('Open Market Activations');
         $staffDashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
-        $staffDashboard->assertDontSee('+ Add Weekly Row');
+        $staffDashboard->assertDontSee('+ Add Activity');
     }
 
     public function test_regular_staff_can_see_shared_dashboard_tables_rankings_and_metrics(): void
@@ -774,18 +774,18 @@ class DashboardCustomizationTest extends TestCase
         ]));
 
         $dashboard->assertOk();
-        $dashboard->assertSee('My Individual KPIs');
-        $dashboard->assertSee('My Completion Rate');
-        $dashboard->assertSee('Punctuality Score');
+        $dashboard->assertSee('My Performance');
+        $dashboard->assertSee('Verified Task Completion');
+        $dashboard->assertSee('System Attendance');
         $dashboard->assertSee('Collective Agency Dashboard');
         $dashboard->assertSee('Employee Award Standings');
         $dashboard->assertSee('Department Award Standings');
         $dashboard->assertSee('The Mega Table');
         $dashboard->assertSee('Shared Finance Mega Task');
-        $dashboard->assertSee('Weekly Consolidated Table');
+        $dashboard->assertSee('Weekly Department Reports');
         $dashboard->assertSee('Finance Weekly Visibility');
         $dashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
-        $dashboard->assertDontSee('+ Add Weekly Row');
+        $dashboard->assertDontSee('+ Add Activity');
     }
 
     public function test_cvo_can_see_mega_table_and_manage_weekly_consolidated_across_departments(): void
@@ -837,9 +837,9 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertOk();
         $dashboard->assertSee('The Mega Table');
         $dashboard->assertSee('CVO Visible Mega Task');
-        $dashboard->assertSee('Weekly Consolidated Table');
+        $dashboard->assertSee('Weekly Department Reports');
         $dashboard->assertSee('CVO Weekly Campaign');
-        $dashboard->assertSee('+ Add Weekly Row');
+        $dashboard->assertSee('+ Add Activity');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $weeklyItem), false);
 

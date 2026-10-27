@@ -73,7 +73,7 @@ class VendorPrintingRequestTest extends TestCase
         $manager = $this->manager();
         $this->actingAs($manager)->post(route('portal.printing-requests.store'), $this->payload())->assertSessionHasNoErrors();
         $record = VendorPrintingRequest::firstOrFail();
-        foreach ([['operations_projects', 'staff'], ['finance', 'manager'], ['hr_admin', 'manager']] as [$department,$role]) {
+        foreach ([['finance', 'manager'], ['hr_admin', 'manager']] as [$department,$role]) {
             $outsider = User::factory()->create(['department' => $department, 'access_role' => $role, 'status' => 'active']);
             $this->actingAs($outsider);
             foreach (['index', 'create'] as $route) {
@@ -85,6 +85,40 @@ class VendorPrintingRequestTest extends TestCase
             $this->post(route('portal.printing-requests.store'), $this->payload())->assertForbidden();
             $this->put(route('portal.printing-requests.update', $record), $this->payload() + ['revision' => 1])->assertForbidden();
         }
+    }
+
+    public function test_operations_staff_submit_and_hod_approve_before_download(): void
+    {
+        $staff=User::factory()->create(['department'=>'operations_projects','access_role'=>'staff','status'=>'active']);$manager=$this->manager();
+        $this->actingAs($staff)->get(route('portal.printing-requests.index'))->assertOk()->assertSee('Vendor Printing Requests');
+        $this->get(route('portal.printing-requests.create'))->assertOk()->assertSee('Submit for HOD Review')->assertDontSee('Save &amp; download PDF',false);
+        $payload=$this->payload();$payload['vendor']['approval_status']='Approved';$payload['vendor']['approved_by']='Invented reviewer';
+        $this->post(route('portal.printing-requests.store'),$payload+['review_status'=>'approved','intent'=>'submit'])->assertSessionHasNoErrors();
+        $record=VendorPrintingRequest::firstOrFail();$this->assertSame('pending',$record->review_status);$this->assertSame('Pending',$record->vendor['approval_status']);$this->assertSame($staff->name,$record->information['requested_by']);
+        foreach(['preview','download'] as $action)$this->get(route('portal.printing-requests.'.$action,$record))->assertForbidden();
+        $this->post(route('portal.printing-requests.review',$record),['revision'=>1,'decision'=>'approve','review_note'=>'Self approval attempt'])->assertForbidden();
+        $this->actingAs($manager)->get(route('portal.printing-requests.edit',$record))->assertOk()->assertSee('HOD Review');
+        $this->post(route('portal.printing-requests.review',$record),['revision'=>1,'decision'=>'approve','review_note'=>'Dimensions and materials checked'])->assertSessionHasNoErrors();
+        $this->assertSame('approved',$record->fresh()->review_status);$this->assertSame($manager->id,(int)$record->fresh()->reviewed_by);
+        $this->actingAs($staff)->get(route('portal.printing-requests.download',$record))->assertOk()->assertHeader('Content-Type','application/pdf');
+        $this->put(route('portal.printing-requests.update',$record),$this->payload()+['revision'=>1,'intent'=>'submit'])->assertSessionHasNoErrors();
+        $this->assertSame('pending',$record->fresh()->review_status);$this->get(route('portal.printing-requests.download',$record))->assertForbidden();
+        $this->actingAs($manager)->post(route('portal.printing-requests.review',$record),['revision'=>1,'decision'=>'approve','review_note'=>'Old screen approval'])->assertStatus(409);
+        $this->post(route('portal.printing-requests.review',$record),['revision'=>2,'decision'=>'return','review_note'=>'Please confirm the revised quantity'])->assertSessionHasNoErrors();
+        $this->assertSame('needs_changes',$record->fresh()->review_status);
+        $this->actingAs($staff)->get(route('portal.printing-requests.edit',$record))->assertOk()->assertSee('Please confirm the revised quantity');
+        $this->assertDatabaseHas('performance_events',['entity_type'=>'printing_request','entity_id'=>$record->id,'action'=>'approve']);
+    }
+
+    public function test_staff_cannot_open_edit_preview_or_download_another_staff_request():void
+    {
+        $owner=User::factory()->create(['department'=>'operations_projects','access_role'=>'staff','status'=>'active']);
+        $other=User::factory()->create(['department'=>'operations_projects','access_role'=>'staff','status'=>'active']);
+        $this->actingAs($owner)->post(route('portal.printing-requests.store'),$this->payload()+['intent'=>'draft'])->assertSessionHasNoErrors();$record=VendorPrintingRequest::firstOrFail();
+        $this->assertSame('draft',$record->review_status);
+        $this->actingAs($other)->get(route('portal.printing-requests.index'))->assertOk()->assertDontSee($record->reference);
+        foreach(['edit','preview','download'] as $action)$this->get(route('portal.printing-requests.'.$action,$record))->assertForbidden();
+        $this->put(route('portal.printing-requests.update',$record),$this->payload()+['revision'=>1])->assertForbidden();
     }
 
     public function test_quantities_dates_statuses_and_approval_names_are_validated_and_html_is_escaped(): void

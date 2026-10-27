@@ -33,7 +33,10 @@
         </div>
     @endif
 
+    @include('portal.partials.dashboard-ux-styles')
+    <div data-dashboard-today>
     @include('portal.partials.executive-dashboard-summary')
+    </div>
 
     <!-- Session Status and Errors -->
     @if (session('status'))
@@ -60,20 +63,20 @@
         $canClockOutNow = \Illuminate\Support\Carbon::now()->gte($clockOutAvailableAt);
     @endphp
 
-    @if (!$isDeveloperUser)
+    @if (!$isDeveloperUser && !$user->isCvoOrSuperAdmin() && !$user->isServiceAccount())
     <!-- Attendance Clock In/Out Widget -->
-    <div class="mb-8 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+    <div data-dashboard-today class="mb-8 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div class="space-y-1">
                 <h3 class="text-lg font-display text-brand-white uppercase tracking-wider flex items-center gap-2">
-                    Daily Work Gate
+                    Today’s Attendance
                 </h3>
                 <p class="text-sm text-brand-white/70">
                     @if(!$todayAttendance)
                         @if(!$hasTodayTask)
                             <span class="text-amber-400 font-semibold">You must add a task or project for today before you can clock in.</span>
                         @else
-                            You are not clocked in yet. Please set your daily objective to clock in.
+                            Your task is saved. Clock in to start your workday; the focus note is optional.
                         @endif
                     @elseif(!$todayAttendance->clock_out_at)
 
@@ -148,163 +151,618 @@
     </div>
     @endif
 
-    <!-- 1. Individual KPIs Block -->
-    <div class="mb-8">
-        <h3 class="text-lg font-display text-brand-white uppercase tracking-wider mb-4">My Individual KPIs</h3>
-        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            <div class="dashboard-metric-card rounded-2xl p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">My Completion Rate</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $individualStats['completion_rate'] }}%</p>
-                <div class="mt-2 h-1.5 w-full bg-brand-white/10 rounded-full overflow-hidden">
-                    <div class="h-full bg-emerald-500" style="width: {{ $individualStats['completion_rate'] }}%"></div>
-                </div>
-            </div>
-            <div class="dashboard-metric-card rounded-2xl p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Active Deliverables</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $individualStats['open_deliverables'] }}</p>
-                <p class="text-xs text-brand-ash mt-2">Pending final sign-off</p>
-            </div>
-            <div class="dashboard-metric-card rounded-2xl p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Punctuality Score</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $individualStats['punctuality_score'] }}%</p>
-                <div class="mt-2 h-1.5 w-full bg-brand-white/10 rounded-full overflow-hidden">
-                    <div class="h-full bg-sky-500" style="width: {{ $individualStats['punctuality_score'] }}%"></div>
-                </div>
-            </div>
-            <div class="dashboard-metric-card rounded-2xl p-5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Overtime Accumulated</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $individualStats['overtime_hours'] }} hrs</p>
-                <p class="text-xs text-brand-ash mt-2">Post 6:00 PM hours</p>
-            </div>
-        </div>
-    </div>
+    {{--  WEEKLY CONSOLIDATED TABLE  --}}
+    <style>
+        .weekly-rich-content {
+            max-width: 100%;
+            min-width: 0;
+            overflow-x: auto;
+            color: rgba(255,255,255,.78);
+            line-height: 1.65;
+            overflow-wrap: anywhere;
+        }
+        .weekly-rich-content :is(p, ul, ol, table, blockquote) { margin-bottom: .65rem; }
+        .weekly-rich-content :is(p, ul, ol, blockquote):last-child { margin-bottom: 0; }
+        .weekly-rich-content ul { list-style: disc; padding-left: 1rem; }
+        .weekly-rich-content ol { list-style: decimal; padding-left: 1rem; }
+        .weekly-rich-content :is(figure, .table) {
+            width: 100% !important;
+            max-width: 100%;
+            margin: .15rem 0 .65rem;
+            overflow-x: auto;
+        }
+        .weekly-rich-content table {
+            width: 100% !important;
+            min-width: 0;
+            max-width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            margin-top: .35rem;
+            margin-bottom: .35rem;
+        }
+        .weekly-rich-content th,
+        .weekly-rich-content td {
+            width: auto !important;
+            height: auto !important;
+            border: 1px solid rgba(255,255,255,.16) !important;
+            padding: .55rem .7rem;
+            vertical-align: top;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+        .weekly-rich-content th { background: rgba(255,255,255,.08); color: #fff; }
+        .weekly-consolidated-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .weekly-consolidated-scroll::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+            display: none;
+        }
+        .weekly-consolidated-table {
+            width: 100%;
+            min-width: max(100%, 56rem);
+            table-layout: auto;
+            border-collapse: separate;
+            border-spacing: clamp(.3rem, .55vw, .75rem) .65rem;
+        }
+        .weekly-consolidated-table th,
+        .weekly-consolidated-table td {
+            min-width: clamp(6.75rem, 9vw, 11rem);
+            max-width: min(24rem, 34vw);
+            padding: clamp(.7rem, .85vw, 1rem);
+            vertical-align: top;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+        .weekly-consolidated-table th {
+            letter-spacing: .18em;
+            line-height: 1.35;
+        }
+        .weekly-consolidated-table th:nth-child(1),
+        .weekly-consolidated-table td:nth-child(1) { min-width: 6.5rem; max-width: 8rem; }
+        .weekly-consolidated-table th:nth-child(2),
+        .weekly-consolidated-table td:nth-child(2) { min-width: 9rem; max-width: 13rem; }
+        .weekly-consolidated-table th:nth-child(3),
+        .weekly-consolidated-table td:nth-child(3) { min-width: 10rem; max-width: 16rem; }
+        .weekly-consolidated-table th:nth-child(4),
+        .weekly-consolidated-table td:nth-child(4) { min-width: 12rem; max-width: 24rem; }
+        .weekly-consolidated-table th:nth-child(5),
+        .weekly-consolidated-table td:nth-child(5),
+        .weekly-consolidated-table th:nth-child(6),
+        .weekly-consolidated-table td:nth-child(6),
+        .weekly-consolidated-table th:nth-child(7),
+        .weekly-consolidated-table td:nth-child(7) { min-width: 12rem; max-width: 24rem; }
+        .weekly-consolidated-table th:nth-last-child(2),
+        .weekly-consolidated-table td:nth-last-child(2) { min-width: 7rem; max-width: 9rem; }
+        .weekly-consolidated-table th:last-child,
+        .weekly-consolidated-table td:last-child { min-width: 11rem; max-width: 13rem; }
+        .weekly-consolidated-table--brands {
+            min-width: 122rem;
+            table-layout: fixed;
+            border-spacing: .65rem .75rem;
+        }
+        .weekly-consolidated-table--brands th,
+        .weekly-consolidated-table--brands td {
+            max-width: none;
+        }
+        .weekly-consolidated-table--brands th:nth-child(1),
+        .weekly-consolidated-table--brands td:nth-child(1) { width: 8.5rem; min-width: 8.5rem; max-width: 8.5rem; }
+        .weekly-consolidated-table--brands th:nth-child(2),
+        .weekly-consolidated-table--brands td:nth-child(2) { width: 16rem; min-width: 16rem; max-width: 16rem; }
+        .weekly-consolidated-table--brands th:nth-child(3),
+        .weekly-consolidated-table--brands td:nth-child(3) { width: 35rem; min-width: 35rem; max-width: 35rem; }
+        .weekly-consolidated-table--brands th:nth-child(4),
+        .weekly-consolidated-table--brands td:nth-child(4) { width: 18rem; min-width: 18rem; max-width: 18rem; }
+        .weekly-consolidated-table--brands th:nth-child(5),
+        .weekly-consolidated-table--brands td:nth-child(5) { width: 20rem; min-width: 20rem; max-width: 20rem; }
+        .weekly-consolidated-table--brands th:nth-child(6),
+        .weekly-consolidated-table--brands td:nth-child(6) { width: 10rem; min-width: 10rem; max-width: 10rem; }
+        .weekly-consolidated-table--brands th:nth-child(7),
+        .weekly-consolidated-table--brands td:nth-child(7) { width: 10rem; min-width: 10rem; max-width: 10rem; }
+        .weekly-consolidated-table--brands th:nth-child(8),
+        .weekly-consolidated-table--brands td:nth-child(8) { width: 11rem; min-width: 11rem; max-width: 11rem; }
+        .weekly-consolidated-table--brands th:nth-child(9),
+        .weekly-consolidated-table--brands td:nth-child(9) { width: 12rem; min-width: 12rem; max-width: 12rem; }
+        .weekly-consolidated-table--brands .weekly-rich-content {
+            font-size: .9rem;
+            line-height: 1.55;
+        }
+        .weekly-consolidated-table--brands .weekly-rich-content table {
+            font-size: .82rem;
+            line-height: 1.45;
+        }
+        .weekly-consolidated-table--brands .weekly-rich-content td {
+            padding: .65rem .75rem;
+        }
+        .weekly-consolidated-actions {
+            display: flex;
+            flex-direction: column;
+            gap: .65rem;
+            min-width: 11rem;
+        }
+        .weekly-consolidated-action-button {
+            display: inline-flex;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            border-radius: .85rem;
+            padding: .7rem .85rem;
+            font-weight: 800;
+            color: #fff;
+            text-align: center;
+            transition: border-color .18s ease, background .18s ease, color .18s ease;
+        }
+        .weekly-consolidated-action-button--danger {
+            color: #f87171;
+        }
+        .weekly-consolidated-edit-panel {
+            z-index: 30;
+            width: min(92vw, 68rem);
+        }
+        .weekly-consolidated-table details {
+            position: relative;
+        }
+        .weekly-consolidated-table details > summary {
+            list-style: none;
+        }
+        .weekly-consolidated-table details > summary::-webkit-details-marker {
+            display: none;
+        }
+        @media (max-width: 640px) {
+            .weekly-consolidated-table {
+                min-width: 48rem;
+                border-spacing: .4rem .55rem;
+            }
+            .weekly-consolidated-table--brands {
+                min-width: 122rem;
+                border-spacing: .5rem .65rem;
+            }
+            .weekly-consolidated-table th,
+            .weekly-consolidated-table td {
+                min-width: 7.5rem;
+                max-width: 18rem;
+                padding: .7rem;
+            }
+        }
+    </style>
+    @php
+        $isAllWeeklyDepartments = $isAllWeeklyDepartments ?? false;
+        $isBrandsWeeklyDepartment = ! $isAllWeeklyDepartments && $weeklyDepartmentFilter === 'brands_marketing';
+        $isCreativeWeeklyDepartment = !$isAllWeeklyDepartments && $weeklyDepartmentFilter === 'creatives';
+        $weeklyBaseColumnCount = $isAllWeeklyDepartments
+            ? 8 + ($weeklyDepartmentHasBreakdown ? 3 : 0)
+            : ($isBrandsWeeklyDepartment ? 9 : (5 + ($weeklyDepartmentHasBreakdown ? 3 : 0)));
+        $weeklyTableColumnCount = $weeklyBaseColumnCount + ($isCreativeWeeklyDepartment ? 2 : 0) + $weeklyConsolidatedDisplayColumns->count() + ($canManageActiveWeeklyDepartment ? 1 : 0);
+        $weeklyStatusClasses = [
+            'Planned' => 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+            'In Progress' => 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+            'Done' => 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+            'Blocked' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
+            'Deferred' => 'border-brand-white/20 bg-brand-white/10 text-brand-white/70',
+        ];
+        $weeklyPriorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
+    @endphp
 
-    <!-- 2. Collective KPIs & Department Badges -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between gap-4 mb-4">
-            <h3 class="text-lg font-display text-brand-white uppercase tracking-wider">Collective Agency Dashboard</h3>
-            @if($winningDept)
-                <div class="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 uppercase tracking-widest font-semibold animate-pulse">
-                    <span>Top Performer:</span>
-                    <span>{{ $departments[$winningDept] ?? $winningDept }}</span>
+    <div x-data="{ department: @js($weeklyDepartmentFilter) }" id="weekly-consolidated-live-region"
+         data-silent-region="weekly-consolidated-table"
+         data-refresh-url="{{ route('portal.dashboard.live', array_merge(request()->query(), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
+         data-current-weekly-department="{{ $weeklyDepartmentFilter }}"
+         class="mt-5 glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+                <p class="text-sm text-brand-ash">Department reporting</p>
+                <h3 class="mt-1 text-2xl font-semibold text-brand-white">Weekly Department Reports</h3>
+                <p class="mt-2 text-sm text-brand-ash">Review current and historical reports, prepare weekly drafts and track delivery.</p>
+            </div>
+            <div class="dashboard-report-actions">
+                <button type="button" data-dashboard-present aria-pressed="false" class="rounded-lg border border-brand-white/20 px-4 py-2 text-sm">Presentation Mode</button>
+            @if($canManageActiveWeeklyDepartment)
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" data-report-settings onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
+                            class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
+                         More Options
+                    </button>
+                    @if(in_array($weeklyDepartmentFilter,['brands_marketing','operations_projects','finance','hr_admin']))
+                    <button type="button" data-copy-week data-department="{{ $weeklyDepartmentFilter }}" data-source-week="{{ \Carbon\Carbon::parse(request('weekly_from'))->startOfWeek()->lt(now()->startOfWeek())?\Carbon\Carbon::parse(request('weekly_from'))->startOfWeek()->toDateString():now()->subWeek()->startOfWeek()->toDateString() }}" data-target-week="{{ now()->startOfWeek()->toDateString() }}" data-preview-url="{{ route('portal.dashboard.weekly-consolidated.copy-week.preview') }}" data-store-url="{{ route('portal.dashboard.weekly-consolidated.copy-week.store') }}" class="rounded-lg border border-sky-300/50 px-4 py-2 text-sm font-semibold">Copy Entire Week</button>
+                    @endif
+                    <button type="button" data-weekly-add onclick="document.getElementById('weekly-consolidated-form').classList.toggle('hidden')"
+                            class="rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white hover:bg-brand-red-dark">
+                        + Add Activity
+                    </button>
                 </div>
             @endif
-        </div>
-        <div class="grid gap-6 md:grid-cols-3">
-            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Agency Work Completed</p>
-                <div class="mt-3 flex items-baseline justify-between">
-                    <p class="text-3xl font-semibold text-brand-white">{{ $collectiveStats['reached_activations'] }}</p>
-                    <p class="text-xs text-brand-ash">Total cycle tasks: {{ $collectiveStats['target_activations'] }}</p>
-                </div>
-                <div class="mt-2 h-1.5 w-full bg-brand-white/10 rounded-full overflow-hidden">
-                    @php
-                        $targetPercent = $collectiveStats['target_activations'] > 0 ? min(round(($collectiveStats['reached_activations'] / $collectiveStats['target_activations']) * 100), 100) : 0;
-                    @endphp
-                    <div class="h-full bg-brand-red" style="width: {{ $targetPercent }}%"></div>
-                </div>
-            </div>
-            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Project Win-Rate</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $collectiveStats['win_rate'] }}%</p>
-                <p class="text-xs text-brand-ash mt-2">Approved completed / total cycle tasks</p>
-            </div>
-            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
-                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Critical Bottlenecks</p>
-                <p class="mt-3 text-3xl font-semibold text-brand-red">{{ $collectiveStats['bottlenecks'] }}</p>
-                <p class="text-xs text-brand-ash mt-2">High priority overdue / risk items</p>
             </div>
         </div>
-    </div>
+        @include('portal.partials.weekly-department-navigation')
+        @include('portal.partials.weekly-report-toolbar')
 
-    <!-- 3. Analytical Charts Block -->
-    <div class="grid gap-6 md:grid-cols-2 mb-8">
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Task Performance Velocity</h4>
-            <div class="h-64">
-                <canvas id="velocityChart"></canvas>
+        <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <p class="text-[10px] uppercase tracking-[0.22em] text-emerald-200/70">Reported Completed</p>
+                <p class="mt-2 text-2xl font-semibold text-emerald-200">{{ $weeklyConsolidatedMetrics['completed'] }}</p>
+            </div>
+            <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                <p class="text-[10px] uppercase tracking-[0.22em] text-amber-200/70">In Progress</p>
+                <p class="mt-2 text-2xl font-semibold text-amber-200">{{ $weeklyConsolidatedMetrics['pending'] }}</p>
+            </div>
+            <div class="rounded-2xl border border-sky-300/20 bg-sky-300/5 p-4"><p class="text-[10px] uppercase tracking-[0.22em] text-sky-200">Planned</p><p class="mt-2 text-2xl font-semibold text-sky-100">{{ $weeklyConsolidatedMetrics['planned']??0 }}</p></div>
+            <div class="rounded-2xl border border-brand-red/20 bg-brand-red/10 p-4">
+                <p class="text-[10px] uppercase tracking-[0.22em] text-brand-red/80">Blocked / Deferred</p>
+                <p class="mt-2 text-2xl font-semibold text-brand-red">{{ $weeklyConsolidatedMetrics['blocked'] }}</p>
+            </div>
+            <div class="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4">
+                <p class="text-[10px] uppercase tracking-[0.22em] text-orange-200/70">Overdue · As of Selected Period</p>
+                <p class="mt-2 text-2xl font-semibold text-orange-200">{{ $weeklyConsolidatedMetrics['overdue'] }}</p>
             </div>
         </div>
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Weekly Completion Trends</h4>
-            <div class="h-64">
-                <canvas id="trendsChart"></canvas>
-            </div>
-        </div>
-    </div>
 
-    <!--  Performance Awards Leaderboard Section -->
-    <div id="mega-table-live-region"
-         data-refresh-url="{{ route('portal.dashboard.live', request()->query()) }}"
-         class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
-        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Recognitions & Standing</p>
-                <h3 class="text-xl font-display text-brand-white uppercase"> CMIH Performance Leaderboard</h3>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
-                @if(in_array($user->access_role, ['super_admin','admin']) || in_array(strtolower(trim($user->department ?? '')), ['hr_admin','admin']))
-                    <button onclick="openAwardLockModal()"
-                            class="rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold transition-all">
-                         Lock & Issue Awards
-                    </button>
+        <details class="mt-4 dashboard-report-settings"><summary class="cursor-pointer text-sm font-semibold">Delivery Breakdown & Reporting Gaps</summary>
+        @include('portal.partials.weekly-accountability-summary')
+        </details>
+
+        <details class="dashboard-report-settings mt-4"><summary class="cursor-pointer text-sm">Advanced Search & Date Range</summary>
+        <form method="GET" action="{{ route('dashboard', [], false) }}" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" data-no-ajax>
+            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly', 'weekly_from', 'weekly_to']) as $queryKey => $queryValue)
+                @if(is_scalar($queryValue))
+                    <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
                 @endif
-                <select id="leaderboard-period" onchange="fetchLeaderboard(this.value)"
-                        class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-xs text-brand-white">
-                    @php
-                        $monthsToShow = [];
-                        for ($i = 0; $i < 6; $i++) {
-                            $m = now()->subMonths($i);
-                            $monthsToShow[$m->format('Y-m')] = $m->format('F Y');
-                        }
-                        $yearToShow = now()->format('Y');
-                    @endphp
-                    <optgroup label="Monthly Awards">
-                        @foreach($monthsToShow as $val => $lbl)
-                            <option value="{{ $val }}" {{ $val === $currentMonth ? 'selected' : '' }}>{{ $lbl }}</option>
+            @endforeach
+            <input type="hidden" name="weekly_department" value="{{ $weeklyDepartmentFilter }}">
+            <label class="min-w-0 flex-1">
+                <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest text-brand-ash">Search weekly rows</span>
+                <input type="search" name="search_weekly" value="{{ request('search_weekly') }}" placeholder="Search client, campaign, staff, deliverables or status..."
+                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2.5 text-xs text-brand-white placeholder-brand-white/30">
+            </label>
+            @foreach(['weekly_from' => 'Week starting from', 'weekly_to' => 'Week starting through'] as $key => $label)
+                <label class="text-xs text-brand-ash">{{ $label }}<input type="date" name="{{ $key }}" value="{{ request($key) }}" class="mt-1 block w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-brand-white"></label>
+            @endforeach
+            <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Apply filters</button>
+            @if(request()->filled('search_weekly'))
+                <a href="{{ route('dashboard', array_merge(request()->except(['weekly_page', 'search_weekly']), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
+                   class="rounded-xl border border-brand-white/10 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-brand-white/70 hover:bg-brand-white/10">
+                    Clear
+                </a>
+            @endif
+        </form>        </details>
+
+        @if($canManageActiveWeeklyDepartment)
+            <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
+                    <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.store') }}" class="grid flex-1 gap-3 md:grid-cols-[1fr_180px_auto]">
+                        @csrf
+                        <input type="hidden" name="department" value="{{ $weeklyDepartmentFilter }}">
+                        <input type="text" name="label" required maxlength="100" placeholder="New column label, e.g. Risks / Client Feedback"
+                               class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                        <select name="type" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                            <option value="rich_text">Rich Text / Table</option>
+                            <option value="text">Short Text</option>
+                            <option value="number">Number</option>
+                            <option value="date">Date</option>
+                            <option value="status">Status</option>
+                        </select>
+                        <button type="submit" class="rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white">Add Column</button>
+                    </form>
+                </div>
+                <div class="mt-4 grid gap-2 lg:grid-cols-2">
+                    @forelse($myWeeklyConsolidatedColumns as $column)
+                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
+                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.update', $column) }}" class="grid gap-2 md:grid-cols-[1fr_130px_90px_auto]">
+                                @csrf
+                                @method('PATCH')
+                                <input type="text" name="label" value="{{ $column->label }}" required class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                <select name="type" class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                    @foreach(['rich_text' => 'Rich Text', 'text' => 'Text', 'number' => 'Number', 'date' => 'Date', 'status' => 'Status'] as $type => $label)
+                                        <option value="{{ $type }}" @selected($column->type === $type)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="number" name="order" value="{{ $column->order }}" min="0" max="999" class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                <button type="submit" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-emerald-300">Save</button>
+                            </form>
+                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.destroy', $column) }}" data-confirm="Remove this weekly column from your entries?" class="mt-2">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="rounded-lg border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-brand-red">Remove Column</button>
+                            </form>
+                        </div>
+                    @empty
+                        <p class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] p-4 text-xs text-brand-white/45">No personal weekly columns yet.</p>
+                    @endforelse
+                </div>
+            </div>
+
+            <form id="weekly-consolidated-form" method="POST" action="{{ route('portal.dashboard.weekly-consolidated.store') }}"
+                  class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
+                @csrf
+                <div class="grid gap-3 md:grid-cols-3">
+                    @if($isBrandsWeeklyDepartment)
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Custom Task ID</label>
+                            <input type="text" name="brands_task_id" value="{{ old('brands_task_id') }}" placeholder="e.g. BR-GNS-001 (Optional)" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                        </div>
+                    @endif
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Department</label>
+                        <input type="hidden" name="department" value="{{ $weeklyDepartmentFilter }}">
+                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-2 text-xs font-semibold text-brand-white">
+                            {{ $departments[$weeklyDepartmentFilter] ?? \App\Models\User::departmentLabel($weeklyDepartmentFilter) }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Week Start</label>
+                        <input type="date" name="week_start" value="{{ old('week_start', now()->startOfWeek()->toDateString()) }}" readonly required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}</label>
+                        <input type="date" name="week_end" value="{{ old('week_end', now()->endOfWeek()->toDateString()) }}" readonly class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                        @if($isCreativeWeeklyDepartment)<label class="mt-3 block text-xs text-brand-ash">Date brief was received<input type="date" name="brief_received_on" value="{{ old('brief_received_on') }}" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white"></label>@endif
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Task Name' : 'Client' }}</label>
+                        <input type="text" name="client_name" value="{{ old('client_name') }}" placeholder="Optional" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Project' : 'Campaign / Workstream' }}</label>
+                        <input type="text" name="campaign_name" value="{{ old('campaign_name') }}" placeholder="Optional" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Assigned To' : 'Lead Staff' }}</label>
+                        <select name="lead_staff_id" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                            <option value="">Select lead...</option>
+                            @foreach($allStaff as $staff)
+                                <option value="{{ $staff->id }}" @selected((int) old('lead_staff_id') === (int) $staff->id)>{{ $staff->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs">Project Start<input type="date" name="project_starts_on" value="{{ now()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label><label class="text-xs">Expected Project End<input type="date" name="project_ends_on" value="{{ now()->endOfWeek()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label></div>
+                <div class="mt-4 rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-[10px] uppercase tracking-widest text-brand-ash">Supporting Staff + Role</p>
+                        <button type="button" data-weekly-support-add="weekly-support-rows" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
+                    </div>
+                    <div id="weekly-support-rows" class="mt-3 space-y-2">
+                        <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
+                            <select name="supporting_staff_ids[]" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                                <option value="">Supporting staff...</option>
+                                @foreach($allStaff as $staff)
+                                    <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                            <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                @if($weeklyDepartmentHasBreakdown)
+                    <div class="mt-4 grid gap-3 xl:grid-cols-3">
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Target</label>
+                            <textarea name="target_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('target_breakdown') }}</textarea>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Achieved</label>
+                            <textarea name="achieved_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('achieved_breakdown') }}</textarea>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Gap To Go</label>
+                            <textarea name="gap_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('gap_breakdown') }}</textarea>
+                        </div>
+                    </div>
+                @endif
+
+                @if($myWeeklyConsolidatedColumns->isNotEmpty())
+                    <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                        @foreach($myWeeklyConsolidatedColumns as $column)
+                            <div>
+                                <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $column->label }}</label>
+                                <textarea name="custom_fields[{{ $column->column_key }}]" rows="4" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">{{ old('custom_fields.' . $column->column_key) }}</textarea>
+                            </div>
                         @endforeach
-                    </optgroup>
-                    <optgroup label="Yearly Awards">
-                        <option value="{{ $yearToShow }}" {{ $yearToShow === $currentYear ? 'selected' : '' }}>Year {{ $yearToShow }}</option>
-                    </optgroup>
+                    </div>
+                @endif
+
+                @include('portal.partials.weekly-accountability-fields', ['accountabilityItem' => null])
+                <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_220px]">
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Project Brief' : 'Deliverables / Weekly Summary' }}</label>
+                        <textarea name="deliverables" rows="6" required class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('deliverables') }}</textarea>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Status</label>
+                        <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                            @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
+                                <option value="{{ $status }}" @selected(old('status', 'Planned') === $status)>{{ $status }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="mt-3 w-full rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark">
+                            Save Weekly Row
+                        </button>
+                    </div>
+                </div>
+            </form>
+        @endif
+
+        <template id="weekly-support-row-template">
+            <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
+                <select name="supporting_staff_ids[]" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
+                    <option value="">Supporting staff...</option>
+                    @foreach($allStaff as $staff)
+                        <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                    @endforeach
                 </select>
+                <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
+                <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
             </div>
-        </div>
+        </template>
 
-        <div id="award-period-notice" class="hidden mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
-            <!-- Dynamic notice e.g. estimated standings -->
-        </div>
+        @include('portal.partials.shared-weekly-performance')
 
-        <div class="grid gap-6">
-            <!-- Cards columns -->
-            <div class="grid min-w-0 gap-6" id="leaderboard-container">
-                <!-- Employee Awards Card -->
-                <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 space-y-4">
-                    <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2">Employee Award Standings</h4>
-                    <div id="employee-award-cards" class="grid items-start gap-4 lg:grid-cols-3">
-                        <!-- Dynamic Employee Cards -->
+        {{-- MEETING ACTION POINTS CARD --}}
+        <div class="glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl"><x-ui-icon name="clipboard" /></span>
+                        <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
                     </div>
+                    <p class="mt-1 text-xs text-brand-ash">
+                        Track and update action items assigned during previous meetings. Editable by all team members.
+                    </p>
                 </div>
+                
+                {{-- Add Action Point Modal Trigger --}}
+                <details class="relative">
+                    <summary class="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all shadow-lg">
+                        + Add Action Point
+                    </summary>
+                    <div class="dashboard-meeting-popover absolute right-0 top-full mt-2 z-30 rounded-2xl border border-brand-white/10 bg-brand-black/95 p-5 shadow-2xl backdrop-blur-xl">
+                        <form method="POST" action="{{ route('portal.action-points.store') }}" class="space-y-4">
+                            @csrf
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Action Point *</label>
+                                <textarea name="action_point" rows="3" required placeholder="Type action required from meeting..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-brand-red"></textarea>
+                            </div>
 
-                <!-- Department Awards Card -->
-                <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 space-y-4">
-                    <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2">Department Award Standings</h4>
-                    <div id="department-award-cards" class="grid items-start gap-4 lg:grid-cols-3">
-                        <!-- Dynamic Department Cards -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Assignee</label>
+                                    <select name="assignee_id" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
+                                        <option value="">Select staff...</option>
+                                        @foreach($allStaff as $staff)
+                                            <option value="{{ $staff->id }}">{{ $staff->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Status *</label>
+                                    <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="done">Done</option>
+                                        <option value="not_done">Not Done</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Comments / Notes</label>
+                                <input type="text" name="comments" placeholder="Progress notes or comments..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red">
+                            </div>
+
+                            <button type="submit" class="w-full rounded-xl bg-brand-red py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all">
+                                Save Action Point
+                            </button>
+                        </form>
                     </div>
-                </div>
+                </details>
             </div>
 
-            <!-- Charts Column -->
-            <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 flex flex-col justify-between">
-                <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2 mb-4">Performance Scores</h4>
-                <div class="h-72 md:h-80 relative flex-1 min-w-0">
-                    <canvas id="leaderboardChart"></canvas>
-                </div>
+            {{-- Action Points Table --}}
+            <div class="overflow-x-auto rounded-xl border border-brand-white/10">
+                <table class="w-full text-left text-sm text-brand-white/80">
+                    <thead class="bg-brand-black/60 text-xs uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
+                        <tr>
+                            <th class="px-4 py-3.5 min-w-[280px]">ACTION POINT</th>
+                            <th class="px-4 py-3.5 min-w-[180px]">ASSIGNEE</th>
+                            <th class="px-4 py-3.5 min-w-[140px]">STATUS</th>
+                            <th class="px-4 py-3.5 min-w-[260px]">COMMENTS</th>
+                            <th class="px-4 py-3.5 min-w-[120px] text-right">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-white/5">
+                        @forelse($actionPoints as $point)
+                            <tr class="hover:bg-brand-white/[0.02] transition-colors">
+                                <td class="px-4 py-4 align-top">
+                                    <p class="font-medium text-brand-white text-xs whitespace-pre-wrap">{{ $point->action_point }}</p>
+                                    <span class="mt-1 block text-[10px] text-brand-white/30">Added by {{ $point->creator?->name ?? 'Staff' }} on {{ $point->created_at->format('M d, Y') }}</span>
+                                </td>
+                                <td class="px-4 py-4 align-top">
+                                    <span class="font-semibold text-xs text-brand-white">{{ $point->display_assignee }}</span>
+                                </td>
+                                <td class="px-4 py-4 align-top">
+                                    <select data-update-url="{{ route('portal.action-points.update', $point) }}"
+                                            class="action-point-quick-status-select rounded-xl border border-brand-white/15 bg-brand-black/90 px-2.5 py-1.5 text-xs font-bold text-brand-white focus:border-brand-red focus:outline-none cursor-pointer hover:border-brand-white/30 transition-all">
+                                        @foreach(['pending' => 'Pending', 'in_progress' => 'In Progress', 'done' => 'Done', 'not_done' => 'Not Done'] as $val => $lbl)
+                                            <option value="{{ $val }}" @selected($point->status === $val)>{{ $lbl }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td class="px-4 py-4 align-top">
+                                    <p class="text-xs text-brand-white/70 whitespace-pre-wrap">{{ $point->comments ?: 'No comments' }}</p>
+                                </td>
+                                <td class="px-4 py-4 align-top text-right">
+                                    <details class="relative inline-block text-left">
+                                        <summary class="cursor-pointer rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[11px] font-semibold text-brand-white hover:bg-brand-white/10 transition-all">
+                                            Edit
+                                        </summary>
+                                        <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl border border-brand-white/10 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl text-left">
+                                            <form method="POST" action="{{ route('portal.action-points.update', $point) }}" class="space-y-3">
+                                                @csrf
+                                                @method('PATCH')
+                                                <div>
+                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Action Point</label>
+                                                    <textarea name="action_point" rows="2" required class="w-full rounded-lg border border-brand-black/70 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">{{ $point->action_point }}</textarea>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Assignee</label>
+                                                        <select name="assignee_id" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
+                                                            <option value="">Unassigned</option>
+                                                            @foreach($allStaff as $staff)
+                                                                <option value="{{ $staff->id }}" @selected((int)$point->assignee_id === (int)$staff->id)>{{ $staff->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Status</label>
+                                                        <select name="status" required class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
+                                                            <option value="pending" @selected($point->status === 'pending')>Pending</option>
+                                                            <option value="in_progress" @selected($point->status === 'in_progress')>In Progress</option>
+                                                            <option value="done" @selected($point->status === 'done')>Done</option>
+                                                            <option value="not_done" @selected($point->status === 'not_done')>Not Done</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Comments</label>
+                                                    <input type="text" name="comments" value="{{ $point->comments }}" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
+                                                </div>
+                                                <div class="flex items-center justify-between pt-1">
+                                                    <button type="submit" class="rounded-lg bg-brand-red px-3 py-1.5 text-[10px] font-bold uppercase text-white hover:bg-brand-red-dark">Update</button>
+                                                </div>
+                                            </form>
+                                            <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" data-confirm="Delete this action point?" class="mt-2 text-right">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-[10px] text-red-400 hover:underline">Delete Action Point</button>
+                                            </form>
+                                        </div>
+                                    </details>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-xs text-brand-white/40 italic">
+                                    No meeting action points recorded yet. Click "+ Add Action Point" above to log action items from your meeting.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
+    <div data-dashboard-secondary>
     <!-- Daily work stays available without dominating the weekly presentation. -->
     <style>
         .mega-table-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; list-style: none; }
@@ -529,647 +987,143 @@
 
     </details>
 
-    {{--  WEEKLY CONSOLIDATED TABLE  --}}
-    <style>
-        .weekly-rich-content {
-            max-width: 100%;
-            min-width: 0;
-            overflow-x: auto;
-            color: rgba(255,255,255,.78);
-            line-height: 1.65;
-            overflow-wrap: anywhere;
-        }
-        .weekly-rich-content :is(p, ul, ol, table, blockquote) { margin-bottom: .65rem; }
-        .weekly-rich-content :is(p, ul, ol, blockquote):last-child { margin-bottom: 0; }
-        .weekly-rich-content ul { list-style: disc; padding-left: 1rem; }
-        .weekly-rich-content ol { list-style: decimal; padding-left: 1rem; }
-        .weekly-rich-content :is(figure, .table) {
-            width: 100% !important;
-            max-width: 100%;
-            margin: .15rem 0 .65rem;
-            overflow-x: auto;
-        }
-        .weekly-rich-content table {
-            width: 100% !important;
-            min-width: 0;
-            max-width: 100%;
-            table-layout: fixed;
-            border-collapse: collapse;
-            margin-top: .35rem;
-            margin-bottom: .35rem;
-        }
-        .weekly-rich-content th,
-        .weekly-rich-content td {
-            width: auto !important;
-            height: auto !important;
-            border: 1px solid rgba(255,255,255,.16) !important;
-            padding: .55rem .7rem;
-            vertical-align: top;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: normal;
-        }
-        .weekly-rich-content th { background: rgba(255,255,255,.08); color: #fff; }
-        .weekly-consolidated-scroll {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .weekly-consolidated-scroll::-webkit-scrollbar {
-            width: 0;
-            height: 0;
-            display: none;
-        }
-        .weekly-consolidated-table {
-            width: 100%;
-            min-width: max(100%, 56rem);
-            table-layout: auto;
-            border-collapse: separate;
-            border-spacing: clamp(.3rem, .55vw, .75rem) .65rem;
-        }
-        .weekly-consolidated-table th,
-        .weekly-consolidated-table td {
-            min-width: clamp(6.75rem, 9vw, 11rem);
-            max-width: min(24rem, 34vw);
-            padding: clamp(.7rem, .85vw, 1rem);
-            vertical-align: top;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: normal;
-        }
-        .weekly-consolidated-table th {
-            letter-spacing: .18em;
-            line-height: 1.35;
-        }
-        .weekly-consolidated-table th:nth-child(1),
-        .weekly-consolidated-table td:nth-child(1) { min-width: 6.5rem; max-width: 8rem; }
-        .weekly-consolidated-table th:nth-child(2),
-        .weekly-consolidated-table td:nth-child(2) { min-width: 9rem; max-width: 13rem; }
-        .weekly-consolidated-table th:nth-child(3),
-        .weekly-consolidated-table td:nth-child(3) { min-width: 10rem; max-width: 16rem; }
-        .weekly-consolidated-table th:nth-child(4),
-        .weekly-consolidated-table td:nth-child(4) { min-width: 12rem; max-width: 24rem; }
-        .weekly-consolidated-table th:nth-child(5),
-        .weekly-consolidated-table td:nth-child(5),
-        .weekly-consolidated-table th:nth-child(6),
-        .weekly-consolidated-table td:nth-child(6),
-        .weekly-consolidated-table th:nth-child(7),
-        .weekly-consolidated-table td:nth-child(7) { min-width: 12rem; max-width: 24rem; }
-        .weekly-consolidated-table th:nth-last-child(2),
-        .weekly-consolidated-table td:nth-last-child(2) { min-width: 7rem; max-width: 9rem; }
-        .weekly-consolidated-table th:last-child,
-        .weekly-consolidated-table td:last-child { min-width: 11rem; max-width: 13rem; }
-        .weekly-consolidated-table--brands {
-            min-width: 122rem;
-            table-layout: fixed;
-            border-spacing: .65rem .75rem;
-        }
-        .weekly-consolidated-table--brands th,
-        .weekly-consolidated-table--brands td {
-            max-width: none;
-        }
-        .weekly-consolidated-table--brands th:nth-child(1),
-        .weekly-consolidated-table--brands td:nth-child(1) { width: 8.5rem; min-width: 8.5rem; max-width: 8.5rem; }
-        .weekly-consolidated-table--brands th:nth-child(2),
-        .weekly-consolidated-table--brands td:nth-child(2) { width: 16rem; min-width: 16rem; max-width: 16rem; }
-        .weekly-consolidated-table--brands th:nth-child(3),
-        .weekly-consolidated-table--brands td:nth-child(3) { width: 35rem; min-width: 35rem; max-width: 35rem; }
-        .weekly-consolidated-table--brands th:nth-child(4),
-        .weekly-consolidated-table--brands td:nth-child(4) { width: 18rem; min-width: 18rem; max-width: 18rem; }
-        .weekly-consolidated-table--brands th:nth-child(5),
-        .weekly-consolidated-table--brands td:nth-child(5) { width: 20rem; min-width: 20rem; max-width: 20rem; }
-        .weekly-consolidated-table--brands th:nth-child(6),
-        .weekly-consolidated-table--brands td:nth-child(6) { width: 10rem; min-width: 10rem; max-width: 10rem; }
-        .weekly-consolidated-table--brands th:nth-child(7),
-        .weekly-consolidated-table--brands td:nth-child(7) { width: 10rem; min-width: 10rem; max-width: 10rem; }
-        .weekly-consolidated-table--brands th:nth-child(8),
-        .weekly-consolidated-table--brands td:nth-child(8) { width: 11rem; min-width: 11rem; max-width: 11rem; }
-        .weekly-consolidated-table--brands th:nth-child(9),
-        .weekly-consolidated-table--brands td:nth-child(9) { width: 12rem; min-width: 12rem; max-width: 12rem; }
-        .weekly-consolidated-table--brands .weekly-rich-content {
-            font-size: .9rem;
-            line-height: 1.55;
-        }
-        .weekly-consolidated-table--brands .weekly-rich-content table {
-            font-size: .82rem;
-            line-height: 1.45;
-        }
-        .weekly-consolidated-table--brands .weekly-rich-content td {
-            padding: .65rem .75rem;
-        }
-        .weekly-consolidated-actions {
-            display: flex;
-            flex-direction: column;
-            gap: .65rem;
-            min-width: 11rem;
-        }
-        .weekly-consolidated-action-button {
-            display: inline-flex;
-            width: 100%;
-            align-items: center;
-            justify-content: center;
-            border-radius: .85rem;
-            padding: .7rem .85rem;
-            font-weight: 800;
-            color: #fff;
-            text-align: center;
-            transition: border-color .18s ease, background .18s ease, color .18s ease;
-        }
-        .weekly-consolidated-action-button--danger {
-            color: #f87171;
-        }
-        .weekly-consolidated-edit-panel {
-            z-index: 30;
-            width: min(92vw, 68rem);
-        }
-        .weekly-consolidated-table details {
-            position: relative;
-        }
-        .weekly-consolidated-table details > summary {
-            list-style: none;
-        }
-        .weekly-consolidated-table details > summary::-webkit-details-marker {
-            display: none;
-        }
-        @media (max-width: 640px) {
-            .weekly-consolidated-table {
-                min-width: 48rem;
-                border-spacing: .4rem .55rem;
-            }
-            .weekly-consolidated-table--brands {
-                min-width: 122rem;
-                border-spacing: .5rem .65rem;
-            }
-            .weekly-consolidated-table th,
-            .weekly-consolidated-table td {
-                min-width: 7.5rem;
-                max-width: 18rem;
-                padding: .7rem;
-            }
-        }
-    </style>
-    @php
-        $isAllWeeklyDepartments = $isAllWeeklyDepartments ?? false;
-        $isBrandsWeeklyDepartment = ! $isAllWeeklyDepartments && $weeklyDepartmentFilter === 'brands_marketing';
-        $isCreativeWeeklyDepartment = !$isAllWeeklyDepartments && $weeklyDepartmentFilter === 'creatives';
-        $weeklyBaseColumnCount = $isAllWeeklyDepartments
-            ? 8 + ($weeklyDepartmentHasBreakdown ? 3 : 0)
-            : ($isBrandsWeeklyDepartment ? 9 : (5 + ($weeklyDepartmentHasBreakdown ? 3 : 0)));
-        $weeklyTableColumnCount = $weeklyBaseColumnCount + ($isCreativeWeeklyDepartment ? 2 : 0) + $weeklyConsolidatedDisplayColumns->count() + ($canManageActiveWeeklyDepartment ? 1 : 0);
-        $weeklyStatusClasses = [
-            'Planned' => 'border-sky-500/30 bg-sky-500/10 text-sky-300',
-            'In Progress' => 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-            'Done' => 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-            'Blocked' => 'border-brand-red/30 bg-brand-red/10 text-brand-red',
-            'Deferred' => 'border-brand-white/20 bg-brand-white/10 text-brand-white/70',
-        ];
-        $weeklyPriorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
-    @endphp
+    @if(!$user->isCvoOrSuperAdmin() && !$user->isServiceAccount())
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary">My Performance · {{ now()->format('F Y') }}</summary>
+    <p class="mt-3 text-sm text-brand-ash">This month: {{ $individualStats['open_deliverables'] }} unfinished activities · {{ $individualStats['overtime_hours'] }} recorded overtime hours. Verified performance is shown below.</p>
     @include('portal.partials.staff-performance-score')
-
-    <div id="weekly-consolidated-live-region"
-         data-silent-region="weekly-consolidated-table"
-         data-refresh-url="{{ route('portal.dashboard.live', array_merge(request()->query(), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
-         data-current-weekly-department="{{ $weeklyDepartmentFilter }}"
-         class="mt-10 glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-5">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div>
-                <p class="text-xs uppercase tracking-[0.35em] text-brand-ash">Line Manager Summary</p>
-                <h3 class="mt-1 text-xl font-display uppercase text-brand-white">Weekly Consolidated Table</h3><a href="#staff-weekly-performance" class="mt-3 inline-block rounded-xl border border-sky-400/30 px-4 py-3 text-sm text-brand-white">View Departmental Results</a>
-                <a href="{{ route('portal.performance.index') }}" class="mt-3 inline-block rounded-xl bg-brand-red px-4 py-3 text-sm font-semibold text-white">Open Performance & Accountability Hub</a>
-                <p class="mt-2 text-xs text-brand-ash">Weekly updates, KPI results and reporting controls are available in each department’s views below.</p>
-                <p class="mt-2 max-w-4xl text-sm text-brand-white/60">
-                    A manager-owned weekly review table. Everyone can view it; only line managers, CVO, and Super Admin can update rows. Custom columns are personal to the manager who created them.
-                </p>
-            </div>
-            @if($canManageActiveWeeklyDepartment)
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
-                            class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
-                         Manage Columns
-                    </button>
-                    <button type="button" onclick="document.getElementById('weekly-consolidated-form').classList.toggle('hidden')"
-                            class="rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white hover:bg-brand-red-dark">
-                        + Add Weekly Row
-                    </button>
+</details>
+@endif
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary">Agency Insights · {{ now()->format('F Y') }}</summary>
+    <!-- 2. Collective KPIs & Department Badges -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between gap-4 mb-4">
+            <h3 class="text-lg font-display text-brand-white uppercase tracking-wider">Collective Agency Dashboard</h3>
+            @if($winningDept)
+                <div class="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 uppercase tracking-widest font-semibold animate-pulse">
+                    <span>Top Performer:</span>
+                    <span>{{ $departments[$winningDept] ?? $winningDept }}</span>
                 </div>
             @endif
         </div>
-
-        <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-emerald-200/70">Completed</p>
-                <p class="mt-2 text-2xl font-semibold text-emerald-200">{{ $weeklyConsolidatedMetrics['completed'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-amber-200/70">Pending</p>
-                <p class="mt-2 text-2xl font-semibold text-amber-200">{{ $weeklyConsolidatedMetrics['pending'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-sky-300/20 bg-sky-300/5 p-4"><p class="text-[10px] uppercase tracking-[0.22em] text-sky-200">Planned</p><p class="mt-2 text-2xl font-semibold text-sky-100">{{ $weeklyConsolidatedMetrics['planned']??0 }}</p></div>
-            <div class="rounded-2xl border border-brand-red/20 bg-brand-red/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-brand-red/80">Blocked / Deferred</p>
-                <p class="mt-2 text-2xl font-semibold text-brand-red">{{ $weeklyConsolidatedMetrics['blocked'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-orange-200/70">Overdue</p>
-                <p class="mt-2 text-2xl font-semibold text-orange-200">{{ $weeklyConsolidatedMetrics['overdue'] }}</p>
-            </div>
-        </div>
-
-        @include('portal.partials.weekly-accountability-summary')
-
-        <div class="mt-5 flex overflow-x-auto flex-nowrap gap-2 border-b border-brand-white/10 pb-4 scrollbar-none snap-x snap-mandatory">
-            @foreach($weeklyConsolidatedDepartments as $key => $label)
-                @php
-                    $weeklyTabUrl = route('dashboard', array_merge(
-                        request()->except(['weekly_page', 'search_weekly']),
-                        ['weekly_department' => $key]
-                    ), false);
-                    $isActiveWeeklyTab = $weeklyDepartmentFilter === $key;
-                @endphp
-                <a href="{{ $weeklyTabUrl }}"
-                   data-weekly-department-tab
-                   class="rounded-xl border px-4 py-2.5 text-xs uppercase tracking-[0.15em] transition-all flex items-center gap-2 whitespace-nowrap snap-start {{ $isActiveWeeklyTab ? 'border-brand-red bg-brand-red/10 text-brand-white' : 'border-brand-white/10 text-brand-ash hover:text-brand-white' }}">
-                    <span>{{ $label }}</span>
-                </a>
-            @endforeach
-        </div>
-
-        <form method="GET" action="{{ route('dashboard', [], false) }}" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" data-no-ajax>
-            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly', 'weekly_from', 'weekly_to']) as $queryKey => $queryValue)
-                @if(is_scalar($queryValue))
-                    <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
-                @endif
-            @endforeach
-            <input type="hidden" name="weekly_department" value="{{ $weeklyDepartmentFilter }}">
-            <label class="min-w-0 flex-1">
-                <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest text-brand-ash">Search weekly rows</span>
-                <input type="search" name="search_weekly" value="{{ request('search_weekly') }}" placeholder="Search client, campaign, staff, deliverables or status..."
-                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2.5 text-xs text-brand-white placeholder-brand-white/30">
-            </label>
-            @foreach(['weekly_from' => 'Week starting from', 'weekly_to' => 'Week starting through'] as $key => $label)
-                <label class="text-xs text-brand-ash">{{ $label }}<input type="date" name="{{ $key }}" value="{{ request($key) }}" class="mt-1 block w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-brand-white"></label>
-            @endforeach
-            <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Apply filters</button>
-            @if(request()->filled('search_weekly'))
-                <a href="{{ route('dashboard', array_merge(request()->except(['weekly_page', 'search_weekly']), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
-                   class="rounded-xl border border-brand-white/10 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-brand-white/70 hover:bg-brand-white/10">
-                    Clear
-                </a>
-            @endif
-        </form>
-
-        @php
-            $navigationWeek = \Carbon\CarbonImmutable::parse(request('weekly_from') ?: now()->toDateString())->startOfWeek();
-        @endphp
-        <nav class="mt-4 flex flex-wrap gap-3" aria-label="Department reporting week navigation">
-            @foreach([-1=>'Previous Week',0=>'This Week',1=>'Next Week'] as $offset=>$label)
-                @php
-                    $targetWeek = $offset === 0 ? \Carbon\CarbonImmutable::now()->startOfWeek() : $navigationWeek->addWeeks($offset);
-                @endphp
-                <a class="rounded-xl border border-brand-white/20 px-4 py-2 text-sm text-brand-white" href="{{ route('dashboard',array_merge(request()->except(['weekly_auto','weekly_page','brands_page','crm_page']),['weekly_department'=>$weeklyDepartmentFilter,'weekly_from'=>$targetWeek->toDateString(),'weekly_to'=>$targetWeek->endOfWeek()->toDateString()])) }}#staff-weekly-performance">{{ $label }}</a>
-            @endforeach
-        </nav>
-
-        @if(request()->attributes->get('showing_latest_saved_week'))
-            <p role="status" class="mt-4 rounded-xl border border-brand-white/20 p-4 text-sm text-brand-ash">
-                Showing the latest saved week: {{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M Y') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}. Your earlier entries are preserved.
-                <a class="ml-2 underline text-brand-white" href="{{ route('dashboard', ['weekly_department'=>$weeklyDepartmentFilter,'weekly_from'=>now()->startOfWeek()->toDateString(),'weekly_to'=>now()->endOfWeek()->toDateString()]) }}#staff-weekly-performance">View this week</a>
-            </p>
-        @endif
-
-        @if($canManageActiveWeeklyDepartment)
-            <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-start">
-                    <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.store') }}" class="grid flex-1 gap-3 md:grid-cols-[1fr_180px_auto]">
-                        @csrf
-                        <input type="hidden" name="department" value="{{ $weeklyDepartmentFilter }}">
-                        <input type="text" name="label" required maxlength="100" placeholder="New column label, e.g. Risks / Client Feedback"
-                               class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                        <select name="type" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                            <option value="rich_text">Rich Text / Table</option>
-                            <option value="text">Short Text</option>
-                            <option value="number">Number</option>
-                            <option value="date">Date</option>
-                            <option value="status">Status</option>
-                        </select>
-                        <button type="submit" class="rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white">Add Column</button>
-                    </form>
+        <div class="grid gap-6 md:grid-cols-3">
+            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Agency Work Completed</p>
+                <div class="mt-3 flex items-baseline justify-between">
+                    <p class="text-3xl font-semibold text-brand-white">{{ $collectiveStats['reached_activations'] }}</p>
+                    <p class="text-xs text-brand-ash">Tasks registered this month: {{ $collectiveStats['target_activations'] }}</p>
                 </div>
-                <div class="mt-4 grid gap-2 lg:grid-cols-2">
-                    @forelse($myWeeklyConsolidatedColumns as $column)
-                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
-                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.update', $column) }}" class="grid gap-2 md:grid-cols-[1fr_130px_90px_auto]">
-                                @csrf
-                                @method('PATCH')
-                                <input type="text" name="label" value="{{ $column->label }}" required class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                <select name="type" class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                    @foreach(['rich_text' => 'Rich Text', 'text' => 'Text', 'number' => 'Number', 'date' => 'Date', 'status' => 'Status'] as $type => $label)
-                                        <option value="{{ $type }}" @selected($column->type === $type)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                <input type="number" name="order" value="{{ $column->order }}" min="0" max="999" class="rounded-lg border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                <button type="submit" class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-emerald-300">Save</button>
-                            </form>
-                            <form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.columns.destroy', $column) }}" data-confirm="Remove this weekly column from your entries?" class="mt-2">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="rounded-lg border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-brand-red">Remove Column</button>
-                            </form>
-                        </div>
-                    @empty
-                        <p class="rounded-xl border border-brand-white/10 bg-brand-white/[0.03] p-4 text-xs text-brand-white/45">No personal weekly columns yet.</p>
-                    @endforelse
+                <div class="mt-2 h-1.5 w-full bg-brand-white/10 rounded-full overflow-hidden">
+                    @php
+                        $targetPercent = $collectiveStats['eligible_total'] > 0 ? min($collectiveStats['win_rate'],100) : 0;
+                    @endphp
+                    <div class="h-full bg-brand-red" style="width: {{ $targetPercent }}%"></div>
                 </div>
             </div>
-
-            <form id="weekly-consolidated-form" method="POST" action="{{ route('portal.dashboard.weekly-consolidated.store') }}"
-                  class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/40 p-4">
-                @csrf
-                <div class="grid gap-3 md:grid-cols-3">
-                    @if($isBrandsWeeklyDepartment)
-                        <div>
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Custom Task ID</label>
-                            <input type="text" name="brands_task_id" value="{{ old('brands_task_id') }}" placeholder="e.g. BR-GNS-001 (Optional)" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                        </div>
-                    @endif
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Department</label>
-                        <input type="hidden" name="department" value="{{ $weeklyDepartmentFilter }}">
-                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/[0.04] px-3 py-2 text-xs font-semibold text-brand-white">
-                            {{ $departments[$weeklyDepartmentFilter] ?? \App\Models\User::departmentLabel($weeklyDepartmentFilter) }}
-                        </div>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Week Start</label>
-                        <input type="date" name="week_start" value="{{ old('week_start', now()->startOfWeek()->toDateString()) }}" readonly required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Due Date' : 'Week End' }}</label>
-                        <input type="date" name="week_end" value="{{ old('week_end', now()->endOfWeek()->toDateString()) }}" readonly class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                        @if($isCreativeWeeklyDepartment)<label class="mt-3 block text-xs text-brand-ash">Date brief was received<input type="date" name="brief_received_on" value="{{ old('brief_received_on') }}" class="mt-1 w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white"></label>@endif
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Task Name' : 'Client' }}</label>
-                        <input type="text" name="client_name" value="{{ old('client_name') }}" placeholder="Optional" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Project' : 'Campaign / Workstream' }}</label>
-                        <input type="text" name="campaign_name" value="{{ old('campaign_name') }}" placeholder="Optional" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Assigned To' : 'Lead Staff' }}</label>
-                        <select name="lead_staff_id" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                            <option value="">Select lead...</option>
-                            @foreach($allStaff as $staff)
-                                <option value="{{ $staff->id }}" @selected((int) old('lead_staff_id') === (int) $staff->id)>{{ $staff->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="mt-4 grid gap-3 sm:grid-cols-2"><label class="text-xs">Project Start<input type="date" name="project_starts_on" value="{{ now()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label><label class="text-xs">Expected Project End<input type="date" name="project_ends_on" value="{{ now()->endOfWeek()->toDateString() }}" class="block rounded-lg bg-brand-black p-3"></label></div>
-                <div class="mt-4 rounded-2xl border border-brand-white/10 bg-brand-white/[0.03] p-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <p class="text-[10px] uppercase tracking-widest text-brand-ash">Supporting Staff + Role</p>
-                        <button type="button" data-weekly-support-add="weekly-support-rows" class="rounded-lg border border-brand-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-brand-white/60 hover:bg-brand-white/10">+ Add Staff</button>
-                    </div>
-                    <div id="weekly-support-rows" class="mt-3 space-y-2">
-                        <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
-                            <select name="supporting_staff_ids[]" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                                <option value="">Supporting staff...</option>
-                                @foreach($allStaff as $staff)
-                                    <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                                @endforeach
-                            </select>
-                            <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                            <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
-                        </div>
-                    </div>
-                </div>
-
-                @if($weeklyDepartmentHasBreakdown)
-                    <div class="mt-4 grid gap-3 xl:grid-cols-3">
-                        <div>
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Target</label>
-                            <textarea name="target_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('target_breakdown') }}</textarea>
-                        </div>
-                        <div>
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Achieved</label>
-                            <textarea name="achieved_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('achieved_breakdown') }}</textarea>
-                        </div>
-                        <div>
-                            <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Gap To Go</label>
-                            <textarea name="gap_breakdown" rows="5" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('gap_breakdown') }}</textarea>
-                        </div>
-                    </div>
-                @endif
-
-                @if($myWeeklyConsolidatedColumns->isNotEmpty())
-                    <div class="mt-4 grid gap-3 lg:grid-cols-2">
-                        @foreach($myWeeklyConsolidatedColumns as $column)
-                            <div>
-                                <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $column->label }}</label>
-                                <textarea name="custom_fields[{{ $column->column_key }}]" rows="4" class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">{{ old('custom_fields.' . $column->column_key) }}</textarea>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-
-                @include('portal.partials.weekly-accountability-fields', ['accountabilityItem' => null])
-                <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_220px]">
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">{{ $isBrandsWeeklyDepartment ? 'Project Brief' : 'Deliverables / Weekly Summary' }}</label>
-                        <textarea name="deliverables" rows="6" required class="wysiwyg-editor w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">{{ old('deliverables') }}</textarea>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-[10px] uppercase tracking-widest text-brand-ash">Status</label>
-                        <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                            @foreach(['Planned', 'In Progress', 'Done', 'Blocked', 'Deferred'] as $status)
-                                <option value="{{ $status }}" @selected(old('status', 'Planned') === $status)>{{ $status }}</option>
-                            @endforeach
-                        </select>
-                        <button type="submit" class="mt-3 w-full rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white hover:bg-brand-red-dark">
-                            Save Weekly Row
-                        </button>
-                    </div>
-                </div>
-            </form>
-        @endif
-
-        <template id="weekly-support-row-template">
-            <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto] weekly-support-row">
-                <select name="supporting_staff_ids[]" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white">
-                    <option value="">Supporting staff...</option>
-                    @foreach($allStaff as $staff)
-                        <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                    @endforeach
-                </select>
-                <input type="text" name="supporting_roles[]" placeholder="Role on this weekly action" class="rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30">
-                <button type="button" data-weekly-support-remove class="rounded-xl border border-brand-red/30 px-3 py-2 text-xs text-brand-red">Remove</button>
+            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Task Completion Rate</p>
+                <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $collectiveStats['eligible_total']?$collectiveStats['win_rate'].'%':'No eligible tasks' }}</p>
+                <p class="text-xs text-brand-ash mt-2">Completed / eligible tasks registered this month; creative review waiting is excluded.</p>
             </div>
-        </template>
-
-        @include('portal.partials.shared-weekly-performance')
-
-        {{-- MEETING ACTION POINTS CARD --}}
-        <div class="glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl"><x-ui-icon name="clipboard" /></span>
-                        <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
-                    </div>
-                    <p class="mt-1 text-xs text-brand-ash">
-                        Track and update action items assigned during previous meetings. Editable by all team members.
-                    </p>
-                </div>
-                
-                {{-- Add Action Point Modal Trigger --}}
-                <details class="relative">
-                    <summary class="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all shadow-lg">
-                        + Add Action Point
-                    </summary>
-                    <div class="absolute right-0 top-full mt-2 z-30 w-96 rounded-2xl border border-brand-white/10 bg-brand-black/95 p-5 shadow-2xl backdrop-blur-xl">
-                        <form method="POST" action="{{ route('portal.action-points.store') }}" class="space-y-4">
-                            @csrf
-                            <div>
-                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Action Point *</label>
-                                <textarea name="action_point" rows="3" required placeholder="Type action required from meeting..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-brand-red"></textarea>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Assignee</label>
-                                    <select name="assignee_id" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
-                                        <option value="">Select staff...</option>
-                                        @foreach($allStaff as $staff)
-                                            <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Status *</label>
-                                    <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
-                                        <option value="pending">Pending</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="done">Done</option>
-                                        <option value="not_done">Not Done</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Comments / Notes</label>
-                                <input type="text" name="comments" placeholder="Progress notes or comments..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red">
-                            </div>
-
-                            <button type="submit" class="w-full rounded-xl bg-brand-red py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all">
-                                Save Action Point
-                            </button>
-                        </form>
-                    </div>
-                </details>
-            </div>
-
-            {{-- Action Points Table --}}
-            <div class="overflow-x-auto rounded-xl border border-brand-white/10">
-                <table class="w-full text-left text-sm text-brand-white/80">
-                    <thead class="bg-brand-black/60 text-xs uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
-                        <tr>
-                            <th class="px-4 py-3.5 min-w-[280px]">ACTION POINT</th>
-                            <th class="px-4 py-3.5 min-w-[180px]">ASSIGNEE</th>
-                            <th class="px-4 py-3.5 min-w-[140px]">STATUS</th>
-                            <th class="px-4 py-3.5 min-w-[260px]">COMMENTS</th>
-                            <th class="px-4 py-3.5 min-w-[120px] text-right">ACTION</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-brand-white/5">
-                        @forelse($actionPoints as $point)
-                            <tr class="hover:bg-brand-white/[0.02] transition-colors">
-                                <td class="px-4 py-4 align-top">
-                                    <p class="font-medium text-brand-white text-xs whitespace-pre-wrap">{{ $point->action_point }}</p>
-                                    <span class="mt-1 block text-[10px] text-brand-white/30">Added by {{ $point->creator?->name ?? 'Staff' }} on {{ $point->created_at->format('M d, Y') }}</span>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <span class="font-semibold text-xs text-brand-white">{{ $point->display_assignee }}</span>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <select data-update-url="{{ route('portal.action-points.update', $point) }}"
-                                            class="action-point-quick-status-select rounded-xl border border-brand-white/15 bg-brand-black/90 px-2.5 py-1.5 text-xs font-bold text-brand-white focus:border-brand-red focus:outline-none cursor-pointer hover:border-brand-white/30 transition-all">
-                                        @foreach(['pending' => 'Pending', 'in_progress' => 'In Progress', 'done' => 'Done', 'not_done' => 'Not Done'] as $val => $lbl)
-                                            <option value="{{ $val }}" @selected($point->status === $val)>{{ $lbl }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <p class="text-xs text-brand-white/70 whitespace-pre-wrap">{{ $point->comments ?: 'No comments' }}</p>
-                                </td>
-                                <td class="px-4 py-4 align-top text-right">
-                                    <details class="relative inline-block text-left">
-                                        <summary class="cursor-pointer rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[11px] font-semibold text-brand-white hover:bg-brand-white/10 transition-all">
-                                            Edit
-                                        </summary>
-                                        <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl border border-brand-white/10 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl text-left">
-                                            <form method="POST" action="{{ route('portal.action-points.update', $point) }}" class="space-y-3">
-                                                @csrf
-                                                @method('PATCH')
-                                                <div>
-                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Action Point</label>
-                                                    <textarea name="action_point" rows="2" required class="w-full rounded-lg border border-brand-black/70 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">{{ $point->action_point }}</textarea>
-                                                </div>
-                                                <div class="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Assignee</label>
-                                                        <select name="assignee_id" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                            <option value="">Unassigned</option>
-                                                            @foreach($allStaff as $staff)
-                                                                <option value="{{ $staff->id }}" @selected((int)$point->assignee_id === (int)$staff->id)>{{ $staff->name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Status</label>
-                                                        <select name="status" required class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                            <option value="pending" @selected($point->status === 'pending')>Pending</option>
-                                                            <option value="in_progress" @selected($point->status === 'in_progress')>In Progress</option>
-                                                            <option value="done" @selected($point->status === 'done')>Done</option>
-                                                            <option value="not_done" @selected($point->status === 'not_done')>Not Done</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Comments</label>
-                                                    <input type="text" name="comments" value="{{ $point->comments }}" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                </div>
-                                                <div class="flex items-center justify-between pt-1">
-                                                    <button type="submit" class="rounded-lg bg-brand-red px-3 py-1.5 text-[10px] font-bold uppercase text-white hover:bg-brand-red-dark">Update</button>
-                                                </div>
-                                            </form>
-                                            <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" data-confirm="Delete this action point?" class="mt-2 text-right">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-[10px] text-red-400 hover:underline">Delete Action Point</button>
-                                            </form>
-                                        </div>
-                                    </details>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-8 text-center text-xs text-brand-white/40 italic">
-                                    No meeting action points recorded yet. Click "+ Add Action Point" above to log action items from your meeting.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
+                <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Critical Bottlenecks</p>
+                <p class="mt-3 text-3xl font-semibold text-brand-red">{{ $collectiveStats['bottlenecks'] }}</p>
+                <p class="text-xs text-brand-ash mt-2">High priority overdue / risk items</p>
             </div>
         </div>
     </div>
 
+    <!-- 3. Analytical Charts Block -->
+    <div class="grid gap-6 md:grid-cols-2 mb-8">
+        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Task Progress · Tasks Registered This Month</h4>
+            <div class="h-64">
+                <canvas id="velocityChart"></canvas>
+            </div>
+        </div>
+        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Verified Completions by Approval Date</h4>
+            <p class="mb-3 text-xs text-brand-ash">Uses recorded approval dates. Historical undated completions are excluded; later edits do not change the completion week.</p>
+            <div class="h-64">
+                <canvas id="trendsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    </details>
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary">Recognition & Awards</summary>
+    <!--  Performance Awards Leaderboard Section -->
+    <div id="mega-table-live-region"
+         data-refresh-url="{{ route('portal.dashboard.live', request()->query()) }}"
+         class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Recognitions & Standing</p>
+                <h3 class="text-xl font-display text-brand-white uppercase"> CMIH Performance Leaderboard</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                @if(in_array($user->access_role, ['super_admin','admin']) || in_array(strtolower(trim($user->department ?? '')), ['hr_admin','admin']))
+                    <button onclick="openAwardLockModal()"
+                            class="rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 text-xs uppercase tracking-[0.15em] text-amber-400 font-semibold transition-all">
+                         Lock & Issue Awards
+                    </button>
+                @endif
+                <select id="leaderboard-period" onchange="fetchLeaderboard(this.value)"
+                        class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-xs text-brand-white">
+                    @php
+                        $monthsToShow = [];
+                        for ($i = 0; $i < 6; $i++) {
+                            $m = now()->subMonths($i);
+                            $monthsToShow[$m->format('Y-m')] = $m->format('F Y');
+                        }
+                        $yearToShow = now()->format('Y');
+                    @endphp
+                    <optgroup label="Monthly Awards">
+                        @foreach($monthsToShow as $val => $lbl)
+                            <option value="{{ $val }}" {{ $val === $currentMonth ? 'selected' : '' }}>{{ $lbl }}</option>
+                        @endforeach
+                    </optgroup>
+                    <optgroup label="Yearly Awards">
+                        <option value="{{ $yearToShow }}" >Year {{ $yearToShow }}</option>
+                    </optgroup>
+                </select>
+            </div>
+        </div>
+
+        <div id="award-period-notice" class="hidden mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
+            <!-- Dynamic notice e.g. estimated standings -->
+        </div>
+
+        <div class="grid gap-6">
+            <!-- Cards columns -->
+            <div class="grid min-w-0 gap-6" id="leaderboard-container">
+                <!-- Employee Awards Card -->
+                <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 space-y-4">
+                    <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2">Employee Award Standings</h4>
+                    <div id="employee-award-cards" class="grid items-start gap-4 lg:grid-cols-3">
+                        <!-- Dynamic Employee Cards -->
+                    </div>
+                </div>
+
+                <!-- Department Awards Card -->
+                <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 space-y-4">
+                    <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2">Department Award Standings</h4>
+                    <div id="department-award-cards" class="grid items-start gap-4 lg:grid-cols-3">
+                        <!-- Dynamic Department Cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Column -->
+            <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 flex flex-col justify-between">
+                <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2 mb-4">Performance Scores</h4>
+                <div class="h-72 md:h-80 relative flex-1 min-w-0">
+                    <canvas id="leaderboardChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </details></div>
     {{--  TASK REASSIGN MODAL  --}}
     @if($user->access_role !== 'merchandiser')
     <div id="reassign-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-brand-black/80 backdrop-blur-sm p-4">
@@ -2164,7 +2118,8 @@
                 }
             });
 
-            // Task Performance Velocity Chart
+            if (typeof Chart !== 'undefined') {
+            // Task Progress · Tasks Registered This Month Chart
             const ctxVelocity = document.getElementById('velocityChart').getContext('2d');
             const deptChartData = @json($departmentChartData);
             
@@ -2181,14 +2136,15 @@
                             borderWidth: 1
                         },
                         {
-                            label: 'In Progress',
+                            label: 'Other Unfinished',
                             data: deptChartData.map(d => d.in_progress),
                             backgroundColor: 'rgba(59, 130, 246, 0.6)',
                             borderColor: 'rgb(59, 130, 246)',
                             borderWidth: 1
                         },
+                        { label: 'Creative Review Waiting', data: deptChartData.map(d => d.review_waiting), backgroundColor: 'rgba(148,163,184,.6)' },
                         {
-                            label: 'Delayed/At Risk',
+                            label: 'Overdue',
                             data: deptChartData.map(d => d.delayed),
                             backgroundColor: 'rgba(239, 68, 68, 0.6)',
                             borderColor: 'rgb(239, 68, 68)',
@@ -2217,7 +2173,7 @@
                 }
             });
 
-            // Weekly Completion Trends Chart
+            // Verified Completions by Approval Date Chart
             const ctxTrends = document.getElementById('trendsChart').getContext('2d');
             const weeklyTrends = @json($weeklyTrends);
 
@@ -2226,7 +2182,7 @@
                 data: {
                     labels: weeklyTrends.map(t => t.week),
                     datasets: [{
-                        label: 'Tasks Completed',
+                        label: 'Recorded completion approvals',
                         data: weeklyTrends.map(t => t.completed),
                         borderColor: '#ef4444',
                         backgroundColor: 'rgba(239, 68, 68, 0.2)',
@@ -2253,6 +2209,10 @@
                     }
                 }
             });
+
+            } else {
+                ['velocityChart','trendsChart'].forEach(id => { const canvas=document.getElementById(id); if(canvas){canvas.parentElement.setAttribute('role','status');canvas.parentElement.textContent='Charts are unavailable. Department report figures remain available.';} });
+            }
 
             // Attendance Geolocation and Input validation
             const dailyObjective = document.getElementById('daily_objective');
@@ -2288,7 +2248,10 @@
             let currentStandingsData = null;
 
             function renderLeaderboardChart(labels, scores) {
-                const ctx = document.getElementById('leaderboardChart').getContext('2d');
+                const canvas=document.getElementById('leaderboardChart');
+                if(!canvas)return;
+                if(typeof Chart==='undefined'){canvas.parentElement.textContent='The chart is unavailable. Award standings remain available above.';return;}
+                const ctx = canvas.getContext('2d');
                 if (leaderboardChartInstance) {
                     leaderboardChartInstance.destroy();
                 }

@@ -700,6 +700,12 @@ class User extends Authenticatable
             || $this->subordinates()->exists();
     }
 
+    public function canAccessOperationsPrintingRequests(): bool
+    {
+        return $this->isActive() && !$this->isServiceAccount() &&
+            ($this->canManageOperationsPrintingRequests() || self::normalizeDepartmentKey($this->department)==='operations_projects');
+    }
+
     public function canManageOperationsPrintingRequests(): bool
     {
         return $this->isActive() && (

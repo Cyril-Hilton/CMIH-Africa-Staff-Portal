@@ -72,16 +72,24 @@ class WeeklyConsolidatedItem extends Model
         return $this->belongsTo(User::class, 'action_owner_id');
     }
 
+    public function reportStatusLabel(): string
+    {
+        return match ($this->report_status) {
+            'submitted' => 'Submitted for Review', 'reviewed' => 'Reviewed', 'draft' => 'Draft',
+            default => 'Historical Report · Awaiting Review',
+        };
+    }
+
     public function dueDate(): ?\Illuminate\Support\Carbon
     {
         return ($this->project_ends_on ?? $this->week_end)?->copy()->endOfDay() ?? $this->week_start?->copy()->endOfWeek();
     }
 
-    public function isOverdue(): bool
+    public function isOverdue(?\Illuminate\Support\Carbon $asOf = null): bool
     {
         return ($this->workflow_state && $this->workflow_state !== 'legacy'
             ? ! in_array($this->workflow_state, ['verified', 'closed'], true) : $this->status !== 'Done')
-            && $this->dueDate()?->lt(now());
+            && $this->dueDate()?->lt($asOf ?? now());
     }
 
     public function achievementPercent(): ?float

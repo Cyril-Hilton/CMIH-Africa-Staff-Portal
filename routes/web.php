@@ -253,6 +253,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/printing-requests', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'store'])->name('printing-requests.store');
     Route::get('/printing-requests/{printingRequest}/edit', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'edit'])->name('printing-requests.edit');
     Route::put('/printing-requests/{printingRequest}', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'update'])->name('printing-requests.update');
+    Route::post('/printing-requests/{printingRequest}/review', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'review'])->name('printing-requests.review');
     Route::get('/printing-requests/{printingRequest}/preview', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'preview'])->name('printing-requests.preview');
     Route::get('/printing-requests/{printingRequest}/pdf', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'download'])->name('printing-requests.download');
     Route::get('/warehouse-assets', [WarehouseAssetController::class, 'index'])->name('assets.warehouse.index');
@@ -409,6 +410,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/dashboard/live', [\App\Http\Controllers\Portal\DashboardController::class, 'live'])->name('dashboard.live');
     Route::post('/dashboard/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeColumn'])->name('dashboard.columns.store');
     Route::post('/dashboard/weekly-consolidated', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidated'])->name('dashboard.weekly-consolidated.store');
+    Route::get('/dashboard/weekly-consolidated/copy-week', [\App\Http\Controllers\Portal\WeeklyReportCopyController::class, 'preview'])->name('dashboard.weekly-consolidated.copy-week.preview');
+    Route::post('/dashboard/weekly-consolidated/copy-week', [\App\Http\Controllers\Portal\WeeklyReportCopyController::class, 'store'])->name('dashboard.weekly-consolidated.copy-week.store');
     Route::post('/dashboard/weekly-consolidated/{item}/carry', [\App\Http\Controllers\Portal\DashboardController::class, 'carryWeeklyReport'])->name('dashboard.weekly-consolidated.carry');
     Route::post('/dashboard/weekly-consolidated/{item}/report-state', [\App\Http\Controllers\Portal\DashboardController::class, 'weeklyReportState'])->name('dashboard.weekly-consolidated.report-state');
     Route::post('/dashboard/weekly-consolidated/columns', [\App\Http\Controllers\Portal\DashboardController::class, 'storeWeeklyConsolidatedColumn'])->name('dashboard.weekly-consolidated.columns.store');

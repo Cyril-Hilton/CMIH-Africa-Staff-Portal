@@ -20,7 +20,7 @@ class PerformancePageMatrixTest extends TestCase
                 foreach ($views as $view) {
                     $this->get(route('portal.performance.index', ['department' => $department, 'view' => $view]))->assertOk();
                 }
-                $this->get(route('dashboard', ['weekly_department' => 'all']))->assertOk()->assertSee('Weekly Departmental Performance');
+                $this->get(route('dashboard', ['weekly_department' => 'all']))->assertOk()->assertSee('Weekly Department Reports');
                 $this->get(route('portal.performance.cases'))->assertOk();
                 $this->get(route('portal.performance.packs'))->assertOk();
             }

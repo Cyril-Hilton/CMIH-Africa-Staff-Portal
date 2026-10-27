@@ -45,7 +45,7 @@ class SharedWeeklyPerformance
             $items = WeeklyConsolidatedItem::with('leadStaff')->whereIn('department', array_keys($result))->where('workflow_state', '!=', 'legacy')->whereDate('week_start', '<=', $to)->whereDate('week_end', '>=', $from)->orderBy('week_end')->get();
             foreach ($items as $item) {
                 $verified = in_array($item->workflow_state, ['verified', 'closed']);
-                $overdue = ! $verified && $item->dueDate()?->isBefore(today());
+                $overdue = ! $verified && $item->dueDate()?->lt(\Illuminate\Support\Carbon::parse($to)->endOfDay()->min(now()));
                 $result[$item->department]['deliverables'][] = ['id' => $item->id, 'project' => $item->campaign_name, 'client' => $item->client_name, 'owner' => $item->leadStaff?->name ?? 'Unassigned', 'state' => $item->workflow_state, 'progress' => $item->progress_percent, 'due' => $item->dueDate()?->format('d M Y'), 'overdue' => (bool) $overdue, 'quality' => $verified ? $item->quality_score : null, 'root_cause' => $item->root_cause];
                 $result[$item->department]['summary']['total']++;
                 $result[$item->department]['summary']['verified'] += (int) $verified;

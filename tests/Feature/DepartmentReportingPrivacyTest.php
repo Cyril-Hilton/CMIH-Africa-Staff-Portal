@@ -32,7 +32,7 @@ class DepartmentReportingPrivacyTest extends TestCase
         $this->assertEqualsWithDelta(50, (float) CrmWeeklyProgress::first()->achievement_percent, 0.01);
         $this->get(route('portal.crm.index'))->assertOk()->assertSee('123,457.89')->assertSee('PRIVATE-CONTACT-TOKEN');
         $this->actingAs($staff)->get(route('portal.crm.index'))->assertForbidden();
-        $page = $this->get(route('dashboard', ['weekly_department' => 'client_relations']));
+        $page = $this->get(route('dashboard', ['weekly_department' => 'client_relations','weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']));
         $page->assertOk()->assertSee('Privacy pipeline project')->assertSee('50.0%')->assertSee('123,457.89')->assertSee('999,987.12')->assertDontSee('PRIVATE-CONTACT-TOKEN')->assertDontSee('PRIVATE-FINANCIAL-NOTE');
         $payload = $page->viewData('publicCrmProgress')->first()->toArray();
         $this->assertEquals(123457.89, $payload['target_amount']);

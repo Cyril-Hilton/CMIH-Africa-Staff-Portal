@@ -85,7 +85,7 @@
         ['label' => 'Surveys',             'route' => 'portal.surveys.index'],
     ];
 
-    if ($user->canManageOperationsPrintingRequests()) {
+    if ($user->canAccessOperationsPrintingRequests()) {
         $hrmLinks[] = ['label' => 'Vendor Printing Requests', 'route' => 'portal.printing-requests.index'];
     }
 
@@ -124,7 +124,9 @@
 
 <aside id="portal-sidebar"
        aria-label="Portal navigation"
-       x-show="! sidebarCollapsed || sidebarOpen"
+       x-show="(sidebarDesktop && ! sidebarCollapsed) || sidebarOpen"
+       :aria-hidden="(!sidebarDesktop && !sidebarOpen) || (sidebarDesktop && sidebarCollapsed && !sidebarOpen)"
+       :inert="(!sidebarDesktop && !sidebarOpen) || (sidebarDesktop && sidebarCollapsed && !sidebarOpen)"
        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
        class="fixed inset-y-0 left-0 z-50 flex h-full max-h-screen min-h-0 w-[min(18rem,calc(100vw-2rem))] shrink-0 flex-col overflow-y-auto overscroll-contain scrollbar-none border-r border-brand-white/10 bg-brand-black/95 px-4 py-6 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out lg:static lg:h-screen lg:w-72 lg:translate-x-0 lg:bg-brand-black/80 lg:shadow-none lg:backdrop-blur-none sm:px-6 sm:py-8">
     <div class="flex items-center justify-between gap-3">

@@ -14,10 +14,10 @@
         </div>
     @endif
 
-    @if(auth()->user()->canManageOperationsPrintingRequests())
+    @if(auth()->user()->canAccessOperationsPrintingRequests())
     <section class="mb-5 rounded-2xl border border-brand-white/20 p-5" aria-label="Operations request forms">
         <h3 class="font-semibold">Vendor Printing Requests</h3>
-        <p class="mt-2 text-sm text-brand-ash">Prepare print specifications, keep saved requests and download the vendor PDF. Available to Operations leadership, CVO and Super Admin.</p>
+        <p class="mt-2 text-sm text-brand-ash">All Operations staff can prepare printing requests. The HOD reviews staff submissions before the approved PDF can be downloaded. CVO and Super Admin retain oversight.</p>
         <div class="mt-4 flex flex-wrap gap-3"><a href="{{ route('portal.printing-requests.create') }}" class="rounded-xl border border-brand-white/30 px-4 py-3">Create printing request</a><a href="{{ route('portal.printing-requests.index') }}" class="rounded-xl border border-brand-white/20 px-4 py-3">View saved requests</a></div>
     </section>
     @endif

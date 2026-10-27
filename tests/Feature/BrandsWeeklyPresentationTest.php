@@ -28,12 +28,13 @@ class BrandsWeeklyPresentationTest extends TestCase {
   $this->assertArrayNotHasKey('verified_at',$row);
   $this->assertSame(0,app(BrandsWeeklyPresentation::class)->build('2026-10-19','2026-10-25',['status'=>'Done'])->total());
  }
- public function test_dashboard_opens_latest_saved_week_but_respects_explicit_current_week():void {
+ public function test_dashboard_opens_current_week_and_keeps_historical_week_selectable():void {
   $this->travelTo(\Carbon\Carbon::parse('2026-10-26 10:00:00','Africa/Accra'));
   $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
   foreach(['brands_marketing','operations_projects','finance','hr_admin'] as $dept){
    WeeklyConsolidatedItem::create(['department'=>$dept,'workflow_state'=>'legacy','campaign_name'=>'Preserved work '.$dept,'client_name'=>'Original activity','week_start'=>'2026-10-19','week_end'=>'2026-10-25','created_by'=>$admin->id,'deliverables'=>'Original report remains available','status'=>'In Progress']);
-   $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept]))->assertOk()->assertSee('Showing the latest saved week:')->assertSee('Original report remains available');
+   $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept]))->assertOk()->assertSee('Current week')->assertDontSee('Original report remains available');
+   $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk()->assertSee('Historical week')->assertSee('Original report remains available');
    $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-26','weekly_to'=>'2026-11-01']))->assertOk()->assertDontSee('Showing the latest saved week:');
   }
   $this->assertDatabaseCount('weekly_consolidated_items',4);
@@ -41,7 +42,7 @@ class BrandsWeeklyPresentationTest extends TestCase {
  public function test_existing_crm_weekly_reports_remain_available_without_creating_sales_figures():void {
   $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
   WeeklyConsolidatedItem::create(['department'=>'client_relations','workflow_state'=>'legacy','client_name'=>'Original CRM Client','campaign_name'=>'Original client project','week_start'=>'2026-10-12','week_end'=>'2026-10-18','deliverables'=>'Original client service narrative','created_by'=>$admin->id,'status'=>'Planned']);
-  $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>'client_relations']))->assertOk()->assertSee('Original client service narrative');
+  $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>'client_relations','weekly_from'=>'2026-10-12','weekly_to'=>'2026-10-18']))->assertOk()->assertSee('Original client service narrative');
   $this->assertDatabaseCount('crm_pipeline_projects',0);
  }
  public function test_old_hr_and_finance_narratives_stay_out_of_other_departments_dashboards():void {

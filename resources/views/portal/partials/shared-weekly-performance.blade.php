@@ -1,19 +1,21 @@
 @include('portal.partials.department-workspace-styles')
-@php($initialPerformanceDepartment = array_key_exists($weeklyDepartmentFilter, $sharedWeeklyPerformance) ? $weeklyDepartmentFilter : array_key_first($sharedWeeklyPerformance))
+@php($initialPerformanceDepartment = $weeklyDepartmentFilter === 'all' ? 'all' : (array_key_exists($weeklyDepartmentFilter, $sharedWeeklyPerformance) ? $weeklyDepartmentFilter : array_key_first($sharedWeeklyPerformance)))
 <section x-data="{ department: @js($initialPerformanceDepartment) }" id="staff-weekly-performance" class="mt-6 space-y-4" aria-label="Staff-wide departmental performance">
-<div class="rounded-2xl border border-sky-400/20 bg-sky-400/5 p-5"><h3 class="text-xl font-semibold text-brand-white">Weekly Departmental Performance</h3><p class="mt-2 text-sm text-brand-ash">View each department’s targets, progress and results.</p></div>
-<div role="tablist" aria-label="Weekly performance departments" class="flex flex-wrap gap-2 border-b border-brand-white/10 pb-3">
-@foreach($sharedWeeklyPerformance as $key=>$department)
-<button type="button" role="tab" id="performance-tab-{{ $key }}" aria-controls="performance-panel-{{ $key }}" :aria-selected="department === @js($key)" @click="window.location.href = @js(route('dashboard', array_merge(['weekly_department'=>$key], request('weekly_auto')==='1'?[]:request()->only(['weekly_from','weekly_to'])), false).'#staff-weekly-performance')" @keydown.right.prevent="$el.nextElementSibling?.focus(); $el.nextElementSibling?.click()" @keydown.left.prevent="$el.previousElementSibling?.focus(); $el.previousElementSibling?.click()" class="shrink-0 whitespace-nowrap rounded-xl border px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300" :class="department === @js($key) ? 'border-sky-300/60 bg-sky-400/15 text-sky-100' : 'border-brand-white/15 text-brand-ash hover:text-brand-white'">{{ $department['label'] }}</button>
+
+@if($initialPerformanceDepartment==='all')
+<div role="tabpanel" id="performance-panel-all" aria-labelledby="performance-tab-all" class="grid gap-3 sm:grid-cols-2">
+@foreach($sharedWeeklyPerformance as $overviewKey=>$overview)
+<a class="rounded-xl border border-brand-white/20 p-4 text-brand-white" href="{{ route('dashboard',array_merge(request()->only(['weekly_from','weekly_to']),['weekly_department'=>$overviewKey])) }}#staff-weekly-performance"><strong>{{ $overview['label'] }}</strong><p class="mt-2 text-sm text-brand-ash">{{ $overview['summary']['verified'] }} independently verified deliveries · {{ $overview['summary']['overdue'] }} overdue verified-workflow commitments</p><p class="mt-3 text-sm underline">Open weekly reports & activities</p></a>
 @endforeach
 </div>
+@endif
 @foreach($sharedWeeklyPerformance as $key=>$department)
 @continue($key !== $initialPerformanceDepartment)
 <div role="tabpanel" data-department="{{ $key }}" id="performance-panel-{{ $key }}" aria-labelledby="performance-tab-{{ $key }}" x-show="department === @js($key)" @if($key !== $initialPerformanceDepartment) style="display: none" @endif class="rounded-2xl border border-brand-white/15 bg-brand-white/5 p-4"><div class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-brand-white"><strong>{{ $department['label'] }}</strong><span class="text-xs text-brand-ash">
 @if($key === 'creatives')
 Live Creative Workflow & Evidence
 @else
-{{ $department['summary']['verified'] }} / {{ $department['summary']['total'] }} deliverables verified · {{ $department['summary']['overdue'] }} overdue
+{{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}
 @endif
 </span></div>
 @if($key === 'creatives')

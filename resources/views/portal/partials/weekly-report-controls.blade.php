@@ -1,9 +1,17 @@
 <div class="my-3 rounded-xl border border-sky-300/20 p-3 text-xs">
-<p class="font-semibold">Report: {{ ucwords(str_replace('_',' ',$item->report_status??'legacy_unreviewed')) }}</p>
+<p class="font-semibold">Report: {{ $item->reportStatusLabel() }}</p>
 <p class="mt-1 text-brand-ash">Work: {{ $item->status }} · Reporting approval does not verify task completion.</p>
 @if($item->carried_from_id)<p class="mt-2 text-brand-ash">Carried from report #{{ $item->carried_from_id }}. Previous progress: {{ isset($item->previous_week_reference['progress_percent'])?$item->previous_week_reference['progress_percent'].'%':'Not recorded' }} (reference only).</p>@endif
 @if($item->week_start?->lt(now()->startOfWeek()))
-<form data-no-ajax data-no-silent method="POST" action="{{ route('portal.dashboard.weekly-consolidated.carry',$item) }}" class="mt-3">@csrf<button class="weekly-consolidated-action-button border border-sky-300/30">Copy to This Week</button></form>
+<form data-no-ajax data-no-silent method="POST" action="{{ route('portal.dashboard.weekly-consolidated.carry',$item) }}" class="mt-3">@csrf<button class="weekly-consolidated-action-button border border-sky-300/30">Copy This Activity to This Week</button></form>
+@endif
+@if(!empty($item->previous_week_reference['content']))
+<details class="mt-3"><summary class="cursor-pointer font-semibold">Previous Week Reference · Not New Results</summary><p class="mt-2 text-brand-ash">Copied context is reference only. Enter this week's actual progress before submitting.</p>
+@foreach(['deliverables'=>'Previous Update','target_breakdown'=>'Previous Targets','achieved_breakdown'=>'Previous Results','gap_breakdown'=>'Previous Gaps'] as $field=>$label)
+@if(!empty($item->previous_week_reference['content'][$field]))<h6 class="mt-3 font-semibold">{{ $label }}</h6><div class="weekly-rich-content">{!! \App\Support\ReportRichText::html($item->previous_week_reference['content'][$field]) !!}</div>@endif
+@endforeach
+@if(!empty($item->previous_week_reference['content']['custom_fields']))<h6 class="mt-3 font-semibold">Previous Additional Fields</h6>@foreach($item->previous_week_reference['content']['custom_fields'] as $field=>$value)<p class="mt-2 font-semibold">{{ ucwords(str_replace('_',' ',$field)) }}</p><div class="weekly-rich-content">{!! \App\Support\ReportRichText::html(is_array($value)?json_encode($value):(string)$value) !!}</div>@endforeach @endif
+</details>
 @endif
 <details class="mt-3"><summary class="cursor-pointer">Submit / Review Weekly Report</summary>
 <form data-no-ajax data-no-silent method="POST" action="{{ route('portal.dashboard.weekly-consolidated.report-state',$item) }}" class="mt-3 space-y-2">@csrf

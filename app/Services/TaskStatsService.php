@@ -224,7 +224,7 @@ class TaskStatsService
 
     private static function overdueCount(Builder $query, ?Carbon $endDate = null): int
     {
-        $cutoff = ($endDate ?: now())->copy()->endOfDay();
+        $cutoff = $endDate && $endDate->lt(now()) ? $endDate->copy()->endOfDay()->min(now()) : now();
 
         return $query
             ->pendingFinalSignOff()

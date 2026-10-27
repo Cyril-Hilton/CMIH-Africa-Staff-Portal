@@ -35,12 +35,13 @@
         <div class="h-screen overflow-hidden bg-inked"
              x-data="{
                  sidebarOpen: false,
+                 sidebarDesktop: window.innerWidth >= 1024,
                  sidebarCollapsed: false,
                  init() {
-                     this.sidebarCollapsed = localStorage.getItem('portalSidebarCollapsed') === 'true';
+                     try { this.sidebarCollapsed = localStorage.getItem('portalSidebarCollapsed') === 'true'; } catch (_) {}
                  },
                  persistSidebarPreference() {
-                     localStorage.setItem('portalSidebarCollapsed', this.sidebarCollapsed ? 'true' : 'false');
+                     try { localStorage.setItem('portalSidebarCollapsed', this.sidebarCollapsed ? 'true' : 'false'); } catch (_) {}
                  },
                  toggleSidebar() {
                      if (window.matchMedia('(min-width: 1024px)').matches) {
@@ -72,6 +73,7 @@
                  }
              }"
              @keydown.escape.window="sidebarOpen = false"
+             @resize.window.debounce.100ms="sidebarDesktop = window.innerWidth >= 1024"
              x-effect="document.body.classList.toggle('overflow-hidden', sidebarOpen && window.innerWidth < 1024)">
             <div x-show="sidebarOpen" x-cloak
                  class="fixed inset-0 z-40 bg-brand-black/70 backdrop-blur-sm lg:hidden"
