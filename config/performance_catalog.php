@@ -1257,6 +1257,56 @@ return json_decode(<<<'JSON'
       "unit": "GHS",
       "direction": "lower",
       "status": null
+    },
+    {
+      "name": "Reported outlets planned",
+      "kind": "campaign",
+      "operation": "sum",
+      "field": "outlets_planned",
+      "other": null,
+      "unit": "outlets",
+      "direction": "higher",
+      "status": null
+    },
+    {
+      "name": "Reported outlets visited",
+      "kind": "campaign",
+      "operation": "sum",
+      "field": "outlets_visited",
+      "other": null,
+      "unit": "visits",
+      "direction": "higher",
+      "status": null
+    },
+    {
+      "name": "Reported outlet visit completion",
+      "kind": "campaign",
+      "operation": "ratio",
+      "field": "outlets_visited",
+      "other": "outlets_planned",
+      "unit": "percent",
+      "direction": "higher",
+      "status": null
+    },
+    {
+      "name": "Retailers supported",
+      "kind": "campaign",
+      "operation": "sum",
+      "field": "retailers_supported",
+      "other": null,
+      "unit": "retailers",
+      "direction": "higher",
+      "status": null
+    },
+    {
+      "name": "Retail reporting on time",
+      "kind": "campaign",
+      "operation": "on_time",
+      "field": "report_shared_on",
+      "other": "report_due_on",
+      "unit": "percent",
+      "direction": "higher",
+      "status": null
     }
   ]
 }

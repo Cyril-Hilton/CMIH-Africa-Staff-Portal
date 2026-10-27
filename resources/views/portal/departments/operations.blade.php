@@ -7,6 +7,11 @@
             <h2 class="text-3xl font-display text-brand-white">Operations & Projects Dashboard</h2>
         </div>
     </x-slot>
+@if(isset($moduleDepartment))
+@include('portal.modules.navigation',['moduleToolTabs'=>['projects'=>'Projects & Activations','handovers'=>'Handovers & Requests','resources'=>'Vendors & Assets','people'=>'Promoters']])
+<div class="contents">
+@endif
+
 
     @if (session('status'))
         <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-400">
@@ -14,6 +19,7 @@
         </div>
     @endif
 
+    <section class="module-panel" role="tabpanel" id="module-panel-handovers" aria-labelledby="module-tab-handovers" x-show="moduleTab==='handovers'" x-cloak>
     @if(auth()->user()->canAccessOperationsPrintingRequests())
     <section class="mb-5 rounded-2xl border border-brand-white/20 p-5" aria-label="Operations request forms">
         <h3 class="font-semibold">Vendor Printing Requests</h3>
@@ -22,7 +28,9 @@
     </section>
     @endif
     @include('portal.operations.handover-workspace')
-    <div class="space-y-8">
+    </section>
+    <div class="contents">
+    <section class="module-panel" role="tabpanel" id="module-panel-projects" aria-labelledby="module-tab-projects" x-show="moduleTab==='projects'" x-cloak>
         <!-- BTL Campaigns & Live-Share Panel -->
         <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-4 sm:p-6">
             <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -92,7 +100,7 @@
 
                 <!-- Active Campaigns Table -->
                 <div class="min-w-0 space-y-4" x-data="{ openCampaign: null, editingCampaign: null }">
-                    <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash">Active BTL Campaigns</h4>
+                    <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash">Recorded Projects & Activations</h4><form method="GET" class="my-4 flex flex-wrap gap-3" data-no-ajax><input type="hidden" name="module_view" value="projects"><label>Search All Projects<input name="campaign_q" value="{{ request('campaign_q') }}" maxlength="150" placeholder="Project or client" class="mt-2 block w-full rounded-lg border border-brand-white/20 bg-brand-black p-3"></label><button class="self-end module-submit">Search</button></form>
                     <div class="max-h-[36rem] min-w-0 overflow-auto rounded-xl border border-brand-white/10 bg-brand-black/20">
                         <table class="w-full min-w-[980px] text-left text-xs text-brand-white/70">
                             <thead class="text-[10px] uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
@@ -331,6 +339,8 @@
             </div>
         </div>
 
+    <div class="my-4">{{ $campaigns->links() }}</div></section>
+    <section class="module-panel" role="tabpanel" id="module-panel-resources" aria-labelledby="module-tab-resources" x-show="moduleTab==='resources'" x-cloak>
         <!-- Grid layout: Vendor Matrix & Asset Logs -->
         <div class="grid gap-6 lg:grid-cols-2">
             <!-- Vendor Matrix -->
@@ -353,10 +363,10 @@
                     </div>
                     <div>
                         <x-input-label for="assigned_project" :value="__('Assigned Campaign / Project')" />
-                        <select id="assigned_project" name="assigned_project_id" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white">
+                        <select id="assigned_project" name="campaign_id" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white">
                             <option value="">No Active Project</option>
-                            @foreach ($projects as $proj)
-                                <option value="{{ $proj->id }}">{{ $proj->title }}</option>
+                            @foreach ($campaignOptions as $proj)
+                                <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -379,8 +389,8 @@
                                 <span class="font-semibold text-brand-white">{{ $vendor->name }}</span>
                                 <span class="rounded-full bg-brand-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-brand-white/70">{{ $vendor->category }}</span>
                             </div>
-                            @if($vendor->project)
-                                <p class="text-brand-red mt-1">Project: {{ $vendor->project->title }}</p>
+                            @if($vendor->campaign)<p class="text-brand-red mt-1">Project: {{ $vendor->campaign->name }}</p>@elseif($vendor->project)
+                                <p class="text-brand-red mt-1">Historical Task Link: {{ $vendor->project->title }}</p>
                             @endif
                             @if($vendor->performance_review_notes)
                                 <p class="text-brand-white/60 mt-1 italic">{!! $vendor->performance_review_notes !!}</p>
@@ -483,6 +493,8 @@
             </div>
         </div>
 
+    </section>
+    <section class="module-panel" role="tabpanel" id="module-panel-people" aria-labelledby="module-tab-people" x-show="moduleTab==='people'" x-cloak>
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Freelance Promoter Directory</h3>
@@ -576,5 +588,6 @@
                 </div>
             </div>
         </div>
-    </div>
+    </section></div>
+@if(isset($moduleDepartment))</div></div>@endif
 </x-app-layout>

@@ -25,7 +25,8 @@ class WeeklyDepartmentTables
             if (! $definition['columns'] && empty($definition['sections'])) {
                 continue;
             }
-            $rows = PerformanceRegister::query()->where('department', $key)->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->when($from, fn ($q) => $q->whereDate('period_end', '>=', $from))->when($to, fn ($q) => $q->whereDate('period_start', '<=', $to))->orderByDesc('period_end')->limit(100)->get()->map(function ($record) use ($definition) {
+            $flatPage = PerformanceRegister::query()->where('department', $key)->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->when($from, fn ($q) => $q->whereDate('period_end', '>=', $from))->when($to, fn ($q) => $q->whereDate('period_start', '<=', $to))->orderByDesc('period_end')->orderByDesc('id')->paginate(20,['*'],'register_'.$key.'_page')->withQueryString()->appends(['report_view'=>'register']+(request()->routeIs('portal.brands','portal.operations','portal.finance')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
+            $rows = $flatPage->getCollection()->map(function ($record) use ($definition) {
                 $row = ['period' => $record->period_start->format('d M').'–'.$record->period_end->format('d M Y')];
                 foreach ($definition['columns'] as $field => $label) {
                     $row[$field] = in_array($field, ['kind', 'title', 'status']) ? $record->{$field} : ($record->data[$field] ?? null);
@@ -36,14 +37,17 @@ class WeeklyDepartmentTables
 
                 return $row;
             })->all();
-            $result[$key] = $definition + ['rows' => $rows];
+            $flatPage->setCollection(collect($rows));
+            $result[$key] = $definition + ['rows' => $rows, 'pagination'=>$flatPage];
             if (! empty($definition['sections'])) {
-                $records = PerformanceRegister::where('department',$key)->whereNotNull('approved_at')->where('status','!=','cancelled')
+                $recordQuery = PerformanceRegister::where('department',$key)->whereNotNull('approved_at')->where('status','!=','cancelled')
                     ->when($from,fn($q)=>$q->whereDate('period_end','>=',$from))->when($to,fn($q)=>$q->whereDate('period_start','<=',$to))
-                    ->orderByDesc('period_end')->limit(100)->get();
-                $names = \App\Models\User::whereIn('id',$records->pluck('owner_id'))->pluck('name','id');
+                    ->orderByDesc('period_end')->orderByDesc('id');
                 $result[$key]['sections'] = [];
                 foreach ($definition['sections'] as $kind=>$fields) {
+                    $categoryPage=(clone $recordQuery)->where('kind',$kind)->paginate(10,['*'],'register_'.$key.'_'.$kind.'_page')->withQueryString()->appends(['report_view'=>'register']+(request()->routeIs('portal.brands','portal.operations','portal.finance')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
+                    $records=$categoryPage->getCollection();
+                    $names=\App\Models\User::whereIn('id',$records->pluck('owner_id'))->pluck('name','id');
                     $schema = config('department_reporting.'.$key.'.'.$kind,[]);
                     $columns = array_combine($fields,array_map(fn($field)=>ucwords(str_replace('_',' ',$field)),$fields));
                     $sectionRows = $records->where('kind',$kind)->map(function($record)use($fields,$schema,$names){
@@ -51,7 +55,8 @@ class WeeklyDepartmentTables
                         foreach($fields as $field) { if(($schema[$field]??null)==='money') continue; $row[$field]=$record->data[$field]??null; }
                         return $row;
                     })->values()->all();
-                    $result[$key]['sections'][$kind]=['title'=>$key==='operations_projects'?config('operations_tracker.labels.'.$kind,ucwords(str_replace('_',' ',$kind))):($key==='brands_marketing' && $kind==='campaign'?'Brand Activities':ucwords(str_replace('_',' ',$kind))),'columns'=>$columns,'rows'=>$sectionRows];
+                    $categoryPage->setCollection(collect($sectionRows));
+                    $result[$key]['sections'][$kind]=['title'=>$key==='operations_projects'?config('operations_tracker.labels.'.$kind,ucwords(str_replace('_',' ',$kind))):($key==='brands_marketing' && $kind==='campaign'?'Brand Activities':ucwords(str_replace('_',' ',$kind))),'columns'=>$columns,'rows'=>$sectionRows,'total'=>$categoryPage->total(),'pagination'=>$categoryPage];
                 }
             }
         }

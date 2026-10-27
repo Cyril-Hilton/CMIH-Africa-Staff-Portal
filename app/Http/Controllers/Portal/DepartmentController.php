@@ -419,7 +419,7 @@ class DepartmentController extends Controller
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->access_role === 'super_admin';
+            || $user->isCvoOrSuperAdmin();
 
         if ($isFinance) {
             $claims = PettyCashClaim::with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
@@ -429,7 +429,7 @@ class DepartmentController extends Controller
             $invoices = \App\Models\SupplierInvoice::where('submitted_by', $user->id)->with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();
         }
 
-        return view('portal.departments.finance', compact('user', 'claims', 'invoices'));
+        return view('portal.departments.finance', compact('user', 'claims', 'invoices') + ($isFinance ? app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'finance') : []));
     }
 
     /**
@@ -727,25 +727,27 @@ class DepartmentController extends Controller
         $user = $request->user();
         $this->authorizeDepartment('operations', $user);
 
-        $vendors = ThirdPartyVendor::with('project')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
+        $vendors = ThirdPartyVendor::with(['project','campaign'])->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
         $promoters = FreelancePromoter::latest()->paginate(5, ['*'], 'p_page')->withQueryString();
         $assets = Asset::latest()->get();
         $assetLogs = AssetLog::with(['asset', 'user'])->latest()->paginate(5, ['*'], 'al_page')->withQueryString();
-        $projects = Task::whereIn('department', ['operations', 'operations_projects'])->realWork()->latest()->get();
+        $request->validate(['campaign_q'=>'nullable|string|max:150']);
+        $campaignOptions=Campaign::orderBy('name')->get(['id','name']);
         $campaigns = Campaign::with(['projectLead', 'tasks.assignee', 'tasks.assigner', 'assetLogs.asset', 'assetLogs.user', 'campaignPhotos'])
-            ->latest()
-            ->get()
-            ->each(function (Campaign $campaign) use ($user) {
+            ->when($request->query('campaign_q'),fn($q,$search)=>$q->where(fn($q)=>$q->where('name','like','%'.$search.'%')->orWhere('client_name','like','%'.$search.'%')))
+            ->latest()->paginate(10,['*'],'campaign_page')->withQueryString()->appends(['module_view'=>'projects'])
+            ->through(function (Campaign $campaign) use ($user) {
                 $campaign->setRelation(
                     'tasks',
                     $campaign->tasks
                         ->filter(fn (Task $task) => $this->canViewCampaignTaskActivity($task, $user))
                         ->values()
                 );
+                return $campaign;
             });
         $staff = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
 
-        return view('portal.departments.operations', compact('vendors', 'promoters', 'assets', 'assetLogs', 'projects', 'campaigns', 'staff'));
+        return view('portal.departments.operations', compact('vendors', 'promoters', 'assets', 'assetLogs', 'campaignOptions', 'campaigns', 'staff') + app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'operations_projects'));
     }
 
     private function canViewCampaignTaskActivity(Task $task, User $viewer): bool
@@ -798,11 +800,12 @@ class DepartmentController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'category' => ['required', 'string', 'in:Projects,Office'],
-            'assigned_project_id' => ['nullable', 'exists:tasks,id'],
-            'performance_review_notes' => ['nullable', 'string', 'max:1000'],
+            'campaign_id' => ['nullable', 'exists:campaigns,id'],
+            'assigned_project_id' => ['prohibited'],
+            'performance_review_notes' => ['nullable', 'string', 'max:15000'],
         ]);
 
-        ThirdPartyVendor::create($request->only('name', 'category', 'assigned_project_id', 'performance_review_notes'));
+        ThirdPartyVendor::create($request->only('name', 'category', 'campaign_id', 'performance_review_notes'));
 
         return back()->with('status', 'Vendor details saved successfully!');
     }
@@ -899,23 +902,35 @@ class DepartmentController extends Controller
         $blueprints = Asset::where('type', 'blueprint')->latest()->paginate(5, ['*'], 'bp_page')->withQueryString();
         $posmEntries = \App\Models\PosmLedger::with('creator')->latest()->paginate(5, ['*'], 'pe_page')->withQueryString();
 
-        return view('portal.departments.brands', compact('materials', 'blueprints', 'posmEntries'));
+        $posmItems=Asset::whereIn('type',['POSM','posm'])->orderBy('name')->get(['id','name','asset_tag']);
+        $posmCampaigns=Campaign::orderBy('name')->get(['id','name']);
+        return view('portal.departments.brands', compact('materials', 'blueprints', 'posmEntries','posmItems','posmCampaigns') + app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'brands_marketing'));
     }
 
     /**
      * Store strategy blueprint file
      */
+    public function strategyFile(Request $request, Asset $asset)
+    {
+        $this->authorizeDepartment('brands', $request->user());
+        abort_unless($asset->type === 'blueprint' && $asset->image_path, 404);
+        $private = str_starts_with($asset->image_path, 'private:');
+        $path = $private ? substr($asset->image_path, 8) : $asset->image_path;
+        abort_unless(\Illuminate\Support\Facades\Storage::disk($private ? 'local' : 'public')->exists($path), 404);
+        return \Illuminate\Support\Facades\Storage::disk($private ? 'local' : 'public')->download($path);
+    }
+
     public function storeStrategy(Request $request): RedirectResponse
     {
         $this->authorizeDepartment('brands', $request->user());
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'file' => ['required', 'file', 'max:8192'],
+            'description' => ['nullable', 'string', 'max:15000'],
+            'file' => ['required', 'file', 'mimes:pdf,docx', 'max:8192'],
         ]);
 
-        $filePath = $request->file('file')->store('blueprints', 'public');
+        $filePath = $request->file('file')->store('blueprints', 'local');
 
         Asset::create([
             'name' => $request->input('name'),
@@ -924,7 +939,7 @@ class DepartmentController extends Controller
             'status' => 'available',
             'location' => 'Digital Vault',
             'notes' => 'Strategy blueprint file uploaded.',
-            'image_path' => $filePath,
+            'image_path' => 'private:'.$filePath,
             'added_by' => $request->user()->id,
         ]);
 
@@ -1458,16 +1473,20 @@ class DepartmentController extends Controller
     {
         $this->authorizeDepartment('brands', $request->user());
         $request->validate([
-            'item_name' => ['required', 'string', 'max:255'],
+            'asset_id' => ['nullable', \Illuminate\Validation\Rule::exists('assets','id')->whereIn('type',['POSM','posm'])],
+            'campaign_id' => ['nullable','exists:campaigns,id'],
+            'occurred_on' => ['nullable','date','before_or_equal:today'],
+            'item_name' => ['required_without:asset_id', 'nullable', 'string', 'max:255'],
             'item_type' => ['required', 'string', 'in:POSM,Uniform,Banner,Tablet,AV,Other'],
             'client_brand' => ['nullable', 'string', 'max:255'],
             'quantity_in' => ['required', 'integer', 'min:0'],
             'quantity_out' => ['required', 'integer', 'min:0'],
             'location' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string', 'max:1000'],
+            'notes' => ['nullable', 'string', 'max:15000'],
         ]);
+        if ($request->filled('asset_id')) $request->merge(['item_name'=>Asset::findOrFail($request->integer('asset_id'))->name,'item_type'=>'POSM']);
         \App\Models\PosmLedger::create(array_merge(
-            $request->only('item_name', 'item_type', 'client_brand', 'quantity_in', 'quantity_out', 'location', 'notes'),
+            $request->only('item_name', 'item_type', 'client_brand', 'quantity_in', 'quantity_out', 'location', 'notes','asset_id','campaign_id','occurred_on'),
             ['created_by' => $request->user()->id]
         ));
 

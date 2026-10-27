@@ -40,7 +40,7 @@ class SharedPeopleReportingTest extends TestCase
         }
         $hr->update(['approved_at' => null]);
         $admin->update(['approved_at' => null]);
-        $this->assertEquals(['hr' => [], 'administrator' => []], $service->build('2026-10-19', '2026-10-25'));
+        $this->assertEquals(['hr' => [], 'administrator' => [],'publication'=>['hr'=>['approved'=>0,'awaiting'=>1],'administrator'=>['approved'=>0,'awaiting'=>1]]], $service->build('2026-10-19', '2026-10-25'));
     }
     public function test_comparisons_use_approved_previous_period_and_keep_sensitive_details_private(): void
     {

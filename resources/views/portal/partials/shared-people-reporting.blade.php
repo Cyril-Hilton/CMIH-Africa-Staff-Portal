@@ -2,7 +2,7 @@
 @foreach(['hr'=>'Human Resources','administrator'=>'Administrator'] as $type=>$label)
 <section>
     <div class="dw-heading"><h5>{{ $label }}</h5></div>
-    <p class="dw-meta">Approved results with the preceding period alongside.</p>
+    <p class="dw-meta">Approved results with the preceding period alongside. {{ $department['people_reporting']['publication'][$type]['approved']??0 }} approved reports · {{ $department['people_reporting']['publication'][$type]['awaiting']??0 }} reports not yet approved. Unapproved content remains private.</p>
     @php($lastGroup=null)
     @forelse($department['people_reporting'][$type]??[] as $metric)
         @if(($metric['group']??'Key Metrics')!==$lastGroup)

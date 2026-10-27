@@ -5,7 +5,8 @@ $revenueActor=auth()->user();$revenueMoney=fn($v)=>$v===null?'Awaiting confirmat
 @endphp
 <div class="revenue-workspace space-y-5" aria-label="Client Relations and Finance Revenue Review">
 <header class="rounded-2xl border border-cyan-200/30 p-5"><p class="text-xs uppercase tracking-widest text-cyan-200">Client Relations + Finance</p><h4 class="mt-2 text-2xl font-semibold">Confirmed Revenue</h4><p class="mt-3 text-sm text-brand-ash">Client Relations reports the revenue. Finance checks it. Corrections need agreement from both departments before they count as confirmed revenue. Proposals, POs, invoices and expenses are separate.</p></header>
-<form method="GET" action="{{ route('dashboard') }}#staff-weekly-performance" class="grid gap-3 rounded-xl border border-brand-white/15 p-4 sm:grid-cols-2 xl:grid-cols-6" data-no-ajax data-no-silent>
+<form method="GET" action="{{ !empty($revenueModule)?route('portal.finance'):route('dashboard').'#staff-weekly-performance' }}" class="grid gap-3 rounded-xl border border-brand-white/15 p-4 sm:grid-cols-2 xl:grid-cols-6" data-no-ajax data-no-silent>
+@if(!empty($revenueModule))<input type="hidden" name="module_view" value="revenue">@endif
 <input type="hidden" name="weekly_department" value="{{ $key }}"><input type="hidden" name="revenue_view" value="1">
 <label class="min-w-0 text-xs">Reporting period<select name="revenue_period" class="mt-2 block w-full rounded-lg bg-brand-black p-3">@foreach(['weekly'=>'Weekly','monthly'=>'Monthly','yearly'=>'Yearly'] as $v=>$label)<option value="{{ $v }}" @selected($revenueData['period']===$v)>{{ $label }}</option>@endforeach</select></label>
 <label class="min-w-0 text-xs">Date in period<input type="date" name="revenue_date" value="{{ request('revenue_date',request('weekly_from',today()->toDateString())) }}" class="mt-2 block w-full min-w-0 rounded-lg bg-brand-black p-3"></label>
@@ -17,7 +18,7 @@ $revenueActor=auth()->user();$revenueMoney=fn($v)=>$v===null?'Awaiting confirmat
 @foreach([-1=>'Previous',0=>'Current',1=>'Next'] as $shift=>$label)
 @php($revenueAnchor=$shift===0?today():$revenueData['from']->copy())
 @php($revenueAnchor=$shift===0?$revenueAnchor:match($revenueData['period']){'monthly'=>$revenueAnchor->addMonthsNoOverflow($shift),'yearly'=>$revenueAnchor->addYearsNoOverflow($shift),default=>$revenueAnchor->addWeeks($shift)})
-<a class="rounded-xl border border-brand-white/20 px-4 py-3 text-sm" href="{{ route('dashboard',array_merge(request()->except('revenue_page'),['weekly_department'=>$key,'revenue_view'=>1,'revenue_period'=>$revenueData['period'],'revenue_date'=>$revenueAnchor->toDateString()])) }}#staff-weekly-performance">{{ $label }} {{ match($revenueData['period']){'monthly'=>'Month','yearly'=>'Year',default=>'Week'} }}</a>
+<a class="rounded-xl border border-brand-white/20 px-4 py-3 text-sm" href="{{ route(!empty($revenueModule)?'portal.finance':'dashboard',array_merge(request()->except('revenue_page'),['weekly_department'=>$key,'revenue_view'=>1,'revenue_period'=>$revenueData['period'],'revenue_date'=>$revenueAnchor->toDateString()]+(!empty($revenueModule)?['module_view'=>'revenue']:[]))) }}#staff-weekly-performance">{{ $label }} {{ match($revenueData['period']){'monthly'=>'Month','yearly'=>'Year',default=>'Week'} }}</a>
 @endforeach
 </nav>
 <p class="text-sm text-brand-ash">{{ $revenueData['from']->format('d M Y') }} – {{ $revenueData['to']->format('d M Y') }} · Latest reported snapshot per client/project in this period. Repeated weekly balances are counted once; this is not a sum of cash receipts.</p>

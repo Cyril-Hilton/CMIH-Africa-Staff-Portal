@@ -10,7 +10,12 @@ class SharedPeopleReporting
     /** Explicit public numeric projection: no employee names, cases, notes or costs. */
     public function build(string $from, string $to, bool $compare = true): array
     {
-        $result = ['hr' => [], 'administrator' => []];
+        $result = ['hr' => [], 'administrator' => [], 'publication'=>[]];
+        foreach (['hr'=>HrPeriodicReport::class,'administrator'=>AdminWeeklyReport::class] as $type=>$model) {
+            $scope=$model::whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from);
+            if($type==='hr')$scope->where('frequency','weekly');
+            $result['publication'][$type]=['approved'=>(clone $scope)->whereNotNull('approved_at')->count(),'awaiting'=>(clone $scope)->whereNull('approved_at')->count()];
+        }
         $reports = HrPeriodicReport::with('entries')->whereNotNull('approved_at')->where('frequency', 'weekly')
             ->whereDate('period_start', '<=', $to)->whereDate('period_end', '>=', $from)->orderByDesc('period_start')->get();
         foreach ($reports as $report) {

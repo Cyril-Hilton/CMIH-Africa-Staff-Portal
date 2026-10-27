@@ -12,7 +12,7 @@ class BrandsWeeklyPresentation
         if(!empty($v['q'])) $query->where(fn($q)=>$q->where('campaign_name','like','%'.$v['q'].'%')->orWhere('client_name','like','%'.$v['q'].'%')->orWhere('deliverables','like','%'.$v['q'].'%')->orWhereHas('leadStaff',fn($u)=>$u->where('name','like','%'.$v['q'].'%')));
         if(!empty($v['status']))$query->where('status',$v['status']);
         match($v['sort']??'workstream'){'deadline'=>$query->orderBy('week_end'),'newest'=>$query->orderByDesc('week_start'),default=>$query->orderBy('campaign_name')};
-        $items=$query->orderBy('id')->paginate(8,['*'],'brands_page')->withQueryString()->appends(['weekly_department'=>'brands_marketing'])->fragment('staff-weekly-performance');
+        $items=$query->orderBy('id')->paginate(8,['*'],'brands_page')->withQueryString()->appends(['weekly_department'=>'brands_marketing']+(request()->routeIs('portal.brands')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
         $supportIds=$items->getCollection()->flatMap(fn($item)=>$item->supporting_staff_ids??[])->unique();
         $names=User::whereIn('id',$supportIds)->pluck('name','id');
         return $items->through(function($item)use($names){

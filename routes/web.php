@@ -377,6 +377,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/operations/assets/{log}/checkin', [\App\Http\Controllers\Portal\DepartmentController::class, 'checkinAsset'])->name('operations.assets.checkin');
 
     Route::get('/brands', [\App\Http\Controllers\Portal\DepartmentController::class, 'brands'])->name('brands');
+    Route::get('/brands/strategy/{asset}', [\App\Http\Controllers\Portal\DepartmentController::class, 'strategyFile'])->name('brands.strategy.file');
     Route::post('/brands/strategy', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeStrategy'])->name('brands.strategy.store');
 
     Route::get('/creative', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'index'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('creative');

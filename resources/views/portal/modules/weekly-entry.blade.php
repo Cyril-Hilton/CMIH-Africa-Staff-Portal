@@ -1,0 +1,12 @@
+@if($moduleManages)
+@include('portal.partials.dashboard-ux-styles')
+<button type="button" class="module-submit my-4" data-copy-week data-department="{{ $moduleDepartment }}" data-source-week="{{ \Carbon\CarbonImmutable::parse($moduleFrom)->startOfWeek()->min(\Carbon\CarbonImmutable::now()->startOfWeek()->subWeek())->toDateString() }}" data-target-week="{{ now()->startOfWeek()->toDateString() }}" data-preview-url="{{ route('portal.dashboard.weekly-consolidated.copy-week.preview') }}" data-store-url="{{ route('portal.dashboard.weekly-consolidated.copy-week.store') }}">Copy Entire Week</button>
+<details class="module-record"><summary class="font-semibold cursor-pointer">Add Weekly Activity</summary><p class="module-notice">Weekly updates are shared with staff. Keep confidential notes, documents and private financial details in their protected tools.</p><form method="POST" action="{{ route('portal.dashboard.weekly-consolidated.store') }}" class="module-form mt-4" data-no-ajax data-no-silent>@csrf<input type="hidden" name="department" value="{{ $moduleDepartment }}">
+@foreach(['week_start'=>$moduleFrom,'week_end'=>$moduleTo] as $name=>$value)@include('portal.performance.field',['name'=>$name,'options'=>null,'type'=>'date','value'=>$value,'required'=>true,'label'=>null])@endforeach
+@include('portal.performance.field',['name'=>'campaign_name','options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>$moduleDepartment==='brands_marketing'?'Project / Workstream':'Project'])
+@include('portal.performance.field',['name'=>'client_name','options'=>null,'type'=>'text','value'=>null,'required'=>false,'label'=>$moduleDepartment==='brands_marketing'?'Activity Name':'Client'])
+@include('portal.performance.field',['name'=>'lead_staff_id','options'=>$moduleStaff->pluck('name','id')->all(),'value'=>null,'required'=>false,'label'=>'Lead Staff'])
+@include('portal.performance.field',['name'=>'status','options'=>['Planned'=>'Planned','In Progress'=>'In Progress','Done'=>'Reported Complete','Blocked'=>'Blocked','Deferred'=>'Deferred'],'value'=>'Planned','required'=>true,'label'=>'Work Status'])
+@foreach(['deliverables'=>'Brief, Activity & Progress','target_breakdown'=>'Targets & KPI Commitments','achieved_breakdown'=>'Reported Results','gap_breakdown'=>'Gaps & Next Actions'] as $name=>$label)@include('portal.performance.field',['name'=>$name,'options'=>null,'type'=>'textarea','value'=>null,'required'=>$name==='deliverables','label'=>$label])@endforeach
+<button type="submit">Save Shared Weekly Draft</button></form></details>
+@endif

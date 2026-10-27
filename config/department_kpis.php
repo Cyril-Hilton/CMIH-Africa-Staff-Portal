@@ -35,6 +35,13 @@ return [
         ['name' => 'Fuel cost', 'unit' => 'GHS', 'direction' => 'lower', 'definition' => 'Approved fuel expenditure versus approved allocation for the period.', 'source' => 'Fuel log'],
     ],
     'brands_marketing' => [
+        ['name'=>'Outlet coverage','unit'=>'percent','direction'=>'higher','definition'=>'Distinct visited eligible outlets divided by planned eligible outlets times 100 for the same territory and period.','source'=>'Approved outlet visit records'],
+        ['name'=>'On-shelf availability','unit'=>'percent','direction'=>'higher','definition'=>'Available required SKU/outlet observations divided by all valid required SKU/outlet observations times 100.','source'=>'Approved retail availability audits'],
+        ['name'=>'Perfect Store compliance','unit'=>'percent','direction'=>'higher','definition'=>'Audited outlets meeting the agreed Perfect Store criteria divided by valid audited outlets times 100.','source'=>'Approved Perfect Store audits'],
+        ['name'=>'Must-have assortment compliance','unit'=>'percent','direction'=>'higher','definition'=>'Compliant required assortment checks divided by valid required assortment checks times 100.','source'=>'Approved assortment audits'],
+        ['name'=>'NPD availability','unit'=>'percent','direction'=>'higher','definition'=>'Available new-product checks divided by valid planned new-product checks times 100.','source'=>'Approved NPD audits'],
+        ['name'=>'Retail reports delivered on time','unit'=>'percent','direction'=>'higher','definition'=>'Reports shared on or before their due date divided by dated reports due in the period times 100.','source'=>'Approved retail report due and shared dates'],
+
         ['name' => 'Campaign content delivered', 'unit' => 'assets', 'direction' => 'higher', 'definition' => 'Count of agreed campaign assets delivered in the period.', 'source' => 'Campaign deliverables register'],
         ['name' => 'Qualified leads', 'unit' => 'leads', 'direction' => 'higher', 'definition' => 'Distinct leads meeting the campaign qualification definition.', 'source' => 'Campaign lead register'],
         ['name' => 'Engagement rate', 'unit' => 'percent', 'direction' => 'higher', 'definition' => 'Interactions divided by reach times 100 for the same campaign and period.', 'source' => 'Platform insights; record denominator'],

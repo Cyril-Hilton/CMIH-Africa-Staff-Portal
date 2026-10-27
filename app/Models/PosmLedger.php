@@ -11,12 +11,13 @@ class PosmLedger extends Model
 
     protected $fillable = [
         'created_by', 'item_name', 'item_type', 'client_brand',
-        'quantity_in', 'quantity_out', 'location', 'notes', 'image_path',
+        'quantity_in', 'quantity_out', 'location', 'notes', 'image_path', 'asset_id', 'campaign_id', 'occurred_on',
     ];
 
     protected function casts(): array
     {
         return [
+            'occurred_on' => 'date',
             'quantity_in'  => 'integer',
             'quantity_out' => 'integer',
         ];

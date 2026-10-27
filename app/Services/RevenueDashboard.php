@@ -33,8 +33,8 @@ class RevenueDashboard
             'amount' => $rows->sortByDesc(fn ($r) => (float) $r['row']->actual_amount),'client' => $rows->sortBy(fn ($r) => mb_strtolower($r['row']->client_name)),default => $rows->sortBy(fn ($r) => ($r['row']->confirmedRevenue() !== null ? '1' : '0').mb_strtolower($r['row']->client_name))
         };
         $page = max(1, min((int) ($f['page'] ?? 1), max(1, (int) ceil($rows->count() / 10))));
-        $pager = new LengthAwarePaginator($rows->slice(($page - 1) * 10, 10)->values(), $rows->count(), 10, $page, ['path' => route('dashboard'), 'pageName' => 'revenue_page']);
-        $pager->appends(array_merge(request()->except('revenue_page'), ['revenue_view' => 1]))->fragment('staff-weekly-performance');
+        $pager = new LengthAwarePaginator($rows->slice(($page - 1) * 10, 10)->values(), $rows->count(), 10, $page, ['path' => request()->routeIs('portal.finance') ? route('portal.finance') : route('dashboard'), 'pageName' => 'revenue_page']);
+        $pager->appends(array_merge(request()->except('revenue_page'), ['revenue_view' => 1]+(request()->routeIs('portal.finance')?['module_view'=>'revenue']:[])))->fragment('staff-weekly-performance');
         $events = PerformanceEvent::with('actor')->where(function ($q) use ($pager) {
             foreach (['project', 'target'] as $type) {
                 $q->orWhere(fn ($x) => $x->where('entity_type', 'crm_revenue_'.$type)->whereIn('entity_id', collect($pager->items())->where('type', $type)->pluck('row.id')));

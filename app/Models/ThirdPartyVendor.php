@@ -14,9 +14,15 @@ class ThirdPartyVendor extends Model
         'name',
         'category',
         'assigned_project_id',
+        'campaign_id',
         'deliverable_status',
         'performance_review_notes',
     ];
+
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class);
+    }
 
     public function project(): BelongsTo
     {

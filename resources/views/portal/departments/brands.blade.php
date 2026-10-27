@@ -5,17 +5,8 @@
             <h2 class="text-3xl font-display text-brand-white">Brands & Marketing Hub</h2>
         </div>
     </x-slot>
-
-    @if (session('status'))
-        <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-400">
-            {{ session('status') }}
-        </div>
-    @endif
-
-    <div class="space-y-8">
-        <!-- POSM Inventory & Strategy Blueprint Row -->
-        <div class="space-y-6">
-            
+@include('portal.modules.navigation',['moduleToolTabs'=>['stock'=>'POSM & Stock','documents'=>'Strategy Documents']])
+<section class="module-panel space-y-6" role="tabpanel" id="module-panel-stock" aria-labelledby="module-tab-stock" x-show="moduleTab==='stock'" x-cloak>
             <!-- POSM Material Stock list -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="box" /> Merchandiser & POSM Stock Hub</h3>
@@ -27,7 +18,7 @@
                                 <th class="py-3">Type</th>
                                 <th class="py-3">Allocation Condition</th>
                                 <th class="py-3">Location</th>
-                                <th class="py-3">Status</th>
+                                <th class="py-3">Status</th><th class="py-3">Warehouse Balance</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-brand-white/5">
@@ -41,27 +32,10 @@
                                         <span class="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] uppercase font-bold text-emerald-400">
                                             {{ $posm->status }}
                                         </span>
-                                    </td>
+                                    </td><td class="py-3">{{ $posm->is_warehouse_tracked?$posm->warehouse_quantity:'Not warehouse tracked' }}</td>
                                 </tr>
                             @empty
-                                <!-- Show static list if db is fresh -->
-                                @foreach([
-                                    ['name' => 'Brand Rollup Banners (CMIH)', 'type' => 'POSM', 'cond' => 'Excellent', 'loc' => 'Accra Office', 'status' => 'Available'],
-                                    ['name' => 'CMIH T-shirts (M/L/XL)', 'type' => 'POSM', 'cond' => 'Brand New', 'loc' => 'Warehouse A', 'status' => 'In Stock'],
-                                    ['name' => 'Promotional Flyers Bundle', 'type' => 'POSM', 'cond' => 'Freshly Printed', 'loc' => 'Warehouse B', 'status' => 'Available']
-                                ] as $mockPosm)
-                                    <tr>
-                                        <td class="py-3 font-semibold text-brand-white">{{ $mockPosm['name'] }}</td>
-                                        <td class="py-3">{{ $mockPosm['type'] }}</td>
-                                        <td class="py-3 text-brand-red">{{ $mockPosm['cond'] }}</td>
-                                        <td class="py-3">{{ $mockPosm['loc'] }}</td>
-                                        <td class="py-3">
-                                            <span class="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] uppercase font-bold text-emerald-400">
-                                                {{ $mockPosm['status'] }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                @endforeach
+<tr><td colspan="6" class="py-6 text-brand-ash">No POSM stock items recorded. Record real stock in the asset register.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -73,72 +47,23 @@
                 @endif
             </div>
 
-            <!-- Upload Brand Blueprint / Strategy Strategy Blueprint upload -->
-            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="bolt" /> Compliance Parameters & Strategy Blueprints</h3>
-                <form method="POST" action="{{ route('portal.brands.strategy.store') }}" enctype="multipart/form-data" class="space-y-4 mb-6">
-                    @csrf
-                    <div>
-                        <x-input-label for="blueprint_name" :value="__('Document Name / Blueprint Title')" />
-                        <x-text-input id="blueprint_name" name="name" type="text" required class="mt-1 w-full border border-brand-white/10 bg-brand-black/40 text-brand-white placeholder-brand-white/30" placeholder="Brand Launch Campaign Strategy" />
-                    </div>
-                    <div>
-                        <x-input-label for="blueprint_desc" :value="__('Brief Description / Goals')" />
-                        <textarea id="blueprint_desc" name="description" class="wysiwyg-editor mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30" placeholder="Compliance guidelines or marketing targets..."></textarea>
-                    </div>
-                    <div>
-                        <x-input-label for="blueprint_file" :value="__('Select Strategy File (PDF, DOCX)')" />
-                        <input id="blueprint_file" name="file" type="file" required class="mt-1 w-full text-xs text-brand-ash file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-white/10 file:text-brand-white hover:file:bg-brand-white/20" />
-                    </div>
-                    <div class="flex justify-end">
-                        <button type="submit" class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white transition-all">
-                            Upload Strategy Blueprint
-                        </button>
-                    </div>
-                </form>
-
-                <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash mb-3 border-t border-brand-white/10 pt-4">Strategy Documents Registry</h4>
-                <div class="space-y-3 max-h-60 overflow-y-auto">
-                    @forelse($blueprints as $bp)
-                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 flex justify-between items-center text-xs">
-                            <div>
-                                <p class="font-semibold text-brand-white">{{ $bp->name }}</p>
-                                @if($bp->description)
-                                    <p class="text-brand-white/60 text-[10px] mt-1">{!! $bp->description !!}</p>
-                                @endif
-                            </div>
-                            <a href="{{ Storage::disk('public')->url($bp->image_path) }}" target="_blank" class="rounded-full bg-brand-white/10 p-2 text-brand-white hover:bg-brand-white/20 transition-all">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            </a>
-                        </div>
-                    @empty
-                        <p class="text-xs text-brand-white/40 italic text-center py-4">No strategy blueprints uploaded yet.</p>
-                    @endforelse
-                </div>
-                @if($blueprints instanceof \Illuminate\Pagination\LengthAwarePaginator)
-                    <div class="mt-4 pt-4 border-t border-brand-white/10">
-                        {{ $blueprints->links() }}
-                    </div>
-                @endif
-            </div>
-
-        </div>
-
         {{-- ══════════════════ PHASE 3: POSM & MATERIALS LEDGER ══════════════════ --}}
         <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
             <div class="mb-5">
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Phase 3</p>
+
                 <h3 class="text-lg font-display text-brand-white uppercase"><x-ui-icon name="clipboard" /> POSM & Materials Deployment Ledger</h3>
             </div>
             <div class="space-y-6">
                 {{-- Create POSM Entry --}}
                 <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5 h-fit">
                     <h4 class="text-xs uppercase tracking-widest text-brand-ash font-semibold mb-3">Log Deployment / Stock</h4>
-                    <form method="POST" action="{{ route('portal.brands.posm.store') }}" class="space-y-3">
+                    <form method="POST" action="{{ route('portal.brands.posm.store') }}" x-data="{}" class="space-y-3">
                         @csrf
+                        <p class="text-xs text-brand-ash">Link the real inventory item and project where available. This records a reported movement; warehouse quantities remain controlled by the warehouse allocation/return workflow.</p>
+                        <div class="grid gap-3 sm:grid-cols-3"><label class="text-xs">Inventory Item<select name="asset_id" @change="if($event.target.value)$refs.posmName.value=$event.target.selectedOptions[0].dataset.itemName" class="mt-2 w-full rounded-lg bg-brand-black p-3"><option value="">Unlinked / Historical Item</option>@foreach($posmItems as $stock)<option value="{{ $stock->id }}" data-item-name="{{ $stock->name }}">{{ $stock->asset_tag?:'AST-'.$stock->id }} · {{ $stock->name }}</option>@endforeach</select></label><label class="text-xs">Project / Activation<select name="campaign_id" class="mt-2 w-full rounded-lg bg-brand-black p-3"><option value="">No project linked</option>@foreach($posmCampaigns as $campaign)<option value="{{ $campaign->id }}">{{ $campaign->name }}</option>@endforeach</select></label><label class="text-xs">Movement Date<input name="occurred_on" type="date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" class="mt-2 w-full rounded-lg bg-brand-black p-3"></label></div>
                         <div>
                             <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Item Name *</label>
-                            <input type="text" name="item_name" required
+                            <input type="text" name="item_name" x-ref="posmName" required
                                    class="w-full rounded-xl border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30"
                                    placeholder="e.g. Pull-up Banner A">
                         </div>
@@ -199,7 +124,7 @@
                                 <th class="py-2.5">Client / Brand</th>
                                 <th class="py-2.5">In</th>
                                 <th class="py-2.5">Out</th>
-                                <th class="py-2.5">Net Bal</th>
+                                <th class="py-2.5">Movement Net</th>
                                 <th class="py-2.5">Location</th>
                                 <th class="py-2.5">Logged By</th>
                                 <th class="py-2.5">Date</th>
@@ -249,5 +174,53 @@
             </div>
         </div>
 
-    </div>
-</x-app-layout>
+</section><section class="module-panel" role="tabpanel" id="module-panel-documents" aria-labelledby="module-tab-documents" x-show="moduleTab==='documents'" x-cloak>            <!-- Upload Brand Blueprint / Strategy Strategy Blueprint upload -->
+            <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
+                <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="bolt" /> Compliance Parameters & Strategy Blueprints</h3>
+                <form method="POST" action="{{ route('portal.brands.strategy.store') }}" enctype="multipart/form-data" class="space-y-4 mb-6">
+                    @csrf
+                    <div>
+                        <x-input-label for="blueprint_name" :value="__('Document Name / Blueprint Title')" />
+                        <x-text-input id="blueprint_name" name="name" type="text" required class="mt-1 w-full border border-brand-white/10 bg-brand-black/40 text-brand-white placeholder-brand-white/30" placeholder="Brand Launch Campaign Strategy" />
+                    </div>
+                    <div>
+                        <x-input-label for="blueprint_desc" :value="__('Brief Description / Goals')" />
+                        <textarea id="blueprint_desc" name="description" class="wysiwyg-editor mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30" placeholder="Compliance guidelines or marketing targets..."></textarea>
+                    </div>
+                    <div>
+                        <x-input-label for="blueprint_file" :value="__('Select Strategy File (PDF, DOCX)')" />
+                        <input id="blueprint_file" name="file" type="file" accept=".pdf,.docx" required class="mt-1 w-full text-xs text-brand-ash file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-white/10 file:text-brand-white hover:file:bg-brand-white/20" />
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white transition-all">
+                            Upload Strategy Blueprint
+                        </button>
+                    </div>
+                </form>
+
+                <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash mb-3 border-t border-brand-white/10 pt-4">Strategy Documents Registry</h4>
+                <div class="space-y-3 max-h-60 overflow-y-auto">
+                    @forelse($blueprints as $bp)
+                        <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 flex justify-between items-center text-xs">
+                            <div>
+                                <p class="font-semibold text-brand-white">{{ $bp->name }}</p>
+                                @if($bp->description)
+                                    <p class="text-brand-white/60 text-[10px] mt-1">{!! $bp->description !!}</p>
+                                @endif
+                            </div>
+                            <a href="{{ route('portal.brands.strategy.file',$bp) }}" target="_blank" class="rounded-full bg-brand-white/10 p-2 text-brand-white hover:bg-brand-white/20 transition-all">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            </a>
+                        </div>
+                    @empty
+                        <p class="text-xs text-brand-white/40 italic text-center py-4">No strategy blueprints uploaded yet.</p>
+                    @endforelse
+                </div>
+                @if($blueprints instanceof \Illuminate\Pagination\LengthAwarePaginator)
+                    <div class="mt-4 pt-4 border-t border-brand-white/10">
+                        {{ $blueprints->links() }}
+                    </div>
+                @endif
+            </div>
+
+</section></div></x-app-layout>

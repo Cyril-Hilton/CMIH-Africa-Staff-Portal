@@ -31,6 +31,6 @@ class DepartmentWeeklyPresentation
             'oldest' => $query->orderBy('week_start'),
             default => $query->orderByDesc('week_start'),
         };
-        return $query->orderByDesc('id')->paginate(8, ['*'], 'weekly_'.$department.'_page')->withQueryString()->appends($department==='client_relations'?['client_reporting_view'=>'updates']:[])->fragment('staff-weekly-performance');
+        return $query->orderByDesc('id')->paginate(8, ['*'], 'weekly_'.$department.'_page')->withQueryString()->appends(($department==='client_relations'?['client_reporting_view'=>'updates']:[])+(request()->routeIs('portal.brands','portal.operations','portal.finance')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
     }
 }

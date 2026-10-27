@@ -13,6 +13,7 @@
         details[open]>.hr-module-summary{border-bottom:1px solid rgba(128,128,128,.2)}
         @media print{details:not([open])>*:not(summary){display:block!important}.hr-module-chevron{display:none}}
     </style>
+    <div data-hr-group="reporting" class="hr-workspace-tool"><details class="rounded-xl border border-brand-white/20 p-4"><summary class="cursor-pointer font-semibold">KPI Targets, Results & Measurement Guide</summary>@include('portal.modules.kpis',['kpiDepartment'=>'hr_admin'])</details></div>
     <div data-hr-group="reporting" class="hr-workspace-tool grid gap-3 sm:grid-cols-2">
         @if(auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>Human Resources Reporting</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
         <a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Administrator Reporting</strong><span class="block text-xs text-brand-ash mt-1">Office administration, fleet, drivers, assets and next-period priorities</span></a>

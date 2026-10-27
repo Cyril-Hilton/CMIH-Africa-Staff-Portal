@@ -3,7 +3,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
-                <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="wallet" /> Reimbursements & Claims</h2>
+                <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="wallet" /> Finance Workspace</h2>
             </div>
             <div class="flex gap-3">
                 <a href="{{ route('portal.finance.budgets.index') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">
@@ -15,6 +15,11 @@
             </div>
         </div>
     </x-slot>
+@if(isset($moduleDepartment))
+@include('portal.modules.navigation',['moduleToolTabs'=>['tools'=>'Claims & Invoices']])
+<section class="module-panel" role="tabpanel" id="module-panel-tools" aria-labelledby="module-tab-tools" x-show="moduleTab==='tools'" x-cloak>
+@endif
+
 
     @if (session('status'))
         <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-400">
@@ -35,7 +40,7 @@
     @php
         $user = $user ?? auth()->user();
         $isFinanceUser = strtolower(trim($user->department ?? '')) === 'finance'
-            || ($user && $user->access_role === 'super_admin');
+            || ($user && $user->isCvoOrSuperAdmin());
     @endphp
 
     <div x-data="{ 
@@ -499,4 +504,5 @@
         </div>
     </div>
 </div>{{-- Shared dialog state scope --}}
+@if(isset($moduleDepartment))</section></div>@endif
 </x-app-layout>
