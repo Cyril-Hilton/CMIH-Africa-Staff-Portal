@@ -1,4 +1,5 @@
 <x-app-layout>
+<style>[data-theme="light"] .task-attendance-confirmed p,[data-theme="light"] .task-attendance-confirmed>span{color:#065f46!important}[data-theme="light"] .task-attendance-confirmed{background:#ecfdf5;border-color:#6ee7b7}</style>
     <x-slot name="header">
         <div>
             <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Task Management</p>
@@ -59,7 +60,7 @@
                 </form>
             </div>
         @else
-            <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-4">
+            <div class="task-attendance-confirmed mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-4">
                 <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300" aria-hidden="true">
                 <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.32a1 1 0 0 1-1.42 0L3.29 9.274a1 1 0 1 1 1.42-1.414l4.04 4.04 6.54-6.604a1 1 0 0 1 1.414-.006Z" clip-rule="evenodd"/></svg>
             </span>
@@ -248,7 +249,7 @@
             </div>
             <div class="rounded-2xl border border-brand-white/5 bg-brand-white/[0.03] p-4">
                 <div class="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-300" aria-hidden="true"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm1 4a1 1 0 1 0-2 0v4a1 1 0 0 0 .553.894l3 1.5a1 1 0 0 0 .894-1.788L11 9.382V6Z" clip-rule="evenodd"/></svg></div>
-                <p class="text-xs text-brand-white/50 leading-relaxed">Your daily clock-in is available above after you save a task.</p>
+                <p class="text-xs text-brand-white/50 leading-relaxed">{{ $todayAttendance ? 'Your clock-in is already recorded. You can add more tasks throughout the day.' : 'Save your first task, then confirm your clock-in above.' }}</p>
             </div>
         </div>
     </div>
