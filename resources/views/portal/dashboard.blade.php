@@ -305,16 +305,35 @@
         </div>
     </div>
 
-    <!-- 4. The Collective Dashboard (The Mega Table Section) -->
+    <!-- Daily work stays available without dominating the weekly presentation. -->
+    <style>
+        .mega-table-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; list-style: none; }
+        .mega-table-disclosure > summary::-webkit-details-marker { display: none; }
+        .mega-table-disclosure > summary:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 6px; border-radius: .5rem; }
+        .mega-table-disclosure .mega-disclosure-action { display: inline-flex; align-items: center; gap: .6rem; flex-shrink: 0; font-size: .75rem; color: #d1d5db; }
+        .mega-table-disclosure .mega-disclosure-action svg { width: 1.1rem; height: 1.1rem; transition: transform .2s; }
+        .mega-table-disclosure[open] .mega-disclosure-action svg { transform: rotate(180deg); }
+        .mega-table-disclosure[open] .mega-expand-label, .mega-table-disclosure:not([open]) .mega-collapse-label { display: none; }
+        .mega-table-disclosure[open] > summary { margin-bottom: 1.5rem; }
+        @media (max-width: 480px) { .mega-table-disclosure .mega-disclosure-action span { display: none; } }
+        @media (prefers-reduced-motion: reduce) { .mega-table-disclosure .mega-disclosure-action svg { transition: none; } }
+    </style>
+    <details id="mega-table-disclosure" class="mega-table-disclosure glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
+        <summary aria-controls="mega-operational-table-live-region">
+            <div class="min-w-0">
+                <h3 class="text-xl font-display text-brand-white uppercase">The Mega Table</h3>
+                <p class="mt-1 text-sm text-brand-ash">Daily tasks across all departments</p>
+            </div>
+            <span class="mega-disclosure-action">
+                <span class="mega-expand-label">Show daily work</span>
+                <span class="mega-collapse-label">Hide daily work</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+        </summary>
     <div id="mega-operational-table-live-region"
          data-silent-region="mega-operational-table"
-         data-refresh-url="{{ route('portal.dashboard.live', request()->query()) }}"
-         class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
-        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-                <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Operational Control</p>
-                <h3 class="text-xl font-display text-brand-white uppercase">The Mega Table</h3>
-            </div>
+         data-refresh-url="{{ route('portal.dashboard.live', request()->query()) }}">
+        <div class="flex flex-wrap items-center justify-end gap-4 mb-6">
             <div class="flex items-center gap-2">
                 @if($canManageMegaColumns)
                     <button onclick="document.getElementById('col-manager-modal').classList.remove('hidden')"
@@ -507,6 +526,8 @@
             </div>
         @endforeach
     </div>
+
+    </details>
 
     {{--  WEEKLY CONSOLIDATED TABLE  --}}
     <style>
@@ -1554,6 +1575,14 @@
             const departments = @json(array_keys($departments));
             const weeklyDepartments = @json($weeklyConsolidatedDepartments->keys()->values());
             const dashboardUserId = @json((int) $user->id);
+            const megaDisclosure = document.getElementById('mega-table-disclosure');
+            const megaDisclosureKey = `cmih.dashboard.megaExpanded.${dashboardUserId}`;
+            if (megaDisclosure) {
+                try { megaDisclosure.open = window.sessionStorage.getItem(megaDisclosureKey) === 'true'; } catch (_) {}
+                megaDisclosure.addEventListener('toggle', () => {
+                    try { window.sessionStorage.setItem(megaDisclosureKey, String(megaDisclosure.open)); } catch (_) {}
+                });
+            }
             const weeklyStorageKey = `cmih.dashboard.weeklyDepartment.${dashboardUserId}`;
             window.CMIHDashboardWeeklyStorageKey = weeklyStorageKey;
             const urlParams = new URLSearchParams(window.location.search);
@@ -1636,7 +1665,7 @@
 
             window.loadMegaTableUrl = loadMegaTableUrl;
             async function refreshMegaTableSilently() {
-                if (!megaTableRegion || megaTableRefreshing || document.hidden) return;
+                if (!megaTableRegion || megaTableRefreshing || document.hidden || !megaDisclosure?.open) return;
                 if (megaTableRegion.contains(document.activeElement)) return;
                 const refreshUrl = megaTableRegion.dataset.refreshUrl;
                 if (!refreshUrl) return;
