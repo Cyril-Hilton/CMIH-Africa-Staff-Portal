@@ -233,7 +233,7 @@
             </div>
 
             <div class="mt-10 grid grid-cols-2 gap-4 text-center sm:grid-cols-3 lg:grid-cols-6">
-                @forelse ($brands as $brand)
+                @forelse (\App\Support\BrandLogoCatalog::forDisplay($brands) as $brand)
                     @if(is_string($brand))
                          {{-- Fallback for existing string-based logic if any --}}
                         <div class="rounded-2xl border border-brand-white/10 bg-brand-white/5 px-4 py-6 text-xs uppercase tracking-[0.3em] text-brand-white/50 transition hover:text-brand-white hover-lift">
@@ -252,7 +252,7 @@
                                     data-theme-src-light="{{ $lightLogo }}"
                                     data-theme-src-dark="{{ $darkLogo }}"
                                     alt="{{ $brand->name }}"
-                                    class="h-8 w-auto opacity-50 grayscale transition group-hover:opacity-100 group-hover:grayscale-0"
+                                    style="background:{{ \App\Support\BrandLogoCatalog::surface($brand->name) }};padding:10px;border-radius:8px;max-width:100%;height:80px;object-fit:contain" class="w-auto transition"
                                     loading="lazy"
                                     decoding="async"
                                 >

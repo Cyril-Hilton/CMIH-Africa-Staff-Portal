@@ -58,6 +58,7 @@ class Brand extends Model
 
     public function logoUrl(string $theme = 'light'): ?string
     {
+        if ($logo = \App\Support\BrandLogoCatalog::logo($this->name)) return $logo;
         $path = $theme === 'dark' && $this->logo_dark_path
             ? $this->logo_dark_path
             : $this->logo_path;
