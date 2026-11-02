@@ -22,7 +22,7 @@ final class BrandLogoCatalog
     }
     // Deduplicate only the display collection. Linked database IDs are preserved.
     public static function forDisplay($brands): Collection {
-        return collect($brands)->reject(fn($b)=>in_array(self::normalize(is_string($b)?$b:$b->name),['cmih','cmihafrica']))
+        return collect($brands)->reject(fn($b)=>in_array(self::normalize(is_string($b)?$b:$b->name),['cmih','cmihafrica','castlemilkstout']))
             ->unique(fn($b)=>self::key(is_string($b)?$b:$b->name))->map(function($brand){
                 if(is_string($brand)) return $brand;
                 $copy=clone $brand;$entry=self::find($brand->name);if($entry)$copy->name=$entry['name'];return $copy;

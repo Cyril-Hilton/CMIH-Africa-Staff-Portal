@@ -30,5 +30,4 @@ return [
     'guinness-match-day' => ['name' => 'Guinness Match Day', 'aliases' => [], 'logo' => 'images/brand-catalog/guinness-match-day.png', 'dark' => true],
     'captain-morgan' => ['name' => 'Captain Morgan', 'aliases' => ['CM'], 'logo' => 'images/brand-catalog/captain-morgan.webp', 'dark' => false],
     'olam-agri' => ['name' => 'Olam Agri', 'aliases' => [], 'logo' => 'images/brand-catalog/olam-agri.webp', 'dark' => true],
-    'castle-milk-stout' => ['name' => 'Castle Milk Stout', 'aliases' => [], 'logo' => 'images/brand-catalog/castle-milk-stout.webp', 'dark' => true],
 ];
