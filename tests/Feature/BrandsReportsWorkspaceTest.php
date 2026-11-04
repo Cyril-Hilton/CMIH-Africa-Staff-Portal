@@ -58,6 +58,7 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $this->getJson(route('portal.brands.reports.detail',['type'=>'register','id'=>$private->id]))->assertNotFound();
   $unknown=PerformanceRegister::create(['department'=>'brands_marketing','kind'=>'campaign','reference'=>'OLD','title'=>'Old activity','owner_id'=>$u->id,'submitted_by'=>$u->id,'approved_by'=>$other->id,'approved_at'=>now(),'period_start'=>'2026-11-02','period_end'=>'2026-11-08','status'=>'completed','data'=>['osa_actual_percent'=>75,'budget'=>9999]]);
   $p=app(BrandsReports::class)->payload($unknown,'register');$this->assertNull($p['data']['partner']);$this->assertArrayNotHasKey('budget',$p['data']);
+  $unknown->update(['data'=>array_replace($unknown->data,['partner'=>'unilever'])]);$this->assertSame('unilever',app(BrandsReports::class)->payload($unknown->fresh(),'register')['data']['partner']);
  }
  public function test_manager_can_submit_own_operational_report_and_dashboard_replaces_old_workspace():void {
   $manager=$this->staff('manager');$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$this->payload($manager))->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
@@ -86,6 +87,15 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $service=app(BrandsDashboard::class);
   $october=$service->build(['tab'=>'workstream','period'=>'month','date'=>'2026-10-26'],$u);$november=$service->build(['tab'=>'workstream','period'=>'month','date'=>'2026-11-04'],$u);
   $this->assertSame(1,$october['tables'][0]['total']);$this->assertSame(0,$november['tables'][0]['total']);
+ }
+
+ public function test_copied_week_drafts_need_publication_and_cannot_inflate_shared_totals():void {
+  $u=$this->staff();$manager=$this->staff('manager');$row=WeeklyConsolidatedItem::create(['department'=>'brands_marketing','workflow_state'=>'legacy','report_status'=>'draft','client_name'=>'Copied draft','campaign_name'=>'Retail reporting','week_start'=>'2026-11-02','week_end'=>'2026-11-08','lead_staff_id'=>$u->id,'created_by'=>$manager->id,'deliverables'=>'Enter this week results','status'=>'Done']);
+  $v=['tab'=>'workstream','date'=>'2026-11-04'];$service=app(BrandsDashboard::class);
+  $this->assertSame(0,$service->build($v,$u)['tables'][0]['total']);$draft=$service->build($v,$manager);$this->assertSame(1,$draft['tables'][0]['total']);$this->assertSame(0,$draft['summary'][0][1]);
+  $this->actingAs($u)->getJson(route('portal.brands.reports.detail',['type'=>'weekly','id'=>$row->id]))->assertForbidden();
+  $payload=$this->payload($u)+['source_type'=>'weekly','source_id'=>$row->id,'source_token'=>BrandsReports::token($row->fresh())];$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
+  $this->assertSame(1,$service->build($v,$u)['tables'][0]['total']);$this->assertSame('reviewed',$row->fresh()->report_status);
  }
 
 }

@@ -14,7 +14,7 @@ Date: 4 November 2026
 
 ## Verification
 
-- Full PHP regression: 701 passed, 5,516 assertions.
+- Full PHP regression: 703 passed, 5,526 assertions.
 - Final focused feature regression after UI refinements: 73 passed, 560 assertions.
 - JavaScript checks: 23 passed.
 - Production asset build, Blade compilation and diff whitespace checks passed.
@@ -36,4 +36,6 @@ Additive migrations only: leave handover fields and Brands submission queue. No 
 
 Initial release b2dc3bc completed with additive migrations and successful read-only projections for all six categories and all three periods. Unchanged existing-record counts/fingerprints: 98 users, 2,021 tasks, 159 weekly entries, 23 leave requests, 12 meeting action points and 24 CRM financial rows. The seven historical Brands weekly entries remain available; the earliest is 19 October 2026. No structured Brands performance-register measurements existed in production, so these new tables must not be populated with prototype numbers. Existing narrative tables remain readable.
 
-A final month-boundary regression attributes weekly reports to the month/year of their reporting start, preventing a week spanning month-end from inflating two monthly reports. All nine Brands reporting tests pass (83 assertions).
+A final month-boundary regression attributes weekly reports to the month/year of their reporting start, preventing a week spanning month-end from inflating two monthly reports. All ten final Brands reporting tests pass (92 assertions), including month-boundary attribution, copied-draft publication and retention of explicitly confirmed reporting partners.
+
+Copied-week drafts remain manager-only until publication and do not inflate published task totals. Managers can open a draft, complete it and submit it for publication. Direct draft-detail access by ordinary staff is denied. A dedicated regression covers this flow and historical approved publication.
