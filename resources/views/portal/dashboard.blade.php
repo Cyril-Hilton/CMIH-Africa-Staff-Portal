@@ -947,12 +947,13 @@
                                             </button>
                                         @endif
                                         @if($canManageTask)
-                                            <a href="{{ route('portal.tasks.edit', $task) }}"
+                                            <a href="{{ route('portal.tasks.edit', ['task' => $task, 'return_to' => '/dashboard'.(request()->getQueryString() ? '?'.request()->getQueryString() : '').'#mega-table-disclosure']) }}"
                                                title="Edit task"
                                                class="rounded-lg bg-brand-white/5 border border-brand-white/10 px-2 py-1 text-[10px] text-brand-white/60 hover:text-brand-white hover:bg-brand-white/10 transition-all">
                                                 Edit
                                             </a>
                                             <form method="POST" action="{{ route('portal.tasks.destroy', $task) }}" data-confirm="Delete this task?" class="inline">
+                                                <input type="hidden" name="return_to" value="{{ '/dashboard'.(request()->getQueryString() ? '?'.request()->getQueryString() : '').'#mega-table-disclosure' }}">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" title="Delete task" class="rounded-lg bg-brand-red/10 border border-brand-red/30 px-2 py-1 text-[10px] text-brand-red hover:bg-brand-red/20 transition-all">
@@ -1532,7 +1533,7 @@
             const megaDisclosure = document.getElementById('mega-table-disclosure');
             const megaDisclosureKey = `cmih.dashboard.megaExpanded.${dashboardUserId}`;
             if (megaDisclosure) {
-                try { megaDisclosure.open = window.sessionStorage.getItem(megaDisclosureKey) === 'true'; } catch (_) {}
+                try { megaDisclosure.open = window.location.hash === '#mega-table-disclosure' || window.sessionStorage.getItem(megaDisclosureKey) === 'true'; } catch (_) {}
                 megaDisclosure.addEventListener('toggle', () => {
                     try { window.sessionStorage.setItem(megaDisclosureKey, String(megaDisclosure.open)); } catch (_) {}
                 });

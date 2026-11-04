@@ -98,7 +98,11 @@ class ClientRelationsPipelineController extends Controller
             abort_unless($project?->import_key && $r->user()->isLineManager(), 403);
             $r->validate(['week_start' => 'required|date|after_or_equal:2000-01-01']);
         }
-        DB::transaction(function () use ($v, $r, $project, $service) {
+        if (\App\Services\ClientRelationsSubmissions::needed($r)) {
+            if ($project) abort_if((int)($v['revision']??0)!==(int)$project->fresh()->revision,409,'Pipeline changed. Refresh before submitting.');
+            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r,'project',$project?->id,$v);
+        }
+        $saved = DB::transaction(function () use ($v, $r, $project, $service) {
             $item = $project ? CrmPipelineProject::whereKey($project->id)->lockForUpdate()->firstOrFail() : new CrmPipelineProject;
             if ($project) {
                 abort_if((int) $v['revision'] !== (int) $item->revision, 409, 'Pipeline changed. Refresh before saving.');
@@ -111,7 +115,7 @@ class ClientRelationsPipelineController extends Controller
                 $item->source_period_confirmed = true;
             }
             if (! $project) {
-                $item->created_by = $r->user()->id;
+                $item->created_by = $r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id;
             }$item->updated_by = $r->user()->id;
             $item->revision = ($project ? $item->revision + 1 : 1);
             $item->save();
@@ -120,8 +124,10 @@ class ClientRelationsPipelineController extends Controller
             }
             $service->publish($item);
             PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason']);
+            return $item;
         });
 
+        if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
         return back()->with('status', 'Pipeline saved. The shared weekly table has been updated.');
     }
 
@@ -170,7 +176,11 @@ class ClientRelationsPipelineController extends Controller
         if (\App\Models\CrmClientRecord::where('kind', $v['kind'])->where('reference', $v['reference'])->when($record, fn($q)=>$q->whereKeyNot($record->id))->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['reference' => 'This source reference already exists.']);
         }
-        DB::transaction(function () use ($v, $r, $record, $change) {
+        if (\App\Services\ClientRelationsSubmissions::needed($r)) {
+            if ($record) abort_if((int)$change['revision']!==(int)$record->fresh()->revision,409,'This activity changed. Refresh before submitting.');
+            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r,'record',$record?->id,$v+$change);
+        }
+        $saved = DB::transaction(function () use ($v, $r, $record, $change) {
             if ($record) {
                 $i = \App\Models\CrmClientRecord::lockForUpdate()->findOrFail($record->id);
                 abort_unless($r->user()->isLineManager() || (int)$i->owner_id === $r->user()->id, 403);
@@ -178,10 +188,12 @@ class ClientRelationsPipelineController extends Controller
                 $before=$i->getAttributes();
                 $i->fill($v + ['updated_by'=>$r->user()->id]);$i->revision++;$i->save();
             } else {
-                $before=[];$i=\App\Models\CrmClientRecord::create($v + ['created_by'=>$r->user()->id,'updated_by'=>$r->user()->id]);
+                $before=[];$i=\App\Models\CrmClientRecord::create($v + ['created_by'=>$r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id,'updated_by'=>$r->user()->id]);
             }
             PerformanceWorkflow::record('crm_record',$i->id,$r->user()->id,$record?'update':'create',$before,$i->getAttributes(),$change['reason']??'Client scorecard source recorded');
+            return $i;
         });
+        if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
         return back()->with('status', $record ? 'Client activity updated. The shared view will show its latest status.' : 'Client scorecard source recorded.');
     }
 

@@ -1,3 +1,6 @@
+@php
+    $taskReturnUrl = \App\Http\Controllers\Portal\TaskController::taskReturnUrl(request());
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-4">
@@ -5,7 +8,7 @@
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">My Assignments</p>
                 <h2 class="text-3xl font-display text-brand-white">Edit Task</h2>
             </div>
-            <a href="{{ route('portal.tasks') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">Back to Tasks</a>
+            <a href="{{ $taskReturnUrl }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">{{ str_starts_with($taskReturnUrl, '/dashboard') ? 'Back to Mega Table' : 'Back to Tasks' }}</a>
         </div>
     </x-slot>
 
@@ -74,6 +77,7 @@
         <form method="POST" action="{{ route('portal.tasks.update', $task) }}" class="space-y-4">
             @csrf
             @method('patch')
+            <input type="hidden" name="return_to" value="{{ $taskReturnUrl }}">
 
             <div>
                 <x-input-label for="title" :value="__('Task Title')" />
@@ -210,6 +214,7 @@
         <form id="delete-task-form" method="POST" action="{{ route('portal.tasks.destroy', $task) }}" class="hidden">
             @csrf
             @method('DELETE')
+            <input type="hidden" name="return_to" value="{{ $taskReturnUrl }}">
         </form>
     </div>
 </x-app-layout>

@@ -581,7 +581,7 @@ class TaskController extends Controller
             ]);
         }
 
-        return redirect()->route('portal.tasks')->with('status', 'Task updated successfully!');
+        return redirect()->to($this->taskReturnUrl($request))->with('status', 'Task updated successfully!');
     }
 
     public function completionReview(Request $request, Task $task): RedirectResponse
@@ -992,6 +992,16 @@ class TaskController extends Controller
             return response()->json(['success' => true, 'message' => 'Task deleted successfully.']);
         }
 
-        return redirect()->route('portal.tasks')->with('status', 'Task deleted successfully.');
+        return redirect()->to($this->taskReturnUrl($request))->with('status', 'Task deleted successfully.');
     }
+    public static function taskReturnUrl(Request $request): string
+    {
+        $value = $request->input('return_to', $request->query('return_to'));
+        if (is_string($value) && strlen($value) < 4000 && str_starts_with($value, '/dashboard')
+            && parse_url($value, PHP_URL_PATH) === '/dashboard' && !preg_match('/[\x00-\x20\x7f]/', $value)) {
+            return $value;
+        }
+        return route('portal.tasks');
+    }
+
 }

@@ -12,8 +12,12 @@ class CrmClientActivityUpdateTest extends TestCase {
   $other=User::factory()->create(['department'=>'client_relations','access_role'=>'staff','status'=>'active']);
   $this->actingAs($other)->postJson(route('portal.crm.record.update',$record),$payload)->assertForbidden();
   $this->actingAs($owner)->postJson(route('portal.crm.record.update',$record),array_diff_key($payload,['reason'=>true]))->assertUnprocessable();
-  $this->postJson(route('portal.crm.record.update',$record),$payload)->assertRedirect();
+  $response=$this->postJson(route('portal.crm.record.update',$record),$payload)->assertStatus(202);
+  $this->assertSame('open',$record->fresh()->status);
+  $manager=User::factory()->create(['department'=>'client_relations','access_role'=>'manager','status'=>'active']);
+  $this->actingAs($manager)->postJson(route('portal.crm.submissions.review',$response->json('submission_id')),['revision'=>1,'decision'=>'approve'])->assertOk();
   $this->assertSame('resolved',$record->fresh()->status);$this->assertEquals(2,$record->fresh()->revision);
+  $this->actingAs($owner);
   $this->postJson(route('portal.crm.record.update',$record),$payload)->assertStatus(409);
   $neutral=User::factory()->create(['department'=>'operations_projects','status'=>'active']);
   $this->actingAs($neutral)->getJson(route('portal.crm.centre.data'))->assertOk()->assertDontSee('Private revised note');

@@ -1,0 +1,21 @@
+# Client Relations collaborative reporting — 4 November 2026
+
+All active Client Relations staff can submit their own weekly project and activity updates from **Add Weekly Entry** in the weekly dashboard. The department manager reviews them in **Team Entries & Reviews**, approves publication, or returns them with mandatory correction notes. Authors receive notifications and can correct and resubmit their own returned version. Review and submission revisions are recorded in the workflow audit. Published records remain unchanged while a replacement awaits approval; stale revisions cannot overwrite newer changes. Manager-created dashboard submissions use the same queue. Existing direct manager editing remains available in the department module.
+
+Finance confirmation remains independent. Client Relations approval publishes the operational entry, but does not confirm monetary values. Existing production records, imports and historical reporting are not rewritten by this upgrade. The new submission queue is an additive table. Unknown amounts remain blank; unresolved workbook facts are not invented.
+
+Account-owner tabs filter all six Client Relations dashboard views, including activity-only accounts. The default source includes all portal records. Mega Table edit and delete return to the dashboard with its filters and open section preserved. Redirect destinations are restricted to the dashboard.
+
+The application logo now uses the current portal origin rather than the storage disk's stale local address. The report-only script policy explicitly permits the existing CKEditor CDN. This preserves the security policy and supports tables, images and formatted text in the entry dialog.
+
+## Verification
+
+- Focused submission, existing activity-update and asset-policy tests: 10 tests / 70 assertions passed.
+- Broader Client Relations, task and revenue regression pass: 65 tests / 586 assertions passed before the final asset-only changes.
+- Full regression: 681 passed, 2 existing date-dependent fixture failures (StaffPerformanceAndHrReportsTest and StaffScoreGovernanceTest); not a completely green suite.
+- Production build passed.
+- Isolated local SQLite browser test: staff submission remained unpublished, manager approval published it, owner selection persisted across all six views.
+- Visual checks at 375, 768 and 1440 CSS pixels: entry dialog contained within viewport and scrollable; editor toolbar initialized. Fresh console did not reproduce the stale-image, CKEditor-policy or dashboard 503 messages. Browser-extension messages were separate from the portal.
+- Automated checks cover correction notes, resubmission, authorship, stale reviews, pending-version preservation, Finance separation and Mega Table return navigation.
+
+No test accounts or sample entries are intended for production.
