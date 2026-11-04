@@ -31,3 +31,9 @@ A read-only production-host probe found no configured upload scanner, known Clam
 ## Release safeguards
 
 Additive migrations only: leave handover fields and Brands submission queue. No historical backdating or report re-entry was performed. Release procedure backs up replaced files, compares existing record counts/fingerprints under maintenance, verifies all Brands period/category projections and a historical week, compiles views, and restores previous code automatically if validation fails.
+
+## Production release verification
+
+Initial release b2dc3bc completed with additive migrations and successful read-only projections for all six categories and all three periods. Unchanged existing-record counts/fingerprints: 98 users, 2,021 tasks, 159 weekly entries, 23 leave requests, 12 meeting action points and 24 CRM financial rows. The seven historical Brands weekly entries remain available; the earliest is 19 October 2026. No structured Brands performance-register measurements existed in production, so these new tables must not be populated with prototype numbers. Existing narrative tables remain readable.
+
+A final month-boundary regression attributes weekly reports to the month/year of their reporting start, preventing a week spanning month-end from inflating two monthly reports. All nine Brands reporting tests pass (83 assertions).

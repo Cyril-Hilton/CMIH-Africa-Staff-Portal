@@ -81,4 +81,11 @@ class BrandsReportsWorkspaceTest extends TestCase {
   Task::create(['department'=>'brands_marketing','title'=>'A real assigned task','assigned_to'=>$u->id,'assigned_by'=>$u->id,'status'=>'Open','priority'=>'High','due_on'=>'2026-11-06']);
   $d=app(BrandsDashboard::class)->build(['tab'=>'productivity','date'=>'2026-11-04','owner'=>$u->id],$u);$this->assertEquals(8,$d['summary'][0][1]);$this->assertSame(1,$d['summary'][1][1]);$this->assertSame(0,$d['summary'][2][1]);$this->assertNull($d['summary'][5][1]);
  }
+ public function test_a_week_crossing_month_end_is_not_counted_in_two_months():void {
+  $u=$this->staff();WeeklyConsolidatedItem::create(['department'=>'brands_marketing','workflow_state'=>'legacy','client_name'=>'Month boundary report','campaign_name'=>'Analytics','week_start'=>'2026-10-26','week_end'=>'2026-11-01','lead_staff_id'=>$u->id,'created_by'=>$u->id,'deliverables'=>'Saved October reporting week','status'=>'Done']);
+  $service=app(BrandsDashboard::class);
+  $october=$service->build(['tab'=>'workstream','period'=>'month','date'=>'2026-10-26'],$u);$november=$service->build(['tab'=>'workstream','period'=>'month','date'=>'2026-11-04'],$u);
+  $this->assertSame(1,$october['tables'][0]['total']);$this->assertSame(0,$november['tables'][0]['total']);
+ }
+
 }
