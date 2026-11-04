@@ -8,6 +8,34 @@ class ClientRelationsCentreTest extends TestCase {
  use RefreshDatabase;
  private function staff($department='client_relations',$role='staff'){return User::factory()->create(['department'=>$department,'access_role'=>$role,'status'=>'active']);}
  private function project($owner,$extra=[]){return CrmPipelineProject::create(array_merge(['client_name'=>'Dove','project_name'=>'Campus Experience','week_start'=>now()->startOfWeek(),'stage'=>'proposal_sent','owner_id'=>$owner->id,'created_by'=>$owner->id,'updated_by'=>$owner->id,'source_period_confirmed'=>true,'proposed_amount'=>200,'po_amount'=>100,'target_amount'=>100,'actual_amount'=>50,'invoiced_amount'=>40,'collected_amount'=>20,'contact_info'=>'PRIVATE-CONTACT','remarks'=>'PRIVATE-NOTE'],$extra));}
+ public function test_owner_tabs_show_photos_and_keep_suspended_staff_only_in_historical_periods():void {
+  $active=$this->staff();$former=$this->staff();$unrelated=$this->staff();
+  $former->update(['status'=>'suspended','profile_photo_path'=>'profiles/former.png']);$unrelated->update(['status'=>'suspended']);
+  $past=now()->startOfWeek()->subWeek();
+  $this->project($former,['week_start'=>$past,'project_name'=>'Historical delivery']);
+  $this->project($former,['week_start'=>now()->startOfWeek(),'project_name'=>'Existing carried snapshot']);
+  $service=app(ClientRelationsCentre::class);
+  $old=$service->build(['from'=>$past->toDateString(),'to'=>$past->copy()->endOfWeek()->toDateString()],$active);
+  $this->assertContains($former->id,$old['staff']->pluck('id')->all());
+  $this->assertNotContains($unrelated->id,$old['staff']->pluck('id')->all());
+  $this->assertSame(route('profile.photo',$former),$old['staff']->firstWhere('id',$former->id)['photo_url']);
+  $this->assertFalse($old['staff']->firstWhere('id',$former->id)['active']);
+  $this->assertSame($former->id,$old['clients'][0]['projects'][0]['owner']['id']);
+  foreach([now()->startOfWeek(),now()->startOfWeek()->addWeek()] as $week){
+   $current=$service->build(['from'=>$week->toDateString(),'to'=>$week->copy()->endOfWeek()->toDateString()],$active);
+   $this->assertNotContains($former->id,$current['staff']->pluck('id')->all());
+   $this->assertContains($active->id,$current['staff']->pluck('id')->all());
+  }
+  $this->assertDatabaseCount('crm_pipeline_projects',2);
+ }
+ public function test_suspended_staff_with_only_legacy_weekly_entries_remain_in_historical_owner_tabs():void {
+  $active=$this->staff();$former=$this->staff();$past=now()->startOfWeek()->subWeeks(2);
+  $former->update(['status'=>'suspended']);
+  \App\Models\WeeklyConsolidatedItem::create(['department'=>'client_relations','week_start'=>$past,'week_end'=>$past->copy()->endOfWeek(),'lead_staff_id'=>$former->id,'client_name'=>'Legacy account','campaign_name'=>'Weekly follow-up','deliverables'=>'Legacy weekly account update','status'=>'Done','created_by'=>$active->id]);
+  $old=app(ClientRelationsCentre::class)->build(['from'=>$past->toDateString(),'to'=>$past->copy()->endOfWeek()->toDateString()],$active);
+  $this->assertContains($former->id,$old['staff']->pluck('id')->all());
+  $this->assertDatabaseCount('weekly_consolidated_items',1);
+ }
  public function test_all_internal_departments_can_see_money_but_not_contacts_or_private_notes():void {
   $owner=$this->staff();$this->project($owner);
   foreach(['finance','creatives','operations_projects','hr_admin','brands_marketing'] as $department){$user=$this->staff($department);$response=$this->actingAs($user)->getJson(route('portal.crm.centre.data'))->assertOk()->assertJsonPath('totals.actual_amount.value',null)->assertJsonPath('clients.0.projects.0.reported_revenue','50.00')->assertJsonPath('clients.0.projects.0.revenue_status','Awaiting Finance Confirmation')->assertJsonPath('clients.0.projects.0.money.collected_amount',20)->assertJsonPath('clients.0.projects.0.metrics.outstanding',20);$response->assertDontSee('PRIVATE-CONTACT')->assertDontSee('PRIVATE-NOTE');$this->get(route('portal.crm.index'))->assertForbidden();}

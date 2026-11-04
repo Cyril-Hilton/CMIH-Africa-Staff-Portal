@@ -25,3 +25,9 @@ No test accounts or sample entries are intended for production.
 Released commit `21a8c3e`. Before/after existing record counts match: 98 users, 2,018 tasks, 139 pipeline projects, 24 financial register rows and 159 weekly consolidated items. The empty new submission table contains no QA records. Both new routes are present. All five active Client Relations accounts render entry/review/owner controls, and only Masana Alfah (ID 22) is a department manager. Production login and both built assets return HTTP 200. Temporary deployment and verification jobs were removed.
 
 A follow-up logo fix preserves configured shared HTTPS storage origins, rebases obsolete localhost URLs and falls back to the bundled logo when a same-origin uploaded file is missing. Asset-origin regression coverage includes these cases.
+
+## Owner portraits and historical rosters
+
+Owner tabs use the existing protected staff-photo endpoint, with the normal initials image when no photo is set. Active Client Relations staff appear in the current roster. Suspended staff are excluded from current and future weekly tabs; selected historical periods retain them when dated pipeline, activity, financial or legacy weekly entries identify them. Undated account allocations do not add former staff to a new week. Existing entries and recorded ownership remain unchanged. Historical dates of suspension are not fabricated from user-profile update timestamps. New-entry owner choices remain restricted to active staff.
+
+Focused regression after this addition: 21 tests / 172 assertions passed; production build passed. Additional cases cover current/future exclusion, past-record preservation, legacy weekly-only history and portrait URLs.
