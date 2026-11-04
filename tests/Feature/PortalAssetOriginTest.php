@@ -15,6 +15,21 @@ class PortalAssetOriginTest extends TestCase
   $this->assertStringContainsString(asset('storage/content/logo-dark.png'),$html);
   $this->assertStringNotContainsString('127.0.0.1:8000',$html);
  }
+ public function test_shared_https_storage_origin_is_preserved(): void
+ {
+  config(['filesystems.disks.public.url'=>'https://cmih.africa/storage']);
+  SiteContent::create(['key'=>'logo_dark','value'=>'content/logo-dark.png']);
+  $html=\Illuminate\Support\Facades\Blade::render('<x-application-logo />');
+  $this->assertStringContainsString('https://cmih.africa/storage/content/logo-dark.png',$html);
+ }
+ public function test_missing_same_origin_upload_uses_bundled_logo(): void
+ {
+  config(['filesystems.disks.public.url'=>request()->getSchemeAndHttpHost().'/storage']);
+  SiteContent::create(['key'=>'logo_dark','value'=>'content/not-a-real-logo.png']);
+  $html=\Illuminate\Support\Facades\Blade::render('<x-application-logo />');
+  $this->assertStringContainsString(asset('images/logo/logo-dark.png'),$html);
+  $this->assertStringNotContainsString('not-a-real-logo',$html);
+ }
  public function test_editor_cdn_is_in_script_allowlist(): void
  {
   $middleware=new \App\Http\Middleware\AddSecurityHeaders;

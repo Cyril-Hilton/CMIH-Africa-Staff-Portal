@@ -10,7 +10,7 @@ The application logo now uses the current portal origin rather than the storage 
 
 ## Verification
 
-- Focused submission, existing activity-update and asset-policy tests: 10 tests / 70 assertions passed.
+- Final focused submission, centre, existing activity-update and asset-policy tests: 19 tests / 160 assertions passed.
 - Broader Client Relations, task and revenue regression pass: 65 tests / 586 assertions passed before the final asset-only changes.
 - Full regression: 681 passed, 2 existing date-dependent fixture failures (StaffPerformanceAndHrReportsTest and StaffScoreGovernanceTest); not a completely green suite.
 - Production build passed.
@@ -19,3 +19,9 @@ The application logo now uses the current portal origin rather than the storage 
 - Automated checks cover correction notes, resubmission, authorship, stale reviews, pending-version preservation, Finance separation and Mega Table return navigation.
 
 No test accounts or sample entries are intended for production.
+
+## Production verification
+
+Released commit `21a8c3e`. Before/after existing record counts match: 98 users, 2,018 tasks, 139 pipeline projects, 24 financial register rows and 159 weekly consolidated items. The empty new submission table contains no QA records. Both new routes are present. All five active Client Relations accounts render entry/review/owner controls, and only Masana Alfah (ID 22) is a department manager. Production login and both built assets return HTTP 200. Temporary deployment and verification jobs were removed.
+
+A follow-up logo fix preserves configured shared HTTPS storage origins, rebases obsolete localhost URLs and falls back to the bundled logo when a same-origin uploaded file is missing. Asset-origin regression coverage includes these cases.
