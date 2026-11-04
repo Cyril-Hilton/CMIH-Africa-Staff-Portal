@@ -27,14 +27,14 @@ class CreativeWorkflow {
  public function plan(CreativeRequest $record,User $actor,array $d):CreativeRequest {
   abort_unless(CreativeAccess::lead($actor),403);
   return DB::transaction(function()use($record,$actor,$d){$r=$this->lock($record,$d['revision']);abort_if($r->is_group,422,'Assign the individual brief parts, not the parent brief.');abort_if(in_array($r->stage,['completed','archived','in_review','delivered']),409,'Return work to production or reopen it before replanning.');$before=$r->getAttributes();$assignee=User::humanAccounts()->whereKey($d['assignee_id'])->where('status','active')->firstOrFail();abort_unless(User::normalizeDepartmentKey($assignee->department)==='creatives',422,'Choose an active creative executive.');
-   $reviewer=User::findOrFail($d['reviewer_id']);abort_unless(CreativeAccess::lead($reviewer)&&$reviewer->id!==$assignee->id,422,'Choose an active Creative HOD or line manager other than the assignee.');
+   $reviewer=User::findOrFail($d['reviewer_id']);abort_unless(CreativeAccess::lead($reviewer),422,'Choose an active Creative HOD or line manager.');
    $r->fill(collect($d)->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','requested_deadline','priority','blocker','blocker_owner'])->all());$r->planned_by=$actor->id;if((int)($before['assignee_id']??0)!==$assignee->id)$r->acknowledged_at=null;$r->assignee_snapshot=CreativeAccess::snapshot($assignee);
    if(!app(CreativeCapacity::class)->workingDates($r->planned_start,$r->internal_eta,$assignee->id))throw ValidationException::withMessages(['planned_start'=>'Choose a work window with an available working day.']);
    $warnings=app(CreativeCapacity::class)->warnings($r);if($warnings&&empty($d['override_reason']))throw ValidationException::withMessages(['override_reason'=>implode(' ',$warnings).' Record an override reason to keep this plan.']);
    if(in_array($r->stage,['backlog','brief_received','needs_info']))$r->stage='scheduled';
    if(!$r->task_id){$task=Task::create(['title'=>$r->title,'details'=>$r->brief,'client_name'=>$r->client,'department'=>'creatives','assigned_to'=>$assignee->id,'assigned_by'=>$actor->id,'due_on'=>$r->requested_deadline,'priority'=>$r->priority,'status'=>'Open','progress'=>10,'completion_review_status'=>null]);$r->task_id=$task->id;}
    else Task::whereKey($r->task_id)->update(['assigned_to'=>$assignee->id,'due_on'=>$r->requested_deadline]);
-   if(isset($d['performance_weight'])){
+   if(isset($d['performance_weight']) && !($actor->id===$assignee->id && (int)$d['performance_weight']===(int)Task::findOrFail($r->task_id)->performance_weight)){
     abort_unless(\App\Services\DeliveryImpact::mayRate($actor,$assignee),403,'Impact weighting requires an independent manager.');
     $weightedTask=Task::findOrFail($r->task_id);$oldWeight=$weightedTask->only(['performance_weight','weight_approved_by','weight_approved_at']);
     $weightedTask->forceFill(['performance_weight'=>$d['performance_weight'],'weight_approved_by'=>$actor->id,'weight_approved_at'=>now()])->save();
@@ -45,7 +45,7 @@ class CreativeWorkflow {
  }
  public function allowed(CreativeRequest $r,User $u):array {
   if(!CreativeAccess::view($u,$r)||$r->is_group)return [];
-  $lead=CreativeAccess::lead($u);$owner=CreativeAccess::owner($u,$r);$independent=$lead&&$u->id!==$r->assignee_id;
+  $lead=CreativeAccess::lead($u);$owner=CreativeAccess::owner($u,$r);
   if($r->stage==='archived')return $lead?['brief_received']:[];
   $actions=[];
   if($owner&&($lead||!in_array($r->stage,['in_review','delivered','completed'],true))){
@@ -54,9 +54,9 @@ class CreativeWorkflow {
   }
   if($lead)$actions[]='needs_info';
   if($r->stage==='needs_info'&&$u->id===$r->requester_id)$actions[]='brief_received';
-  if($independent&&$r->stage==='in_review'&&$r->submitted_at)$actions[]='delivered';
+  if($lead&&$r->stage==='in_review'&&$r->submitted_at)$actions[]='delivered';
   if(($lead&&in_array($r->stage,['in_review','delivered'],true))||($u->id===$r->requester_id&&$u->id!==$r->assignee_id&&$r->stage==='delivered'))$actions[]='changes_requested';
-  if($independent&&$r->stage==='delivered')$actions[]='completed';
+  if($lead&&$r->stage==='delivered')$actions[]='completed';
   if($lead&&$r->stage!=='in_review')$actions[]='archived';
   return array_values(array_unique(array_filter($actions,fn($stage)=>$stage!==$r->stage)));
  }
@@ -65,7 +65,7 @@ class CreativeWorkflow {
    if(in_array($next,['needs_info','changes_requested','archived'])||($next==='in_progress'&&$r->stage==='completed')){if(empty($d['reason']))throw ValidationException::withMessages(['reason'=>'Explain this change so the team can act on it.']);}
    if($next==='in_review'){
     $reviewLead=$r->reviewer;
-    if(!$reviewLead||!CreativeAccess::lead($reviewLead)||$reviewLead->id===$r->assignee_id)throw ValidationException::withMessages(['reviewer_id'=>'The Creative HOD must assign an independent HOD or line manager reviewer before submission.']);
+    if(!$reviewLead||!CreativeAccess::lead($reviewLead))throw ValidationException::withMessages(['reviewer_id'=>'The Creative HOD must assign an active HOD or line manager reviewer before submission.']);
     $evidence=$r->attachments()->where('kind','deliverable')->where('iteration','>=',$r->iteration)->exists()||!empty($d['reference_url'])||(in_array($r->stage,['delivered','completed'])&&$r->attachments()->where('kind','deliverable')->exists());
     if(!$evidence)throw ValidationException::withMessages(['reference_url'=>'Attach a deliverable or add its delivery link. A status change alone is not evidence.']);
     $r->iteration++;$r->submitted_at=now();$r->first_submitted_at??=now();$r->review_due_at=app(CreativeCapacity::class)->reviewDue(now());$r->reviewed_at=null;
@@ -82,13 +82,13 @@ class CreativeWorkflow {
    if($r->stage==='completed'&&!in_array($next,['completed','archived'])){$r->completed_at=null;$r->verified_by=null;$r->quality_score=null;}
    if($next==='archived')$r->archived_at=now();if($r->stage==='archived')$r->archived_at=null;
    $action=$next;$r->stage=$next==='changes_requested'?'in_progress':$next;$r->revision++;$r->save();$r->updates()->create(['author_id'=>$actor->id,'kind'=>$action,'body'=>$d['reason']?:config('creative.stages.'.$next),'reference_url'=>$d['reference_url']??null,'metadata'=>['client_approved'=>$next==='completed'?(bool)($d['client_approved']??false):null,'client_approval_recorded_by'=>$next==='completed'?$actor->id:null,'iteration'=>$r->iteration,'requested_deadline'=>$r->requested_deadline?->toIso8601String(),'reviewer_id'=>$r->reviewer_id,'submitted_at'=>$r->submitted_at?->toIso8601String(),'feedback_type'=>$d['feedback_type']??null,'review_due_at'=>$r->review_due_at?->toIso8601String()]]);
-   $this->syncTask($r,$actor);if($r->parent_request_id){$parent=CreativeRequest::lockForUpdate()->findOrFail($r->parent_request_id);$allDone=$parent->parts()->whereNotIn('stage',['completed'])->doesntExist();$parent->stage=$allDone?'completed':'in_progress';$parent->completed_at=$allDone?now():null;$parent->revision++;$parent->save();$this->event($parent,$actor,'parts_progress_updated',[],$allDone?'All work packages independently verified.':'Work package progress updated.');}$this->event($r,$actor,'stage_changed',$before,$d['reason']?:'Workflow updated.');$this->notify($r,array_merge([$r->requester_id,$r->assignee_id,$r->reviewer_id],$this->leads()),'Creative work: '.config('creative.stages.'.$action),$r->reference.' needs attention. Open the shared timeline for details.');return $r;
+   $this->syncTask($r,$actor);if($r->parent_request_id){$parent=CreativeRequest::lockForUpdate()->findOrFail($r->parent_request_id);$allDone=$parent->parts()->whereNotIn('stage',['completed'])->doesntExist();$parent->stage=$allDone?'completed':'in_progress';$parent->completed_at=$allDone?now():null;$parent->revision++;$parent->save();$this->event($parent,$actor,'parts_progress_updated',[],$allDone?'All work packages completed with recorded approval.':'Work package progress updated.');}$this->event($r,$actor,'stage_changed',$before,$d['reason']?:'Workflow updated.');$this->notify($r,array_merge([$r->requester_id,$r->assignee_id,$r->reviewer_id],$this->leads()),'Creative work: '.config('creative.stages.'.$action),$r->reference.' needs attention. Open the shared timeline for details.');return $r;
   });
  }
  private function syncTask(CreativeRequest $r,User $actor):void {
   if(!$r->task_id||$r->stage==='archived')return;
   $verified=$r->stage==='completed';$review=in_array($r->stage,['in_review','delivered']);
-  $task=Task::findOrFail($r->task_id);$task->fill(['status'=>$verified?'Completed':($review?'Awaiting Approval':($r->stage==='backlog'?'Deferred':(in_array($r->stage,['brief_received','scheduled','needs_info'])?'Open':'In Progress'))),'progress'=>$verified?100:($review?95:($r->stage==='in_progress'?50:10)),'completion_review_status'=>$verified?'approved':($review?'pending':null),'completion_review_requested_at'=>$r->submitted_at,'completion_reviewed_at'=>$verified?now():null,'completion_reviewed_by'=>$verified?$actor->id:null,'completion_review_note'=>$verified?'Creative Studio independent verification.':null]);
+  $task=Task::findOrFail($r->task_id);$task->fill(['status'=>$verified?'Completed':($review?'Awaiting Approval':($r->stage==='backlog'?'Deferred':(in_array($r->stage,['brief_received','scheduled','needs_info'])?'Open':'In Progress'))),'progress'=>$verified?100:($review?95:($r->stage==='in_progress'?50:10)),'completion_review_status'=>$verified?'approved':($review?'pending':null),'completion_review_requested_at'=>$r->submitted_at,'completion_reviewed_at'=>$verified?now():null,'completion_reviewed_by'=>$verified?$actor->id:null,'completion_review_note'=>$verified?($actor->id===$r->assignee_id?'Creative HOD completed own assigned work with recorded client approval.':'Creative Studio independent verification.'):null]);
   $custom=$task->custom_fields??[];$custom['creative_studio_id']=$r->id;if($verified)$custom['completion_manager_id']=$actor->id;$task->custom_fields=$custom;$task->save();
  }
  private function lock(CreativeRequest $r,int $revision):CreativeRequest {$r=CreativeRequest::lockForUpdate()->findOrFail($r->id);abort_if($r->revision!==$revision,409,'This work changed in another session. Refresh before saving.');return $r;}

@@ -315,14 +315,17 @@ class CreativeStudioTest extends TestCase {
   $this->actingAs($owner)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'scheduled'])->assertForbidden();
  }
 
- public function test_unassigned_intake_cannot_skip_planning_and_self_assigned_lead_cannot_approve_own_work():void {
-  $sender=$this->staff();$lead=$this->staff('creatives','manager');$verifier=$this->staff('creatives','manager');$r=$this->brief($sender);
+ public function test_creative_lead_can_plan_review_and_complete_own_work_with_client_approval():void {
+  $sender=$this->staff();$lead=$this->staff('creatives','manager');$r=$this->brief($sender);
   $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'scheduled','reason'=>'Skip assignment'])->assertUnprocessable()->assertJsonValidationErrors('assignee_id');
-  $r=$this->plan($r,$lead,$lead,$verifier);$r=$this->move($r,$lead,'in_progress');$r=$this->move($r,$lead,'in_review',['reference_url'=>'https://example.test/lead-artwork']);
-  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'delivered','reason'=>'Self approval attempt'])->assertForbidden();
-  $r=$this->move($r,$verifier,'delivered');
-  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>100,'client_approved'=>true,'reason'=>'Self final approval attempt'])->assertForbidden();
-  $this->assertSame('pending',$r->task->fresh()->completion_review_status);
+  $r=app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$lead->id,'reviewer_id'=>$lead->id,'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Lead takes on creative work','override_reason'=>'Test capacity']);
+  $this->assertSame($lead->id,$r->assignee_id);$this->assertSame($lead->id,$r->reviewer_id);
+  $r=$this->move($r,$lead,'in_progress');$r=$this->move($r,$lead,'in_review',['reference_url'=>'https://example.test/lead-artwork']);
+  $r=$this->move($r,$lead,'delivered');
+  $this->actingAs($lead)->postJson(route('portal.creative.transition',$r),['revision'=>$r->revision,'stage'=>'completed','quality_score'=>90,'reason'=>'Missing client approval'])->assertUnprocessable();
+  $r=$this->move($r,$lead,'completed',['quality_score'=>90,'client_approved'=>true,'reason'=>'Client approved the final artwork']);
+  $this->assertSame('completed',$r->stage);$this->assertSame($lead->id,$r->verified_by);
+  $this->assertStringContainsString('own assigned work',$r->task->fresh()->completion_review_note);
  }
 
 }
