@@ -12,6 +12,7 @@ class LeaveApplication extends Model
     use HasFactory;
 
     protected $fillable = [
+        'handover_notes','handover_attachment','handover_history','handover_revision','handover_acknowledged_at','handover_acknowledged_by','handover_reply',
         'user_id',
         'start_date',
         'end_date',
@@ -26,6 +27,7 @@ class LeaveApplication extends Model
     protected function casts(): array
     {
         return [
+            'handover_attachment'=>'array','handover_history'=>'array','handover_revision'=>'integer','handover_acknowledged_at'=>'datetime',
             'start_date' => 'date',
             'end_date' => 'date',
         ];

@@ -78,6 +78,6 @@ class DashboardUsabilityRegressionTest extends TestCase
     public function test_current_week_is_explicit_and_history_is_accessible_without_fallback():void {
         $manager=$this->manager();$this->row($manager);
         $this->actingAs($manager)->get(route('dashboard',['weekly_department'=>'brands_marketing']))->assertOk()->assertSee('Current week')->assertViewHas('weeklyConsolidatedItems',fn($rows)=>$rows->total()===0);
-        $this->get(route('dashboard',['weekly_department'=>'brands_marketing','weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk()->assertSee('Historical week')->assertSee('Activity 0')->assertSee('Copy Entire Week');
+        $this->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream','weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk()->assertSee('Historical week')->assertSee('Activity 0')->assertSee('Copy Entire Week');
     }
 }

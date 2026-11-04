@@ -422,13 +422,12 @@ class DashboardCustomizationTest extends TestCase
             ]);
         }
 
-        $period=['weekly_department'=>'brands_marketing','weekly_from'=>now()->startOfWeek()->subWeeks(12)->toDateString(),'weekly_to'=>now()->endOfWeek()->toDateString()];
-        $firstPage=$this->actingAs($manager)->get(route('dashboard',$period));
-        $firstPage->assertOk()->assertSee('brands_page=2',false)->assertDontSee('Earlier Weekly Entries &amp; Row Editing',false);
-        $page=app(\App\Services\BrandsWeeklyPresentation::class)->build($period['weekly_from'],$period['weekly_to']);
-        $this->assertSame(11,$page->total());$this->assertCount(8,$page->items());
-        $secondPage=$this->actingAs($manager)->get(route('dashboard',$period+['brands_page'=>2]));
-        $secondPage->assertOk();$this->assertSame(3,substr_count($secondPage->getContent(),'data-weekly-entry-actions='));
+        $period=['tab'=>'workstream','period'=>'year','date'=>now()->toDateString(),'per_page'=>10];
+        $page=app(\App\Services\BrandsDashboard::class)->build($period,$manager)['tables'][0];
+        $this->assertSame(11,$page['total']);$this->assertCount(10,$page['rows']);$this->assertSame(2,$page['last']);
+        $second=app(\App\Services\BrandsDashboard::class)->build($period+['page'=>2],$manager)['tables'][0];
+        $this->assertCount(1,$second['rows']);
+        $this->actingAs($manager)->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream','brands_period'=>'year']))->assertOk()->assertDontSee('Earlier Weekly Entries &amp; Row Editing',false);
     }
 
     public function test_weekly_department_tabs_drop_stale_weekly_search_and_page_state(): void
@@ -529,7 +528,7 @@ class DashboardCustomizationTest extends TestCase
         ]);
 
         $response = $this->actingAs($manager)->get(route('dashboard', [
-            'weekly_department' => 'brands_marketing', 'weekly_from'=>'2026-07-20', 'weekly_to'=>'2026-07-26',
+            'weekly_department' => 'brands_marketing', 'brands_tab'=>'workstream', 'weekly_from'=>'2026-07-20', 'weekly_to'=>'2026-07-26',
         ]));
 
         $response->assertOk();
@@ -613,7 +612,7 @@ class DashboardCustomizationTest extends TestCase
         $response->assertViewHas('weeklyDepartmentFilter', 'all');
         $response->assertSee('All Departments');
         $response->assertSee('Open weekly reports & activities',false);
-        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'brands_marketing','weekly_from'=>'2026-07-20','weekly_to'=>'2026-07-26']))->assertOk()->assertSee('Brands Latest Row');
+        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream','weekly_from'=>'2026-07-20','weekly_to'=>'2026-07-26']))->assertOk()->assertSee('Brands Latest Row');
         $response->assertSee('Finance');
         $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance','weekly_from'=>'2026-07-13','weekly_to'=>'2026-07-19']))->assertOk()->assertSee('Finance Earlier Row');
         $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) use ($brandsRow) {
@@ -1070,19 +1069,19 @@ class DashboardCustomizationTest extends TestCase
         $this->assertSame(35, $item->progress_percent);
 
         $dashboard = $this->actingAs($manager)->get(route('dashboard', [
-            'weekly_department' => 'brands_marketing',
+            'weekly_department' => 'brands_marketing', 'brands_tab'=>'workstream',
         ]));
 
         $dashboard->assertOk();
-        $dashboard->assertSee('Responsibilities');
+        $dashboard->assertSee('Collaborators');
         $dashboard->assertSee('KPI Commitments');
-        $dashboard->assertSee('Edit Weekly Update');
-        $dashboard->assertSee('Permanent Reporting Start');
+        $dashboard->assertSee('View Details');
+        $dashboard->assertSee('Task in Week');
         $dashboard->assertDontSee('Earlier Weekly Entries &amp; Row Editing', false);
         $dashboard->assertSee('Guinness Trade Campaign');
         $dashboard->assertSee('Pending');
-        $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
-        $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $item), false);
+        $dashboard->assertSee('data-br-detail="weekly:'.$item->id.'"', false);
+        $dashboard->assertSee('Team Entries &amp; Reviews', false);
 
         $updateResponse = $this->actingAs($manager)->patch(route('portal.dashboard.weekly-consolidated.update', $item), [
             'department' => 'brands_marketing',

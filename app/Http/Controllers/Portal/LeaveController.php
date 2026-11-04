@@ -105,13 +105,14 @@ class LeaveController extends Controller
             })->latest()->paginate(5, ['*'], 'pending_leaves_page')->withQueryString();
         }
 
+        $coverHandovers = LeaveApplication::with('user','coveringStaff')->where('covering_staff_id',$user->id)->whereNotNull('handover_notes')->latest()->paginate(5,['*'],'cover_handovers_page')->withQueryString();
         return view('portal.leaves', compact(
             'user',
             'myLeaves',
             'colleagues',
             'managers',
             'pendingApprovals',
-            'leaveSummary'
+            'leaveSummary','coverHandovers'
         ));
     }
 
@@ -137,7 +138,7 @@ class LeaveController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'leave_type' => ['required', 'string', 'in:annual,sick,casual,maternity,paternity'],
-            'covering_staff_id' => ['required', 'exists:users,id', 'different:line_manager_id', 'not_in:' . $user->id],
+            'covering_staff_id' => ['required', $activeInternalStaffRule, 'different:line_manager_id', 'not_in:' . $user->id],
             'delegate_line_manager_id' => [
                 $isLineManagerApplicant ? 'required' : 'nullable',
                 $activeInternalStaffRule,
@@ -172,7 +173,9 @@ class LeaveController extends Controller
             return back()->withErrors(['leave_balance' => 'You do not have enough leave days remaining (' . $user->leave_balance . ' days left, requested ' . $days . ' days).']);
         }
 
+        $handover = $this->handoverValues($request);
         $leave = LeaveApplication::create([
+            ...$handover,
             'user_id' => $user->id,
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
@@ -378,7 +381,7 @@ class LeaveController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'leave_type' => ['required', 'string', 'in:annual,sick,casual,maternity,paternity'],
-            'covering_staff_id' => ['required', 'exists:users,id', 'different:line_manager_id', 'not_in:' . $user->id],
+            'covering_staff_id' => ['required', $activeInternalStaffRule, 'different:line_manager_id', 'not_in:' . $user->id],
             'delegate_line_manager_id' => [
                 $isLineManagerApplicant ? 'required' : 'nullable',
                 $activeInternalStaffRule,
@@ -411,7 +414,9 @@ class LeaveController extends Controller
 
         $status = ! empty($validated['line_manager_id']) ? 'pending_manager' : 'pending_hr';
 
+        $handover = $this->handoverValues($request,$leave);
         $leave->update([
+            ...$handover,
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'leave_type' => $validated['leave_type'],
@@ -477,6 +482,44 @@ class LeaveController extends Controller
         )));
     }
 
+    protected function handoverValues(Request $request, ?LeaveApplication $leave=null): array
+    {
+        $v=$request->validate(['handover_notes'=>'required|string|max:15000','handover_attachment'=>'nullable|file|mimes:pdf,docx,xlsx,pptx,txt,jpg,jpeg,png,webp|max:10240']);
+        if(mb_strlen(trim(html_entity_decode(strip_tags($v['handover_notes']),ENT_QUOTES|ENT_HTML5,'UTF-8'))) < 10) throw \Illuminate\Validation\ValidationException::withMessages(['handover_notes'=>'Describe the work, deadlines and responsibilities being handed over.']);
+        $file=$leave?->handover_attachment;
+        if($request->hasFile('handover_attachment')){
+            $upload=$request->file('handover_attachment');app(\App\Services\Creative\CreativeUploadScreening::class)->check($upload);
+            $path=$upload->store('leave-handovers','local');abort_unless($path,503);
+            $file=['path'=>$path,'name'=>mb_substr(basename($upload->getClientOriginalName()),0,240),'mime'=>$upload->getMimeType(),'size'=>$upload->getSize()];
+        }
+        $history=$leave?->handover_history??[];
+        if($leave?->handover_notes)$history[]=['revision'=>$leave->handover_revision,'notes'=>$leave->handover_notes,'attachment'=>$leave->handover_attachment,'covering_staff_id'=>$leave->covering_staff_id,'acknowledged_at'=>$leave->handover_acknowledged_at?->toIso8601String(),'acknowledged_by'=>$leave->handover_acknowledged_by,'reply'=>$leave->handover_reply,'superseded_at'=>now()->toIso8601String()];
+        return ['handover_notes'=>$v['handover_notes'],'handover_attachment'=>$file,'handover_history'=>$history,'handover_revision'=>$leave?($leave->handover_revision+1):1,'handover_acknowledged_at'=>null,'handover_acknowledged_by'=>null,'handover_reply'=>null];
+    }
+
+    public function handoverFile(Request $request, LeaveApplication $leave)
+    {
+        $u=$request->user();
+        abort_unless(in_array($u->id,[(int)$leave->user_id,(int)$leave->covering_staff_id,(int)$leave->line_manager_id,(int)$leave->delegate_line_manager_id],true)||$u->hasFullHrAccess()||$this->isLeaveFinalApprover($u)||$u->isActingLineManagerFor((int)$leave->line_manager_id),403);
+        $file=$leave->handover_attachment;abort_unless($file && \Illuminate\Support\Facades\Storage::disk('local')->exists($file['path']),404);
+        return \Illuminate\Support\Facades\Storage::disk('local')->download($file['path'],$file['name'],['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
+    }
+
+    public function acknowledgeHandover(Request $request, LeaveApplication $leave): RedirectResponse
+    {
+        abort_unless((int)$leave->covering_staff_id===$request->user()->id && $leave->handover_notes && !in_array($leave->status,['rejected','cancelled']),403);
+        $v=$request->validate(['revision'=>'required|integer|min:1','handover_reply'=>'required|string|min:5|max:3000']);
+        \Illuminate\Support\Facades\DB::transaction(function()use($request,$leave,$v){
+            $row=LeaveApplication::lockForUpdate()->findOrFail($leave->id);
+            abort_unless((int)$row->covering_staff_id===$request->user()->id,403);
+            abort_if($row->handover_revision!==(int)$v['revision']||$row->handover_acknowledged_at,409,'This handover changed or was already acknowledged. Refresh before continuing.');
+            $row->update(['handover_acknowledged_at'=>now(),'handover_acknowledged_by'=>$request->user()->id,'handover_reply'=>$v['handover_reply']]);
+            \App\Services\PerformanceWorkflow::record('leave_handover',$row->id,$request->user()->id,'acknowledged',[],['revision'=>$row->handover_revision,'covering_staff_id'=>$row->covering_staff_id,'acknowledged_at'=>$row->handover_acknowledged_at], 'Covering colleague acknowledged the documented handover.');
+            NotificationService::send($row->user_id,'Leave handover acknowledged',$request->user()->name.' acknowledged your handover. Open your leave record to read their response.',route('portal.leaves'));
+        });
+        return back()->with('status','Handover receipt recorded. Leave approval remains a separate decision.');
+    }
+
     protected function notifyLeaveCoverSelected(LeaveApplication $leave): void
     {
         $leave->loadMissing(['user', 'coveringStaff']);
@@ -492,7 +535,7 @@ class LeaveController extends Controller
             (int) $leave->covering_staff_id,
             'Leave Cover Duty Assigned',
             "{$leave->user->name} selected you to cover their duties from {$start} to {$end}.",
-            route('portal.leaves')
+            route('portal.leaves').'#leave-cover-handovers'
         );
     }
 

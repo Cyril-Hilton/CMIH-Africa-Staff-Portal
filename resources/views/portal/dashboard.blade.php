@@ -362,7 +362,7 @@
             </div>
             <div class="dashboard-report-actions">
                 <button type="button" data-dashboard-present aria-pressed="false" class="rounded-lg border border-brand-white/20 px-4 py-2 text-sm">Presentation Mode</button>
-            @if($canManageActiveWeeklyDepartment)
+            @if($canManageActiveWeeklyDepartment && !$isBrandsWeeklyDepartment)
                 <div class="flex flex-wrap gap-2">
                     <button type="button" data-report-settings onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
                             class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
@@ -380,6 +380,7 @@
             </div>
         </div>
         @include('portal.partials.weekly-department-navigation')
+        @unless($isBrandsWeeklyDepartment)
         @include('portal.partials.weekly-report-toolbar')
 
         <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
@@ -604,162 +605,10 @@
             </div>
         </template>
 
+        @endunless
         @include('portal.partials.shared-weekly-performance')
 
-        {{-- MEETING ACTION POINTS CARD --}}
-        <div class="glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl"><x-ui-icon name="clipboard" /></span>
-                        <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
-                    </div>
-                    <p class="mt-1 text-xs text-brand-ash">
-                        Track and update action items assigned during previous meetings. Editable by all team members.
-                    </p>
-                </div>
-                
-                {{-- Add Action Point Modal Trigger --}}
-                <details class="relative">
-                    <summary class="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all shadow-lg">
-                        + Add Action Point
-                    </summary>
-                    <div class="dashboard-meeting-popover absolute right-0 top-full mt-2 z-30 rounded-2xl border border-brand-white/10 bg-brand-black/95 p-5 shadow-2xl backdrop-blur-xl">
-                        <form method="POST" action="{{ route('portal.action-points.store') }}" class="space-y-4">
-                            @csrf
-                            <div>
-                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Action Point *</label>
-                                <textarea name="action_point" rows="3" required placeholder="Type action required from meeting..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-brand-red"></textarea>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Assignee</label>
-                                    <select name="assignee_id" class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
-                                        <option value="">Select staff...</option>
-                                        @foreach($allStaff as $staff)
-                                            <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Status *</label>
-                                    <select name="status" required class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white focus:border-brand-red">
-                                        <option value="pending">Pending</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="done">Done</option>
-                                        <option value="not_done">Not Done</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Comments / Notes</label>
-                                <input type="text" name="comments" placeholder="Progress notes or comments..." class="w-full rounded-xl border border-brand-white/10 bg-brand-black/60 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-brand-red">
-                            </div>
-
-                            <button type="submit" class="w-full rounded-xl bg-brand-red py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all">
-                                Save Action Point
-                            </button>
-                        </form>
-                    </div>
-                </details>
-            </div>
-
-            {{-- Action Points Table --}}
-            <div class="overflow-x-auto rounded-xl border border-brand-white/10">
-                <table class="w-full text-left text-sm text-brand-white/80">
-                    <thead class="bg-brand-black/60 text-xs uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
-                        <tr>
-                            <th class="px-4 py-3.5 min-w-[280px]">ACTION POINT</th>
-                            <th class="px-4 py-3.5 min-w-[180px]">ASSIGNEE</th>
-                            <th class="px-4 py-3.5 min-w-[140px]">STATUS</th>
-                            <th class="px-4 py-3.5 min-w-[260px]">COMMENTS</th>
-                            <th class="px-4 py-3.5 min-w-[120px] text-right">ACTION</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-brand-white/5">
-                        @forelse($actionPoints as $point)
-                            <tr class="hover:bg-brand-white/[0.02] transition-colors">
-                                <td class="px-4 py-4 align-top">
-                                    <p class="font-medium text-brand-white text-xs whitespace-pre-wrap">{{ $point->action_point }}</p>
-                                    <span class="mt-1 block text-[10px] text-brand-white/30">Added by {{ $point->creator?->name ?? 'Staff' }} on {{ $point->created_at->format('M d, Y') }}</span>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <span class="font-semibold text-xs text-brand-white">{{ $point->display_assignee }}</span>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <select data-update-url="{{ route('portal.action-points.update', $point) }}"
-                                            class="action-point-quick-status-select rounded-xl border border-brand-white/15 bg-brand-black/90 px-2.5 py-1.5 text-xs font-bold text-brand-white focus:border-brand-red focus:outline-none cursor-pointer hover:border-brand-white/30 transition-all">
-                                        @foreach(['pending' => 'Pending', 'in_progress' => 'In Progress', 'done' => 'Done', 'not_done' => 'Not Done'] as $val => $lbl)
-                                            <option value="{{ $val }}" @selected($point->status === $val)>{{ $lbl }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td class="px-4 py-4 align-top">
-                                    <p class="text-xs text-brand-white/70 whitespace-pre-wrap">{{ $point->comments ?: 'No comments' }}</p>
-                                </td>
-                                <td class="px-4 py-4 align-top text-right">
-                                    <details class="relative inline-block text-left">
-                                        <summary class="cursor-pointer rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[11px] font-semibold text-brand-white hover:bg-brand-white/10 transition-all">
-                                            Edit
-                                        </summary>
-                                        <div class="absolute right-0 top-full mt-2 z-30 w-80 rounded-xl border border-brand-white/10 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl text-left">
-                                            <form method="POST" action="{{ route('portal.action-points.update', $point) }}" class="space-y-3">
-                                                @csrf
-                                                @method('PATCH')
-                                                <div>
-                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Action Point</label>
-                                                    <textarea name="action_point" rows="2" required class="w-full rounded-lg border border-brand-black/70 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">{{ $point->action_point }}</textarea>
-                                                </div>
-                                                <div class="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Assignee</label>
-                                                        <select name="assignee_id" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                            <option value="">Unassigned</option>
-                                                            @foreach($allStaff as $staff)
-                                                                <option value="{{ $staff->id }}" @selected((int)$point->assignee_id === (int)$staff->id)>{{ $staff->name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-[10px] uppercase text-brand-ash mb-1">Status</label>
-                                                        <select name="status" required class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                            <option value="pending" @selected($point->status === 'pending')>Pending</option>
-                                                            <option value="in_progress" @selected($point->status === 'in_progress')>In Progress</option>
-                                                            <option value="done" @selected($point->status === 'done')>Done</option>
-                                                            <option value="not_done" @selected($point->status === 'not_done')>Not Done</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label class="block text-[10px] uppercase text-brand-ash mb-1">Comments</label>
-                                                    <input type="text" name="comments" value="{{ $point->comments }}" class="w-full rounded-lg border border-brand-white/10 bg-brand-black/70 px-2.5 py-1.5 text-xs text-brand-white">
-                                                </div>
-                                                <div class="flex items-center justify-between pt-1">
-                                                    <button type="submit" class="rounded-lg bg-brand-red px-3 py-1.5 text-[10px] font-bold uppercase text-white hover:bg-brand-red-dark">Update</button>
-                                                </div>
-                                            </form>
-                                            <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" data-confirm="Delete this action point?" class="mt-2 text-right">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-[10px] text-red-400 hover:underline">Delete Action Point</button>
-                                            </form>
-                                        </div>
-                                    </details>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-4 py-8 text-center text-xs text-brand-white/40 italic">
-                                    No meeting action points recorded yet. Click "+ Add Action Point" above to log action items from your meeting.
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        @include('portal.partials.action-points')
     </div>
 
     <div data-dashboard-secondary>
@@ -1801,7 +1650,7 @@
             window.loadWeeklyConsolidatedUrl = loadWeeklyConsolidatedUrl;
             async function refreshWeeklyConsolidatedSilently() {
                 if (!weeklyConsolidatedRegion || weeklyConsolidatedRefreshing || document.hidden) return;
-                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
+                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], [data-brands-reports], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
                 if (weeklyConsolidatedRegion.contains(document.activeElement)) return;
                 if (weeklyConsolidatedRegion.matches(':hover')) return;
                 if (weeklyConsolidatedRegion.querySelector('#weekly-consolidated-form:not(.hidden), #weekly-column-manager:not(.hidden), details[open]')) return;
@@ -1872,6 +1721,7 @@
                     action.includes('weekly-consolidated') ||
                     action.includes('action-points');
 
+                if (form.closest('[data-action-points]')) return;
                 if (!isTargetForm || form.hasAttribute('data-no-ajax') || form.closest('[data-creative-studio], [data-crm-centre], [data-ops-handover]')) return;
 
                 event.preventDefault();
@@ -1965,6 +1815,7 @@
             // Delegated Change handler for Quick Status dropdowns
             document.addEventListener('change', async (event) => {
                 const select = event.target;
+                if (select?.closest('[data-action-points]')) return;
                 if (!select || (!select.classList.contains('weekly-quick-status-select') && !select.classList.contains('action-point-quick-status-select'))) return;
 
                 const updateUrl = select.dataset.updateUrl;

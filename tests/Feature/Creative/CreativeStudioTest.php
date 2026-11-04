@@ -12,6 +12,22 @@ class CreativeStudioTest extends TestCase {
  private function brief(User $requester, array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->create($requester,array_replace(['title'=>'Dove creative campaign','brief'=>'Create approved artwork for the campus campaign.','creative_type'=>'Flyer / Poster','priority'=>'High','client'=>'Dove','visibility'=>'shared','requested_deadline'=>now()->addWeek()],$extra));}
  private function plan(CreativeRequest $r,User $lead,User $owner,User $reviewer):CreativeRequest{return app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>($owner->id===$lead->id ? $this->staff('creatives','manager')->id : $lead->id),'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Assigned against the creative brief','override_reason'=>'Capacity will be confirmed in this local test']);}
  private function move(CreativeRequest $r,User $u,string $stage,array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->transition($r,$u,array_replace(['revision'=>$r->revision,'stage'=>$stage,'reason'=>'Recorded workflow action','quality_score'=>null,'client_approved'=>$stage==='completed'], $extra));}
+ public function test_lead_can_record_monday_work_window_when_entering_a_brief_on_wednesday():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-04 12:00:00','Africa/Accra'));
+  $lead=$this->staff('creatives','manager');
+  $data=['title'=>'Whole week creative work','brief'=>'Design deliverables already started at the beginning of the working week.','creative_type'=>config('creative.types')[0],'priority'=>'Medium','visibility'=>'shared','requested_deadline'=>'2026-11-06T18:00:00Z','planned_start'=>'2026-11-02T09:00:00Z','internal_eta'=>'2026-11-06T16:00:00Z'];
+  $id=$this->actingAs($lead)->postJson(route('portal.creative.store'),$data)->assertCreated()->json('id');
+  $r=CreativeRequest::findOrFail($id);
+  $this->assertSame('2026-11-04 12:00:00',$r->received_at->format('Y-m-d H:i:s'));
+  $this->assertSame('2026-11-02 09:00:00',$r->planned_start->format('Y-m-d H:i:s'));
+  $this->assertSame('2026-11-06 16:00:00',$r->internal_eta->format('Y-m-d H:i:s'));
+  $this->assertNull($r->assignee_id);
+  $this->postJson(route('portal.creative.plan',$r),['revision'=>$r->revision,'assignee_id'=>$lead->id,'reviewer_id'=>$lead->id,'planned_start'=>$data['planned_start'],'internal_eta'=>$data['internal_eta'],'requested_deadline'=>$data['requested_deadline'],'estimated_hours'=>12,'priority'=>'Medium','reason'=>'Record the whole actual working week','override_reason'=>'Confirm available capacity'])->assertOk();
+  $this->assertSame('2026-11-02',$r->fresh()->planned_start->toDateString());
+  $this->assertSame('2026-11-04',$r->fresh()->received_at->toDateString());
+  $this->actingAs($this->staff('client_relations'))->postJson(route('portal.creative.store'),$data)->assertForbidden();
+  $this->actingAs($lead)->postJson(route('portal.creative.store'),array_replace($data,['internal_eta'=>'2026-11-01T16:00:00Z']))->assertUnprocessable();
+ }
  public function test_intake_merge_preserves_existing_dates_ownership_and_feedback_history():void {
   $sender=$this->staff();$r=$this->brief($sender);$r->update(['stage'=>'backlog']);
   $correction=$this->brief($sender);$correction->update(['stage'=>'changes_requested']);

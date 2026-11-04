@@ -33,9 +33,9 @@ class BrandsWeeklyPresentationTest extends TestCase {
   $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
   foreach(['brands_marketing','operations_projects','finance','hr_admin'] as $dept){
    WeeklyConsolidatedItem::create(['department'=>$dept,'workflow_state'=>'legacy','campaign_name'=>'Preserved work '.$dept,'client_name'=>'Original activity','week_start'=>'2026-10-19','week_end'=>'2026-10-25','created_by'=>$admin->id,'deliverables'=>'Original report remains available','status'=>'In Progress']);
-   $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept]))->assertOk()->assertSee('Current week')->assertDontSee('Original report remains available');
-   $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk()->assertSee('Historical week')->assertSee('Original report remains available');
-   $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-26','weekly_to'=>'2026-11-01']))->assertOk()->assertDontSee('Showing the latest saved week:');
+   $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept]+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertSee('Current week')->assertDontSee('Original report remains available');
+   $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertSee('Historical week')->assertSee('Original report remains available');
+   $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-26','weekly_to'=>'2026-11-01']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertDontSee('Showing the latest saved week:');
   }
   $this->assertDatabaseCount('weekly_consolidated_items',4);
  }
@@ -59,7 +59,7 @@ class BrandsWeeklyPresentationTest extends TestCase {
    $this->actingAs($admin)->post(route('portal.dashboard.weekly-consolidated.store'),['department'=>$dept,'week_start'=>'2026-10-19','week_end'=>'2026-10-25','campaign_name'=>'Rich report '.$dept,'deliverables'=>$html,'target_breakdown'=>$html,'status'=>'Planned'])->assertSessionHasNoErrors();
    $row=WeeklyConsolidatedItem::where('department',$dept)->firstOrFail();
    $this->assertSame($html,$row->deliverables);$this->assertSame($html,$row->target_breakdown);
-   $page=$this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']))->assertOk();
+   $page=$this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk();
    if($dept==='creatives'){$id=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')->where('source_id',$row->id)->value('creative_request_id');$detail=$this->getJson('/portal/creative-studio/requests/'.$id)->assertOk()->json('weekly_reports_html');$this->assertStringContainsString('<table>',$detail);$this->assertStringContainsString('text-align:center',$detail);}else{$page->assertSee('<table>',false)->assertSee('text-align:center',false);}
   }
  }

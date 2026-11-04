@@ -146,6 +146,7 @@ class StaffPerformanceAndHrReportsTest extends TestCase
 
     public function test_linked_task_and_commitment_are_scored_as_one_deliverable(): void
     {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 12:00:00'));
         $owner = User::factory()->create(['department' => 'creatives', 'status' => 'active']);
         $manager = User::factory()->create(['department' => 'creatives', 'status' => 'active', 'access_role' => 'manager']);
         $task = \App\Models\Task::create(['title' => 'Final creative output', 'assigned_to' => $owner->id, 'assigned_by' => $manager->id, 'department' => 'creatives', 'status' => 'In Progress', 'priority' => 'Medium', 'created_at' => '2026-10-05 10:00:00']);

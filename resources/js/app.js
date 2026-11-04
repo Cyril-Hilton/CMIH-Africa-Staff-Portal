@@ -1,3 +1,5 @@
+import './brands-reports';
+import './action-points';
 import './weekly-report-copy';
 import './weekly-entry-editors';
 import './operations-handover';

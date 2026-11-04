@@ -324,12 +324,15 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/leaves/{leave}/approve', [\App\Http\Controllers\Portal\LeaveController::class, 'approve'])->name('leaves.approve');
     Route::post('/leaves/{leave}/reject', [\App\Http\Controllers\Portal\LeaveController::class, 'reject'])->name('leaves.reject');
     Route::post('/leaves/{leave}/return', [\App\Http\Controllers\Portal\LeaveController::class, 'returnForCorrection'])->name('leaves.return');
+    Route::get('/leaves/{leave}/handover-attachment', [\App\Http\Controllers\Portal\LeaveController::class, 'handoverFile'])->name('leaves.handover.file');
+    Route::post('/leaves/{leave}/handover-acknowledgement', [\App\Http\Controllers\Portal\LeaveController::class, 'acknowledgeHandover'])->name('leaves.handover.acknowledge');
     Route::post('/leaves/{leave}/resubmit', [\App\Http\Controllers\Portal\LeaveController::class, 'resubmit'])->name('leaves.resubmit');
     Route::get('/fleet-requests', [\App\Http\Controllers\Portal\FleetRequestController::class, 'index'])->name('fleet-requests');
     Route::post('/fleet-requests', [\App\Http\Controllers\Portal\FleetRequestController::class, 'store'])->name('fleet-requests.store');
     Route::post('/fleet-requests/{fleetRequest}/resubmit', [\App\Http\Controllers\Portal\FleetRequestController::class, 'resubmit'])->name('fleet-requests.resubmit');
     Route::post('/fleet-requests/{fleetRequest}/action', [\App\Http\Controllers\Portal\FleetRequestController::class, 'action'])->name('fleet-requests.action');
 
+    Route::get('/action-points/table', [\App\Http\Controllers\Portal\ActionPointController::class, 'table'])->name('action-points.table');
     Route::post('/action-points', [\App\Http\Controllers\Portal\ActionPointController::class, 'store'])->name('action-points.store');
     Route::patch('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'update'])->name('action-points.update');
     Route::delete('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'destroy'])->name('action-points.destroy');
@@ -378,6 +381,11 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/operations/assets/checkout', [\App\Http\Controllers\Portal\DepartmentController::class, 'checkoutAsset'])->name('operations.assets.checkout');
     Route::post('/operations/assets/{log}/checkin', [\App\Http\Controllers\Portal\DepartmentController::class, 'checkinAsset'])->name('operations.assets.checkin');
 
+    Route::get('/brands-reporting/data', [\App\Http\Controllers\Portal\BrandsDashboardController::class, 'data'])->name('brands.reports.data');
+    Route::get('/brands-reporting/submissions', [\App\Http\Controllers\Portal\BrandsDashboardController::class, 'submissions'])->name('brands.reports.submissions');
+    Route::post('/brands-reporting/submissions', [\App\Http\Controllers\Portal\BrandsDashboardController::class, 'submit'])->name('brands.reports.submit');
+    Route::post('/brands-reporting/submissions/{submission}/review', [\App\Http\Controllers\Portal\BrandsDashboardController::class, 'review'])->name('brands.reports.review');
+    Route::get('/brands-reporting/records/{type}/{id}', [\App\Http\Controllers\Portal\BrandsDashboardController::class, 'detail'])->name('brands.reports.detail');
     Route::get('/brands', [\App\Http\Controllers\Portal\DepartmentController::class, 'brands'])->name('brands');
     Route::get('/brands/strategy/{asset}', [\App\Http\Controllers\Portal\DepartmentController::class, 'strategyFile'])->name('brands.strategy.file');
     Route::post('/brands/strategy', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeStrategy'])->name('brands.strategy.store');
@@ -430,10 +438,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::patch('/dashboard/weekly-consolidated/{item}', [\App\Http\Controllers\Portal\DashboardController::class, 'updateWeeklyConsolidated'])->name('dashboard.weekly-consolidated.update');
     Route::delete('/dashboard/weekly-consolidated/{item}', [\App\Http\Controllers\Portal\DashboardController::class, 'destroyWeeklyConsolidated'])->name('dashboard.weekly-consolidated.destroy');
 
-    // ── Meeting Action Points ──────────────────────────────────────────────────
-    Route::post('/action-points', [\App\Http\Controllers\Portal\ActionPointController::class, 'store'])->name('action-points.store');
-    Route::patch('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'update'])->name('action-points.update');
-    Route::delete('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'destroy'])->name('action-points.destroy');
+
 
     // ── Phase 3: Appraisal Pipeline (1-10 Scale) ──────────────────────────────
     Route::get('/appraisals', [\App\Http\Controllers\Portal\AppraisalController::class, 'index'])->name('appraisals.index');

@@ -28,7 +28,7 @@ class LeaveWorkflowTest extends TestCase
         $manager = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'manager']);
         $cover = User::factory()->create(['status' => 'active']);
         $hr = User::factory()->create(['status' => 'active', 'access_role' => 'manager', 'department' => 'hr_admin', 'position_title' => 'HR Manager', 'job_level' => 'manager']);
-        $data = ['leave_type' => 'annual', 'start_date' => '2026-09-07', 'end_date' => '2026-09-11', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id];
+        $data = ['leave_type' => 'annual', 'start_date' => '2026-09-07', 'end_date' => '2026-09-11', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.'];
 
         $this->actingAs($staff)->post('/portal/leaves', $data)->assertSessionHasNoErrors();
         $leave = LeaveApplication::sole();
@@ -55,7 +55,7 @@ class LeaveWorkflowTest extends TestCase
         $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'executive', 'leave_balance' => 3]);
         $manager = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'manager']);
         $cover = User::factory()->create(['status' => 'active']);
-        $data = ['leave_type' => 'annual', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id];
+        $data = ['leave_type' => 'annual', 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.'];
         foreach ([['2026-09-11', '2026-09-07', 'end_date'], ['2026-09-05', '2026-09-06', 'end_date'], ['2026-09-07', '2026-09-11', 'leave_balance']] as [$start, $end, $error]) {
             $this->actingAs($staff)->post('/portal/leaves', $data + ['start_date' => $start, 'end_date' => $end])->assertSessionHasErrors($error);
         }
@@ -90,7 +90,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => '2026-09-08',
             'leave_type' => 'annual',
             'status' => 'pending_hr',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Please review this request.',
         ]);
 
@@ -142,7 +142,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_manager',
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response = $this->actingAs($manager)->get(route('portal.leaves'));
@@ -180,7 +180,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'returned_for_correction',
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Returned for Correction: Please choose a staff member from your department.',
         ]);
 
@@ -194,7 +194,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(10)->toDateString(),
             'end_date' => now()->addDays(12)->toDateString(),
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $newCover->id,
+            'covering_staff_id' => $newCover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Corrected cover colleague.',
         ]);
 
@@ -236,7 +236,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_manager',
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
@@ -244,7 +244,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(10)->toDateString(),
             'end_date' => now()->addDays(12)->toDateString(),
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Updated before manager review.',
         ]);
 
@@ -283,7 +283,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'approved',
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
@@ -291,7 +291,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->subDay()->toDateString(),
             'end_date' => now()->addDays(4)->toDateString(),
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response->assertSessionHasErrors('leave');
@@ -322,7 +322,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDay(),
             'leave_type' => 'annual',
             'status' => 'approved',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $rejectResponse = $this->actingAs($superAdmin)->post(route('portal.leaves.reject', $approvedLeave), [
@@ -363,7 +363,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_hr',
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response = $this->actingAs($staff)->post(route('portal.leaves.resubmit', $leave), [
@@ -371,7 +371,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(7)->toDateString(),
             'end_date' => now()->addDays(8)->toDateString(),
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Adjusted before final approval.',
         ]);
 
@@ -402,7 +402,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(5),
             'leave_type' => 'annual',
             'status' => 'approved',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -412,7 +412,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(2),
             'leave_type' => 'annual',
             'status' => 'pending_hr',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -422,7 +422,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(2),
             'leave_type' => 'annual',
             'status' => 'rejected',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -432,7 +432,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(2),
             'leave_type' => 'annual',
             'status' => 'approved',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -484,7 +484,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(5)->toDateString(),
             'end_date' => now()->addDays(9)->toDateString(), // 5 days
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'comments' => 'Handover notes',
         ]);
 
@@ -603,7 +603,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_manager',
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $this->artisan('leave:resend-approval-prompts', [
@@ -668,7 +668,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'returned_for_correction',
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $this->artisan('leave:resend-approval-prompts', [
@@ -733,7 +733,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(5)->toDateString(),
             'end_date' => now()->addDays(6)->toDateString(), // 2 days
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $cover->id,
         ]);
 
@@ -791,7 +791,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(5)->toDateString(),
             'end_date' => now()->addDays(6)->toDateString(), // 2 days
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $cover->id,
         ]);
 
@@ -845,7 +845,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_manager',
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         // Super Admin cannot bypass the line-manager-first stage.
@@ -888,7 +888,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addWeeks(2)->startOfWeek()->toDateString(),
             'end_date' => now()->addWeeks(2)->startOfWeek()->addDays(4)->toDateString(), // Five weekdays exceed the three-day balance.
             'line_manager_id' => $manager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $response->assertSessionHasErrors(['leave_balance']);
@@ -913,7 +913,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(2)->toDateString(),
             'end_date' => now()->addDays(5)->toDateString(),
             'line_manager_id' => $routingLM->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         $responseFail->assertSessionHasErrors(['delegate_line_manager_id']);
@@ -926,7 +926,7 @@ class LeaveWorkflowTest extends TestCase
             'start_date' => now()->addDays(2)->toDateString(),
             'end_date' => now()->addDays(5)->toDateString(),
             'line_manager_id' => $routingLM->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -963,7 +963,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->addDays(5),
             'leave_type' => 'annual',
             'status' => 'approved',
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 
@@ -999,7 +999,7 @@ class LeaveWorkflowTest extends TestCase
             'leave_type' => 'annual',
             'status' => 'pending_manager',
             'line_manager_id' => $lineManager->id,
-            'covering_staff_id' => $cover->id,
+            'covering_staff_id' => $cover->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
         ]);
 
         // Acting LM can approve subordinate's leave request
@@ -1026,7 +1026,7 @@ class LeaveWorkflowTest extends TestCase
             'end_date' => now()->subDays(1),
             'leave_type' => 'annual',
             'status' => 'approved',
-            'covering_staff_id' => $actingLM->id,
+            'covering_staff_id' => $actingLM->id, 'handover_notes' => 'Complete the documented task handover and cover the agreed deadlines.',
             'delegate_line_manager_id' => $actingLM->id,
         ]);
 

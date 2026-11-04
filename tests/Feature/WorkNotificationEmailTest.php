@@ -48,7 +48,7 @@ class WorkNotificationEmailTest extends TestCase
         $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'executive', 'leave_balance' => 30]);
         $manager = User::factory()->create(['status' => 'active', 'access_role' => 'manager', 'job_level' => 'manager']);
         $cover = User::factory()->create(['status' => 'active', 'access_role' => 'staff']);
-        $request = ['leave_type' => 'annual', 'start_date' => now()->addDays(14)->toDateString(), 'end_date' => now()->addDays(15)->toDateString(), 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id];
+        $request = ['leave_type' => 'annual', 'start_date' => now()->addDays(14)->toDateString(), 'end_date' => now()->addDays(15)->toDateString(), 'line_manager_id' => $manager->id, 'covering_staff_id' => $cover->id, 'handover_notes'=>'Cover the open assignments and provide progress updates during my leave.'];
         $this->actingAs($staff)->post(route('portal.leaves.store'), $request)->assertSessionHasNoErrors();
         Mail::assertSent(LeaveApprovalNeededMail::class, fn ($mail) => $mail->hasTo('hr.work@cmihafrica.com') && ! $mail->hasTo('hr.personal@example.com'));
         Mail::assertNotSent(LeaveApprovalNeededMail::class, fn ($mail) => $mail->hasTo('hr.personal@example.com'));

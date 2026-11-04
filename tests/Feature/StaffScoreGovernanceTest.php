@@ -18,6 +18,7 @@ class StaffScoreGovernanceTest extends TestCase
 
     public function test_completion_requires_real_manager_signoff_and_cannot_be_self_awarded(): void
     {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-20 12:00:00'));
         $manager = User::factory()->create(['department'=>'creatives','access_role'=>'manager','status'=>'active']);
         $owner = User::factory()->create(['department'=>'creatives','status'=>'active','line_manager_id'=>$manager->id]);
         $peer = User::factory()->create(['department'=>'creatives','access_role'=>'staff','status'=>'active']);

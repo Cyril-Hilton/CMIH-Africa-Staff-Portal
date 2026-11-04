@@ -11,6 +11,13 @@ use Illuminate\Validation\Rule;
 
 class ActionPointController extends Controller
 {
+    public function table(Request $request): \Illuminate\Http\Response
+    {
+        $actionPoints = ActionPoint::with(['assignee','creator','updater'])->latest()->get();
+        $allStaff = User::internalStaff()->where(fn($q)=>$q->where('status','active')->orWhereIn('id',$actionPoints->pluck('assignee_id')->filter()))->orderBy('name')->get();
+        return response()->view('portal.partials.action-points',compact('actionPoints','allStaff'))->header('Cache-Control','private, no-store');
+    }
+
     public function store(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([

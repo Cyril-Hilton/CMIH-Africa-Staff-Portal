@@ -29,6 +29,7 @@
             line_manager_id: '',
             covering_staff_id: '',
             delegate_line_manager_id: '',
+            handover_notes: '',
             comments: '',
         },
         triggerResubmit(leave) {
@@ -41,6 +42,7 @@
                 line_manager_id: leave.line_manager_id || '',
                 covering_staff_id: leave.covering_staff_id || '',
                 delegate_line_manager_id: leave.delegate_line_manager_id || '',
+                handover_notes: leave.handover_notes || '',
                 comments: leave.comments ? leave.comments.replace('Returned for Correction: ', '') : '',
             };
             this.openResubmitModal = true;
@@ -115,6 +117,7 @@
                 <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="edit" /> Leave Applications Pending Your Review</h3>
                 <div class="space-y-4">
                     @foreach($pendingApprovals as $approval)
+                        @include('portal.partials.leave-handover',['handover'=>$approval])
                         <div class="p-4 rounded-xl border border-brand-white/10 bg-brand-white/5 flex flex-wrap items-start justify-between gap-4">
                             <div class="min-w-[16rem] flex-1 space-y-3">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -184,7 +187,7 @@
             <!-- Leave Application Form -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                 <h3 class="text-lg font-semibold text-brand-white mb-4"><x-ui-icon name="plus" /> Request Leave Time-Off</h3>
-                <form method="POST" action="{{ route('portal.leaves.store') }}" class="space-y-4">
+                <form method="POST" action="{{ route('portal.leaves.store') }}" enctype="multipart/form-data" class="space-y-4">
                     @csrf
 
                     <div>
@@ -253,8 +256,10 @@
                         </select>
                     </div>
 
+                    <div><x-input-label for="handover_notes" value="Handing Over Notes (required)" /><textarea id="handover_notes" name="handover_notes" required rows="5" maxlength="15000" class="wysiwyg-editor mt-2 w-full rounded-lg bg-brand-black/40 p-3" placeholder="List ongoing work, deadlines, contacts, file locations and what your covering colleague needs to do.">{{ old('handover_notes') }}</textarea><x-input-error :messages="$errors->get('handover_notes')" class="mt-2" /></div>
+                    <div><x-input-label for="handover_attachment" value="Handover attachment (optional, up to 10 MB)" /><input id="handover_attachment" name="handover_attachment" type="file" @disabled(config('creative.upload_scan_required') && !config('creative.upload_scanner')) accept=".pdf,.docx,.xlsx,.pptx,.txt,.jpg,.jpeg,.png,.webp" class="mt-2 w-full">@if(config('creative.upload_scan_required') && !config('creative.upload_scanner'))<p class="mt-2 text-xs text-amber-300">Attachments are temporarily unavailable while secure file screening is being configured. Include the full handover in the required notes.</p>@endif<x-input-error :messages="$errors->get('handover_attachment')" class="mt-2" /></div>
                     <div>
-                        <x-input-label for="comments" :value="__('Comments / Handover Instructions')" />
+                        <x-input-label for="comments" :value="__('Other Comments')" />
                         <textarea id="comments" name="comments" rows="3" class="wysiwyg-editor mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-brand-red placeholder-brand-white/30" placeholder="Please list tasks to cover or general notes..."></textarea>
                     </div>
 
@@ -321,6 +326,7 @@
                                                     'line_manager_id' => $leave->line_manager_id,
                                                     'covering_staff_id' => $leave->covering_staff_id,
                                                     'delegate_line_manager_id' => $leave->delegate_line_manager_id,
+                                                    'handover_notes' => $leave->handover_notes,
                                                     'comments' => $leave->comments,
                                                 ];
                                             @endphp
@@ -351,9 +357,11 @@
             </div>
         </div>
 
+    <section class="mt-6 space-y-4" id="leave-cover-handovers"><h3 class="text-xl font-semibold">Handovers Assigned to Me</h3>@forelse($coverHandovers as $handover)@include('portal.partials.leave-handover',['handover'=>$handover])@empty<p class="text-sm text-brand-ash">No documented handovers have been assigned to you.</p>@endforelse{{ $coverHandovers->links() }}</section>
+    <section class="mt-6 space-y-4"><h3 class="text-xl font-semibold">My Handover Records</h3>@foreach($myLeaves as $handover)@include('portal.partials.leave-handover',['handover'=>$handover])@endforeach</section>
     <!-- Alpine.js Resubmit Leave Modal -->
     <div x-show="openResubmitModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-black/80 backdrop-blur-sm" x-cloak style="display: none;">
-        <div @click.away="openResubmitModal = false" class="w-full max-w-md glass-panel rounded-2xl p-6 border border-brand-white/15 shadow-2xl relative"
+        <div @click.away="openResubmitModal = false" class="w-full max-w-md max-h-[90vh] overflow-y-auto glass-panel rounded-2xl p-6 border border-brand-white/15 shadow-2xl relative"
              x-init="$watch('openResubmitModal', value => {
                  if (value) {
                      document.getElementById('resubmit_leave_type').value = resubmitData.leave_type || 'annual';
@@ -366,6 +374,8 @@
                      if (document.getElementById('resubmit_delegate_line_manager_id')) {
                          document.getElementById('resubmit_delegate_line_manager_id').value = resubmitData.delegate_line_manager_id || '';
                      }
+                     document.getElementById('resubmit_handover_notes').value = resubmitData.handover_notes || '';
+                     document.getElementById('resubmit_handover_notes')._ckeditorInstance?.setData(resubmitData.handover_notes || '');
                      document.getElementById('resubmit_comments').value = resubmitData.comments ? resubmitData.comments.replace('Returned for Correction: ', '') : '';
                  }
              })">
@@ -374,7 +384,7 @@
             <h3 class="text-lg font-semibold text-brand-white mb-2">Edit Leave Request</h3>
             <p class="text-xs text-brand-ash mb-4">You can only update requests that are still pending or returned for correction. Approved leave is locked, so extra days require a new request.</p>
             
-            <form :action="resubmitActionUrl || '#'" method="POST" class="space-y-4">
+            <form :action="resubmitActionUrl || '#'" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
                 
                 <div>
@@ -438,8 +448,10 @@
                     </select>
                 </div>
 
+                <div><x-input-label for="resubmit_handover_notes" value="Handing Over Notes (required)" /><textarea id="resubmit_handover_notes" name="handover_notes" required rows="5" maxlength="15000" x-model="resubmitForm.handover_notes" class="wysiwyg-editor mt-2 w-full rounded-lg bg-brand-black p-3"></textarea></div>
+                <div><x-input-label for="resubmit_handover_attachment" value="Replace handover attachment (optional)" /><input id="resubmit_handover_attachment" name="handover_attachment" type="file" @disabled(config('creative.upload_scan_required') && !config('creative.upload_scanner')) accept=".pdf,.docx,.xlsx,.pptx,.txt,.jpg,.jpeg,.png,.webp" class="mt-2 w-full"><p class="mt-2 text-xs text-brand-ash">Leave this empty to retain the existing attachment. Updated handovers require a fresh acknowledgement.</p>@if(config('creative.upload_scan_required') && !config('creative.upload_scanner'))<p class="mt-2 text-xs text-amber-300">New attachments are temporarily unavailable while secure screening is configured. Existing attachments remain accessible.</p>@endif</div>
                 <div>
-                    <x-input-label for="resubmit_comments" :value="__('Comments / Handover Instructions')" />
+                    <x-input-label for="resubmit_comments" :value="__('Other Comments')" />
                     <textarea id="resubmit_comments" name="comments" rows="3" x-model="resubmitForm.comments" class="mt-1 w-full rounded-md border border-brand-white/10 bg-brand-black px-3 py-2 text-sm text-brand-white focus:outline-none focus:border-brand-red placeholder-brand-white/30" placeholder="Please list tasks to cover or general notes..."></textarea>
                 </div>
 

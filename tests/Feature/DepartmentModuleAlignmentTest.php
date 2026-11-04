@@ -16,7 +16,8 @@ class DepartmentModuleAlignmentTest extends TestCase
         $admin=$this->actor('finance','super_admin');
         foreach (['brands'=>'Retail KPI &amp; Insights','operations'=>'Execution Trackers','finance'=>'Revenue'] as $route=>$label) {
             $page=$this->actingAs($admin)->get(route('portal.'.$route));
-            $page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Activity')->assertSee($label,false)->assertSee('Copy Entire Week');
+            if($route==='brands')$page->assertOk()->assertSee('Add Report Entry')->assertSee('Perfect Store')->assertSee('Copy Entire Week');
+            else $page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Activity')->assertSee($label,false)->assertSee('Copy Entire Week');
         }
         $this->get(route('portal.brands'))->assertSee('No POSM stock items recorded')->assertDontSee('Promotional Flyers Bundle');
     }
@@ -24,7 +25,7 @@ class DepartmentModuleAlignmentTest extends TestCase
         $brands=$this->actor('brands_marketing');
         $this->actingAs($brands)->post(route('portal.brands.posm.store'),['item_name'=>'Retail visibility kit','item_type'=>'POSM','client_brand'=>'Shared Brand','quantity_in'=>12,'quantity_out'=>4,'notes'=>'CONFIDENTIAL-VENDOR-RATE'])->assertSessionHasNoErrors();
         $viewer=$this->actor('creatives','staff');
-        $page=$this->actingAs($viewer)->get(route('dashboard',['weekly_department'=>'brands_marketing']));
+        $page=$this->actingAs($viewer)->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'visibility']));
         $page->assertOk()->assertSee('Retail visibility kit')->assertSee('Shared Brand')->assertSee('Recorded movement')->assertDontSee('CONFIDENTIAL-VENDOR-RATE');
         $this->assertDatabaseCount('performance_registers',0);
         $this->assertDatabaseCount('weekly_consolidated_items',0);
@@ -65,10 +66,10 @@ class DepartmentModuleAlignmentTest extends TestCase
         $owner=$this->actor('brands_marketing');
         PosmLedger::create(['created_by'=>$owner->id,'item_name'=>'OLD-MOVEMENT','item_type'=>'POSM','quantity_in'=>1,'quantity_out'=>0])->forceFill(['created_at'=>now()->subYear()])->save();
         WeeklyConsolidatedItem::create(['department'=>'brands_marketing','created_by'=>$owner->id,'updated_by'=>$owner->id,'lead_staff_id'=>$owner->id,'week_start'=>now()->startOfWeek(),'week_end'=>now()->endOfWeek(),'campaign_name'=>'Shared Workstream','client_name'=>'Shared Activity','deliverables'=>'<table><tr><td>Shared rich detail</td></tr></table>','status'=>'In Progress']);
-        $this->actingAs($owner)->get(route('portal.brands'))->assertOk()->assertSee('Shared rich detail');
+        $this->actingAs($owner)->get(route('portal.brands',['brands_tab'=>'workstream']))->assertOk()->assertSee('Shared rich detail');
         $sources=app(SharedModuleActivity::class)->build('brands_marketing',now()->startOfWeek()->toDateString(),now()->endOfWeek()->toDateString());
         $this->assertSame(0,$sources['posm']['rows']->total());
-        $this->get(route('dashboard',['weekly_department'=>'brands_marketing']))->assertOk()->assertSee('Shared rich detail');
+        $this->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream']))->assertOk()->assertSee('Shared rich detail');
         $this->assertDatabaseCount('weekly_consolidated_items',1);
     }
 
