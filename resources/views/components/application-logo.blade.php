@@ -1,6 +1,6 @@
 @php
-    $logoLightFallback = asset('images/logo/logo-light.png');
-    $logoDarkFallback = asset('images/logo/logo-dark.png');
+    $logoLightFallback = asset('images/logo/logo-light.png').'?v='.(is_file(public_path('images/logo/logo-light.png')) ? filemtime(public_path('images/logo/logo-light.png')) : '1');
+    $logoDarkFallback = asset('images/logo/logo-dark.png').'?v='.(is_file(public_path('images/logo/logo-dark.png')) ? filemtime(public_path('images/logo/logo-dark.png')) : '1');
     $logoLightValue = \App\Models\SiteContent::where('key', 'logo_light')->value('value');
     $logoDarkValue = \App\Models\SiteContent::where('key', 'logo_dark')->value('value');
     $logoUrl = static function ($path, $fallback) {
