@@ -8,6 +8,15 @@ class WeeklyReportingHistoryTest extends TestCase {
  use RefreshDatabase;
  protected function setUp():void{parent::setUp();$this->travelTo(\Carbon\Carbon::parse('2026-10-26 10:00:00','Africa/Accra'));}
  private function source(User $owner):WeeklyConsolidatedItem{return WeeklyConsolidatedItem::create(['department'=>'brands_marketing','week_start'=>'2026-10-19','week_end'=>'2026-10-25','campaign_name'=>'Ongoing Activation','deliverables'=>'Original weekly results','achieved_breakdown'=>'92%','status'=>'In Progress','progress_percent'=>60,'created_by'=>$owner->id,'updated_by'=>$owner->id,'project_starts_on'=>'2026-10-19','project_ends_on'=>'2026-11-15']);}
+ public function test_every_department_manager_can_record_monday_work_on_wednesday_without_rewriting_the_entry_time():void {
+  $this->travelTo(\Carbon\Carbon::parse('2026-11-04 12:00:00','Africa/Accra'));
+  foreach(['brands_marketing','operations_projects','finance','hr_admin','client_relations','creatives'] as $department){
+   $manager=User::factory()->create(['access_role'=>'manager','department'=>$department,'status'=>'active']);
+   $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->actingAs($manager)->post(route('portal.dashboard.weekly-consolidated.store'),['department'=>$department,'week_start'=>'2026-11-02','week_end'=>'2026-11-08','project_starts_on'=>'2026-11-02','project_ends_on'=>'2026-11-06','campaign_name'=>'Whole week '.$department,'deliverables'=>'Work started Monday; report entered Wednesday.','status'=>'In Progress'])->assertSessionHasNoErrors();
+   $row=WeeklyConsolidatedItem::where('department',$department)->sole();
+   $this->assertSame('2026-11-02',$row->week_start->toDateString());$this->assertSame('2026-11-02',$row->project_starts_on->toDateString());$this->assertSame('2026-11-06',$row->project_ends_on->toDateString());$this->assertSame('2026-11-04',$row->created_at->toDateString());
+  }
+ }
  public function test_old_period_cannot_be_repurposed_and_source_content_survives():void {
   $u=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$row=$this->source($u);
   $this->actingAs($u)->patch(route('portal.dashboard.weekly-consolidated.update',$row),['department'=>'brands_marketing','week_start'=>'2026-10-26','week_end'=>'2026-11-01','deliverables'=>'Replacement','status'=>'Planned','correction_reason'=>'Reuse for next week'])->assertSessionHasErrors('week_start');

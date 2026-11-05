@@ -98,4 +98,25 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $this->assertSame(1,$service->build($v,$u)['tables'][0]['total']);$this->assertSame('reviewed',$row->fresh()->report_status);
  }
 
+ public function test_collaborator_names_and_responsibilities_are_separate_and_searchable_before_pagination():void {
+  $manager=$this->staff('manager');$owner=$this->staff();$collaborator=$this->staff();$collaborator->update(['name'=>'Cynthia Adjei']);
+  foreach(range(1,12) as $n)WeeklyConsolidatedItem::create(['department'=>'brands_marketing','workflow_state'=>'legacy','client_name'=>'Retail '.$n,'campaign_name'=>'Shopper Marketing','week_start'=>'2026-11-02','week_end'=>'2026-11-08','lead_staff_id'=>$owner->id,'created_by'=>$manager->id,'deliverables'=>'Preserved formatted progress','supporting_staff_ids'=>[$collaborator->id],'supporting_roles'=>[$collaborator->id=>'<p>'.($n===1?'Budget defence and sign off':'Outlet visits').'</p>'],'status'=>'In Progress']);
+  $service=app(BrandsDashboard::class);$base=['tab'=>'workstream','date'=>'2026-11-04'];
+  $d=$service->build($base+['table_filters'=>json_encode(['workstream'=>['column'=>'collaborator_details','q'=>'Budget defence']])],$manager);$table=$d['tables'][0];
+  $this->assertSame(12,$table['available']);$this->assertSame(1,$table['total']);$this->assertSame(12,$d['summary'][0][1]);
+  $person=$table['rows']->first()['collaborator_details'][0];$this->assertSame('Cynthia Adjei',$person['name']);$this->assertSame('Budget defence and sign off',$person['responsibility']);
+  $html=view('portal.brands.tables',['brandsData'=>$d])->render();$this->assertStringContainsString('<strong>Cynthia Adjei</strong>',$html);$this->assertStringContainsString('class="br-person-duty">Budget defence and sign off</span>',$html);$this->assertStringContainsString('class="br-row-action"',$html);
+  $this->assertSame(0,$service->build($base+['table_filters'=>json_encode(['workstream'=>['column'=>'owner','q'=>'Budget defence']])],$manager)['tables'][0]['total']);
+  $sorted=$service->build($base+['table_filters'=>json_encode(['workstream'=>['sort'=>'title','direction'=>'asc','page'=>2]]),'per_page'=>5],$manager)['tables'][0];$this->assertSame('Retail 6',$sorted['rows']->first()['title']);
+ }
+ public function test_numeric_column_sorting_and_independent_table_pages():void {
+  $u=$this->staff();$manager=$this->staff('manager');
+  foreach([100,9,88] as $value)PerformanceRegister::create(['department'=>'brands_marketing','kind'=>'perfect_store','reference'=>'OSA-'.$value,'title'=>'Store '.$value,'owner_id'=>$u->id,'submitted_by'=>$u->id,'approved_at'=>now(),'approved_by'=>$manager->id,'period_start'=>'2026-11-02','period_end'=>'2026-11-08','status'=>'submitted','data'=>['partner'=>'unilever','breakdown'=>'overall','osa_actual_percent'=>$value]]);
+  $d=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','date'=>'2026-11-04','partner'=>'unilever','table_filters'=>json_encode(['perfect'=>['sort'=>'actual','direction'=>'asc']])],$manager);$this->assertEquals([9,88,100],$d['tables'][0]['rows']->pluck('actual')->all());
+  foreach(range(1,12) as $n)Task::create(['department'=>'brands_marketing','title'=>'Task '.$n,'assigned_to'=>$u->id,'assigned_by'=>$manager->id,'status'=>'Open','priority'=>'Medium','due_on'=>'2026-11-06']);
+  $d=app(BrandsDashboard::class)->build(['tab'=>'productivity','date'=>'2026-11-04','per_page'=>5,'table_filters'=>json_encode(['tasks'=>['page'=>2]])],$manager);
+  $this->assertSame(2,$d['tables'][0]['page']);$this->assertSame(1,$d['tables'][1]['page']);
+  $this->actingAs($u)->getJson(route('portal.brands.reports.data',['table_filters'=>json_encode(['tasks'=>['q'=>['invalid']]])]))->assertUnprocessable();
+ }
+
 }

@@ -1058,6 +1058,8 @@ class TaskVerificationTest extends TestCase
 
     public function test_dashboard_punctuality_uses_clock_in_time_when_status_text_is_inconsistent(): void
     {
+        // Use an elapsed working day, including when this suite runs before office hours.
+        Carbon::setTestNow(Carbon::parse('2026-11-05 20:30:00', 'Africa/Accra'));
         $staff = $this->staffMembers['creatives'];
         $staff->update(['start_date' => Carbon::today()]);
 
