@@ -32,7 +32,7 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $u=$this->staff();$manager=$this->staff('manager');
   foreach(['people','perfect_store','activation','visibility'] as $category){$id=$this->actingAs($u)->postJson(route('portal.brands.reports.submit'),$this->payload($u,$category))->assertStatus(202)->json('id');$this->assertDatabaseMissing('performance_registers',['kind'=>$category]);$this->approve($manager,$id)->assertOk();}
   $this->assertDatabaseCount('performance_registers',4);
-  $data=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','partner'=>'unilever','date'=>'2026-11-04'],$manager);$row=$data['tables'][0]['rows']->first();$this->assertEquals(88,$row['actual']);$this->assertEquals(8,$row['change']);
+  $data=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','partner'=>'unilever','date'=>'2026-11-04'],$manager);$row=collect($data['tables'])->firstWhere('id','perfect_region')['rows']->first();$this->assertEquals(88,$row['actual']);$this->assertEquals(8,$row['change']);
   $data=app(BrandsDashboard::class)->build(['tab'=>'activation','date'=>'2026-11-04'],$manager);$row=$data['tables'][1]['rows']->first();$this->assertEquals(120,$row['sales_achieved']);$this->assertEquals(90,$row['reach_achieved']);$this->assertEquals(50,$row['conversion_percent']);
   $data=app(BrandsDashboard::class)->build(['tab'=>'visibility','date'=>'2026-11-04'],$manager);$this->assertEquals(2000,$data['tables'][0]['rows']->first()['gap']);
   $data=app(BrandsDashboard::class)->build(['tab'=>'people','date'=>'2026-11-04'],$manager);$this->assertEquals(1.7,$data['tables'][0]['rows']->first()['attrition_rate']);
@@ -69,7 +69,7 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $u=$this->staff();$other=$this->staff();$manager=$this->staff('manager');
   foreach([[$u,'unilever',75],[$other,'unilever',20],[$u,'castel',40]] as [$owner,$partner,$value])PerformanceRegister::create(['department'=>'brands_marketing','kind'=>'perfect_store','reference'=>'P-'.$owner->id.$partner,'title'=>'Accra store result','owner_id'=>$owner->id,'submitted_by'=>$owner->id,'approved_by'=>$manager->id,'approved_at'=>now(),'period_start'=>'2026-10-26','period_end'=>'2026-11-01','status'=>'submitted','data'=>['partner'=>$partner,'breakdown'=>'region','location'=>'Accra','osa_actual_percent'=>$value]]);
   $v=$this->payload($u,'perfect_store');unset($v['data']['osa_previous_percent']);$id=$this->actingAs($u)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
-  $d=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','date'=>'2026-11-04','partner'=>'unilever','owner'=>$u->id],$manager);$r=$d['tables'][0]['rows']->first();$this->assertEquals(75,$r['previous']);$this->assertEquals(13,$r['change']);
+  $d=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','date'=>'2026-11-04','partner'=>'unilever','owner'=>$u->id],$manager);$r=collect($d['tables'])->firstWhere('id','perfect_region')['rows']->first();$this->assertEquals(75,$r['previous']);$this->assertEquals(13,$r['change']);
   $d=app(BrandsDashboard::class)->build(['tab'=>'perfect_store','date'=>'2026-11-04','partner'=>'castel'],$manager);$this->assertSame(0,$d['tables'][0]['total']);
  }
  public function test_approved_correction_keeps_original_week_custom_fields_and_version():void {
@@ -119,4 +119,40 @@ class BrandsReportsWorkspaceTest extends TestCase {
   $this->actingAs($u)->getJson(route('portal.brands.reports.data',['table_filters'=>json_encode(['tasks'=>['q'=>['invalid']]])]))->assertUnprocessable();
  }
 
+
+ public function test_collaborator_duties_are_reviewed_and_legacy_duties_survive_corrections():void {
+  $owner=$this->staff();$manager=$this->staff('manager');$person=$this->staff();$other=$this->staff();
+  $v=$this->payload($owner);
+  $v['data']['collaborators']=[$person->id];
+  $v['data']['collaborator_roles']=[$other->id=>'Not selected'];
+  $this->actingAs($owner)->postJson(route('portal.brands.reports.submit'),$v)->assertUnprocessable();
+  $v['data']['collaborator_roles']=[$person->id=>'Check outlet coverage'];
+  $id=$this->actingAs($owner)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');
+  $this->actingAs($manager)->postJson(route('portal.brands.reports.review',$id),['revision'=>1,'decision'=>'return','note'=>'Confirm the outlet list.'])->assertOk();
+  $v['submission_id']=$id;$v['revision']=2;$v['data']['collaborator_roles'][$person->id]='Confirm outlet list';
+  $this->actingAs($owner)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202);
+  $this->approve($manager,$id,3)->assertOk();
+  $row=WeeklyConsolidatedItem::sole();$this->assertSame('Confirm outlet list',$row->supporting_roles[$person->id]);
+  $row->update(['supporting_roles'=>[$person->id=>'<p>Confirm outlet list</p>']]);
+  $person->update(['status'=>'suspended']);
+  unset($v['submission_id'],$v['revision']);
+  $v['source_type']='weekly';$v['source_id']=$row->id;$v['source_token']=BrandsReports::token($row->refresh());
+  $id=$this->actingAs($owner)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');
+  $this->approve($manager,$id)->assertOk();
+  $this->assertSame('<p>Confirm outlet list</p>',$row->fresh()->supporting_roles[$person->id]);
+ }
+ public function test_perfect_store_separates_partner_breakdowns_and_keeps_legacy_rows():void {
+  $owner=$this->staff();$manager=$this->staff('manager');
+  foreach([['castel','outlet'],['castel','region'],['unilever','region'],['unilever','distributor']] as [$partner,$breakdown]){
+   PerformanceRegister::create(['department'=>'brands_marketing','kind'=>'perfect_store','reference'=>$partner.'-'.$breakdown,'title'=>'Store results','owner_id'=>$owner->id,'submitted_by'=>$owner->id,'approved_at'=>now(),'approved_by'=>$manager->id,'period_start'=>'2026-11-02','period_end'=>'2026-11-08','status'=>'submitted','data'=>['partner'=>$partner,'breakdown'=>$breakdown,'location'=>'Test '.$breakdown,'osa_actual_percent'=>75]]);
+  }
+  $service=app(BrandsDashboard::class);$params=['tab'=>'perfect_store','period'=>'year','date'=>'2026-11-04','owner'=>$owner->id];
+  $castel=collect($service->build($params+['partner'=>'castel'],$manager)['tables'])->keyBy('id');
+  $unilever=collect($service->build($params+['partner'=>'unilever'],$manager)['tables'])->keyBy('id');
+  $this->assertSame('Test outlet',$castel['perfect_outlet']['rows']->sole()['location']);
+  $this->assertSame('Test region',$castel['perfect_other']['rows']->sole()['location']);
+  $this->assertSame('Test region',$unilever['perfect_region']['rows']->sole()['location']);
+  $this->assertSame('Test distributor',$unilever['perfect_distributor']['rows']->sole()['location']);
+  $this->assertFalse($unilever->has('perfect_outlet'));
+ }
 }

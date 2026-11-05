@@ -11,10 +11,13 @@ class BrandsReports {
  public static function token($record):string{return hash('sha256',json_encode($record->getAttributes(),JSON_THROW_ON_ERROR));}
  public function source(string $type,int $id){$item=$type==='weekly'?WeeklyConsolidatedItem::findOrFail($id):PerformanceRegister::findOrFail($id);abort_unless(User::normalizeDepartmentKey($item->department)==='brands_marketing',404);return $item;}
  public function payload($item,string $type):array {
-  if($type==='weekly')return ['category'=>'workstream','title'=>$item->client_name?:$item->campaign_name?:'Weekly activity','owner_id'=>$item->lead_staff_id??$item->created_by,'week'=>$item->week_start->toDateString(),'data'=>['project'=>$item->campaign_name,'brand'=>$item->custom_fields['brand']??null,'task_in_week'=>$item->deliverables,'collaborators'=>$item->supporting_staff_ids??[],'collaborator_roles'=>$item->supporting_roles??[],'priority'=>$item->priority??'Medium','status'=>$item->status??'Planned','project_start'=>$item->project_starts_on?->toDateString(),'project_end'=>$item->project_ends_on?->toDateString(),'kpis'=>$item->target_breakdown,'results'=>$item->achieved_breakdown,'gaps'=>$item->gap_breakdown,'notes'=>$item->notes]];
+  if($type==='weekly')return ['category'=>'workstream','title'=>$item->client_name?:$item->campaign_name?:'Weekly activity','owner_id'=>$item->lead_staff_id??$item->created_by,'week'=>$item->week_start->toDateString(),'data'=>['project'=>$item->campaign_name,'brand'=>$item->custom_fields['brand']??null,'task_in_week'=>$item->deliverables,'collaborators'=>$item->supporting_staff_ids??[],'collaborator_roles'=>array_map(self::plainDuty(...),$item->supporting_roles??[]),'priority'=>$item->priority??'Medium','status'=>$item->status??'Planned','project_start'=>$item->project_starts_on?->toDateString(),'project_end'=>$item->project_ends_on?->toDateString(),'kpis'=>$item->target_breakdown,'results'=>$item->achieved_breakdown,'gaps'=>$item->gap_breakdown,'notes'=>$item->notes]];
   $kind=$item->kind; $data=$item->data??[];
   if($kind==='campaign'){$kind='perfect_store';$data=['partner'=>in_array($data['partner']??null,['castel','unilever'],true)?$data['partner']:(preg_match('/castel/i',$data['brand']??$item->client??'')?'castel':(preg_match('/unilever/i',$data['brand']??$item->client??'')?'unilever':null)),'breakdown'=>!empty($data['region'])?'region':'overall','location'=>$data['region']??null]+array_intersect_key($data,config('brands_dashboard.schemas.perfect_store'));}
   return ['category'=>$kind,'title'=>$item->title,'owner_id'=>$item->owner_id,'week'=>$item->period_start->toDateString(),'data'=>array_intersect_key($data,config('brands_dashboard.schemas.'.$kind,[]))];
+ }
+ public static function plainDuty(string $value):string {
+  return trim(html_entity_decode(strip_tags(preg_replace('/<br\s*\/?\s*>|<\/p>/i', "\n", $value)), ENT_QUOTES|ENT_HTML5, 'UTF-8'));
  }
  public function submit(Request $r){
   abort_unless(self::member($r->user()),403);
@@ -29,7 +32,16 @@ class BrandsReports {
   $data=$r->validate($rules)['data']??[];$data=array_intersect_key($data,config('brands_dashboard.schemas.'.$v['category']));
   foreach($data as $key=>$value){if(str_ends_with($key,'_percent')&&$value!==null&&(float)$value>100)throw ValidationException::withMessages(['data.'.$key=>'Use a percentage from 0 to 100.']);if(in_array($key,['planned_count','active_count','attrition_count','leave_count','absent_count','planned_scope','active_scope','scheduled','deployed','target_reach','total_reach','conversions','conversion_base'],true)&&$value!==null&&floor((float)$value)!=(float)$value)throw ValidationException::withMessages(['data.'.$key=>'Use a whole number of people or items.']);}
   foreach([['project_start','project_end'],['brief_date','revert_date'],['brief_date','closed_on']] as [$a,$b])if(!empty($data[$a])&&!empty($data[$b])&&$data[$b]<$data[$a])throw ValidationException::withMessages(['data.'.$b=>'The end date cannot be before the start date.']);
-  if(!empty($data['collaborators']))abort_unless(User::internalStaff()->where('status','active')->whereIn('id',$data['collaborators'])->count()===count(array_unique($data['collaborators'])),422,'Choose active Brands collaborators.');
+  if($v['category']==='workstream'){
+   $ids=array_values(array_unique(array_map('intval',$data['collaborators']??[])));
+   $newIds=array_diff($ids,array_map('intval',$existing['data']['collaborators']??[]));
+   abort_unless(User::internalStaff()->where('status','active')->whereIn('id',$newIds)->count()===count($newIds),422,'Choose active staff as new collaborators.');
+   $r->validate(['data.collaborator_roles'=>'nullable|array|max:30','data.collaborator_roles.*'=>'nullable|string|max:15000']);
+   $duties=$r->input('data.collaborator_roles',$existing['data']['collaborator_roles']??[])??[];
+   if($r->exists('data.collaborator_roles')&&array_diff(array_keys($duties),$ids))throw ValidationException::withMessages(['data.collaborator_roles'=>'Add duties only for selected collaborators.']);
+   $data['collaborators']=$ids;
+   $data['collaborator_roles']=array_intersect_key(array_filter($duties,fn($d)=>filled($d)),array_flip($ids));
+  }
   if($v['category']==='workstream'&&trim(html_entity_decode(strip_tags($data['task_in_week']??'')))==='')throw ValidationException::withMessages(['data.task_in_week'=>'Describe the work for this reporting week.']);
   foreach(match($v['category']){'people'=>['cohort'],'perfect_store'=>['partner','breakdown'],'activation'=>['partner','brief_status','brief_date'],'visibility'=>['partner','posm_type'],'workstream'=>['project','task_in_week','status'],default=>[]} as $required)if(!filled($data[$required]??null))throw ValidationException::withMessages(['data.'.$required=>'Complete '.config('brands_dashboard.schemas.'.$v['category'].'.'.$required.'.label').'.']);
   if($v['category']==='perfect_store'&&($data['breakdown']??'overall')!=='overall'&&!filled($data['location']??null))throw ValidationException::withMessages(['data.location'=>'Name the outlet, region or distributor.']);
@@ -53,6 +65,12 @@ class BrandsReports {
     $start=Carbon::parse($p['week'])->startOfWeek();$end=$start->copy()->endOfWeek();
     if($s->source_type==='weekly'){
      $data=$p['data'];$values=['department'=>'brands_marketing','client_name'=>$p['title'],'campaign_name'=>$data['project'],'lead_staff_id'=>$p['owner_id'],'supporting_staff_ids'=>$data['collaborators']??[],'deliverables'=>$data['task_in_week'],'target_breakdown'=>$data['kpis']??null,'achieved_breakdown'=>$data['results']??null,'gap_breakdown'=>$data['gaps']??null,'notes'=>$data['notes']??null,'status'=>$data['status'],'priority'=>$data['priority']??'Medium','project_starts_on'=>$data['project_start']??null,'project_ends_on'=>$data['project_end']??null,'updated_by'=>$r->user()->id,'report_status'=>'reviewed','report_submitted_by'=>$s->submitted_by,'report_submitted_at'=>$s->created_at,'report_reviewed_by'=>$r->user()->id,'report_reviewed_at'=>now()];
+     $values['supporting_roles']=[];
+     foreach($values['supporting_staff_ids'] as $id){
+      $oldDuty=$old?->supporting_roles[$id]??null;
+      $duty=array_key_exists('collaborator_roles',$data)?($data['collaborator_roles'][$id]??null):($oldDuty===null?null:self::plainDuty($oldDuty));
+      if(filled($duty))$values['supporting_roles'][$id]=$oldDuty!==null&&self::plainDuty($oldDuty)===$duty?$oldDuty:e($duty);
+     }
      if($old){app(WeeklyReportingHistory::class)->record($old,'manager_approved_correction',$p['reason']);$values['custom_fields']=array_replace($old->custom_fields??[],['brand'=>$data['brand']??null]);$old->fill($values);$old->revision++;$old->save();$item=$old;}
      else{$item=WeeklyConsolidatedItem::create($values+['created_by'=>$s->submitted_by,'week_start'=>$start,'week_end'=>$end,'workflow_state'=>'legacy','custom_fields'=>['brand'=>$data['brand']??null]]);}
     }else{

@@ -31,3 +31,8 @@ html[data-theme=light] .br-status-danger{color:#923335;background:#ffe3e3;border
 .brands-reports .br-table td:not(.br-rich-cell):not(.br-people-cell):not(.br-description-cell):not(.br-numeric):not(.br-date-cell):not(.br-action-cell):not(.br-empty-cell){min-width:150px}
 
 @media(max-width:650px){.br-table .br-action-cell,.br-table .br-action-heading{position:static;box-shadow:none}}
+
+.br-collaborator-picker{min-width:0;border:1px solid var(--br-line, #454953);border-radius:.75rem;padding:.75rem}
+.br-collaborator-picker>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(13rem,100%),1fr));gap:.5rem;max-height:12rem;overflow:auto}
+.br-dialog .br-collaborator-picker>div label{display:flex;margin:0;padding:.35rem;flex-direction:row;align-items:center;gap:.55rem;min-width:0}
+.brands-reports .br-collaborator-picker input[type=checkbox]{width:1rem;height:1rem;min-height:0;margin:0;padding:0;border-radius:.2rem;flex:none}
