@@ -31,7 +31,7 @@
                 @if($note)
                     <p class="text"><span class="key">Note:</span> {{ $note }}</p>
                 @endif
-                <a href="{{ route('portal.leaves') }}" class="button">View Leave Request</a>
+                <a href="{{ route('portal.leaves.show', $leave) }}" class="button">View Leave Request</a>
                 <p class="footer">CMIH Africa — We Make It Happen</p>
             </div>
         </div>

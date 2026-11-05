@@ -8,7 +8,11 @@ class BrandsDashboardController extends Controller {
  public function data(Request $r){return response()->json(app(BrandsDashboard::class)->build($r->query(),$r->user()))->header('Cache-Control','private, no-store');}
  public function submissions(Request $r){
   abort_unless(BrandsReports::member($r->user()),403);$manager=BrandsReports::manager($r->user());
-  $entries=BrandsReportSubmission::with('submitter')->whereIn('status',['pending','returned'])->when(!$manager,fn($q)=>$q->where('submitted_by',$r->user()->id))->latest()->limit(100)->get()->map(fn($s)=>['id'=>$s->id,'revision'=>$s->revision,'category'=>$s->category,'source_type'=>$s->source_type,'source_id'=>$s->source_id,'source_token'=>$s->source_token,'payload'=>$s->payload,'display'=>$this->display($s->payload),'author'=>$s->submitter?->name??'Retained staff history','status'=>$s->status,'note'=>$s->review_note,'can_resubmit'=>$s->status==='returned'&&(int)$s->submitted_by===$r->user()->id]);
+  $focus=$r->validate(['submission'=>'nullable|integer|min:1'])['submission']??null;
+  $entries=BrandsReportSubmission::with('submitter')
+   ->when($focus,fn($q)=>$q->whereKey($focus),fn($q)=>$q->whereIn('status',['pending','returned']))
+   ->when(!$manager,fn($q)=>$q->where('submitted_by',$r->user()->id))->latest()->limit(100)->get()->map(fn($s)=>['id'=>$s->id,'revision'=>$s->revision,'category'=>$s->category,'source_type'=>$s->source_type,'source_id'=>$s->source_id,'source_token'=>$s->source_token,'payload'=>$s->payload,'display'=>$this->display($s->payload),'author'=>$s->submitter?->name??'Retained staff history','status'=>$s->status,'note'=>$s->review_note,'can_resubmit'=>$s->status==='returned'&&(int)$s->submitted_by===$r->user()->id]);
+  abort_if($focus&&$entries->isEmpty(),404,'This Brands submission is unavailable.');
   $collaborators=User::internalStaff()->where('status','active')->orderBy('name')->get(['id','name']);
   return response()->json(['entries'=>$entries,'schemas'=>config('brands_dashboard.schemas'),'can_review'=>$manager,'actor'=>$r->user()->id,'collaborators'=>$collaborators])->header('Cache-Control','private, no-store');
  }

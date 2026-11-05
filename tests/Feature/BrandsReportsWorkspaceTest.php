@@ -13,7 +13,11 @@ class BrandsReportsWorkspaceTest extends TestCase {
  public function test_staff_submit_manager_return_correct_and_publish_without_overwriting_an_earlier_week():void {
   $u=$this->staff();$manager=$this->staff('manager');$other=$this->staff();$v=$this->payload($u);
   $id=$this->actingAs($u)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');$this->assertDatabaseCount('weekly_consolidated_items',0);
-  $this->actingAs($other)->getJson(route('portal.brands.reports.submissions'))->assertJsonCount(0,'entries');$this->approve($other,$id)->assertForbidden();
+  $this->actingAs($other)->getJson(route('portal.brands.reports.submissions'))->assertJsonCount(0,'entries');
+  $focused=route('portal.brands.reports.submissions',['submission'=>$id]);
+  $this->getJson($focused)->assertNotFound();
+  $this->actingAs($manager)->getJson($focused)->assertJsonPath('entries.0.id',$id);
+$this->approve($other,$id)->assertForbidden();
   $this->actingAs($manager)->postJson(route('portal.brands.reports.review',$id),['revision'=>1,'decision'=>'return'])->assertUnprocessable();
   $this->postJson(route('portal.brands.reports.review',$id),['revision'=>1,'decision'=>'return','note'=>'Add the completed outlet names.'])->assertOk();
   $this->actingAs($u)->getJson(route('portal.brands.reports.submissions'))->assertJsonPath('entries.0.note','Add the completed outlet names.');

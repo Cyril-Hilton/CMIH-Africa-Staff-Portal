@@ -42,6 +42,11 @@ class FleetRequestTest extends TestCase
 
         $fleetRequest = FleetRequest::firstOrFail();
         $this->assertSame('pending_hr', $fleetRequest->status);
+        $target = route('portal.fleet-requests', ['fleet_request' => $fleetRequest->id]).'#fleet-review-'.$fleetRequest->id;
+        $notification = \App\Models\Notification::where('user_id', $hr->id)->where('url', $target)->firstOrFail();
+        $this->actingAs($hr)->get(route('portal.notifications.read', $notification))->assertRedirect($target);
+        $this->get($target)->assertOk()->assertSee('id="fleet-review-'.$fleetRequest->id.'"', false);
+
 
         $return = $this->actingAs($hr)->post(route('portal.fleet-requests.action', $fleetRequest), [
             'action' => 'return',

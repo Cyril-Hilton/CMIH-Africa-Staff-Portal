@@ -530,13 +530,26 @@ class LeaveWorkflowTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'user_id' => $hr->id,
             'title' => 'Leave Approval Needed',
-            'url' => route('portal.hr'),
+            'url' => route('portal.leaves.show', $leave),
         ]);
         $this->assertDatabaseHas('notifications', [
             'user_id' => $superAdmin->id,
             'title' => 'Leave Approval Needed',
-            'url' => route('portal.leaves'),
+            'url' => route('portal.leaves.show', $leave),
         ]);
+
+        $notification = \App\Models\Notification::where('user_id', $hr->id)
+            ->where('url', route('portal.leaves.show', $leave))->firstOrFail();
+        $this->actingAs($hr)->get(route('portal.notifications.read', $notification))
+            ->assertRedirect(route('portal.leaves.show', $leave));
+        $this->assertNotNull($notification->fresh()->read_at);
+        $this->get(route('portal.leaves.show', $leave))
+            ->assertOk()->assertSee('Leave Request #'.$leave->id)
+            ->assertSee(route('portal.leaves.approve', $leave), false);
+        $this->actingAs($cover)->get(route('portal.leaves.show', $leave))
+            ->assertOk()->assertDontSee(route('portal.leaves.approve', $leave), false);
+        $this->actingAs(User::factory()->create(['status' => 'active']))
+            ->get(route('portal.leaves.show', $leave))->assertForbidden();
 
         // 3. HR Manager final sign-off
         $responseApprove2 = $this->actingAs($hr)->post("/portal/leaves/{$leave->id}/approve");

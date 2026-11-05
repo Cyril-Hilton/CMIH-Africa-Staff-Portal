@@ -20,3 +20,56 @@ test('workflow states use distinct labelled colours',()=>{
   const html=renderer.cell(value,'text','status');assert.match(html,new RegExp('br-status-'+tone));assert.ok(html.includes(value));
  }
 });
+
+test('a failed report request preserves the last displayed table', async () => {
+ const original = '<table>Last loaded report</table>';
+ context.FormData = class { *[Symbol.iterator]() {} };
+ context.URLSearchParams = URLSearchParams;
+ const busy = [];
+ const messages = [];
+ const workspace = {
+  content: {innerHTML: original, setAttribute: (_, value) => busy.push(value)},
+  form: {}, root: {dataset: {endpoint: '/reports'}}, data: {tab: 'workstream'},
+  tab: 'workstream', partner: 'castel', page: 1, tableFilters: {},
+  api: async () => {throw new Error('This action could not be saved.');},
+  message: (...args) => messages.push(args),
+ };
+ await renderer.load.call(workspace);
+ assert.equal(workspace.content.innerHTML, original);
+ assert.match(messages.at(-1)[0], /last loaded results are still shown/);
+ assert.deepEqual(busy, ['true', 'false']);
+});
+
+for (const [file, className, parameters, backgroundParameters] of [
+ ['creative-studio.js', 'CreativeStudio', [], [false, true]],
+ ['client-relations-centre.js', 'ClientBusinessCentre', [], [true]],
+ ['operations-handover.js', 'HandoverDesk', [], null],
+]) {
+ test(file + ' keeps loaded results when a request fails', async () => {
+  const sandbox = vm.createContext({
+   document: {readyState: 'loading', documentElement: {}, addEventListener() {}},
+   MutationObserver: class {observe() {}},
+   URLSearchParams,
+   window: {},
+
+  });
+  vm.runInContext(readFileSync(new URL('../../resources/js/' + file, import.meta.url), 'utf8'), sandbox);
+  const load = vm.runInContext(className + '.prototype.load', sandbox);
+  const content = {innerHTML: '<table>Previously loaded results</table>', setAttribute() {}};
+  const messages = [];
+  const workspace = {
+   content, data: {}, root: {dataset: {endpoint: '/reports'}},
+   params: () => '', api: async () => {throw new Error('Temporary failure');},
+   message: (...args) => messages.push(args),
+  };
+  await load.apply(workspace, parameters);
+  assert.match(content.innerHTML, /Previously loaded results/);
+  assert.match(messages.at(-1)[0], /last loaded results are still shown/);
+  if (backgroundParameters) {
+   messages.length = 0;
+   await load.apply(workspace, backgroundParameters);
+   assert.match(content.innerHTML, /Previously loaded results/);
+   assert.deepEqual(messages, []);
+  }
+ });
+}

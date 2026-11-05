@@ -333,6 +333,7 @@
     </style>
     @php
         $isAllWeeklyDepartments = $isAllWeeklyDepartments ?? false;
+        $isHrDashboard = $weeklyDepartmentFilter === 'hr_admin' && \App\Services\HrDashboard::showWorkspace(request());
         $isBrandsWeeklyDepartment = ! $isAllWeeklyDepartments && $weeklyDepartmentFilter === 'brands_marketing';
         $isCreativeWeeklyDepartment = !$isAllWeeklyDepartments && $weeklyDepartmentFilter === 'creatives';
         $weeklyBaseColumnCount = $isAllWeeklyDepartments
@@ -362,7 +363,7 @@
             </div>
             <div class="dashboard-report-actions">
                 <button type="button" data-dashboard-present aria-pressed="false" class="rounded-lg border border-brand-white/20 px-4 py-2 text-sm">Presentation Mode</button>
-            @if($canManageActiveWeeklyDepartment && !$isBrandsWeeklyDepartment)
+            @if($canManageActiveWeeklyDepartment && !$isBrandsWeeklyDepartment && !$isHrDashboard)
                 <div class="flex flex-wrap gap-2">
                     <button type="button" data-report-settings onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
                             class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
@@ -380,7 +381,7 @@
             </div>
         </div>
         @include('portal.partials.weekly-department-navigation')
-        @unless($isBrandsWeeklyDepartment)
+        @unless($isBrandsWeeklyDepartment || $isHrDashboard)
         @include('portal.partials.weekly-report-toolbar')
 
         <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
@@ -608,7 +609,22 @@
         @endunless
         @include('portal.partials.shared-weekly-performance')
 
-        @include('portal.partials.action-points')
+        <details id="action-points-disclosure" class="mega-table-disclosure glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+            <summary aria-controls="action-points-content">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
+                    <p class="mt-1 text-xs text-brand-ash">Track and update actions from previous meetings.</p>
+                </div>
+                <span class="mega-disclosure-action">
+                    <span class="mega-expand-label">Show action points</span>
+                    <span class="mega-collapse-label">Hide action points</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+            </summary>
+            <div id="action-points-content">
+                @include('portal.partials.action-points')
+            </div>
+        </details>
     </div>
 
     <div data-dashboard-secondary>
@@ -1470,7 +1486,7 @@
             window.loadMegaTableUrl = loadMegaTableUrl;
             async function refreshMegaTableSilently() {
                 if (!megaTableRegion || megaTableRefreshing || document.hidden || !megaDisclosure?.open) return;
-                if (megaTableRegion.contains(document.activeElement)) return;
+                if (megaTableRegion.contains(document.activeElement) || megaTableRegion.matches(':hover')) return;
                 const refreshUrl = megaTableRegion.dataset.refreshUrl;
                 if (!refreshUrl) return;
 
@@ -1650,7 +1666,7 @@
             window.loadWeeklyConsolidatedUrl = loadWeeklyConsolidatedUrl;
             async function refreshWeeklyConsolidatedSilently() {
                 if (!weeklyConsolidatedRegion || weeklyConsolidatedRefreshing || document.hidden) return;
-                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], [data-brands-reports], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
+                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], [data-brands-reports], [data-hr-dashboard], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
                 if (weeklyConsolidatedRegion.contains(document.activeElement)) return;
                 if (weeklyConsolidatedRegion.matches(':hover')) return;
                 if (weeklyConsolidatedRegion.querySelector('#weekly-consolidated-form:not(.hidden), #weekly-column-manager:not(.hidden), details[open]')) return;

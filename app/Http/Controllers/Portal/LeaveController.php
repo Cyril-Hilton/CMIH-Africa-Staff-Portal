@@ -29,6 +29,7 @@ class LeaveController extends Controller
         // User's own leaves history
         $myLeaves = LeaveApplication::with(['lineManager', 'coveringStaff', 'delegateLineManager'])
             ->where('user_id', $user->id)
+            ->when($request->integer('leave_focus') > 0, fn ($query) => $query->whereKey($request->integer('leave_focus')))
             ->latest()
             ->paginate(5, ['*'], 'my_leaves_page')
             ->withQueryString();
@@ -119,6 +120,27 @@ class LeaveController extends Controller
     /**
      * Store a newly created leave application.
      */
+    public function show(Request $request, LeaveApplication $leave): View
+    {
+        $user = $request->user();
+        $isApplicant = $user->id === (int) $leave->user_id;
+        $lineManager = (int) $leave->line_manager_id;
+        $managesApplicant = $lineManager > 0 && ($user->id === $lineManager || $user->isActingLineManagerFor($lineManager));
+        $canReadReview = $isApplicant || $managesApplicant || $this->isLeaveFinalApprover($user);
+        $assignedCover = in_array($user->id, [(int) $leave->covering_staff_id, (int) $leave->delegate_line_manager_id], true);
+        abort_unless($canReadReview || $assignedCover, 403);
+
+        $canReview = !$isApplicant && match ($leave->status) {
+            'pending_manager' => $managesApplicant,
+            'pending_cvo' => $this->isLeaveCvoApprover($user),
+            'pending_hr' => $this->isLeaveFinalApprover($user),
+            default => false,
+        };
+        $leave->loadMissing(['user', 'lineManager', 'coveringStaff', 'delegateLineManager']);
+
+        return view('portal.leave-request', compact('leave', 'user', 'isApplicant', 'canReadReview', 'canReview'));
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
@@ -298,7 +320,7 @@ class LeaveController extends Controller
                 (int) $leave->delegate_line_manager_id,
                 'Appointed Acting Line Manager',
                 "{$leave->user->name} appointed you as Acting Line Manager from {$startDateStr} to {$endDateStr}. You are authorized to approve tasks and manage department deliverables during this period.",
-                route('portal.leaves')
+                route('portal.leaves.show', $leave)
             );
         }
 
@@ -515,7 +537,7 @@ class LeaveController extends Controller
             abort_if($row->handover_revision!==(int)$v['revision']||$row->handover_acknowledged_at,409,'This handover changed or was already acknowledged. Refresh before continuing.');
             $row->update(['handover_acknowledged_at'=>now(),'handover_acknowledged_by'=>$request->user()->id,'handover_reply'=>$v['handover_reply']]);
             \App\Services\PerformanceWorkflow::record('leave_handover',$row->id,$request->user()->id,'acknowledged',[],['revision'=>$row->handover_revision,'covering_staff_id'=>$row->covering_staff_id,'acknowledged_at'=>$row->handover_acknowledged_at], 'Covering colleague acknowledged the documented handover.');
-            NotificationService::send($row->user_id,'Leave handover acknowledged',$request->user()->name.' acknowledged your handover. Open your leave record to read their response.',route('portal.leaves'));
+            NotificationService::send($row->user_id,'Leave handover acknowledged',$request->user()->name.' acknowledged your handover. Open your leave record to read their response.',route('portal.leaves.show', $row));
         });
         return back()->with('status','Handover receipt recorded. Leave approval remains a separate decision.');
     }
@@ -535,7 +557,7 @@ class LeaveController extends Controller
             (int) $leave->covering_staff_id,
             'Leave Cover Duty Assigned',
             "{$leave->user->name} selected you to cover their duties from {$start} to {$end}.",
-            route('portal.leaves').'#leave-cover-handovers'
+            route('portal.leaves.show', $leave)
         );
     }
 
@@ -551,7 +573,7 @@ class LeaveController extends Controller
             (int) $leave->user_id,
             "Leave Request {$statusLabel}",
             "Your {$leave->leave_type} leave request has been marked as {$statusLabel}.",
-            route('portal.leaves')
+            route('portal.leaves.show', $leave)
         );
 
         $recipient = $leave->user->notificationEmail();
@@ -599,20 +621,20 @@ class LeaveController extends Controller
                 $hrApproverIds,
                 $notificationTitle,
                 $notificationMessage,
-                route('portal.hr')
+                route('portal.leaves.show', $leave)
             );
             NotificationService::sendToMany(
                 $cvoApproverIds,
                 $notificationTitle,
                 $notificationMessage,
-                route('portal.leaves')
+                route('portal.leaves.show', $leave)
             );
         } else {
             NotificationService::sendApprovalNeededToMany(
                 $approverIds,
                 $notificationTitle,
                 $notificationMessage,
-                route('portal.leaves'),
+                route('portal.leaves.show', $leave),
                 $leave->user_id
             );
         }

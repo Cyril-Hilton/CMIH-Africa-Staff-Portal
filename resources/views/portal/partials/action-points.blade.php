@@ -1,16 +1,6 @@
-        <div data-action-points data-existing-confirmation data-endpoint="{{ route('portal.action-points.table') }}" class="glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+        <div data-action-points data-existing-confirmation data-endpoint="{{ route('portal.action-points.table') }}">
             <p data-action-status role="status" aria-live="polite" class="mb-3 text-sm"></p>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl"><x-ui-icon name="clipboard" /></span>
-                        <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
-                    </div>
-                    <p class="mt-1 text-xs text-brand-ash">
-                        Track and update action items assigned during previous meetings. Editable by all team members.
-                    </p>
-                </div>
-                
+            <div class="mb-6 flex justify-end">
                 {{-- Add Action Point Modal Trigger --}}
                 <details class="relative">
                     <summary class="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all shadow-lg">

@@ -372,7 +372,7 @@ class DepartmentController extends Controller
 
     public function storeAppraisalMetric(Request $request): RedirectResponse
     {
-        $this->authorizeDepartment('admin', $request->user());
+        abort_unless($request->user()->hasFullHrAccess(), 403);
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -405,7 +405,7 @@ class DepartmentController extends Controller
      */
     public function destroyAppraisalMetric(AppraisalMetric $metric, Request $request): RedirectResponse
     {
-        $this->authorizeDepartment('admin', $request->user());
+        abort_unless($request->user()->hasFullHrAccess(), 403);
 
         $metric->delete();
 

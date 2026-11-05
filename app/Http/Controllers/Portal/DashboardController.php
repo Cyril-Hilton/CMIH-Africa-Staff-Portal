@@ -242,6 +242,7 @@ class DashboardController extends Controller
 
         // The current week is always explicit. Historical weeks are selected, never substituted.
         $request->validate(['weekly_from'=>'nullable|date_format:Y-m-d', 'weekly_to'=>'nullable|date_format:Y-m-d']);
+        $request->attributes->set('explicit_weekly_period', $request->filled('weekly_from') || $request->filled('weekly_to'));
         $request->query->set('weekly_from', $request->query('weekly_from') ?: ($request->filled('weekly_to') ? Carbon::parse($request->query('weekly_to'))->startOfWeek()->toDateString() : now()->startOfWeek()->toDateString()));
         $request->query->set('weekly_to', $request->query('weekly_to') ?: Carbon::parse($request->query('weekly_from'))->endOfWeek()->toDateString());
         $request->query->remove('weekly_auto');

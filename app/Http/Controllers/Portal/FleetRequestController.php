@@ -16,8 +16,15 @@ class FleetRequestController extends Controller
     {
         $user = $request->user();
 
+        $focus = $request->integer('fleet_request');
+        if ($focus > 0) {
+            $record = FleetRequest::findOrFail($focus);
+            abort_unless((int) $record->user_id === (int) $user->id || $user->canApproveFleetRequests(), 403);
+        }
+
         $myRequests = FleetRequest::with('reviewer')
             ->where('user_id', $user->id)
+            ->when($focus > 0, fn ($query) => $query->whereKey($focus))
             ->latest()
             ->paginate(8, ['*'], 'my_fleet_page')
             ->withQueryString();
@@ -25,6 +32,7 @@ class FleetRequestController extends Controller
         $pendingRequests = null;
         if ($user->canApproveFleetRequests()) {
             $pendingRequests = FleetRequest::with(['user', 'reviewer'])
+                ->when($focus > 0, fn ($query) => $query->whereKey($focus))
                 ->latest()
                 ->paginate(12, ['*'], 'fleet_review_page')
                 ->withQueryString();
@@ -32,6 +40,7 @@ class FleetRequestController extends Controller
 
         return view('portal.fleet-requests', [
             'myRequests' => $myRequests,
+            'focusedFleetRequest' => $focus,
             'pendingRequests' => $pendingRequests,
             'companyVehicles' => FleetRequest::COMPANY_VEHICLES,
             'rideHailingOptions' => FleetRequest::RIDE_HAILING_OPTIONS,
@@ -52,7 +61,7 @@ class FleetRequestController extends Controller
             NotificationService::activeFleetApproverIds($request->user()->id),
             'Fleet Request Needs Review',
             "{$request->user()->name} requested {$fleetRequest->optionLabel()} transport assistance.",
-            route('portal.fleet-requests')
+            route('portal.fleet-requests', ['fleet_request' => $fleetRequest->id]).'#fleet-review-'.$fleetRequest->id
         );
 
         return back()->with('status', 'Fleet request submitted for review.');
@@ -80,7 +89,7 @@ class FleetRequestController extends Controller
             NotificationService::activeFleetApproverIds($request->user()->id),
             'Fleet Request Resubmitted',
             "{$request->user()->name} corrected and resubmitted a transport assistance request.",
-            route('portal.fleet-requests')
+            route('portal.fleet-requests', ['fleet_request' => $fleetRequest->id]).'#fleet-review-'.$fleetRequest->id
         );
 
         return back()->with('status', 'Fleet request corrected and resubmitted.');
@@ -112,7 +121,7 @@ class FleetRequestController extends Controller
             (int) $fleetRequest->user_id,
             'Fleet Request Updated',
             'Your fleet request has been marked as '.str_replace('_', ' ', $status).'.',
-            route('portal.fleet-requests')
+            route('portal.fleet-requests', ['fleet_request' => $fleetRequest->id]).'#fleet-own-'.$fleetRequest->id
         );
 
         return back()->with('status', 'Fleet request updated.');

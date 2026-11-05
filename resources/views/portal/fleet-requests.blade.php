@@ -7,6 +7,9 @@
     </x-slot>
 
     <div class="space-y-6">
+        @if($focusedFleetRequest)
+            <a class="underline" href="{{ route('portal.fleet-requests') }}">Show all fleet requests</a>
+        @endif
         @if(session('status'))
             <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
                 {{ session('status') }}
@@ -133,7 +136,7 @@
                         </thead>
                         <tbody>
                             @forelse($pendingRequests as $fleetRequest)
-                                <tr class="border-b border-brand-white/5 align-top">
+                                <tr id="fleet-review-{{ $fleetRequest->id }}" class="border-b border-brand-white/5 align-top">
                                     <td class="py-4 font-medium text-brand-white">{{ $fleetRequest->user?->name ?? 'Unknown' }}</td>
                                     <td class="py-4">
                                         <p class="text-brand-white">{{ $fleetRequest->optionLabel() }}</p>
@@ -193,7 +196,7 @@
                     </thead>
                     <tbody>
                         @forelse($myRequests as $fleetRequest)
-                            <tr class="border-b border-brand-white/5 align-top">
+                            <tr id="fleet-own-{{ $fleetRequest->id }}" class="border-b border-brand-white/5 align-top">
                                 <td class="py-4 font-medium text-brand-white">{{ $fleetRequest->optionLabel() }}</td>
                                 <td class="py-4">
                                     <p>{{ $fleetRequest->pickup_location }} to {{ $fleetRequest->destination }}</p>

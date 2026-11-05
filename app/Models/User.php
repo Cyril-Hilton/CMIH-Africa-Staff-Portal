@@ -311,6 +311,17 @@ class User extends Authenticatable
         return $this->status === 'active';
     }
 
+    public function isHrAdministrator(): bool
+    {
+        if ($this->isCvoOrSuperAdmin() || self::normalizeDepartmentKey($this->department) !== 'hr_admin') {
+            return false;
+        }
+
+        return (bool) preg_match('/\badministrator\b/i', implode(' ', [
+            $this->position_title, $this->job_title, $this->job_level,
+        ]));
+    }
+
     /**
      * Check if the user has full HR privileges (salaries, contracts, appraisals, approvals).
      */
@@ -328,7 +339,7 @@ class User extends Authenticatable
         $dept = self::normalizeDepartmentKey($this->department);
         $isHrDept = $dept === 'hr_admin';
 
-        if (! $isHrDept) {
+        if (! $isHrDept || $this->isHrAdministrator()) {
             return false;
         }
 
@@ -356,6 +367,10 @@ class User extends Authenticatable
      */
     public function canViewAllPayroll(): bool
     {
+        if ($this->isHrAdministrator()) {
+            return false;
+        }
+
         // 1. Super Admin or Admin access role
         if ($this->access_role === 'super_admin' || $this->access_role === 'admin' || strtolower(trim((string) $this->job_level)) === 'super_admin') {
             return true;
@@ -400,6 +415,10 @@ class User extends Authenticatable
 
     public function canReviewIdentityDocuments(): bool
     {
+        if ($this->isHrAdministrator()) {
+            return false;
+        }
+
         $position = strtolower(trim((string) $this->position_title));
         $jobLevel = strtolower(trim((string) $this->job_level));
 
@@ -442,6 +461,10 @@ class User extends Authenticatable
      */
     public function hrLevel(): int
     {
+        if ($this->isHrAdministrator()) {
+            return 3;
+        }
+
         if ($this->hasFullHrAccess()) {
             return 1;
         }

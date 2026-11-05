@@ -159,6 +159,9 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/client-relations/account-targets/{target}/correction', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'correctTarget'])->name('crm.target.correct');
     Route::post('/client-relations/account-targets/{target}/review', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'reviewTargetCorrection'])->name('crm.target.review');
     Route::post('/client-relations/account-targets', [\App\Http\Controllers\Portal\ClientRelationsPipelineController::class, 'target'])->name('crm.target');
+    Route::post('/hr-dashboard/activities', [\App\Http\Controllers\Portal\HrDashboardActivityController::class, 'save'])->name('hr-dashboard.activities.store');
+    Route::patch('/hr-dashboard/activities/{activity}', [\App\Http\Controllers\Portal\HrDashboardActivityController::class, 'save'])->name('hr-dashboard.activities.update');
+    Route::get('/hr-dashboard/activities/{activity}/attachment', [\App\Http\Controllers\Portal\HrDashboardActivityController::class, 'attachment'])->name('hr-dashboard.activities.attachment');
     Route::get('/hr-reporting', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'index'])->name('hr-reporting.index');
     Route::post('/hr-reporting', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'create'])->name('hr-reporting.create');
     Route::post('/hr-reporting/{report}/sources', [\App\Http\Controllers\Portal\HrPeriodicReportController::class, 'populateSources'])->name('hr-reporting.sources');
@@ -321,6 +324,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::get('/leaves', [\App\Http\Controllers\Portal\LeaveController::class, 'index'])->name('leaves');
     Route::post('/leaves', [\App\Http\Controllers\Portal\LeaveController::class, 'store'])->name('leaves.store');
+    Route::get('/leaves/{leave}', [\App\Http\Controllers\Portal\LeaveController::class, 'show'])->name('leaves.show');
     Route::post('/leaves/{leave}/approve', [\App\Http\Controllers\Portal\LeaveController::class, 'approve'])->name('leaves.approve');
     Route::post('/leaves/{leave}/reject', [\App\Http\Controllers\Portal\LeaveController::class, 'reject'])->name('leaves.reject');
     Route::post('/leaves/{leave}/return', [\App\Http\Controllers\Portal\LeaveController::class, 'returnForCorrection'])->name('leaves.return');

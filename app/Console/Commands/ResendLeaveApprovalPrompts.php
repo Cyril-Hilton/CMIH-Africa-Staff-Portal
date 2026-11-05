@@ -61,7 +61,7 @@ class ResendLeaveApprovalPrompts extends Command
                     $requestNotice
                         ? "{$leave->user->name} submitted a {$leave->leave_type} leave request. This is a resend notice."
                         : "{$leave->user->name} submitted a {$leave->leave_type} leave request that needs approval.",
-                    route('portal.leaves')
+                    route('portal.leaves.show', $leave)
                 );
             } catch (\Throwable $e) {
                 Log::error('Manual leave approval prompt resend failed: ' . $e->getMessage(), [

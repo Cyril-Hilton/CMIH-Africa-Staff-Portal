@@ -55,7 +55,7 @@ class AppraisalController extends Controller
                 ->latest()
                 ->paginate(5, ['*'], 'staff_appraisals_page')
                 ->withQueryString();
-        } elseif (in_array($user->access_role, ['admin', 'manager'])) {
+        } elseif (!$user->isHrAdministrator() && in_array($user->access_role, ['admin', 'manager'], true)) {
             $deptStaff = User::humanAccounts()->where('department', $user->department)
                 ->where('id', '!=', $user->id)
                 ->pluck('id');
@@ -98,7 +98,7 @@ class AppraisalController extends Controller
         $matrixStaff = collect();
         if ($this->isHR($user)) {
             $matrixStaff = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
-        } elseif (in_array($user->access_role, ['admin', 'manager'])) {
+        } elseif (!$user->isHrAdministrator() && in_array($user->access_role, ['admin', 'manager'], true)) {
             $matrixStaff = User::humanAccounts()->where('department', $user->department)
                 ->internalStaff()
                 ->where('status', 'active')
@@ -277,7 +277,7 @@ class AppraisalController extends Controller
         $user = $request->user();
 
         $canReview = $this->isHR($user)
-            || in_array($user->access_role, ['admin', 'manager'])
+            || (!$user->isHrAdministrator() && in_array($user->access_role, ['admin', 'manager'], true))
             || $this->isSuperAdmin($user);
 
         if (! $canReview) {
@@ -300,7 +300,7 @@ class AppraisalController extends Controller
         $user = $request->user();
 
         $canReview = $this->isHR($user)
-            || in_array($user->access_role, ['admin', 'manager'])
+            || (!$user->isHrAdministrator() && in_array($user->access_role, ['admin', 'manager'], true))
             || $this->isSuperAdmin($user);
 
         if (! $canReview) {
@@ -441,7 +441,7 @@ class AppraisalController extends Controller
         $isAuthorized = false;
         if ($this->isHR($currentUser)) {
             $isAuthorized = true;
-        } elseif (in_array($currentUser->access_role, ['admin', 'manager'], true)) {
+        } elseif (!$currentUser->isHrAdministrator() && in_array($currentUser->access_role, ['admin', 'manager'], true)) {
             if ($currentUser->department === $user->department) {
                 $isAuthorized = true;
             }
