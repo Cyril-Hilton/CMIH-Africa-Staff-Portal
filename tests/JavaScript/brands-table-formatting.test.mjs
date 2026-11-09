@@ -86,3 +86,9 @@ test('new report forms omit correction notes while published corrections require
  assert.doesNotMatch(await render({source_id:1,is_draft:true,payload:{category:'people',week:'2026-11-09'}}),/name="reason"/);
  assert.match(await render({source_id:1,payload:{category:'people',week:'2026-11-09'}}),/Correction Note<textarea name="reason" required/);
 });
+
+test('People entry management keeps history and correction access without repeating the figures table',()=>{
+ let dialog='';const workspace={data:{tables:[{id:'people',total:12,page:1,last:2,rows:[{id:7,source_type:'register',title:'<script>Report</script>',week:'2026-11-09',scope_label:'Unilever',owner:'William',can_edit:true,planned_count:123456}]},{id:'saved_reports',total:0,rows:[]}]},show:(_,html)=>{dialog=html;}};
+ renderer.peopleRecords.call(workspace);
+ assert.doesNotMatch(dialog,/<table|123456|<script>/);assert.match(dialog,/&lt;script&gt;Report/);assert.match(dialog,/data-br-detail="register:7"/);assert.match(dialog,/View \/ Correct/);assert.match(dialog,/data-br-record-page data-br-table="people" data-br-page="2"/);assert.match(dialog,/Page 1 of 2/);
+});

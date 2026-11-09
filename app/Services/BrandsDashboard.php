@@ -43,7 +43,7 @@ class BrandsDashboard {
    if(!empty($v['cohort']))$people=$people->where('cohort',$v['cohort']);
    $summary=$this->peopleSummary($people);
    $tables[]=$this->table('people','People & Team Coverage',array_merge($base,[$col('scope_label','Scope'),$col('planned_count','Planned','number'),$col('active_count','Active','number'),$col('attrition_count','Attrition','number'),$col('attrition_rate','Attrition Rate','percent'),$col('leave_count','Leave','number'),$col('absent_count','Absent','number'),$col('notes','Updates','rich')]),$people,$v);
-   $notice='Choose a People group to view its scopes. Attrition rate is attrition divided by planned headcount × 100. Missing or zero planned headcount remains unmeasured. Cards use the most recent reporting week in this selection, taking the latest entry per scope to avoid counting the same headcount repeatedly. Month and year tables retain every weekly snapshot.';
+   $notice='Choose a People group to view its scopes. Attrition rate is attrition divided by planned headcount × 100. Missing or zero planned headcount remains unmeasured. Cards use the most recent reporting week in this selection, taking the latest entry per scope to avoid counting the same headcount repeatedly. Weekly history and corrections are available through View / Edit Saved Entries.';
    if($people->isNotEmpty())$notice.=' Cards reflect the week of '.Carbon::parse($people->max('week'))->format('d M Y').'.';
   }elseif($tab==='perfect_store'){
    $partner=$v['partner']??'castel';$perfect=$rows->where('category','perfect_store')->filter(fn($r)=>($r['data']['partner']??null)===$partner);
