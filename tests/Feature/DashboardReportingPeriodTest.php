@@ -59,4 +59,18 @@ class DashboardReportingPeriodTest extends TestCase
             ->assertOk()->assertSee('Open follow-up')->assertDontSee('Old completed')->assertDontSee('Future entry');
         $this->assertSame('week', request('hr_period'));
     }
+    public function test_task_date_shortcuts_clear_stale_pages_and_conflicting_creative_date():void
+    {
+        $user=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
+        $response=$this->actingAs($user)->get(route('dashboard',['weekly_department'=>'brands_marketing','report_period'=>'month','report_date'=>'2026-11-09','mega_brands_marketing_page'=>9,'mega_finance_page'=>4,'creative_day'=>'2026-10-01']));
+        $response->assertOk();$dom=new \DOMDocument();@$dom->loadHTML($response->getContent());$xpath=new \DOMXPath($dom);
+        foreach(['Today','All task dates'] as $label){
+            $link=$xpath->query('//a[normalize-space(text())="'.$label.'"]')->item(0);$this->assertNotNull($link);
+            parse_str(parse_url($link->getAttribute('href'),PHP_URL_QUERY)??'',$query);
+            $this->assertArrayNotHasKey('mega_brands_marketing_page',$query);$this->assertArrayNotHasKey('mega_finance_page',$query);$this->assertArrayNotHasKey('creative_day',$query);
+            $this->assertSame('month',$query['report_period']);$this->assertSame('brands_marketing',$query['weekly_department']);
+            if($label==='Today')$this->assertSame(today()->toDateString(),$query['mega_date']);else $this->assertArrayNotHasKey('mega_date',$query);
+        }
+    }
+
 }

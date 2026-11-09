@@ -667,12 +667,15 @@
             </div>
         </div>
 
+        @php
+            $megaDateQuery = request()->except(array_merge(['mega_date', 'creative_day'], array_filter(array_keys(request()->query()), fn ($key) => str_starts_with($key, 'mega_') && str_ends_with($key, '_page'))));
+        @endphp
         <form method="GET" action="{{ route('dashboard') }}#mega-table-disclosure" data-no-ajax data-no-silent class="mb-5 flex flex-wrap items-end gap-3">
-            @foreach(request()->except(['mega_date']) as $name=>$value)@if(is_scalar($value) && !str_starts_with($name,'mega_'))<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif @endforeach
+            @foreach(request()->except(['mega_date','creative_day']) as $name=>$value)@if(is_scalar($value) && !str_starts_with($name,'mega_'))<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif @endforeach
             <label class="text-sm">Task entry date<input class="mt-1 block rounded-lg bg-brand-black p-3" type="date" name="mega_date" value="{{ request('mega_date') }}"></label>
             <button class="rounded-lg border border-brand-white/20 px-4 py-3">Apply task date</button>
-            <a class="underline text-sm" href="{{ route('dashboard',array_merge(request()->except('mega_date'),['mega_date'=>today()->toDateString()])) }}#mega-table-disclosure">Today</a>
-            <a class="underline text-sm" href="{{ route('dashboard',request()->except('mega_date')) }}#mega-table-disclosure">All task dates</a>
+            <a class="underline text-sm" href="{{ route('dashboard',array_merge($megaDateQuery,['mega_date'=>today()->toDateString()])) }}#mega-table-disclosure">Today</a>
+            <a class="underline text-sm" href="{{ route('dashboard',$megaDateQuery) }}#mega-table-disclosure">All task dates</a>
             <p class="text-xs text-brand-ash">{{ request('mega_date') ? 'Tasks entered on '.request('mega_date') : 'All saved daily tasks' }}</p>
         </form>
         {{-- Department Tab Toggles --}}
@@ -1432,6 +1435,15 @@
             }
 
             let megaTableRegion = document.getElementById('mega-operational-table-live-region');
+            // Generic filter navigation replaces this region without rerunning inline scripts.
+            document.addEventListener('cmih:silent-content-updated', () => {
+                const refreshedRegion = document.getElementById('mega-operational-table-live-region');
+                if (!refreshedRegion || refreshedRegion === megaTableRegion) return;
+                megaTableRegion = refreshedRegion;
+                const preferred = window.currentMegaTableTab;
+                const restoredTab = departments.includes(preferred) ? preferred : departments[0];
+                if (restoredTab) switchTab(restoredTab);
+            });
             let megaTableRefreshing = false;
 
             async function loadMegaTableUrl(refreshUrl, options = {}) {
