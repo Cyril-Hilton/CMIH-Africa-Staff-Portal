@@ -28,20 +28,43 @@ class CreativeWorkflow {
  public function plan(CreativeRequest $record,User $actor,array $d):CreativeRequest {
   abort_unless(CreativeAccess::lead($actor),403);
   return DB::transaction(function()use($record,$actor,$d){$r=$this->lock($record,$d['revision']);abort_if($r->is_group,422,'Assign the individual brief parts, not the parent brief.');abort_if(in_array($r->stage,['completed','archived','in_review','delivered']),409,'Return work to production or reopen it before replanning.');$before=$r->getAttributes();$assignee=User::humanAccounts()->whereKey($d['assignee_id'])->where('status','active')->firstOrFail();abort_unless(User::normalizeDepartmentKey($assignee->department)==='creatives',422,'Choose an active creative executive.');
-   $reviewer=User::findOrFail($d['reviewer_id']);abort_unless(CreativeAccess::lead($reviewer),422,'Choose an active Creative HOD or line manager.');
+   $reviewer = isset($d['reviewer_id']) ? User::findOrFail($d['reviewer_id']) : $r->reviewer;
+   if (!isset($d['reviewer_id']) && (!$reviewer || !CreativeAccess::lead($reviewer))) $reviewer = $actor;
+   abort_unless(CreativeAccess::lead($reviewer), 422, 'Choose an active Creative HOD or line manager.');
+   $d['reviewer_id'] = $reviewer->id;
+   $reason = trim($d['reason'] ?? '') ?: 'Creative plan saved.';
+   if (empty($d['requested_deadline']) && !$r->requested_deadline) {
+    throw ValidationException::withMessages(['requested_deadline'=>'Enter the requester deadline for this brief.']);
+   }
    $r->fill(collect($d)->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','requested_deadline','priority','blocker','blocker_owner'])->all());$r->planned_by=$actor->id;if((int)($before['assignee_id']??0)!==$assignee->id)$r->acknowledged_at=null;$r->assignee_snapshot=CreativeAccess::snapshot($assignee);
    if(!app(CreativeCapacity::class)->workingDates($r->planned_start,$r->internal_eta,$assignee->id))throw ValidationException::withMessages(['planned_start'=>'Choose a work window with an available working day.']);
-   $warnings=app(CreativeCapacity::class)->warnings($r);if($warnings&&empty($d['override_reason']))throw ValidationException::withMessages(['override_reason'=>implode(' ',$warnings).' Record an override reason to keep this plan.']);
-   if(in_array($r->stage,['backlog','brief_received','needs_info']))$r->stage='scheduled';
+   $warnings = app(CreativeCapacity::class)->warnings($r);
+   $override = trim($d['override_reason'] ?? '');
+   if ($warnings && $override === '' && empty($d['acknowledge_warnings'])) {
+    throw ValidationException::withMessages(['acknowledge_warnings'=>implode(' ', $warnings)]);
+   }
+   $previousStage = $r->stage;
+   $r->stage = $d['stage'] ?? (in_array($r->stage,['backlog','brief_received','needs_info']) ? 'scheduled' : $r->stage);
    if(!$r->task_id){$task=Task::create(['title'=>$r->title,'details'=>$r->brief,'client_name'=>$r->client,'department'=>'creatives','assigned_to'=>$assignee->id,'assigned_by'=>$actor->id,'due_on'=>$r->requested_deadline,'priority'=>$r->priority,'status'=>'Open','progress'=>10,'completion_review_status'=>null]);$r->task_id=$task->id;}
    else Task::whereKey($r->task_id)->update(['assigned_to'=>$assignee->id,'due_on'=>$r->requested_deadline]);
    if(isset($d['performance_weight']) && !($actor->id===$assignee->id && (int)$d['performance_weight']===(int)Task::findOrFail($r->task_id)->performance_weight)){
     abort_unless(\App\Services\DeliveryImpact::mayRate($actor,$assignee),403,'Impact weighting requires an independent manager.');
     $weightedTask=Task::findOrFail($r->task_id);$oldWeight=$weightedTask->only(['performance_weight','weight_approved_by','weight_approved_at']);
     $weightedTask->forceFill(['performance_weight'=>$d['performance_weight'],'weight_approved_by'=>$actor->id,'weight_approved_at'=>now()])->save();
-    PerformanceWorkflow::record('task',$weightedTask->id,$actor->id,'impact_weighted',$oldWeight,$weightedTask->only(['performance_weight','weight_approved_by','weight_approved_at']),$d['reason']);
+    PerformanceWorkflow::record('task',$weightedTask->id,$actor->id,'impact_weighted',$oldWeight,$weightedTask->only(['performance_weight','weight_approved_by','weight_approved_at']),$reason);
    }
-   $r->revision++;$r->save();$this->event($r,$actor,'plan_changed',$before,$d['reason'].(!empty($d['override_reason'])?' Override: '.$d['override_reason']:''));$this->notify($r,[$r->assignee_id,$r->requester_id,$r->reviewer_id],'Creative plan updated',$r->reference.' is assigned with a recorded delivery plan.');return $r;
+   $r->revision++;
+   $r->save();
+   if ($r->stage !== $previousStage && isset($d['stage'])) $this->syncTask($r, $actor);
+   if (filled($d['update'] ?? null)) {
+    $r->updates()->create(['author_id'=>$actor->id, 'kind'=>'comment', 'body'=>$d['update']]);
+    $this->event($r, $actor, 'comment_added', [], 'Shared update added to the plan.');
+   }
+   if ($warnings) $reason .= ' Warnings acknowledged: '.implode(' ', $warnings);
+   if ($override !== '') $reason .= ' Override: '.$override;
+   $this->event($r,$actor,'plan_changed',$before,$reason);
+   $this->notify($r,[$r->assignee_id,$r->requester_id,$r->reviewer_id],'Creative plan updated',$r->reference.' has an updated plan.');
+   return $r;
   });
  }
  public function allowed(CreativeRequest $r,User $u):array {

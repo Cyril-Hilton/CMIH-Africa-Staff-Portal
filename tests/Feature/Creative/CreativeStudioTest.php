@@ -12,6 +12,37 @@ class CreativeStudioTest extends TestCase {
  private function brief(User $requester, array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->create($requester,array_replace(['title'=>'Dove creative campaign','brief'=>'Create approved artwork for the campus campaign.','creative_type'=>'Flyer / Poster','priority'=>'High','client'=>'Dove','visibility'=>'shared','requested_deadline'=>now()->addWeek()],$extra));}
  private function plan(CreativeRequest $r,User $lead,User $owner,User $reviewer):CreativeRequest{return app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>($owner->id===$lead->id ? $this->staff('creatives','manager')->id : $lead->id),'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Assigned against the creative brief','override_reason'=>'Capacity will be confirmed in this local test']);}
  private function move(CreativeRequest $r,User $u,string $stage,array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->transition($r,$u,array_replace(['revision'=>$r->revision,'stage'=>$stage,'reason'=>'Recorded workflow action','quality_score'=>null,'client_approved'=>$stage==='completed'], $extra));}
+ public function test_short_request_and_self_assignment_can_be_saved_without_a_written_reason(): void
+ {
+  $requester = $this->staff();
+  $lead = $this->staff('creatives','manager');
+  $deadline = now()->addWeeks(3)->startOfWeek()->addDays(4)->setHour(16);
+  $response = $this->actingAs($requester)->postJson(route('portal.creative.store'), [
+   'title'=>'FSU', 'brief'=>'Design stand', 'creative_type'=>config('creative.types')[0],
+   'requested_deadline'=>$deadline->toIso8601String(),
+  ])->assertCreated();
+  $brief = CreativeRequest::findOrFail($response->json('id'));
+  $this->assertSame($requester->id, $brief->requester_id);
+  $this->assertSame('Medium', $brief->priority);
+  $this->assertSame('shared', $brief->visibility);
+
+  $start = $deadline->copy()->startOfWeek()->addDay()->setHour(9);
+  $plan = ['revision'=>$brief->revision, 'assignee_id'=>$lead->id, 'planned_start'=>$start->toIso8601String(),
+   'internal_eta'=>$start->copy()->addDay()->toIso8601String(), 'estimated_hours'=>8, 'stage'=>'in_progress',
+   'update'=>'Started work on the first draft.'];
+  $url = route('portal.creative.plan', $brief);
+  $this->actingAs($lead)->postJson($url, $plan)->assertUnprocessable()->assertJsonValidationErrors('acknowledge_warnings');
+  $this->assertSame('brief_received', $brief->fresh()->stage);
+  $this->assertDatabaseMissing('creative_updates', ['creative_request_id'=>$brief->id,'kind'=>'comment']);
+  $this->postJson($url, $plan + ['acknowledge_warnings'=>true])->assertOk();
+  $brief->refresh();
+  $this->assertSame($lead->id, $brief->assignee_id);
+  $this->assertSame($lead->id, $brief->reviewer_id);
+  $this->assertTrue($brief->requested_deadline->equalTo($deadline));
+  $this->assertSame('in_progress', $brief->stage);
+  $this->assertSame('In Progress', $brief->task->status);
+  $this->assertDatabaseHas('creative_updates', ['creative_request_id'=>$brief->id,'kind'=>'comment','body'=>$plan['update']]);
+ }
  public function test_lead_can_record_monday_work_window_when_entering_a_brief_on_wednesday():void {
   $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-04 12:00:00','Africa/Accra'));
   $lead=$this->staff('creatives','manager');
@@ -50,7 +81,7 @@ class CreativeStudioTest extends TestCase {
   $this->get('/portal/creative')->assertOk()->assertSee('Creative Studio')->assertSee('Reports &amp; Presentations', false);
  }
  public function test_intake_validation_and_unregistered_users_cannot_write():void {
-  $this->postJson(route('portal.creative.store'),[])->assertUnauthorized();$this->actingAs($this->staff())->postJson(route('portal.creative.store'),['title'=>'Bad','requested_deadline'=>now()->subDay()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors(['title','brief','requested_deadline']);$this->assertDatabaseCount('creative_requests',0);
+  $this->postJson(route('portal.creative.store'),[])->assertUnauthorized();$this->actingAs($this->staff())->postJson(route('portal.creative.store'),['title'=>'No','requested_deadline'=>now()->subDay()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors(['title','brief','requested_deadline']);$this->assertDatabaseCount('creative_requests',0);
  }
  public function test_requester_cannot_assign_and_stale_plans_do_not_overwrite():void {
   $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->brief($sender);

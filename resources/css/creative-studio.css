@@ -297,3 +297,12 @@
 @media(prefers-reduced-motion:reduce),print {
  .cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true])::after{display:none;animation:none}
 }
+
+.cs-dialog .cs-request-options{margin:14px 0;padding:10px 14px;background:#ffffff05}
+.cs-dialog .cs-request-options .cs-fields{margin-top:12px}
+.cs-dialog .cs-inline-check{display:flex;align-items:center;gap:9px;margin:10px 0}
+.cs-dialog .cs-inline-check input{width:auto;margin:0}
+.cs-dialog [data-cs-plan-ack][hidden],.cs-dialog [data-cs-plan-warnings][hidden],.cs-dialog [data-cs-stage-field][hidden]{display:none}
+.cs-dialog .cs-request-brief{white-space:pre-line;padding:16px;border:1px solid var(--cs-line);border-radius:12px}
+.cs-dialog .cs-request-brief{margin:14px 0;background:#ffffff06}
+.cs-dialog .cs-request-brief h4{font-size:12px;letter-spacing:.05em;margin:0 0 8px}
