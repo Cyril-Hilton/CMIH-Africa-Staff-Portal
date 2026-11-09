@@ -201,4 +201,43 @@ $this->approve($other,$id)->assertForbidden();
   $service->publishOwn($staff,BrandsReportSubmission::where('submitted_by',$staff->id)->sole());
  }
 
+ public function test_people_cards_follow_scope_owner_and_period_without_summing_repeated_headcounts():void {
+  $manager=$this->staff('manager');$other=$this->staff();
+  $save=function($owner,$week,$scope,$planned,$active,$attrition,$leave=0,$absent=0)use($manager){return PerformanceRegister::create(['department'=>'brands_marketing','kind'=>'people','reference'=>uniqid('PEOPLE-'),'title'=>'People snapshot','owner_id'=>$owner->id,'submitted_by'=>$manager->id,'approved_by'=>$manager->id,'approved_at'=>now(),'period_start'=>$week,'period_end'=>\Carbon\Carbon::parse($week)->endOfWeek(),'status'=>'submitted','data'=>['cohort'=>'activations','scope'=>$scope,'planned_count'=>$planned,'active_count'=>$active,'attrition_count'=>$attrition,'leave_count'=>$leave,'absent_count'=>$absent]]);};
+  $save($manager,'2026-11-02','vaseline',100,90,10);
+  $save($manager,'2026-11-09','vaseline',50,34,16);
+  $save($manager,'2026-11-09','vaseline',50,35,15,1);
+  $save($other,'2026-11-09','heineken',10,9,1,0,1);
+  $service=app(BrandsDashboard::class);
+  foreach(['week','month','year'] as $period){
+   $result=$service->build(['tab'=>'people','date'=>'2026-11-09','period'=>$period,'cohort'=>'activations'],$manager);
+   $this->assertEquals([60,44,16,26.7,1,1],array_column($result['summary'],1));
+   $this->assertStringContainsString('week of 09 Nov 2026',$result['notice']);
+   $own=$service->build(['tab'=>'people','date'=>'2026-11-09','period'=>$period,'owner'=>$manager->id],$manager);
+   $this->assertEquals([50,35,15,30,1,0],array_column($own['summary'],1));
+  }
+  $old=$service->build(['tab'=>'people','date'=>'2026-11-02','period'=>'week'],$manager);
+  $this->assertEquals([100,90,10,10,0,0],array_column($old['summary'],1));
+  $empty=$service->build(['tab'=>'people','date'=>'2026-11-09','cohort'=>'internal'],$manager);
+  $this->assertSame([null,null,null,null,null,null],array_column($empty['summary'],1));
+  $save($manager,'2026-11-16','vaseline',null,0,0);
+  $missing=$service->build(['tab'=>'people','date'=>'2026-11-16'],$manager);
+  $this->assertSame([null,0,0,null,0,0],array_column($missing['summary'],1));
+ }
+
+ public function test_new_entries_need_no_note_but_published_corrections_still_require_one():void {
+  $manager=$this->staff('manager');$member=$this->staff();$service=app(BrandsReports::class);
+  foreach([$manager,$member] as $actor){
+   $payload=$this->payload($actor,'people');unset($payload['reason']);
+   $this->actingAs($actor)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus($actor->id===$manager->id?201:202);
+  }
+  $record=PerformanceRegister::sole();$payload=$service->payload($record,'register');
+  $payload+=['source_type'=>'register','source_id'=>$record->id,'source_token'=>BrandsReports::token($record)];
+  $payload['data']['active_count']=117;
+  $this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertUnprocessable()->assertJsonValidationErrors('reason');
+  $payload['reason']='Corrected active headcount after audit.';
+  $this->postJson(route('portal.brands.reports.submit'),$payload)->assertCreated();
+  $this->assertEquals(117,$record->fresh()->data['active_count']);
+ }
+
 }

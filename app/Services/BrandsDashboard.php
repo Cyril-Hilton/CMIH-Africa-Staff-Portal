@@ -41,8 +41,10 @@ class BrandsDashboard {
   }elseif($tab==='people'){
    $people=$rows->where('category','people')->map($flatten)->map(fn($r)=>array_merge($r,['scope_label'=>$this->scopeLabel($r),'cohort_label'=>config('brands_dashboard.schemas.people.cohort.options.'.$r['cohort'],$r['cohort']),'attrition_rate'=>!empty($r['planned_count'])&&isset($r['attrition_count'])?round(100*$r['attrition_count']/$r['planned_count'],1):null]));
    if(!empty($v['cohort']))$people=$people->where('cohort',$v['cohort']);
+   $summary=$this->peopleSummary($people);
    $tables[]=$this->table('people','People & Team Coverage',array_merge($base,[$col('scope_label','Scope'),$col('planned_count','Planned','number'),$col('active_count','Active','number'),$col('attrition_count','Attrition','number'),$col('attrition_rate','Attrition Rate','percent'),$col('leave_count','Leave','number'),$col('absent_count','Absent','number'),$col('notes','Updates','rich')]),$people,$v);
-   $notice='Choose a People group to view its scopes. Attrition rate is attrition divided by planned headcount × 100. Missing or zero planned headcount remains unmeasured. Month and year views retain each weekly snapshot.';
+   $notice='Choose a People group to view its scopes. Attrition rate is attrition divided by planned headcount × 100. Missing or zero planned headcount remains unmeasured. Cards use the most recent reporting week in this selection, taking the latest entry per scope to avoid counting the same headcount repeatedly. Month and year tables retain every weekly snapshot.';
+   if($people->isNotEmpty())$notice.=' Cards reflect the week of '.Carbon::parse($people->max('week'))->format('d M Y').'.';
   }elseif($tab==='perfect_store'){
    $partner=$v['partner']??'castel';$perfect=$rows->where('category','perfect_store')->filter(fn($r)=>($r['data']['partner']??null)===$partner);
    $metrics=$partner==='castel'?['coverage'=>'Coverage','osa'=>'OSA','innovation'=>'Innovation','perfect_store'=>'Perfect Store']:['coverage'=>'Coverage','osa'=>'OSA','must_have'=>'Must Have','npd'=>'NPD','perfect_store'=>'Perfect Store'];
@@ -90,6 +92,13 @@ class BrandsDashboard {
   if(!empty($row['scope']))return config('brands_dashboard.schemas.people.scope.options.'.$row['scope'],$row['scope']);
   $scopes=config('brands_dashboard.people_scopes.'.$row['cohort'],[]);
   return count($scopes)===1?reset($scopes):config('brands_dashboard.schemas.people.cohort.options.'.$row['cohort'],'Not recorded');
+ }
+ private function peopleSummary(Collection $people):array {
+  // Headcount is a snapshot, not an additive total across reporting weeks.
+  $latest=$people->where('week',$people->max('week'))->sortByDesc('id')->unique(fn($r)=>$r['cohort'].'|'.$r['scope_label']);
+  $total=fn($key)=>$latest->isEmpty()||$latest->contains(fn($r)=>!isset($r[$key]))?null:$latest->sum($key);
+  $planned=$total('planned_count');$attrition=$total('attrition_count');
+  return [['Planned',$planned,'number'],['Active',$total('active_count'),'number'],['Attrition',$attrition,'number'],['Attrition Rate',$planned>0&&$attrition!==null?round(100*$attrition/$planned,1):null,'percent'],['Leave',$total('leave_count'),'number'],['Absent',$total('absent_count'),'number']];
  }
  private function columnText($value):string {
   if(is_array($value))return collect($value)->map(fn($person)=>is_array($person)?implode(' ',array_filter([$person['name']??null,$person['responsibility']??null])):(string)$person)->join(' ');

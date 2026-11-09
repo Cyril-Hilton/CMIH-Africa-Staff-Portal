@@ -79,3 +79,10 @@ test('People scopes follow their group and do not retain an incompatible selecti
  renderer.peopleScopes.call(workspace);assert.equal(scope.value,'');assert.match(scope.innerHTML,/Vaseline/);assert.match(scope.innerHTML,/Heineken/);assert.doesNotMatch(scope.innerHTML,/Unilever/);
  group.value='unilever';renderer.peopleScopes.call(workspace);assert.equal(scope.value,'unilever');assert.equal(group.required,true);assert.equal(scope.required,true);
 });
+
+test('new report forms omit correction notes while published corrections require them', async()=>{
+ const render=async(entry)=>{let html='';const workspace={queueData:{schemas:{people:{}},can_review:true,actor:1},tab:'people',cohort:'internal',root:{querySelector:()=>({textContent:'People'})},form:{elements:{date:{value:'2026-11-09'}}},data:{staff:[{id:1,name:'William'}]},show:(_,value)=>{html=value;},body:{querySelector:()=>({value:''})},fields:()=>{},message:message=>{throw Error(message);}};await renderer.entryForm.call(workspace,entry);return html;};
+ assert.doesNotMatch(await render(null),/name="reason"/);
+ assert.doesNotMatch(await render({source_id:1,is_draft:true,payload:{category:'people',week:'2026-11-09'}}),/name="reason"/);
+ assert.match(await render({source_id:1,payload:{category:'people',week:'2026-11-09'}}),/Correction Note<textarea name="reason" required/);
+});
