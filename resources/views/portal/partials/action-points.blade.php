@@ -8,6 +8,7 @@
                     </summary>
                     <div class="dashboard-meeting-popover absolute right-0 top-full mt-2 z-30 rounded-2xl border border-brand-white/10 bg-brand-black/95 p-5 shadow-2xl backdrop-blur-xl">
                         <form method="POST" action="{{ route('portal.action-points.store') }}" class="space-y-4" data-no-ajax data-no-silent>
+                            <p data-action-form-status role="alert" class="text-sm text-red-300"></p>
                             @csrf
                             <div>
                                 <label class="block text-[10px] uppercase tracking-wider text-brand-ash mb-1">Action Point *</label>
@@ -50,7 +51,7 @@
 
             {{-- Action Points Table --}}
             <div class="overflow-x-auto rounded-xl border border-brand-white/10">
-                <table class="w-full text-left text-sm text-brand-white/80">
+                <table data-table-key="meeting-action-points" class="w-full text-left text-sm text-brand-white/80">
                     <thead class="bg-brand-black/60 text-xs uppercase tracking-wider text-brand-ash border-b border-brand-white/10">
                         <tr>
                             <th class="px-4 py-3.5 min-w-[280px]">ACTION POINT</th>
@@ -62,7 +63,7 @@
                     </thead>
                     <tbody class="divide-y divide-brand-white/5">
                         @forelse($actionPoints as $point)
-                            <tr class="hover:bg-brand-white/[0.02] transition-colors">
+                            <tr data-action-row="{{ $point->id }}" class="hover:bg-brand-white/[0.02] transition-colors">
                                 <td class="px-4 py-4 align-top">
                                     <p class="font-medium text-brand-white text-xs whitespace-pre-wrap">{{ $point->action_point }}</p>
                                     <span class="mt-1 block text-[10px] text-brand-white/30">Added by {{ $point->creator?->name ?? 'Staff' }} on {{ $point->created_at->format('M d, Y') }}</span>
@@ -86,7 +87,8 @@
                                         <button type="button" data-action-edit="{{ $point->id }}" class="rounded-lg border border-brand-white/20 px-3 py-2 text-xs">Edit</button>
                                         <dialog data-action-dialog="{{ $point->id }}" class="w-[min(94vw,480px)] max-h-[90vh] overflow-y-auto rounded-xl border border-brand-white/20 bg-brand-black p-5 text-brand-white text-left"><div class="mb-4 flex justify-between gap-3"><h4 class="font-semibold">Edit Action Point</h4><button type="button" data-action-close class="border border-brand-white/20 rounded px-3 py-1">Close</button></div>
                                             <form method="POST" action="{{ route('portal.action-points.update', $point) }}" class="space-y-3" data-no-ajax data-no-silent>
-                                                @csrf
+                                                <p data-action-form-status role="alert" class="text-sm text-red-300"></p>
+                            @csrf
                                                 @method('PATCH')
                                                 <div>
                                                     <label class="block text-[10px] uppercase text-brand-ash mb-1">Action Point</label>
@@ -121,7 +123,8 @@
                                                 </div>
                                             </form>
                                             <form method="POST" action="{{ route('portal.action-points.destroy', $point) }}" data-action-delete data-no-ajax data-no-silent class="mt-2 text-right">
-                                                @csrf
+                                                <p data-action-form-status role="alert" class="text-sm text-red-300"></p>
+                            @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-[10px] text-red-400 hover:underline">Delete Action Point</button>
                                             </form>

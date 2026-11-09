@@ -15,7 +15,7 @@ class BrandsReports {
    if(b.hasAttribute('data-br-column-sort')){const id=b.dataset.brTable,state=this.tableFilters[id]??{};this.tableFilters[id]={...state,sort:b.dataset.brColumnSort,direction:state.sort===b.dataset.brColumnSort&&state.direction==='asc'?'desc':'asc',page:1};this.load();}
    if(b.hasAttribute('data-br-table-reset')){delete this.tableFilters[b.dataset.brTableReset];this.load();}
    if(b.hasAttribute('data-br-refresh'))this.load();
-   if(b.hasAttribute('data-br-reset')){this.tableFilters={};this.form.reset();this.form.elements.date.value=new Date().toISOString().slice(0,10);this.page=1;this.load();}
+   if(b.hasAttribute('data-br-reset')){this.tableFilters={};this.form.reset();if(this.root.dataset.sharedPeriod==='true')this.form.elements.period.value=this.root.dataset.period;this.form.elements.date.value=this.root.dataset.sharedPeriod==='true'?this.root.dataset.date:new Date().toISOString().slice(0,10);this.page=1;this.load();}
    if(b.hasAttribute('data-br-shift'))this.shift(Number(b.dataset.brShift));
    if(b.hasAttribute('data-br-today')){this.resetPages();this.form.elements.date.value=new Date().toISOString().slice(0,10);this.page=1;this.load();}
    if(b.hasAttribute('data-br-new'))this.entryForm();

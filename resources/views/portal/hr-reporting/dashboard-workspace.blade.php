@@ -1,5 +1,5 @@
 @php
-    $filters = ['weekly_department' => 'hr_admin', 'hr_tab' => $tab, 'hr_period' => $period, 'hr_from' => $anchorDate, 'hr_to' => $to, 'hr_owner' => $owner ?: null];
+    $filters = request()->only(['report_period','report_date']) + ['weekly_department' => 'hr_admin', 'hr_tab' => $tab, 'hr_period' => $period, 'hr_from' => $anchorDate, 'hr_to' => $to, 'hr_owner' => $owner ?: null];
     $tableFilters = ['hr_q' => $search ?: null, 'hr_category' => $category ?: null, 'hr_status' => $status ?: null, 'hr_sort' => $sort, 'hr_direction' => $direction];
     $dashboardUrl = fn (array $overrides = []) => route('dashboard', array_replace($filters, $tableFilters, $overrides)).'#staff-weekly-performance';
     $full = auth()->user()->hasFullHrAccess();
@@ -38,22 +38,7 @@
             </a>
         @endforeach
     </nav>
-    <form class="br-filters" method="GET" action="{{ route('dashboard') }}#staff-weekly-performance" data-no-ajax data-no-silent>
-        <input type="hidden" name="weekly_department" value="hr_admin">
-        <input type="hidden" name="hr_tab" value="{{ $tab }}">
-        <input type="hidden" name="hr_owner" value="{{ $owner ?: '' }}">
-        @foreach($tableFilters as $key => $value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
-        <label>Reporting period
-            <select name="hr_period">
-                @foreach(['fortnight' => 'Two weeks', 'week' => 'Week', 'month' => 'Month', 'year' => 'Year', 'range' => 'Custom date range'] as $value => $label)
-                    <option value="{{ $value }}" @selected($value === $period)>{{ $label }}</option>
-                @endforeach
-            </select>
-        </label>
-        <label>Date in period / range start<input type="date" name="hr_from" value="{{ $anchorDate }}"></label>
-        <label>Range end (custom only)<input type="date" name="hr_to" value="{{ $to }}"></label>
-        <button type="submit" class="br-filter-button">Apply Filters</button>
-    </form>
+    <p class="br-notice">Activities opened in this period, deadlines in this period and earlier open follow-ups. Status shows the latest recorded update.</p>
     @if($stats)
         <div class="br-summary">
             @foreach($stats as $label => $count)

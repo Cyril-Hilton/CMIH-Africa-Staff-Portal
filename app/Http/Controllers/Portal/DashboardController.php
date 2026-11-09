@@ -24,6 +24,8 @@ class DashboardController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
+        app(\App\Services\DashboardReportingPeriod::class)->apply($request);
+        $request->validate(['mega_date'=>'nullable|date_format:Y-m-d']);
         $megaSort = $this->sanitizeSort(
             $request->query('mega_sort'),
             ['activity', 'client', 'campaign', 'lead_staff', 'supporting', 'role', 'deliverables', 'deadline', 'status', 'priority'],
@@ -201,6 +203,7 @@ class DashboardController extends Controller
                 'creative_per_page'=>'nullable|in:10,20,50',
             ]);
             $megaQuery=$this->megaTaskQuery($mappedDeptAliases,$deptUserIds);
+            if ($request->filled('mega_date')) $megaQuery->whereDate('tasks.created_at', $request->query('mega_date'));
             if($key==='creatives'){$megaQuery->whereNotIn('tasks.id',\App\Models\CreativeRequest::where('legacy',false)->whereNotNull('planned_by')->whereNotNull('task_id')->select('task_id'));if($request->filled('creative_day'))$megaQuery->whereDate('tasks.created_at',$request->creative_day);}
             if ($key === 'creatives') {
                 foreach (['creative_status'=>'status','creative_priority'=>'priority','creative_assignee'=>'assigned_to'] as $field=>$column) {
@@ -242,7 +245,7 @@ class DashboardController extends Controller
 
         // The current week is always explicit. Historical weeks are selected, never substituted.
         $request->validate(['weekly_from'=>'nullable|date_format:Y-m-d', 'weekly_to'=>'nullable|date_format:Y-m-d']);
-        $request->attributes->set('explicit_weekly_period', $request->filled('weekly_from') || $request->filled('weekly_to'));
+
         $request->query->set('weekly_from', $request->query('weekly_from') ?: ($request->filled('weekly_to') ? Carbon::parse($request->query('weekly_to'))->startOfWeek()->toDateString() : now()->startOfWeek()->toDateString()));
         $request->query->set('weekly_to', $request->query('weekly_to') ?: Carbon::parse($request->query('weekly_from'))->endOfWeek()->toDateString());
         $request->query->remove('weekly_auto');

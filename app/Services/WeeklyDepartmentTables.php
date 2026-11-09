@@ -25,7 +25,7 @@ class WeeklyDepartmentTables
             if (! $definition['columns'] && empty($definition['sections'])) {
                 continue;
             }
-            $flatPage = PerformanceRegister::query()->where('department', $key)->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->when($from, fn ($q) => $q->whereDate('period_end', '>=', $from))->when($to, fn ($q) => $q->whereDate('period_start', '<=', $to))->orderByDesc('period_end')->orderByDesc('id')->paginate(20,['*'],'register_'.$key.'_page')->withQueryString()->appends(['report_view'=>'register']+(request()->routeIs('portal.brands','portal.operations','portal.finance')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
+            $flatPage = PerformanceRegister::query()->where('department', $key)->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->when($from, fn ($q) => $q->whereDate('period_start', '>=', $from))->when($to, fn ($q) => $q->whereDate('period_start', '<=', $to))->orderByDesc('period_end')->orderByDesc('id')->paginate(20,['*'],'register_'.$key.'_page')->withQueryString()->appends(['report_view'=>'register']+(request()->routeIs('portal.brands','portal.operations','portal.finance')?['module_view'=>'weekly']:[]))->fragment('staff-weekly-performance');
             $rows = $flatPage->getCollection()->map(function ($record) use ($definition) {
                 $row = ['period' => $record->period_start->format('d M').'–'.$record->period_end->format('d M Y')];
                 foreach ($definition['columns'] as $field => $label) {
@@ -41,7 +41,7 @@ class WeeklyDepartmentTables
             $result[$key] = $definition + ['rows' => $rows, 'pagination'=>$flatPage];
             if (! empty($definition['sections'])) {
                 $recordQuery = PerformanceRegister::where('department',$key)->whereNotNull('approved_at')->where('status','!=','cancelled')
-                    ->when($from,fn($q)=>$q->whereDate('period_end','>=',$from))->when($to,fn($q)=>$q->whereDate('period_start','<=',$to))
+                    ->when($from,fn($q)=>$q->whereDate('period_start','>=',$from))->when($to,fn($q)=>$q->whereDate('period_start','<=',$to))
                     ->orderByDesc('period_end')->orderByDesc('id');
                 $result[$key]['sections'] = [];
                 foreach ($definition['sections'] as $kind=>$fields) {

@@ -42,7 +42,7 @@ class SharedWeeklyPerformance
             }
         }
         if (Schema::hasTable('weekly_consolidated_items')) {
-            $items = WeeklyConsolidatedItem::with('leadStaff')->whereIn('department', array_keys($result))->where('workflow_state', '!=', 'legacy')->whereDate('week_start', '<=', $to)->whereDate('week_end', '>=', $from)->orderBy('week_end')->get();
+            $items = WeeklyConsolidatedItem::with('leadStaff')->whereIn('department', array_keys($result))->where('workflow_state', '!=', 'legacy')->whereDate('week_start', '<=', $to)->whereDate('week_start', '>=', $from)->orderBy('week_end')->get();
             foreach ($items as $item) {
                 $verified = in_array($item->workflow_state, ['verified', 'closed']);
                 $overdue = ! $verified && $item->dueDate()?->lt(\Illuminate\Support\Carbon::parse($to)->endOfDay()->min(now()));

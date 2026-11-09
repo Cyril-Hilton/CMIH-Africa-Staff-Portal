@@ -10,17 +10,19 @@ async function save(root,form,select=null){
  const key=select??form;if(saving.has(key))return;saving.add(key);
  const button=form?.querySelector('button[type=submit]');const previous=button?.textContent;
  const status=root.querySelector('[data-action-status]');
+ const formStatus=form?.querySelector('[data-action-form-status]');if(formStatus)formStatus.textContent='';
  const body=form?new FormData(form):new FormData();
  if(select){body.set('_method','PATCH');body.set('status',select.value);body.set('_token',document.querySelector('meta[name=csrf-token]')?.content??'');select.disabled=true;}
  if(button){button.disabled=true;button.textContent='Saving…';}status.textContent='Saving action point…';
  let saved=false;
  try{
   const response=await fetch(form?.action??select.dataset.updateUrl,{method:'POST',body,credentials:'same-origin',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]')?.content??''}});
-  const data=await response.json();if(!response.ok)throw Error(Object.values(data.errors??{}).flat().join(' ')||data.message||'The action point could not be saved.');
-  saved=true;
+  let data;try{data=await response.json();}catch{throw Error(response.status===419||response.redirected?'Your session expired. Refresh the page and sign in, then retry.':'The server could not save this action. Please retry.');}
+  if(!response.ok)throw Error(Object.values(data.errors??{}).flat().join(' ')||data.message||data.error||'The action point could not be saved.');
+  saved=true;if(select)select.dataset.currentStatus=select.value;
   if(form?.hasAttribute('data-action-delete'))form.closest('[data-action-row]')?.remove();
   await refresh(root,data.message??'Action point saved.');
- }catch(error){if(select&&!saved)select.value=select.dataset.currentStatus;status.textContent=error.message;status.setAttribute('role','alert');if(saved)status.textContent=error.message;}
+ }catch(error){if(select&&!saved)select.value=select.dataset.currentStatus;status.textContent=error.message;if(formStatus)formStatus.textContent=error.message;status.setAttribute('role','alert');if(saved)status.textContent=error.message;}
  finally{saving.delete(key);if(button){button.disabled=false;button.textContent=previous;}if(select)select.disabled=false;}
 }
 function mount(root){if(root.dataset.actionMounted)return;root.dataset.actionMounted='true';root.addEventListener('click',event=>{const button=event.target.closest('button');if(!button)return;if(button.hasAttribute('data-action-edit'))root.querySelector(`[data-action-dialog="${button.dataset.actionEdit}"]`)?.showModal();if(button.hasAttribute('data-action-close'))button.closest('dialog')?.close();});

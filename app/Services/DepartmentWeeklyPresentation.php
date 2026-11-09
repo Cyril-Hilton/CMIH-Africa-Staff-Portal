@@ -12,7 +12,7 @@ class DepartmentWeeklyPresentation
         $filters = \Illuminate\Support\Facades\Validator::make($filters, ['q'=>'nullable|string|max:200','status'=>'nullable|in:Planned,In Progress,Done,Blocked,Deferred','sort'=>'nullable|in:newest,oldest,title'])->validate();
         $query = WeeklyConsolidatedItem::with(['leadStaff', 'creator'])
             ->where('workflow_state', 'legacy')->whereIn('department', User::departmentAliases($department))
-            ->when($from, fn ($q) => $q->whereDate('week_end', '>=', $from))
+            ->when($from, fn ($q) => $q->whereDate('week_start', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('week_start', '<=', $to));
         $search = mb_substr(trim((string)($filters['q'] ?? '')), 0, 200);
         if ($search !== '') {

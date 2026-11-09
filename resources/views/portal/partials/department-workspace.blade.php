@@ -5,7 +5,7 @@ $design = [
 'brands_marketing'=>['Brands & Marketing','Brand Insight. Retail Impact.','Brand Analytics, Shopper Marketing & Retail Coordination','#f9a8d4','Brand & Retail Reporting'],
 'hr_admin'=>['HR & Admin','People Make It Happen','People, Workplace & Service Delivery','#c4b5fd','Department Register'],
 ][$key];
-$savedWeeklyCount=\App\Models\WeeklyConsolidatedItem::where('workflow_state','legacy')->whereIn('department',\App\Models\User::departmentAliases($key))->when(request('weekly_from'),fn($q,$date)=>$q->whereDate('week_end','>=',$date))->when(request('weekly_to'),fn($q,$date)=>$q->whereDate('week_start','<=',$date))->count();
+$savedWeeklyCount=\App\Models\WeeklyConsolidatedItem::where('workflow_state','legacy')->whereIn('department',\App\Models\User::departmentAliases($key))->when(request('weekly_from'),fn($q,$date)=>$q->whereDate('week_start','>=',$date))->when(request('weekly_to'),fn($q,$date)=>$q->whereDate('week_start','<=',$date))->count();
 $total=$department['summary']['total']; $verified=$department['summary']['verified'];
 $rate=$total?round(100*$verified/$total):null;
 $needsAttention=collect($department['deliverables'])->where('overdue',true);
@@ -30,7 +30,7 @@ $needsAttention=collect($department['deliverables'])->where('overdue',true);
 @if($key==='brands_marketing')<section role="tabpanel" id="dw-panel-brands_marketing-weekly" aria-labelledby="dw-tab-brands_marketing-weekly" x-show="section==='weekly'">@include('portal.partials.brands-workstreams')@include('portal.modules.source-activity',['sourceDepartment'=>$key,'sourceFrom'=>request('weekly_from',now()->startOfWeek()->toDateString()),'sourceTo'=>request('weekly_to',now()->endOfWeek()->toDateString())])</section>@endif
 @if($key==='hr_admin' && auth()->user()->hasFullHrAccess())
 @php
-$attendanceFilters=[];
+$attendanceFilters=['period'=>['week'=>'weekly','month'=>'monthly','year'=>'yearly'][request('report_period','week')], 'date'=>request('weekly_from')];
 foreach(['period','date','q','department','punctuality','sort','direction'] as $filter) if(request()->filled('attendance_'.$filter)) $attendanceFilters[$filter]=request('attendance_'.$filter);
 $attendanceData=app(\App\Services\HrAttendanceReport::class)->build($attendanceFilters,'attendance_page');
 $attendanceData['logs']->appends(['attendance_period'=>$attendanceData['period'],'weekly_department'=>'hr_admin'])->fragment('staff-weekly-performance');

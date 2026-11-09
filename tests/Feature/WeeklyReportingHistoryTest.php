@@ -85,7 +85,7 @@ class WeeklyReportingHistoryTest extends TestCase {
    WeeklyConsolidatedItem::create(['department'=>$department,'week_start'=>'2026-10-19','week_end'=>'2026-10-25','campaign_name'=>'Preserved weekly work','deliverables'=>'Original report','status'=>'In Progress','created_by'=>$u->id]);
    $response=$this->actingAs($u)->get(route('dashboard',['weekly_department'=>$department,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']));
    if($department==='brands_marketing'){$response->assertOk()->assertSee('Brands reporting period navigation')->assertSee('Previous Period');$previous=app(\App\Services\BrandsDashboard::class)->build(['date'=>'2026-10-12'],$u);$this->assertSame(['mode'=>'week','from'=>'2026-10-12','to'=>'2026-10-18'],$previous['period']);}
-   else $response->assertOk()->assertSee('Department reporting week navigation')->assertSee('Previous Week')->assertSee('weekly_from=2026-10-12',false)->assertSee('weekly_to=2026-10-18',false);
+   else $response->assertOk()->assertSee('Department reporting period navigation')->assertSee('Previous Week')->assertSee('report_date=2026-10-12',false);
   }
  }
 }

@@ -69,7 +69,8 @@ class EnsureUserIsClockedIn
         if (! $clockedIn) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error' => 'Please clock in first to access this resource.'
+                    'error' => 'Please clock in first to access this resource.',
+                    'message' => 'Please clock in first, then retry this action.'
                 ], 403);
             }
 

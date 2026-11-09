@@ -381,8 +381,8 @@
             </div>
         </div>
         @include('portal.partials.weekly-department-navigation')
-        @unless($isBrandsWeeklyDepartment || $isHrDashboard)
         @include('portal.partials.weekly-report-toolbar')
+        @unless($isBrandsWeeklyDepartment || $isHrDashboard)
 
         <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -411,7 +411,7 @@
 
         <details class="dashboard-report-settings mt-4"><summary class="cursor-pointer text-sm">Advanced Search & Date Range</summary>
         <form method="GET" action="{{ route('dashboard', [], false) }}" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" data-no-ajax>
-            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly', 'weekly_from', 'weekly_to']) as $queryKey => $queryValue)
+            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly']) as $queryKey => $queryValue)
                 @if(is_scalar($queryValue))
                     <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
                 @endif
@@ -422,9 +422,6 @@
                 <input type="search" name="search_weekly" value="{{ request('search_weekly') }}" placeholder="Search client, campaign, staff, deliverables or status..."
                        class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2.5 text-xs text-brand-white placeholder-brand-white/30">
             </label>
-            @foreach(['weekly_from' => 'Week starting from', 'weekly_to' => 'Week starting through'] as $key => $label)
-                <label class="text-xs text-brand-ash">{{ $label }}<input type="date" name="{{ $key }}" value="{{ request($key) }}" class="mt-1 block w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2 text-brand-white"></label>
-            @endforeach
             <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Apply filters</button>
             @if(request()->filled('search_weekly'))
                 <a href="{{ route('dashboard', array_merge(request()->except(['weekly_page', 'search_weekly']), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
@@ -670,6 +667,14 @@
             </div>
         </div>
 
+        <form method="GET" action="{{ route('dashboard') }}#mega-table-disclosure" data-no-ajax data-no-silent class="mb-5 flex flex-wrap items-end gap-3">
+            @foreach(request()->except(['mega_date']) as $name=>$value)@if(is_scalar($value) && !str_starts_with($name,'mega_'))<input type="hidden" name="{{ $name }}" value="{{ $value }}">@endif @endforeach
+            <label class="text-sm">Task entry date<input class="mt-1 block rounded-lg bg-brand-black p-3" type="date" name="mega_date" value="{{ request('mega_date') }}"></label>
+            <button class="rounded-lg border border-brand-white/20 px-4 py-3">Apply task date</button>
+            <a class="underline text-sm" href="{{ route('dashboard',array_merge(request()->except('mega_date'),['mega_date'=>today()->toDateString()])) }}#mega-table-disclosure">Today</a>
+            <a class="underline text-sm" href="{{ route('dashboard',request()->except('mega_date')) }}#mega-table-disclosure">All task dates</a>
+            <p class="text-xs text-brand-ash">{{ request('mega_date') ? 'Tasks entered on '.request('mega_date') : 'All saved daily tasks' }}</p>
+        </form>
         {{-- Department Tab Toggles --}}
         <div class="flex overflow-x-auto flex-nowrap lg:flex-wrap gap-2 border-b border-brand-white/10 pb-4 mb-6 scrollbar-none snap-x snap-mandatory" id="dept-tabs">
             @foreach($departments as $key => $label)

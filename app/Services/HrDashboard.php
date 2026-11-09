@@ -94,7 +94,10 @@ class HrDashboard
         $needle = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($search)).'%';
         $activities = HrDashboardActivity::with(['staff:id,name', 'assignee:id,name'])
             ->where('tab', $tab)
-            ->whereBetween('opened_on', [$from, $to])
+            ->whereDate('opened_on', '<=', $to)
+            ->where(fn ($q) => $q->whereDate('deadline', '>=', $from)
+                ->orWhereDate('opened_on', '>=', $from)
+                ->orWhereNotIn('status', ['Completed', 'Cancelled']))
             ->when($owner, fn ($q) => $q->where(fn ($scope) => $scope->where('assigned_to', $owner)->orWhere('staff_id', $owner)))
             ->when($category !== '', fn ($q) => $q->where('category', $category))
             ->when($status !== '', fn ($q) => $q->where('status', $status))

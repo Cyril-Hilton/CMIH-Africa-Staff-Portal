@@ -2,7 +2,7 @@
 $canReadDepartmentHistory=$key==='hr_admin'?auth()->user()->hasFullHrAccess():($key!=='finance'||auth()->user()->isCvoOrSuperAdmin()||\App\Models\User::normalizeDepartmentKey(auth()->user()->department)==='finance');
 $weeklyTitles=['operations_projects'=>'Project Updates','finance'=>'Weekly Finance Updates','hr_admin'=>'People & Administration Updates','client_relations'=>'Weekly Client Service Updates'];
 @endphp
-<div class="dw-heading"><div><h5>{{ $weeklyTitles[$key] }}</h5><p class="dw-meta">Saved reports with their original owners, date ranges, progress and formatted content. Reports spanning several weeks remain visible while their saved dates overlap this selection.</p></div><span class="dw-status">{{ $savedWeeklyCount }} Saved Entries</span></div>
+<div class="dw-heading"><div><h5>{{ $weeklyTitles[$key] }}</h5><p class="dw-meta">Saved reports with their original owners, date ranges, progress and formatted content. Each saved weekly report belongs to the period in which its reporting week starts.</p></div><span class="dw-status">{{ $savedWeeklyCount }} Saved Entries</span></div>
 @if(!request('weekly_from') && !request('weekly_to'))<p class="dw-meta mb-4">Showing saved weekly updates across all reporting periods. Select a week above to narrow this view.</p>@endif
 @if($canReadDepartmentHistory)
 @php

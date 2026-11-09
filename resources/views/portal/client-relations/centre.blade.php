@@ -12,7 +12,7 @@
 <label>Client<select name="client"><option value="">All Clients</option></select></label>
 <label>Account Owner<select name="owner"><option value="">All Owners</option></select></label>
 <label>Sales Stage<select name="stage"><option value="">All Sales Stages</option>@foreach(config('crm_pipeline.stages') as $key=>$stage)<option value="{{ $key }}">{{ ucwords($stage['label']) }}</option>@endforeach</select></label>
-<label>From<input type="date" name="from" value="{{ request('weekly_from',now()->startOfYear()->toDateString()) }}"></label><label>Through<input type="date" name="to" value="{{ request('weekly_to',now()->endOfYear()->toDateString()) }}"></label>
+<label hidden>From<input type="date" name="from" value="{{ request('weekly_from',now()->startOfYear()->toDateString()) }}"></label><label hidden>Through<input type="date" name="to" value="{{ request('weekly_to',now()->endOfYear()->toDateString()) }}"></label>
 <label>Sort Clients<select name="sort"><option value="client">Client Name</option><option value="revenue">Revenue: Highest First</option></select></label><label>Clients Per Page<select name="per_page"><option>6</option><option selected>12</option><option>24</option><option>48</option></select></label>
 <button type="submit">Apply Filters</button><button type="button" data-cr-reset>Clear Filters</button>
 </form>
