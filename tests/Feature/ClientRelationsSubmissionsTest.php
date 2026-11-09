@@ -48,8 +48,9 @@ class ClientRelationsSubmissionsTest extends TestCase {
  }
  public function test_manager_can_submit_own_entry_and_activity_entries_follow_same_review_flow():void {
   $m=$this->staff('manager');$u=$this->staff();
-  $id=$this->actingAs($m)->postJson(route('portal.crm.store'),$this->payload($m)+['submit_for_review'=>true])->assertStatus(202)->json('submission_id');
-  $this->postJson(route('portal.crm.submissions.review',$id),['revision'=>1,'decision'=>'approve'])->assertOk();
+  $this->actingAs($m)->postJson(route('portal.crm.store'),$this->payload($m)+['submit_for_review'=>true])->assertCreated();
+  $this->assertDatabaseCount('crm_report_submissions',0);
+  $this->assertDatabaseHas('crm_pipeline_projects',['owner_id'=>$m->id,'created_by'=>$m->id,'revenue_state'=>'awaiting_finance']);
   $id=$this->actingAs($u)->postJson(route('portal.crm.record'),['kind'=>'issue','client_name'=>'Activity only client','reference'=>'ISS-2026-A','owner_id'=>$u->id,'status'=>'open','data'=>['title'=>'Awaiting confirmation','opened_on'=>today()->toDateString()]])->assertStatus(202)->json('submission_id');
   $this->assertDatabaseCount('crm_client_records',0);
   $this->actingAs($m)->postJson(route('portal.crm.submissions.review',$id),['revision'=>1,'decision'=>'approve'])->assertOk();

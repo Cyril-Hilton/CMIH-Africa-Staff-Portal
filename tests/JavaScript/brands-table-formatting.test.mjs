@@ -73,3 +73,9 @@ for (const [file, className, parameters, backgroundParameters] of [
   }
  });
 }
+test('People scopes follow their group and do not retain an incompatible selection',()=>{
+ const group={value:'activations'},scope={value:'unilever',innerHTML:''};
+ const workspace={body:{querySelector:selector=>selector==='[name=cohort]'?group:scope},queueData:{people_scopes:{activations:{vaseline:'Vaseline',heineken:'Heineken'},unilever:{unilever:'Unilever'}}}};
+ renderer.peopleScopes.call(workspace);assert.equal(scope.value,'');assert.match(scope.innerHTML,/Vaseline/);assert.match(scope.innerHTML,/Heineken/);assert.doesNotMatch(scope.innerHTML,/Unilever/);
+ group.value='unilever';renderer.peopleScopes.call(workspace);assert.equal(scope.value,'unilever');assert.equal(group.required,true);assert.equal(scope.required,true);
+});

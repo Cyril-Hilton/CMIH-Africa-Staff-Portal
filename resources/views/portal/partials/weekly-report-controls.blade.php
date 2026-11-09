@@ -13,9 +13,9 @@
 @if(!empty($item->previous_week_reference['content']['custom_fields']))<h6 class="mt-3 font-semibold">Previous Additional Fields</h6>@foreach($item->previous_week_reference['content']['custom_fields'] as $field=>$value)<p class="mt-2 font-semibold">{{ ucwords(str_replace('_',' ',$field)) }}</p><div class="weekly-rich-content">{!! \App\Support\ReportRichText::html(is_array($value)?json_encode($value):(string)$value) !!}</div>@endforeach @endif
 </details>
 @endif
-<details class="mt-3"><summary class="cursor-pointer">Submit / Review Weekly Report</summary>
+<details class="mt-3"><summary class="cursor-pointer">Publish / Review Weekly Report</summary>
 <form data-no-ajax data-no-silent method="POST" action="{{ route('portal.dashboard.weekly-consolidated.report-state',$item) }}" class="mt-3 space-y-2">@csrf
-<select name="report_action" class="w-full rounded-lg bg-brand-black p-2"><option value="submit">Submit weekly report</option>@if($item->report_status==='submitted' && (int)$item->updated_by!==auth()->id() && (int)$item->report_submitted_by!==auth()->id())<option value="review">Review weekly report</option>@endif</select>
+<select name="report_action" class="w-full rounded-lg bg-brand-black p-2"><option value="submit">{{ \App\Services\PerformanceAccess::manages(auth()->user(), $item->department) ? 'Publish weekly report' : 'Submit weekly report' }}</option>@if($item->report_status==='submitted' && (int)$item->updated_by!==auth()->id() && (int)$item->report_submitted_by!==auth()->id())<option value="review">Review weekly report</option>@endif</select>
 <label class="block">Summary / unfinished work explanation<input name="reason" required minlength="5" maxlength="2000" class="mt-2 w-full rounded-lg border border-brand-white/15 bg-brand-black p-2"></label><button class="weekly-consolidated-action-button border border-brand-white/20">Save Report Status</button></form>
 </details>
 @php($versions=\Illuminate\Support\Facades\DB::table('weekly_report_versions')->where('weekly_item_id',$item->id)->orderByDesc('id')->limit(20)->get())

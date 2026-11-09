@@ -35,12 +35,13 @@ class WeeklyReportingHistoryTest extends TestCase {
   $this->patch($url,['status'=>'Done','correction_reason'=>'Client confirmed completion'])->assertSessionHasNoErrors();
   $this->assertDatabaseHas('weekly_report_versions',['weekly_item_id'=>$row->id,'reason'=>'Client confirmed completion']);$this->assertSame('Done',$row->fresh()->status);
  }
- public function test_weekly_submission_does_not_complete_project_and_self_review_is_blocked():void {
-  $u=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$other=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$row=$this->source($u);
-  $url=route('portal.dashboard.weekly-consolidated.report-state',$row);
-  $this->actingAs($u)->post($url,['report_action'=>'submit','reason'=>'Work continues next week'])->assertSessionHasNoErrors();$this->assertSame('In Progress',$row->fresh()->status);
-  $this->post($url,['report_action'=>'review','reason'=>'Reviewed weekly account'])->assertForbidden();
-  $this->actingAs($other)->post($url,['report_action'=>'review','reason'=>'Reviewed weekly account'])->assertSessionHasNoErrors();$this->assertSame('reviewed',$row->fresh()->report_status);
+ public function test_managers_publish_weekly_reports_in_every_department_without_completing_the_work():void {
+  foreach(['brands_marketing','operations_projects','finance','hr_admin','client_relations','creatives'] as $department){
+   $u=User::factory()->create(['access_role'=>'manager','department'=>$department,'status'=>'active']);
+   $row=$this->source($u);$row->update(['department'=>$department,'lead_staff_id'=>$u->id]);
+   $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->actingAs($u)->post(route('portal.dashboard.weekly-consolidated.report-state',$row),['report_action'=>'submit','reason'=>'Manager weekly account'])->assertSessionHasNoErrors();
+   $row->refresh();$this->assertSame('reviewed',$row->report_status);$this->assertSame($u->id,$row->report_reviewed_by);$this->assertSame('In Progress',$row->status);$this->assertNull($row->verified_at);
+  }
  }
  public function test_roll_forward_and_monthly_summary_distinguish_entries_from_projects():void {
   $u=User::factory()->create();$this->source($u);$service=app(WeeklyReportingHistory::class);$this->assertSame(1,$service->rollForward());$this->assertSame(0,$service->rollForward());
@@ -58,10 +59,10 @@ class WeeklyReportingHistoryTest extends TestCase {
   $summary=app(WeeklyReportingHistory::class)->summary('brands_marketing','2026-10-01','2026-10-31');
   $this->assertSame(3,$summary['missing']);$this->assertDatabaseCount('weekly_consolidated_items',1);
  }
- public function test_the_actual_submitter_cannot_review_another_editors_report():void {
+ public function test_a_manager_published_report_cannot_be_reviewed_again():void {
   $author=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$submitter=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);$row=$this->source($author);$url=route('portal.dashboard.weekly-consolidated.report-state',$row);
   $this->actingAs($submitter)->post($url,['report_action'=>'submit','reason'=>'Submitted for this week'])->assertSessionHasNoErrors();
-  $this->post($url,['report_action'=>'review','reason'=>'Trying to self review'])->assertForbidden();
+  $this->post($url,['report_action'=>'review','reason'=>'Trying to self review'])->assertStatus(422);
  }
  public function test_a_boundary_week_is_not_counted_in_two_months():void {
   $u=User::factory()->create();$row=$this->source($u);$service=app(WeeklyReportingHistory::class);$service->carry($row,'2026-10-26');

@@ -77,3 +77,5 @@ html[data-theme=light] .br-status-danger{color:#923335;background:#ffe3e3;border
 }
 .hr-dashboard .hr-entry-private:hover { background: #f0e8fc; }
 .hr-dashboard .hr-entry-admin:hover { background: #e0f2ff; }
+[data-br-cohorts][hidden]{display:none}
+[data-br-cohorts] [aria-selected=true]{background:#8dc7f522;border-color:var(--br-accent);color:#c2e6ff}

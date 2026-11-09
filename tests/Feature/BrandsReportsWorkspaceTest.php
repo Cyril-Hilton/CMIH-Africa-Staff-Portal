@@ -8,7 +8,7 @@ class BrandsReportsWorkspaceTest extends TestCase {
  use RefreshDatabase;
  protected function setUp():void{parent::setUp();$this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);$this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-04 12:00:00','Africa/Accra'));}
  private function staff($role='staff',$department='brands_marketing'){return User::factory()->create(['department'=>$department,'status'=>'active','access_role'=>$role]);}
- private function payload($u,$category='workstream'){return ['category'=>$category,'title'=>'Retail week update','owner_id'=>$u->id,'week'=>'2026-11-02','reason'=>'Weekly reporting update for review','data'=>match($category){'workstream'=>['project'=>'Shopper Marketing','brand'=>'Unilever','task_in_week'=>'<p>Review the retail store data.</p><table><tr><td>Coverage</td><td>80%</td></tr></table>','status'=>'In Progress','priority'=>'High','kpis'=>'<p>Coverage target: 90%</p>'],'people'=>['cohort'=>'unilever','planned_count'=>120,'active_count'=>118,'attrition_count'=>2,'average_headcount'=>119,'leave_count'=>0,'absent_count'=>1],'perfect_store'=>['partner'=>'unilever','breakdown'=>'region','location'=>'Accra','osa_target_percent'=>95,'osa_previous_percent'=>80,'osa_actual_percent'=>88],'activation'=>['partner'=>'castel','brief_status'=>'closed','outcome'=>'won','brief_date'=>'2026-11-02','revert_date'=>'2026-11-03','target_sales'=>100,'total_sales'=>120,'sales_unit'=>'cases','target_reach'=>200,'total_reach'=>180,'conversions'=>45,'conversion_base'=>90],'visibility'=>['partner'=>'unilever','posm_type'=>'Shelf panel','scheduled'=>2500,'deployed'=>500,'planned_scope'=>5,'active_scope'=>3] }];}
+ private function payload($u,$category='workstream'){return ['category'=>$category,'title'=>'Retail week update','owner_id'=>$u->id,'week'=>'2026-11-02','reason'=>'Weekly reporting update for review','data'=>match($category){'workstream'=>['project'=>'Shopper Marketing','brand'=>'Unilever','task_in_week'=>'<p>Review the retail store data.</p><table><tr><td>Coverage</td><td>80%</td></tr></table>','status'=>'In Progress','priority'=>'High','kpis'=>'<p>Coverage target: 90%</p>'],'people'=>['cohort'=>'unilever','scope'=>'unilever','planned_count'=>120,'active_count'=>118,'attrition_count'=>2,'average_headcount'=>119,'leave_count'=>0,'absent_count'=>1],'perfect_store'=>['partner'=>'unilever','breakdown'=>'region','location'=>'Accra','osa_target_percent'=>95,'osa_previous_percent'=>80,'osa_actual_percent'=>88],'activation'=>['partner'=>'castel','brief_status'=>'closed','outcome'=>'won','brief_date'=>'2026-11-02','revert_date'=>'2026-11-03','target_sales'=>100,'total_sales'=>120,'sales_unit'=>'cases','target_reach'=>200,'total_reach'=>180,'conversions'=>45,'conversion_base'=>90],'visibility'=>['partner'=>'unilever','posm_type'=>'Shelf panel','scheduled'=>2500,'deployed'=>500,'planned_scope'=>5,'active_scope'=>3] }];}
  private function approve($manager,$id,$revision=1){return $this->actingAs($manager)->postJson(route('portal.brands.reports.review',$id),['revision'=>$revision,'decision'=>'approve']);}
  public function test_staff_submit_manager_return_correct_and_publish_without_overwriting_an_earlier_week():void {
   $u=$this->staff();$manager=$this->staff('manager');$other=$this->staff();$v=$this->payload($u);
@@ -65,7 +65,7 @@ $this->approve($other,$id)->assertForbidden();
   $unknown->update(['data'=>array_replace($unknown->data,['partner'=>'unilever'])]);$this->assertSame('unilever',app(BrandsReports::class)->payload($unknown->fresh(),'register')['data']['partner']);
  }
  public function test_manager_can_submit_own_operational_report_and_dashboard_replaces_old_workspace():void {
-  $manager=$this->staff('manager');$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$this->payload($manager))->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
+  $manager=$this->staff('manager');$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$this->payload($manager))->assertStatus(201)->assertJsonPath('status','approved')->json('id');$this->assertSame('approved',BrandsReportSubmission::findOrFail($id)->status);
   $this->get(route('dashboard',['weekly_department'=>'brands_marketing']))->assertOk()->assertSee('data-brands-reports',false)->assertSee('Activations &amp; Volume Depletion Initiatives',false)->assertDontSee('Brand insight. Retail impact.')->assertDontSee('Earlier Weekly Entries & Row Editing');
   $this->get(route('portal.brands'))->assertOk()->assertSee('data-brands-reports',false)->assertSee('POSM &amp; Stock',false);
  }
@@ -98,7 +98,7 @@ $this->approve($other,$id)->assertForbidden();
   $v=['tab'=>'workstream','date'=>'2026-11-04'];$service=app(BrandsDashboard::class);
   $this->assertSame(0,$service->build($v,$u)['tables'][0]['total']);$draft=$service->build($v,$manager);$this->assertSame(1,$draft['tables'][0]['total']);$this->assertSame(0,$draft['summary'][0][1]);
   $this->actingAs($u)->getJson(route('portal.brands.reports.detail',['type'=>'weekly','id'=>$row->id]))->assertForbidden();
-  $payload=$this->payload($u)+['source_type'=>'weekly','source_id'=>$row->id,'source_token'=>BrandsReports::token($row->fresh())];$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
+  $payload=$this->payload($u)+['source_type'=>'weekly','source_id'=>$row->id,'source_token'=>BrandsReports::token($row->fresh())];$id=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(201)->json('id');
   $this->assertSame(1,$service->build($v,$u)['tables'][0]['total']);$this->assertSame('reviewed',$row->fresh()->report_status);
  }
 
@@ -159,4 +159,46 @@ $this->approve($other,$id)->assertForbidden();
   $this->assertSame('Test distributor',$unilever['perfect_distributor']['rows']->sole()['location']);
   $this->assertFalse($unilever->has('perfect_outlet'));
  }
+ public function test_manager_own_reports_publish_all_categories_without_review_notifications_and_retries_do_not_duplicate():void {
+  $manager=$this->staff('manager');$viewer=$this->staff();
+  foreach(array_keys(config('brands_dashboard.schemas')) as $category){
+   $payload=$this->payload($manager,$category);
+   $first=$this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(201)->assertJsonPath('status','approved')->json('id');
+   $this->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(201)->assertJsonPath('id',$first);
+  }
+  $this->assertDatabaseCount('brands_report_submissions',5);$this->assertDatabaseCount('performance_registers',4);$this->assertDatabaseCount('weekly_consolidated_items',1);
+  $this->assertDatabaseMissing('performance_outbox',['title'=>'Brands report awaiting review']);
+  $this->actingAs($viewer)->getJson(route('portal.brands.reports.data',['tab'=>'people','date'=>'2026-11-04']))->assertOk()->assertJsonPath('tables.0.total',1);
+  $this->actingAs($manager)->getJson(route('portal.brands.reports.submissions'))->assertOk()->assertJsonCount(0,'entries');
+  $this->assertDatabaseCount('performance_observations',0);
+ }
+ public function test_people_scope_groups_and_owner_period_filters_combine_without_mixing_snapshots():void {
+  $manager=$this->staff('manager');$other=$this->staff();
+  foreach([['internal','internal',4,5,0,1,0],['unilever','unilever',69,68,1,0,0],['off_trade','ggbl',21,20,1,2,0],['activations','vaseline',50,34,16,0,0],['activations','heineken',10,10,0,0,0]] as [$cohort,$scope,$planned,$active,$attrition,$leave,$absent]){
+   $payload=$this->payload($manager,'people');$payload['title']='People '.$scope;$payload['data']=['cohort'=>$cohort,'scope'=>$scope,'planned_count'=>$planned,'active_count'=>$active,'attrition_count'=>$attrition,'leave_count'=>$leave,'absent_count'=>$absent];
+   $this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertStatus(201);
+  }
+  $service=app(BrandsDashboard::class);
+  foreach(['week','month','year'] as $period){
+   $filters=['tab'=>'people','date'=>'2026-11-04','period'=>$period];
+   $this->assertSame(5,$service->build($filters,$other)['tables'][0]['total']);
+   $rows=$service->build($filters+['cohort'=>'activations','owner'=>$manager->id],$other)['tables'][0]['rows'];
+   $this->assertCount(2,$rows);$this->assertSame(['Heineken','Vaseline'],$rows->pluck('scope_label')->sort()->values()->all());
+   $this->assertEquals(32,$rows->firstWhere('scope','vaseline')['attrition_rate']);
+   $this->assertSame(0,$service->build($filters+['owner'=>$other->id],$other)['tables'][0]['total']);
+  }
+  $payload=$this->payload($manager,'people');$payload['data']['scope']='vaseline';
+  $this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$payload)->assertUnprocessable();
+ }
+ public function test_existing_pending_manager_reports_publish_once_and_staff_cannot_use_that_path():void {
+  $manager=$this->staff('manager');$staff=$this->staff();
+  $submission=BrandsReportSubmission::create(['category'=>'people','source_type'=>'register','submitted_by'=>$manager->id,'status'=>'pending','payload'=>$this->payload($manager,'people')]);
+  $service=app(BrandsReports::class);$published=$service->publishOwn($manager,$submission);$id=$published->source_id;
+  $this->assertSame('approved',$published->status);$this->assertSame($id,$service->publishOwn($manager,$published)->source_id);
+  $this->assertDatabaseCount('performance_registers',1);
+  $this->assertSame('pending',$this->actingAs($staff)->postJson(route('portal.brands.reports.submit'),$this->payload($staff,'people'))->assertStatus(202)->json('status'));
+  $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+  $service->publishOwn($staff,BrandsReportSubmission::where('submitted_by',$staff->id)->sole());
+ }
+
 }

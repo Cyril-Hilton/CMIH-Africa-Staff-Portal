@@ -27,7 +27,7 @@ class CrmClientActivityUpdateTest extends TestCase {
   $record=CrmClientRecord::create(['kind'=>'invoice','reference'=>'INV-1','client_name'=>'Dove','owner_id'=>$owner->id,'status'=>'issued','data'=>['amount'=>100],'created_by'=>$owner->id,'updated_by'=>$owner->id]);
   $values=['kind'=>'invoice','reference'=>'INV-1','client_name'=>'Dove','owner_id'=>$owner->id,'status'=>'paid','data'=>['amount'=>100,'paid_amount'=>150],'revision'=>1,'reason'=>'Invoice reconciliation checked'];
   $this->actingAs($owner)->postJson(route('portal.crm.record.update',$record),$values)->assertUnprocessable();
-  $values['data']['paid_amount']=100;$this->postJson(route('portal.crm.record.update',$record),$values)->assertRedirect();
+  $values['data']['paid_amount']=100;$this->postJson(route('portal.crm.record.update',$record),$values)->assertOk()->assertJsonPath('status','published');
   $this->assertSame('paid',$record->fresh()->status);
   $this->get(route('portal.crm.index'))->assertOk()->assertSee('Update Existing Client Activities')->assertSee('Save Activity Update');
  }

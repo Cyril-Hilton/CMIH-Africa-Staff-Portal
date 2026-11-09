@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 class ClientRelationsSubmissions {
  public static function manager(User $u): bool { return ClientRelationsPipeline::member($u) && $u->isLineManager(); }
- public static function needed(Request $r): bool { return !$r->attributes->get('crm_approved_submission') && (!self::manager($r->user()) || $r->boolean('submit_for_review')); }
+ public static function needed(Request $r): bool { return !$r->attributes->get('crm_approved_submission') && !self::manager($r->user()); }
  public function submit(Request $r,string $type,?int $id,array $payload) {
   $v=$r->validate(['submission_id'=>'nullable|integer','submission_revision'=>'required_with:submission_id|integer|min:1']);
   $item=DB::transaction(function()use($r,$type,$id,$payload,$v){

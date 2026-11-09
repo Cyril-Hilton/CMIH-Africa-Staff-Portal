@@ -128,6 +128,7 @@ class ClientRelationsPipelineController extends Controller
         });
 
         if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
+        if ($r->expectsJson()) return response()->json(['id'=>$saved->id,'status'=>'published','message'=>'Report published on the weekly dashboard. Finance confirms revenue separately.'], $project ? 200 : 201);
         return back()->with('status', 'Pipeline saved. The shared weekly table has been updated.');
     }
 
@@ -194,6 +195,7 @@ class ClientRelationsPipelineController extends Controller
             return $i;
         });
         if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
+        if ($r->expectsJson()) return response()->json(['id'=>$saved->id,'status'=>'published','message'=>'Client activity published on the dashboard.'], $record ? 200 : 201);
         return back()->with('status', $record ? 'Client activity updated. The shared view will show its latest status.' : 'Client scorecard source recorded.');
     }
 

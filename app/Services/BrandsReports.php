@@ -44,27 +44,43 @@ class BrandsReports {
   }
   if($v['category']==='workstream'&&trim(html_entity_decode(strip_tags($data['task_in_week']??'')))==='')throw ValidationException::withMessages(['data.task_in_week'=>'Describe the work for this reporting week.']);
   foreach(match($v['category']){'people'=>['cohort'],'perfect_store'=>['partner','breakdown'],'activation'=>['partner','brief_status','brief_date'],'visibility'=>['partner','posm_type'],'workstream'=>['project','task_in_week','status'],default=>[]} as $required)if(!filled($data[$required]??null))throw ValidationException::withMessages(['data.'.$required=>'Complete '.config('brands_dashboard.schemas.'.$v['category'].'.'.$required.'.label').'.']);
+  if($v['category']==='people'){
+   if(!$source && empty($data['scope']))throw ValidationException::withMessages(['data.scope'=>'Choose the reporting scope.']);
+   $group=config('brands_dashboard.people_scopes.'.$data['cohort'],[]);
+   if(filled($data['scope']??null)&&!array_key_exists($data['scope'],$group))throw ValidationException::withMessages(['data.scope'=>'Choose a scope that belongs to the selected People group.']);
+  }
   if($v['category']==='perfect_store'&&($data['breakdown']??'overall')!=='overall'&&!filled($data['location']??null))throw ValidationException::withMessages(['data.location'=>'Name the outlet, region or distributor.']);
   if($v['category']==='activation'&&(isset($data['target_sales'])||isset($data['total_sales']))&&!filled($data['sales_unit']??null))throw ValidationException::withMessages(['data.sales_unit'=>'Record the sales unit so the result can be interpreted correctly.']);
   $payload=collect($v)->only(['category','title','owner_id','week','reason'])->all()+['data'=>$data];
   $submission=DB::transaction(function()use($r,$v,$payload){
+   User::whereKey($r->user()->id)->lockForUpdate()->firstOrFail();
+   if(self::manager($r->user()) && empty($v['submission_id'])){
+    $published=BrandsReportSubmission::where('submitted_by',$r->user()->id)->where('status','approved')->where('category',$v['category'])->get()->first(fn($entry)=>$entry->payload===$payload);
+    if($published)return $published;
+   }
    if(!empty($v['submission_id'])){$s=BrandsReportSubmission::lockForUpdate()->findOrFail($v['submission_id']);abort_unless($s->submitted_by===$r->user()->id,403);abort_if($s->status!=='returned'||$s->revision!==(int)$v['revision'],409,'This submission changed. Refresh before resubmitting.');abort_unless($s->source_type===($v['source_type']??($v['category']==='workstream'?'weekly':'register'))&&(int)$s->source_id===(int)($v['source_id']??0)&&$s->category===$v['category'],422);$s->revision++;}
    else{$s=new BrandsReportSubmission(['category'=>$v['category'],'source_type'=>$v['source_type']??($v['category']==='workstream'?'weekly':'register'),'source_id'=>$v['source_id']??null,'submitted_by'=>$r->user()->id]);abort_if(BrandsReportSubmission::where('submitted_by',$r->user()->id)->where('status','pending')->where('category',$v['category'])->get()->contains(fn($p)=>($s->source_id&&$p->source_id===$s->source_id&&$p->source_type===$s->source_type)||$p->payload===$payload),409,'This entry is already awaiting review.');}
    $s->payload=$payload;$s->source_token=$v['source_token']??null;$s->status='pending';$s->reviewed_at=null;$s->reviewed_by=null;$s->save();PerformanceWorkflow::record('brands_submission',$s->id,$r->user()->id,'submitted',[],['revision'=>$s->revision,'source_id'=>$s->source_id],$v['reason']);
+   if(self::manager($r->user()))return $this->publishOwn($r->user(),$s);
    User::internalStaff()->where('status','active')->whereIn('department',User::departmentAliases('brands_marketing'))->get()->filter(fn($u)=>self::manager($u))->each(fn($u)=>PerformanceWorkflow::notify($u->id,'brands-review:'.$s->id.':'.$s->revision,'Brands report awaiting review',$r->user()->name.' submitted a report. Review it on the Brands weekly dashboard.',route('dashboard',['weekly_department'=>'brands_marketing','brands_submission'=>$s->id]).'#staff-weekly-performance'));
    return $s;
-  });return response()->json(['message'=>'Entry submitted for manager review. It appears on the shared dashboard after approval.','id'=>$submission->id],202);
+  });return response()->json(['message'=>$submission->status==='approved'?'Your report is published on the dashboard.':'Entry submitted for manager review. It appears on the shared dashboard after approval.','id'=>$submission->id,'status'=>$submission->status],$submission->status==='approved'?201:202);
  }
  public function review(Request $r,BrandsReportSubmission $submission){
   abort_unless(self::manager($r->user()),403);$v=$r->validate(['revision'=>'required|integer|min:1','decision'=>'required|in:approve,return','note'=>'required_if:decision,return|nullable|string|min:5|max:2000']);
   DB::transaction(function()use($r,$submission,$v){$s=BrandsReportSubmission::lockForUpdate()->findOrFail($submission->id);abort_if($s->status!=='pending'||$s->revision!==(int)$v['revision'],409,'This entry changed. Refresh before reviewing.');$p=$s->payload;
-   if($v['decision']==='approve'){
+   if($v['decision']==='approve') $this->publish($r->user(),$s);
+   $s->status=$v['decision']==='approve'?'approved':'returned';$s->review_note=$v['note']??null;$s->reviewed_by=$r->user()->id;$s->reviewed_at=now();$s->revision++;$s->save();PerformanceWorkflow::record('brands_submission',$s->id,$r->user()->id,$v['decision'],[],['revision'=>$s->revision,'source_id'=>$s->source_id],$v['note']??'Manager approved publication.');PerformanceWorkflow::notify($s->submitted_by,'brands-result:'.$s->id.':'.$s->revision,$s->status==='approved'?'Brands report published':'Brands report corrections requested','Open My Entries & Reviews on the Brands dashboard to see the decision and correction notes.',route('dashboard',['weekly_department'=>'brands_marketing','brands_submission'=>$s->id]).'#staff-weekly-performance');
+  });return response()->json(['message'=>$v['decision']==='approve'?'Report approved and published.':'Entry returned with correction notes.']);
+ }
+ private function publish(User $actor, BrandsReportSubmission $s): void {
+  $p=$s->payload;
     $old=$s->source_id?$this->source($s->source_type,$s->source_id)->newQuery()->lockForUpdate()->findOrFail($s->source_id):null;
     if($old)abort_unless(hash_equals(self::token($old),$s->source_token??''),409,'The published report changed. Request a fresh correction.');
     $owner=User::findOrFail($p['owner_id']);abort_unless($owner->isActive()||($old&&(int)$this->payload($old,$s->source_type)['owner_id']===$owner->id),422,'The report owner is no longer active. Return the entry for reassignment.');
     $start=Carbon::parse($p['week'])->startOfWeek();$end=$start->copy()->endOfWeek();
     if($s->source_type==='weekly'){
-     $data=$p['data'];$values=['department'=>'brands_marketing','client_name'=>$p['title'],'campaign_name'=>$data['project'],'lead_staff_id'=>$p['owner_id'],'supporting_staff_ids'=>$data['collaborators']??[],'deliverables'=>$data['task_in_week'],'target_breakdown'=>$data['kpis']??null,'achieved_breakdown'=>$data['results']??null,'gap_breakdown'=>$data['gaps']??null,'notes'=>$data['notes']??null,'status'=>$data['status'],'priority'=>$data['priority']??'Medium','project_starts_on'=>$data['project_start']??null,'project_ends_on'=>$data['project_end']??null,'updated_by'=>$r->user()->id,'report_status'=>'reviewed','report_submitted_by'=>$s->submitted_by,'report_submitted_at'=>$s->created_at,'report_reviewed_by'=>$r->user()->id,'report_reviewed_at'=>now()];
+     $data=$p['data'];$values=['department'=>'brands_marketing','client_name'=>$p['title'],'campaign_name'=>$data['project'],'lead_staff_id'=>$p['owner_id'],'supporting_staff_ids'=>$data['collaborators']??[],'deliverables'=>$data['task_in_week'],'target_breakdown'=>$data['kpis']??null,'achieved_breakdown'=>$data['results']??null,'gap_breakdown'=>$data['gaps']??null,'notes'=>$data['notes']??null,'status'=>$data['status'],'priority'=>$data['priority']??'Medium','project_starts_on'=>$data['project_start']??null,'project_ends_on'=>$data['project_end']??null,'updated_by'=>$actor->id,'report_status'=>'reviewed','report_submitted_by'=>$s->submitted_by,'report_submitted_at'=>$s->created_at,'report_reviewed_by'=>$actor->id,'report_reviewed_at'=>now()];
      $values['supporting_roles']=[];
      foreach($values['supporting_staff_ids'] as $id){
       $oldDuty=$old?->supporting_roles[$id]??null;
@@ -75,13 +91,25 @@ class BrandsReports {
      else{$item=WeeklyConsolidatedItem::create($values+['created_by'=>$s->submitted_by,'week_start'=>$start,'week_end'=>$end,'workflow_state'=>'legacy','custom_fields'=>['brand'=>$data['brand']??null]]);}
     }else{
      // Operational publication does not create an independently verified KPI observation.
-     $values=['title'=>$p['title'],'owner_id'=>$p['owner_id'],'data'=>array_replace($old?->data??[],$p['data']),'status'=>'submitted','approved_by'=>$r->user()->id,'approved_at'=>now()];
-     if($old){abort_if($old->kind==='campaign'&&((int)$old->owner_id===$r->user()->id||(int)$s->submitted_by===$r->user()->id),403,'This earlier KPI source requires an independent reviewer.');$item=$old;$item->fill($values)->save();}
+     $values=['title'=>$p['title'],'owner_id'=>$p['owner_id'],'data'=>array_replace($old?->data??[],$p['data']),'status'=>'submitted','approved_by'=>$actor->id,'approved_at'=>now()];
+     if($old){abort_if($old->kind==='campaign'&&((int)$old->owner_id===$actor->id||(int)$s->submitted_by===$actor->id),403,'This earlier KPI source requires an independent reviewer.');$item=$old;$item->fill($values)->save();}
      else $item=PerformanceRegister::create($values+['department'=>'brands_marketing','kind'=>$p['category'],'reference'=>'BR-'.str_pad((string)$s->id,6,'0',STR_PAD_LEFT),'period_start'=>$start,'period_end'=>$end,'submitted_by'=>$s->submitted_by]);
     }
     $s->source_id=$item->id;
-   }
-   $s->status=$v['decision']==='approve'?'approved':'returned';$s->review_note=$v['note']??null;$s->reviewed_by=$r->user()->id;$s->reviewed_at=now();$s->revision++;$s->save();PerformanceWorkflow::record('brands_submission',$s->id,$r->user()->id,$v['decision'],[],['revision'=>$s->revision,'source_id'=>$s->source_id],$v['note']??'Manager approved publication.');PerformanceWorkflow::notify($s->submitted_by,'brands-result:'.$s->id.':'.$s->revision,$s->status==='approved'?'Brands report published':'Brands report corrections requested','Open My Entries & Reviews on the Brands dashboard to see the decision and correction notes.',route('dashboard',['weekly_department'=>'brands_marketing','brands_submission'=>$s->id]).'#staff-weekly-performance');
-  });return response()->json(['message'=>$v['decision']==='approve'?'Report approved and published.':'Entry returned with correction notes.']);
+
  }
+ public function publishOwn(User $actor, BrandsReportSubmission $submission): BrandsReportSubmission {
+  abort_unless(self::manager($actor) && (int)$submission->submitted_by===$actor->id,403);
+  return DB::transaction(function()use($actor,$submission){
+   $s=BrandsReportSubmission::lockForUpdate()->findOrFail($submission->id);
+   if($s->status==='approved')return $s;
+   abort_unless($s->status==='pending',409,'Only a pending manager-authored entry can publish directly.');
+   $this->publish($actor,$s);
+   $s->status='approved';$s->reviewed_by=$actor->id;$s->reviewed_at=now();
+   $s->review_note='Published directly by the reporting line manager.';$s->revision++;$s->save();
+   PerformanceWorkflow::record('brands_submission',$s->id,$actor->id,'manager_published',[],['revision'=>$s->revision,'source_id'=>$s->source_id],$s->review_note);
+   return $s;
+  });
+ }
+
 }

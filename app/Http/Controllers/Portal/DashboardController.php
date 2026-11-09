@@ -738,7 +738,10 @@ class DashboardController extends Controller
             abort_if(!trim(strip_tags($item->deliverables??'')),422,'Enter this week’s actual update before submitting.');
         }
         app(\App\Services\WeeklyReportingHistory::class)->record($item,$v['report_action'],$v['reason']);
-        $item->forceFill($v['report_action']==='submit'?['report_status'=>'submitted','report_submitted_at'=>now(),'report_submitted_by'=>$request->user()->id,'report_reviewed_at'=>null,'report_reviewed_by'=>null]:['report_status'=>'reviewed','report_reviewed_at'=>now(),'report_reviewed_by'=>$request->user()->id])->save();
+        $managerPublishing = $v['report_action'] === 'submit'
+            && \App\Services\PerformanceAccess::manages($request->user(), $this->normalizeDepartment($item->department));
+        $item->forceFill($v['report_action']==='submit'?['report_status'=>$managerPublishing?'reviewed':'submitted','report_submitted_at'=>now(),'report_submitted_by'=>$request->user()->id,'report_reviewed_at'=>$managerPublishing?now():null,'report_reviewed_by'=>$managerPublishing?$request->user()->id:null]:['report_status'=>'reviewed','report_reviewed_at'=>now(),'report_reviewed_by'=>$request->user()->id])->save();
+        if ($managerPublishing) return back()->with('status','Weekly report published. Project completion is tracked separately.');
         return back()->with('status','Weekly report '.$item->report_status.'. Project completion is tracked separately.');
     }
 

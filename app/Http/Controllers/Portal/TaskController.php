@@ -160,7 +160,7 @@ class TaskController extends Controller
             ->first();
 
         // Team members list so creator can assign to others (managers+)
-        $canAssignOthers = in_array($user->access_role, ['admin', 'super_admin', 'manager'])
+        $canAssignOthers = $user->isEffectiveLineManager() || in_array($user->access_role, ['admin', 'super_admin', 'manager'])
             || in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah']);
         $teamMembers = $canAssignOthers ? User::internalStaff()->orderBy('name')->get() : collect([$user]);
         $campaigns   = \App\Models\Campaign::orderBy('name')->get();
@@ -206,7 +206,7 @@ class TaskController extends Controller
         ]);
 
         $isDeveloper  = in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah'], true);
-        $canAssign    = $isDeveloper || in_array($user->access_role, ['admin', 'super_admin', 'manager']);
+        $canAssign    = $isDeveloper || $user->isEffectiveLineManager() || in_array($user->access_role, ['admin', 'super_admin', 'manager']);
         $assignTo     = $canAssign && $request->filled('assign_to') ? (int) $request->input('assign_to') : $user->id;
 
         // Derive department from the person being assigned
