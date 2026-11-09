@@ -124,3 +124,176 @@
 /* Keep summary labels and filter controls readable on narrow dashboard panels. */
 .cs-studio [data-cs-stats]{grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr))}
 @media(max-width:480px){.cs-studio .cs-filters{grid-template-columns:minmax(0,1fr)}.cs-studio[data-embedded="true"]{padding:12px}.cs-studio .cs-filter-actions{grid-column:1/-1}}
+
+/* Presentation calendar: a quiet surface, strong hierarchy and readable work. */
+.cs-calendar-experience{--planner-silver:#b8c8d8;--planner-blue:#7bbdff;min-width:0}
+.cs-calendar-hero{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;padding:30px;border:1px solid #8498ac70;border-radius:20px;background:radial-gradient(ellipse at 100% 0,#367db13b,transparent 65%),linear-gradient(125deg,#28333f,#151b23 65%);box-shadow:inset 0 1px 0 #fff3,0 16px 40px #0002;overflow:hidden}
+.cs-calendar-title h4{font-size:clamp(27px,3.3vw,44px);font-weight:800;line-height:1.13;letter-spacing:-.045em}
+.cs-calendar-title h4 span{color:#a8d5ff}
+.cs-calendar-title>p:not(.cs-kicker){font-size:13px;color:#bac9d8;margin:12px 0 0;line-height:1.7}
+.cs-calendar-title .cs-calendar-filter-context{color:#d6eaff;font-size:12px}
+.cs-calendar-hero-actions{display:flex;gap:8px;align-items:start;flex-wrap:wrap}
+.cs-calendar-pulse{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border-top:1px solid #a3bbd52d;padding-top:24px}
+.cs-calendar-pulse article{display:grid;grid-template-columns:1fr auto;gap:6px 14px;padding:0 22px;border-right:1px solid #a3bbd52d;min-width:0}
+.cs-calendar-pulse article:first-child{padding-left:0}
+.cs-calendar-pulse article:last-child{border:0;padding-right:0}
+.cs-calendar-pulse article>span{align-self:center;color:#d4e2ee;font-size:12px;font-weight:650}
+.cs-calendar-pulse article>strong{grid-column:2;grid-row:1/3;font-size:34px;color:#a8d5ff;line-height:1.2;font-variant-numeric:tabular-nums}
+.cs-calendar-pulse article[data-tone="2"]>strong{color:#ffd29a}
+.cs-calendar-pulse article[data-tone="3"]>strong{color:#d8e4ee}
+.cs-calendar-pulse small{font-size:10px;color:#a5b4c3;line-height:1.5}
+.cs-studio .cs-planner-toolbar{margin:28px 0 8px;gap:16px}
+.cs-planner-toolbar .cs-kicker{margin:0 0 6px;font-size:9px}
+.cs-planner-toolbar h4{font-size:22px;letter-spacing:-.025em}
+.cs-calendar-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cs-calendar-stepper,.cs-calendar-modes{display:flex;gap:3px;border:1px solid #8498ac66;border-radius:10px;padding:4px;background:#121a23}
+.cs-studio .cs-calendar-controls .cs-btn{border:0;border-radius:6px;box-shadow:none;background:transparent;min-height:34px;padding:7px 12px;font-size:11px;color:#d0dce7}
+.cs-studio .cs-calendar-modes [aria-pressed=true]{background:linear-gradient(120deg,#dce7f0,#a5bbce);color:#152534;box-shadow:inset 0 1px 0 #fff9}
+.cs-calendar-reading-guide{font-size:11px;line-height:1.8;color:#b3c1cf;margin:12px 0 18px}
+.cs-calendar-page-note{padding:12px 16px;margin:14px 0;border:1px solid #e6bd6b66;border-radius:10px;font-size:12px;line-height:1.6;color:#f8d99f;background:#44371944}
+
+.cs-studio .cs-week-planner{border:1px solid #8195a977;border-radius:16px;background:#161e27;box-shadow:0 10px 30px #0002,inset 0 1px #ffffff20}
+.cs-week-planner .cs-week-row{grid-template-columns:196px repeat(7,minmax(100px,1fr));min-width:896px;border-bottom:1px solid #a9c2d320}
+.cs-week-planner .cs-week-row:last-child{border-bottom:0}
+.cs-week-planner .cs-week-head{height:78px;background:#24303d;z-index:4}
+.cs-studio .cs-week-planner .cs-week-label{border-right:1px solid #91abc044;background:linear-gradient(130deg,#293643,#1b2530);padding:19px 18px;z-index:3;box-shadow:5px 0 12px #0002}
+.cs-week-planner .cs-week-head .cs-week-label{font-size:10px;letter-spacing:.1em;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.cs-week-head .cs-week-label small{font-size:10px;letter-spacing:0;font-weight:400;color:#b2c2d0}
+.cs-studio .cs-week-planner .cs-planner-day{padding:14px 12px;border-color:#a9c2d320;display:grid;grid-template-columns:1fr auto;gap:3px;align-items:center}
+.cs-planner-day>span{font-size:11px;letter-spacing:.03em}
+.cs-planner-day>strong{font-size:23px;line-height:1.2;color:#dbe8f4;grid-column:2;grid-row:1/3}
+.cs-planner-day>small{font-size:9px;color:#a7d9ff}
+.cs-planner-day[data-today=true]>strong{display:grid;place-items:center;background:#b7daf6;border:1px solid #edfbff;border-radius:50%;height:38px;width:38px;color:#14293d;box-shadow:0 0 18px #79bfff45}
+.cs-studio .cs-week-planner .cs-planner-grid-cell{border-color:#a9c2d31a;padding:0;background:#1a232e}
+.cs-studio .cs-week-planner [data-weekend=true]{background:#111a24}
+.cs-studio .cs-week-planner [data-today=true]{background:#314a643d;box-shadow:inset 1px 0 #99ceff38,inset -1px 0 #99ceff38}
+.cs-lane-person{display:flex;gap:10px;align-items:center}
+.cs-lane-person img,.cs-lane-avatar{width:36px;height:36px;flex-shrink:0;border-radius:12px;border:1px solid #bfd9ef55;object-fit:cover;background:linear-gradient(135deg,#5e7b96,#2f4559)}
+.cs-lane-avatar{display:grid;place-items:center;color:#e7f5ff;font-weight:750;font-size:12px}
+.cs-lane-person>div{min-width:0}
+.cs-lane-person strong{display:block;font-size:12px;line-height:1.5;color:#eff5fb;overflow-wrap:anywhere}
+.cs-lane-person small{display:block;font-size:9px;line-height:1.5;color:#acbdcb;font-weight:400;margin-top:3px}
+.cs-lane-assignment-count{display:block;font-size:9px;letter-spacing:.02em;font-weight:500;color:#b7d9f6;margin:12px 0 10px}
+.cs-lane-capacity{font-size:9px;color:#ccdae6;line-height:1.6;font-weight:500}
+.cs-lane-capacity>small{display:block;font-size:9px;color:#9db0c2;font-weight:400;margin-top:5px}
+.cs-lane-capacity>strong{display:block;font-size:9px;color:#ffc69e;margin-top:5px}
+.cs-lane-meter{height:4px;margin-top:7px;background:#8196aa25;border-radius:5px;overflow:hidden}
+.cs-lane-meter i{display:block;height:100%;background:linear-gradient(90deg,#537fa7,#b7e2ff);border-radius:inherit}
+.cs-lane-capacity[data-overloaded=true] .cs-lane-meter i{background:#f5b98d}
+.cs-lane-empty{align-self:center;justify-self:start;margin:20px 28px;color:#889db0;font-size:12px;font-style:italic;z-index:1}
+
+.cs-studio .cs-cal-bar.cs-planner-work{align-self:stretch;min-height:0;margin:7px 5px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--lane) 45%,#708499);border-left:3px solid var(--lane);border-radius:10px;background:linear-gradient(120deg,color-mix(in srgb,var(--lane) 12%,#263444),#202c38 70%);box-shadow:inset 0 1px 0 #e9f6ff22,0 3px 8px #0002;display:flex;flex-direction:column;gap:5px;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease}
+.cs-studio .cs-planner-work:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 #fff5,0 5px 16px #0004;border-color:var(--lane);background:linear-gradient(120deg,color-mix(in srgb,var(--lane) 22%,#2b3d50),#253340)}
+.cs-planner-work-top{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0}
+.cs-planner-stage{font-size:8px;font-weight:750;letter-spacing:.025em;color:var(--lane);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-planner-priority{font-size:8px;font-weight:750;flex:none;color:#ffd3a0}
+.cs-planner-priority[data-priority=urgent]{color:#ffb2be}
+.cs-planner-work-title{font-size:12px;font-weight:750;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-wrap:pretty;color:#f1f6fb;letter-spacing:-.01em}
+.cs-planner-work-meta{display:flex;justify-content:space-between;gap:10px;font-size:9px;color:#bdcedd;line-height:1.5}
+.cs-planner-work-meta>span{font-size:8px;color:#9fb6c9;white-space:nowrap}
+.cs-planner-dates{display:flex;gap:10px;font-size:8px;color:#abbdce;line-height:1.5;margin-top:auto}
+.cs-calendar-late{color:#ffc19a!important}
+.cs-calendar-alert{position:absolute;right:8px;bottom:8px;font-size:8px;color:#ffd2ab;background:#382c24;padding:2px 5px;border-radius:4px}
+.cs-planner-work[data-span="1"]{padding:9px!important}
+.cs-planner-work[data-span="1"] .cs-planner-work-meta>span,.cs-planner-work[data-span="1"] .cs-planner-dates>span:last-child,.cs-planner-work[data-span="1"] .cs-calendar-alert{display:none}
+.cs-calendar-key{display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;padding:16px 4px;border-bottom:1px solid #9bb3c62a}
+.cs-calendar-key>div{display:flex;gap:14px;flex-wrap:wrap}
+.cs-calendar-key span{display:flex;align-items:center;gap:6px;font-size:9px;color:#c4d3e0}
+.cs-calendar-key i{width:7px;height:7px;border-radius:2px;background:var(--key-colour)}
+.cs-calendar-key p{font-size:9px;color:#9eb0c0;margin:0;line-height:1.6}
+.cs-calendar-followups{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+.cs-calendar-followups>section{min-width:0;border:1px solid #8498ac55;border-radius:16px;background:linear-gradient(135deg,#27334080,#18212b);padding:22px}
+.cs-calendar-followups header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.cs-calendar-followups header .cs-kicker{font-size:8px;margin:0 0 7px}
+.cs-calendar-followups header h4{font-size:18px;letter-spacing:-.025em}
+.cs-calendar-followups header>span{font-size:22px;font-weight:750;color:#aacbe6}
+.cs-calendar-followups p{font-size:11px;color:#b3c3d1;line-height:1.7;margin:10px 0 16px}
+.cs-studio .cs-calendar-followup{display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;border:1px solid #819cb232;background:#15212d80;border-radius:10px;padding:13px;margin:9px 0;color:#dce8f1}
+.cs-calendar-followup-line{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.cs-calendar-followup-line>span{font-size:8px;color:var(--key-colour);flex-shrink:0}
+.cs-calendar-followup small{font-size:9px;color:#9db6cb;line-height:1.6}
+.cs-calendar-followup strong{font-size:12px;line-height:1.5}
+.cs-calendar-followup>span:last-child{font-size:10px;color:#b4c7d7;line-height:1.6}
+.cs-calendar-followups .cs-calendar-clear{padding:16px;border:1px dashed #80a6be44;border-radius:10px;color:#9bc6b4}
+
+.cs-studio.cs-calendar-focus>.cs-heading,.cs-studio.cs-calendar-focus>.cs-status,.cs-studio.cs-calendar-focus>.cs-stats,.cs-studio.cs-calendar-focus>.cs-people,.cs-studio.cs-calendar-focus>.cs-tabs,.cs-studio.cs-calendar-focus>.cs-filters{display:none}
+.cs-studio.cs-calendar-focus{padding:24px;background:#111923}
+.cs-studio:fullscreen{overflow:auto;padding:28px;background:#111923}
+.cs-calendar-experience .cs-year-month{background:linear-gradient(135deg,#253341,#19232e);border-color:#819ab255}
+.cs-calendar-experience .cs-month .cs-day{background:#1b2733;border-color:#70899e33;padding:13px}
+.cs-calendar-experience .cs-day>strong{font-size:11px;letter-spacing:.02em;color:#bed2e2}
+.cs-calendar-experience .cs-agenda{padding:18px;border:1px solid #819ab244;border-radius:12px;background:#1a2734;margin:10px 0}
+.cs-calendar-experience .cs-agenda time{color:#a6d2f5}
+
+@media(min-width:1500px){.cs-week-planner .cs-week-row{grid-template-columns:218px repeat(7,minmax(118px,1fr))}
+.cs-planner-work-title{font-size:13px}
+}
+
+@media(max-width:900px){.cs-calendar-hero{padding:22px;grid-template-columns:1fr}
+.cs-calendar-hero-actions{grid-row:2}
+.cs-calendar-pulse{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 0}
+.cs-calendar-pulse article:nth-child(2){border:0;padding-right:0}
+.cs-calendar-pulse article:nth-child(3){padding-left:0}
+.cs-calendar-followups{grid-template-columns:1fr}
+.cs-calendar-controls{width:100%;justify-content:space-between}
+.cs-calendar-pulse article>strong{font-size:29px}
+}
+
+@media(max-width:520px){.cs-calendar-hero{padding:18px;gap:18px;border-radius:14px}
+.cs-calendar-title h4{font-size:28px}
+.cs-calendar-pulse article{padding:0 12px;grid-template-columns:1fr}
+.cs-calendar-pulse article>strong{grid-column:1;grid-row:2;font-size:30px}
+.cs-calendar-pulse article>small{grid-row:3}
+.cs-calendar-controls{gap:10px}
+.cs-studio .cs-calendar-controls .cs-btn{padding:7px 10px}
+.cs-calendar-followups>section{padding:17px}
+.cs-calendar-followup-line{flex-wrap:wrap}
+.cs-studio.cs-calendar-focus{padding:12px}
+}
+
+@media(prefers-reduced-motion:reduce){.cs-studio .cs-planner-work{transition:none;transform:none}
+}
+
+@media print{.cs-calendar-hero-actions,.cs-calendar-controls{display:none}
+.cs-week-planner{overflow:visible!important}
+.cs-calendar-experience{break-inside:avoid}
+}
+
+
+.cs-studio.cs-calendar-focus{position:fixed;inset:0;z-index:120;width:100vw;height:100dvh;max-width:none;margin:0;border:0;border-radius:0;overflow:auto;overscroll-behavior:contain}
+.cs-studio.cs-calendar-focus>.cs-status[data-error=true]{display:block}
+.cs-calendar-focus .cs-calendar-experience{max-width:1880px;margin:0 auto}
+.cs-calendar-focus .cs-calendar-pulse{padding-top:18px}
+.cs-calendar-focus .cs-calendar-hero{padding:24px 28px}
+
+.cs-calendar-focus .cs-view > .cs-notice:first-child{display:none}
+
+/* A reflected highlight travels along the metal trim without crossing the text. */
+.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true]) {
+ position:relative;
+ isolation:isolate;
+}
+.cs-calendar-frame{border-radius:16px}
+.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true])::after {
+ content:"";
+ position:absolute;
+ inset:0;
+ z-index:5;
+ padding:2px;
+ border-radius:inherit;
+ pointer-events:none;
+ background:linear-gradient(110deg,transparent 38%,#91c8ff 44%,#fff 49%,#e6f4ff 54%,transparent 62%);
+ background-size:300% 100%;
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;
+ mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ mask-composite:exclude;
+ opacity:0;
+ animation:cs-metal-edge 5.6s ease-in-out infinite;
+}
+.cs-calendar-experience .cs-calendar-frame::after{animation-delay:.65s}
+.cs-calendar-experience .cs-calendar-hero-actions .cs-btn::after{animation-delay:1.1s}
+.cs-calendar-experience .cs-calendar-hero-actions .cs-btn + .cs-btn::after,.cs-calendar-experience .cs-calendar-modes [aria-pressed=true]::after{animation-delay:1.7s}
+@media(prefers-reduced-motion:reduce),print {
+ .cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true])::after{display:none;animation:none}
+}
