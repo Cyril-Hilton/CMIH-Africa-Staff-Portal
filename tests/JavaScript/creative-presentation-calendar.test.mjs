@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../../resources/js/creative-studio.js',import.meta.url),'utf8').split('function initCreativeStudios')[0];
-const Studio=vm.runInNewContext(source+';CreativeStudio',{URLSearchParams,Intl,Date});
+const Studio=vm.runInNewContext(source+';CreativeStudio',{URLSearchParams,Intl,Date,FormData: class {
+ constructor(form) { this.entries = form.entries; }
+ getAll(key) { return this.entries.filter(([name]) => name === key).map(([, value]) => value); }
+ [Symbol.iterator]() { return this.entries[Symbol.iterator](); }
+}});
 const make=()=>{const s=Object.create(Studio.prototype);Object.assign(s,{week:new Date('2026-11-09T00:00:00Z'),calendarMode:'week',filter:{},items:[],data:{staff:[{id:1,name:'Creative One',title:'Motion Designer'}],stages:{scheduled:'Scheduled',in_progress:'In Progress',in_review:'Awaiting Review',delivered:'Approved for Delivery',completed:'Verified & Completed'},capacity:[],pagination:{total:0}}});return s;};
 const brief=(extra={})=>({id:1,title:'Packaging <script>alert(1)</script>',client:'Client & Brand',reference:'CR-001',assignee:{id:1,name:'Creative One'},stage:'in_progress',priority:'High',estimated_hours:18,dates:{planned_start:'2026-11-06T09:00:00Z',internal_eta:'2026-11-16T15:00:00Z',requested_deadline:'2026-11-18T16:00:00Z'},...extra});
 test('weekly planner clips work to the week and distinguishes internal ETA from requester deadline',()=>{const s=make();s.items=[brief()];const html=s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z'));assert.match(html,/grid-column:2\/9;grid-row:1/);assert.match(html,/Starts before this week/);assert.match(html,/Continues next week/);assert.match(html,/ETA 16 Nov/);assert.match(html,/Client 18 Nov/);assert.match(html,/Awaiting Review/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/data-cs-open="1"/);});
@@ -36,4 +40,23 @@ test('presentation focus removes the dashboard backdrop and restores it on exit'
  studio.applyCalendarFocus(false);
  assert.deepEqual(styles.get('backdrop-filter'), ['blur(16px)', '']);
  assert.equal(styles.has('-webkit-backdrop-filter'), false);
+});
+
+test('collaborators display on calendar cards and can be selected, saved or cleared', async () => {
+ const studio = make();
+ studio.data.collaborators = [{id: 3, name: 'Research & Insights', department: 'brands_marketing'}, {id: 4, name: 'Operations Staff'}];
+ studio.items = [brief({supporting_staff: studio.data.collaborators})];
+ assert.match(studio.calendar(), /With Research &amp; Insights, Operations Staff/);
+ const picker = studio.supportingStaffPicker(studio.data.collaborators.slice(0, 1));
+ assert.match(picker, /value="3" checked/);
+ assert.doesNotMatch(picker, /value="4" checked/);
+
+ let saved;
+ studio.mutate = async (url, data) => { saved = data; };
+ const form = {querySelectorAll: () => [], reportValidity: () => true, dataset: {csForm: 'plan', id: '1'}};
+ await studio.submit({...form, entries: [['supporting_staff_ids[]', '3'], ['supporting_staff_ids[]', '4']]});
+ assert.equal(JSON.stringify(saved.supporting_staff_ids), '[3,4]');
+ assert.equal(saved['supporting_staff_ids[]'], undefined);
+ await studio.submit({...form, entries: []});
+ assert.equal(JSON.stringify(saved.supporting_staff_ids), '[]');
 });

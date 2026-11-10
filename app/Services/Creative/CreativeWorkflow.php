@@ -9,9 +9,9 @@ class CreativeWorkflow {
  public function create(User $actor,array $d):CreativeRequest {
   abort_unless(CreativeAccess::staff($actor),403);
   abort_if((!empty($d['planned_start'])||!empty($d['internal_eta']))&&!CreativeAccess::lead($actor),403,'The Creative HOD sets the work schedule.');
-  return DB::transaction(function()use($actor,$d){$id=(string)Str::uuid();$r=CreativeRequest::create(['uuid'=>$id,'reference'=>'CR-'.strtoupper(substr(str_replace('-','',$id),0,12)),'requester_id'=>$actor->id,'reviewer_id'=>$actor->id,'requester_snapshot'=>CreativeAccess::snapshot($actor),'department'=>User::normalizeDepartmentKey($actor->department),'title'=>$d['title'],'brief'=>$d['brief'],'creative_type'=>$d['creative_type'],'client'=>$d['client']??null,'requested_deadline'=>$d['requested_deadline'],'priority'=>$d['priority'],'visibility'=>$d['visibility']??'shared','received_at'=>now(),'planned_start'=>$d['planned_start']??null,'internal_eta'=>$d['internal_eta']??null,'reported_external_at'=>$d['reported_external_at']??null,'stage'=>'brief_received']);
+  return DB::transaction(function()use($actor,$d){$id=(string)Str::uuid();$r=CreativeRequest::create(['uuid'=>$id,'reference'=>'CR-'.strtoupper(substr(str_replace('-','',$id),0,12)),'requester_id'=>$actor->id,'reviewer_id'=>$actor->id,'requester_snapshot'=>CreativeAccess::snapshot($actor),'department'=>User::normalizeDepartmentKey($actor->department),'title'=>$d['title'],'brief'=>$d['brief'],'creative_type'=>$d['creative_type'],'client'=>$d['client']??null,'requested_deadline'=>$d['requested_deadline'],'priority'=>$d['priority'],'visibility'=>$d['visibility']??'shared','received_at'=>now(),'planned_start'=>$d['planned_start']??null,'internal_eta'=>$d['internal_eta']??null,'reported_external_at'=>$d['reported_external_at']??null,'stage'=>'brief_received','supporting_staff_ids'=>$this->supportingStaff($d['supporting_staff_ids']??[])]);
    $this->event($r,$actor,'submitted',[],'Brief submitted in the portal.');if(!empty($d['reference_url']))$r->updates()->create(['author_id'=>$actor->id,'kind'=>'reference','body'=>'Brief reference','reference_url'=>$d['reference_url']]);
-   $this->notify($r,$this->leads(),'New creative brief',$r->reference.' has been submitted.');return $r;
+   $this->notify($r,[...$this->leads(),...$r->supportingStaffIds()],'New creative brief',$r->reference.' has been submitted.');return $r;
   });
  }
  public function split(CreativeRequest $record,User $actor,array $d):CreativeRequest {
@@ -19,7 +19,7 @@ class CreativeWorkflow {
   return DB::transaction(function()use($record,$actor,$d){
    $r=$this->lock($record,$d['revision']);abort_if($r->task_id||$r->assignee_id||$r->is_group||$r->parent_request_id||!in_array($r->stage,['backlog','brief_received','needs_info']),422,'Split an unassigned original brief before planning individual tasks.');
    $r->forceFill(['is_group'=>true,'stage'=>'brief_received','revision'=>$r->revision+1])->save();
-   foreach($d['parts'] as $part){$uuid=(string)Str::uuid();$child=CreativeRequest::create(['uuid'=>$uuid,'reference'=>'CR-'.strtoupper(substr(str_replace('-','',$uuid),0,12)),'parent_request_id'=>$r->id,'requester_id'=>$r->requester_id,'reviewer_id'=>$r->reviewer_id,'requester_snapshot'=>$r->requester_snapshot,'department'=>$r->department,'title'=>$part['title'],'brief'=>$part['brief'],'creative_type'=>$r->creative_type,'client'=>$r->client,'priority'=>$part['priority']??$r->priority,'visibility'=>$r->visibility,'requested_deadline'=>$part['requested_deadline']??$r->requested_deadline,'received_at'=>$r->received_at,'stage'=>'brief_received']);
+   foreach($d['parts'] as $part){$uuid=(string)Str::uuid();$child=CreativeRequest::create(['uuid'=>$uuid,'reference'=>'CR-'.strtoupper(substr(str_replace('-','',$uuid),0,12)),'parent_request_id'=>$r->id,'requester_id'=>$r->requester_id,'reviewer_id'=>$r->reviewer_id,'requester_snapshot'=>$r->requester_snapshot,'department'=>$r->department,'title'=>$part['title'],'brief'=>$part['brief'],'creative_type'=>$r->creative_type,'client'=>$r->client,'priority'=>$part['priority']??$r->priority,'visibility'=>$r->visibility,'requested_deadline'=>$part['requested_deadline']??$r->requested_deadline,'received_at'=>$r->received_at,'stage'=>'brief_received','supporting_staff_ids'=>$r->supporting_staff_ids]);
     $this->event($child,$actor,'brief_part_created',[],'Work package created from '.$r->reference.'. Original requester and receipt are retained.');
    }
    $this->event($r,$actor,'brief_split',[],$d['reason']);$this->notify($r,[$r->requester_id,...$this->leads()],'Creative brief divided into work packages',$r->reference.' has individual parts for Creative HOD assignment.');return $r;
@@ -45,8 +45,14 @@ class CreativeWorkflow {
    }
    $previousStage = $r->stage;
    $r->stage = $d['stage'] ?? (in_array($r->stage,['backlog','brief_received','needs_info']) ? 'scheduled' : $r->stage);
-   if(!$r->task_id){$task=Task::create(['title'=>$r->title,'details'=>$r->brief,'client_name'=>$r->client,'department'=>'creatives','assigned_to'=>$assignee->id,'assigned_by'=>$actor->id,'due_on'=>$r->requested_deadline,'priority'=>$r->priority,'status'=>'Open','progress'=>10,'completion_review_status'=>null]);$r->task_id=$task->id;}
-   else Task::whereKey($r->task_id)->update(['assigned_to'=>$assignee->id,'due_on'=>$r->requested_deadline]);
+   $existingSupport = $r->supportingStaffIds();
+   $support = array_key_exists('supporting_staff_ids', $d)
+    ? $this->supportingStaff($d['supporting_staff_ids'], $existingSupport)
+    : $existingSupport;
+   $support = array_values(array_diff($support, [$assignee->id]));
+   if(!$r->task_id){$task=Task::create(['title'=>$r->title,'details'=>$r->brief,'client_name'=>$r->client,'department'=>'creatives','assigned_to'=>$assignee->id,'assigned_by'=>$actor->id,'due_on'=>$r->requested_deadline,'priority'=>$r->priority,'status'=>'Open','progress'=>10,'completion_review_status'=>null,'supporting_staff_ids'=>$support]);$r->task()->associate($task);}
+   else $r->task->update(['assigned_to'=>$assignee->id,'due_on'=>$r->requested_deadline,'supporting_staff_ids'=>$support]);
+   $r->supporting_staff_ids = $support;
    if(isset($d['performance_weight']) && !($actor->id===$assignee->id && (int)$d['performance_weight']===(int)Task::findOrFail($r->task_id)->performance_weight)){
     abort_unless(\App\Services\DeliveryImpact::mayRate($actor,$assignee),403,'Impact weighting requires an independent manager.');
     $weightedTask=Task::findOrFail($r->task_id);$oldWeight=$weightedTask->only(['performance_weight','weight_approved_by','weight_approved_at']);
@@ -63,7 +69,7 @@ class CreativeWorkflow {
    if ($warnings) $reason .= ' Warnings acknowledged: '.implode(' ', $warnings);
    if ($override !== '') $reason .= ' Override: '.$override;
    $this->event($r,$actor,'plan_changed',$before,$reason);
-   $this->notify($r,[$r->assignee_id,$r->requester_id,$r->reviewer_id],'Creative plan updated',$r->reference.' has an updated plan.');
+   $this->notify($r,[$r->assignee_id,$r->requester_id,$r->reviewer_id,...$support],'Creative plan updated',$r->reference.' has an updated plan.');
    return $r;
   });
  }
@@ -109,6 +115,15 @@ class CreativeWorkflow {
    $this->syncTask($r,$actor);if($r->parent_request_id){$parent=CreativeRequest::lockForUpdate()->findOrFail($r->parent_request_id);$allDone=$parent->parts()->whereNotIn('stage',['completed'])->doesntExist();$parent->stage=$allDone?'completed':'in_progress';$parent->completed_at=$allDone?now():null;$parent->revision++;$parent->save();$this->event($parent,$actor,'parts_progress_updated',[],$allDone?'All work packages completed with recorded approval.':'Work package progress updated.');}$this->event($r,$actor,'stage_changed',$before,$d['reason']?:'Workflow updated.');$this->notify($r,array_merge([$r->requester_id,$r->assignee_id,$r->reviewer_id],$this->leads()),'Creative work: '.config('creative.stages.'.$action),$r->reference.' needs attention. Open the shared timeline for details.');return $r;
   });
  }
+ private function supportingStaff(array $ids, array $retained = []): array {
+  $ids = array_values(array_unique(array_map('intval', $ids)));
+  $added = array_diff($ids, $retained);
+  if ($added && array_diff($added, CreativeAccess::collaborators()->modelKeys())) {
+   throw ValidationException::withMessages(['supporting_staff_ids'=>'Choose active internal staff as collaborators.']);
+  }
+  return $ids;
+ }
+
  private function syncTask(CreativeRequest $r,User $actor):void {
   if(!$r->task_id||$r->stage==='archived')return;
   $verified=$r->stage==='completed';$review=in_array($r->stage,['in_review','delivered']);

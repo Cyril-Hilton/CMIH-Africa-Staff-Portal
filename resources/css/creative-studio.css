@@ -306,3 +306,10 @@
 .cs-dialog .cs-request-brief{white-space:pre-line;padding:16px;border:1px solid var(--cs-line);border-radius:12px}
 .cs-dialog .cs-request-brief{margin:14px 0;background:#ffffff06}
 .cs-dialog .cs-request-brief h4{font-size:12px;letter-spacing:.05em;margin:0 0 8px}
+
+.cs-dialog .cs-support-picker summary small{margin-inline-start:8px;color:#a9c1d6;font-weight:500}
+.cs-dialog .cs-support-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:4px 12px;max-height:220px;overflow:auto;padding:4px}
+.cs-dialog .cs-support-options label{padding:7px 8px;border:1px solid #a9c1d62b;border-radius:8px}
+.cs-dialog .cs-support-options label small{display:block;color:#a9c1d6}
+.cs-support-line{font-size:.78rem;color:#b8cee0;margin:5px 0 8px;overflow-wrap:anywhere}
+.cs-planner-support{font-size:10px;line-height:1.4;color:#cce0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

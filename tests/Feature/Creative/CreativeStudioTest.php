@@ -43,6 +43,58 @@ class CreativeStudioTest extends TestCase {
   $this->assertSame('In Progress', $brief->task->status);
   $this->assertDatabaseHas('creative_updates', ['creative_request_id'=>$brief->id,'kind'=>'comment','body'=>$plan['update']]);
  }
+ public function test_creative_collaborators_can_follow_restricted_work_without_workflow_authority(): void
+ {
+  $requester = $this->staff();
+  $lead = $this->staff('creatives', 'manager');
+  $assignee = $this->staff('creatives');
+  $support = $this->staff('operations_projects');
+  $other = $this->staff('finance');
+  $deadline = now()->addWeeks(3)->startOfWeek()->addDays(4)->setHour(16);
+  $start = $deadline->copy()->startOfWeek()->addDay()->setHour(9);
+  $store = ['title'=>'Collaborative artwork', 'brief'=>'Prepare artwork for launch.',
+   'creative_type'=>config('creative.types')[0], 'visibility'=>'restricted',
+   'requested_deadline'=>$deadline->toIso8601String(), 'supporting_staff_ids'=>[$support->id]];
+  $id = $this->actingAs($requester)->postJson(route('portal.creative.store'), $store)->assertCreated()->json('id');
+  $brief = CreativeRequest::findOrFail($id);
+  $detail = route('portal.creative.show', $brief);
+  $planUrl = route('portal.creative.plan', $brief);
+
+  $this->actingAs($other)->getJson($detail)->assertNotFound();
+  $this->actingAs($support)->getJson($detail)->assertOk()
+   ->assertJsonPath('supporting_staff.0.id', $support->id)->assertJsonCount(0, 'allowed');
+  $list = route('portal.creative.data');
+  $this->getJson($list)->assertOk()->assertJsonPath('items.0.id', $id);
+
+  $plan = ['revision'=>$brief->revision, 'assignee_id'=>$assignee->id, 'planned_start'=>$start->toIso8601String(),
+   'internal_eta'=>$start->copy()->addDay()->toIso8601String(), 'estimated_hours'=>5, 'acknowledge_warnings'=>true];
+  $this->postJson($planUrl, $plan)->assertForbidden();
+  $this->actingAs($lead)->postJson($planUrl, $plan)->assertOk();
+  $brief->refresh();
+  $this->assertSame([$support->id], $brief->task->supporting_staff_ids);
+  $this->assertSame($assignee->id, $brief->assignee_id);
+  $this->assertSame($lead->id, $brief->reviewer_id);
+
+  // An existing shared-task edit should also be reflected in the Creative views.
+  $brief->task->update(['supporting_staff_ids'=>[(string) $other->id]]);
+  $this->actingAs($support)->getJson($detail)->assertNotFound();
+  $this->getJson($list)->assertOk()->assertJsonCount(0, 'items');
+  $this->actingAs($other)->getJson($list)->assertOk()
+   ->assertJsonPath('items.0.supporting_staff.0.name', $other->name);
+  $this->getJson($detail)->assertOk()->assertJsonPath('supporting_staff.0.id', $other->id);
+  $this->deleteJson(route('portal.tasks.destroy', $brief->task_id))->assertForbidden();
+
+  $plan['revision'] = $brief->revision;
+  $this->actingAs($lead)->postJson($planUrl, $plan + ['supporting_staff_ids'=>[]])->assertOk();
+  $this->assertSame([], $brief->fresh()->task->supporting_staff_ids);
+  $this->actingAs($other)->getJson($detail)->assertNotFound();
+
+  $other->update(['status'=>'suspended']);
+  $this->actingAs($requester)->postJson(route('portal.creative.store'), array_replace($store, [
+   'supporting_staff_ids'=>[$other->id],
+  ]))->assertUnprocessable()->assertJsonValidationErrors('supporting_staff_ids');
+ }
+
  public function test_lead_can_record_monday_work_window_when_entering_a_brief_on_wednesday():void {
   $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-04 12:00:00','Africa/Accra'));
   $lead=$this->staff('creatives','manager');

@@ -4,10 +4,27 @@ use Illuminate\Database\Eloquent\Model;
 class CreativeRequest extends Model {
  protected $guarded=['id'];
  protected $attributes=['revision'=>1,'iteration'=>0,'stage'=>'brief_received','legacy'=>false,'priority'=>'Medium','visibility'=>'shared'];
- protected function casts():array {return array_merge(['is_group'=>'boolean','requester_snapshot'=>'array','assignee_snapshot'=>'array','legacy'=>'boolean','revision'=>'integer','iteration'=>'integer','estimated_hours'=>'float','quality_score'=>'float'],array_fill_keys(['received_at','acknowledged_at','reported_external_at','source_recorded_at','requested_deadline','planned_start','internal_eta','first_submitted_at','submitted_at','review_due_at','reviewed_at','delivered_at','completed_at','archived_at'],'datetime'));}
+ protected function casts():array {return array_merge(['is_group'=>'boolean','supporting_staff_ids'=>'array','requester_snapshot'=>'array','assignee_snapshot'=>'array','legacy'=>'boolean','revision'=>'integer','iteration'=>'integer','estimated_hours'=>'float','quality_score'=>'float'],array_fill_keys(['received_at','acknowledged_at','reported_external_at','source_recorded_at','requested_deadline','planned_start','internal_eta','first_submitted_at','submitted_at','review_due_at','reviewed_at','delivered_at','completed_at','archived_at'],'datetime'));}
  public function parentRequest(){return $this->belongsTo(self::class,'parent_request_id');} public function parts(){return $this->hasMany(self::class,'parent_request_id');}
  public function requester(){return $this->belongsTo(User::class,'requester_id');} public function assignee(){return $this->belongsTo(User::class,'assignee_id');} public function reviewer(){return $this->belongsTo(User::class,'reviewer_id');} public function task(){return $this->belongsTo(Task::class);}
  public function firstSubmission(){return $this->hasOne(CreativeUpdate::class)->ofMany(['id'=>'min'],fn($q)=>$q->where('kind','in_review'));}
  public function updates(){return $this->hasMany(CreativeUpdate::class)->orderBy('id');} public function attachments(){return $this->hasMany(CreativeAttachment::class)->latest('id');}
- public function scopeVisibleTo($query,User $user){if(\App\Services\Creative\CreativeAccess::lead($user))return $query;return $query->where(fn($q)=>$q->where('visibility','shared')->orWhere('requester_id',$user->id)->orWhere('reviewer_id',$user->id)->orWhere('assignee_id',$user->id)->orWhereHas('parts',fn($parts)=>$parts->where(fn($p)=>$p->where('assignee_id',$user->id)->orWhere('reviewer_id',$user->id))));}
+ // The shared task owns the collaborator list once the brief has been assigned.
+ public function supportingStaffIds(): array {
+  return array_values(array_unique(array_map('intval', $this->task
+   ? ($this->task->supporting_staff_ids ?? [])
+   : ($this->supporting_staff_ids ?? []))));
+ }
+
+ public function scopeWithSupportingStaff($query, int $userId) {
+  return $query->where(function ($briefs) use ($userId) {
+   $matches = fn ($records) => $records->where(fn ($ids) => $ids
+    ->whereJsonContains('supporting_staff_ids', $userId)
+    ->orWhereJsonContains('supporting_staff_ids', (string) $userId));
+   $briefs->where(fn ($unlinked) => $matches($unlinked->whereNull('task_id')))
+    ->orWhereHas('task', $matches);
+  });
+ }
+
+ public function scopeVisibleTo($query,User $user){if(\App\Services\Creative\CreativeAccess::lead($user))return $query;return $query->where(fn($q)=>$q->where('visibility','shared')->orWhere('requester_id',$user->id)->orWhere('reviewer_id',$user->id)->orWhere('assignee_id',$user->id)->orWhere(fn($briefs)=>$briefs->withSupportingStaff($user->id))->orWhereHas('parts',fn($parts)=>$parts->where(fn($p)=>$p->where('assignee_id',$user->id)->orWhere('reviewer_id',$user->id))));}
 }
