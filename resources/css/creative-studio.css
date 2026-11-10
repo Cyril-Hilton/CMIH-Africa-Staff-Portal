@@ -269,12 +269,12 @@
 .cs-calendar-focus .cs-view > .cs-notice:first-child{display:none}
 
 /* A reflected highlight travels along the metal trim without crossing the text. */
-.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true]) {
+.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true],.cs-planner-work,.cs-day > [data-cs-open]) {
  position:relative;
  isolation:isolate;
 }
 .cs-calendar-frame{border-radius:16px}
-.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true])::after {
+.cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true],.cs-planner-work,.cs-day > [data-cs-open])::after {
  content:"";
  position:absolute;
  inset:0;
@@ -294,8 +294,16 @@
 .cs-calendar-experience .cs-calendar-frame::after{animation-delay:.65s}
 .cs-calendar-experience .cs-calendar-hero-actions .cs-btn::after{animation-delay:1.1s}
 .cs-calendar-experience .cs-calendar-hero-actions .cs-btn + .cs-btn::after,.cs-calendar-experience .cs-calendar-modes [aria-pressed=true]::after{animation-delay:1.7s}
+.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open])::after{
+ padding:1px;
+ background-image:linear-gradient(110deg,transparent 38%,#a6ceff22 44%,#f5fbff66 49%,#d8ebff33 54%,transparent 62%);
+ animation-duration:7s;
+ animation-delay:.8s;
+}
+.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+1)::after{animation-delay:1.8s}
+.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+2)::after{animation-delay:2.8s}
 @media(prefers-reduced-motion:reduce),print {
- .cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true])::after{display:none;animation:none}
+ .cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true],.cs-planner-work,.cs-day > [data-cs-open])::after{display:none;animation:none}
 }
 
 .cs-dialog .cs-request-options{margin:14px 0;padding:10px 14px;background:#ffffff05}
