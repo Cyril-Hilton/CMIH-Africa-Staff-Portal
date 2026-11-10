@@ -295,13 +295,18 @@
 .cs-calendar-experience .cs-calendar-hero-actions .cs-btn::after{animation-delay:1.1s}
 .cs-calendar-experience .cs-calendar-hero-actions .cs-btn + .cs-btn::after,.cs-calendar-experience .cs-calendar-modes [aria-pressed=true]::after{animation-delay:1.7s}
 .cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open])::after{
- padding:1px;
- background-image:linear-gradient(110deg,transparent 38%,#a6ceff22 44%,#f5fbff66 49%,#d8ebff33 54%,transparent 62%);
- animation-duration:7s;
- animation-delay:.8s;
+ padding:3px;
+ background-image:linear-gradient(105deg,transparent 32%,#8cc8ff 42%,#fff 46%,#fff 54%,#c6e9ff 58%,transparent 68%);
+ background-size:200% 100%;
+ animation:cs-task-metal-edge 4.6s ease-in-out infinite;
 }
-.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+1)::after{animation-delay:1.8s}
-.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+2)::after{animation-delay:2.8s}
+.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+1)::after{animation-delay:.4s}
+.cs-calendar-experience :is(.cs-planner-work,.cs-day > [data-cs-open]):nth-child(3n+2)::after{animation-delay:.8s}
+@keyframes cs-task-metal-edge {
+ 0%{opacity:0;background-position:100% 0}
+ 8%,49%{opacity:1}
+ 58%,100%{opacity:0;background-position:0 0}
+}
 @media(prefers-reduced-motion:reduce),print {
  .cs-calendar-experience :is(.cs-calendar-hero,.cs-calendar-frame,.cs-calendar-hero-actions .cs-btn,.cs-calendar-modes [aria-pressed=true],.cs-planner-work,.cs-day > [data-cs-open])::after{display:none;animation:none}
 }
