@@ -258,7 +258,7 @@
                 </div>
             @endif
 
-            <div class="glass-panel rounded-2xl p-5 sm:p-6">
+            <div id="warehouse-inventory" class="glass-panel rounded-2xl p-5 sm:p-6">
                 <h3 class="text-lg font-semibold text-brand-white">User Requisition Form</h3>
                 <p class="mt-1 text-sm text-brand-white/55">Submit asset requests for gatekeeper approval and custody audit.</p>
 
@@ -272,6 +272,9 @@
                             </option>
                         @endforeach
                     </select>
+                    @if($canLinkActivation)
+                        @include('portal.operations.warehouse-activation-select', ['selectedActivationLink' => request('operations_activation_id') ? 'activation:'.request('operations_activation_id') : (request('campaign_id') ? 'campaign:'.request('campaign_id') : '')])
+                    @endif
                     <div class="grid gap-3 sm:grid-cols-2">
                         <input name="requested_quantity" type="number" min="1" value="1" required class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                         <input name="requested_for" type="date" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
@@ -455,6 +458,9 @@
                                     </div>
                                     <p class="mt-2 text-sm text-brand-white/70">{{ $requestItem->asset?->name }} requested by {{ $requestItem->requester?->name }}.</p>
                                     <p class="mt-1 text-xs text-brand-white/45">Qty {{ $requestItem->requested_quantity }} for {{ $requestItem->destination_location }} - {{ $requestItem->created_at?->format('d M Y H:i') }}</p>
+                                    @if($requestItem->operationsActivation || $requestItem->campaign)
+                                        <p class="mt-1 text-xs text-brand-white/65">Activation {{ $requestItem->operationsActivation?->title ?? $requestItem->campaign?->name }}</p>
+                                    @endif
                                     @if($requestItem->review_note)
                                         <p class="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-200">{{ $requestItem->review_note }}</p>
                                     @endif
@@ -465,6 +471,17 @@
                                     <span>{{ $requestItem->return_image_path ? 'Return photo: yes' : 'Return photo: no' }}</span>
                                 </div>
                             </div>
+
+                            @if($canApproveWarehouse)
+                                <details class="mt-3"><summary class="cursor-pointer text-sm">Link to Activation</summary>
+                                    <form method="POST" action="{{ route('portal.assets.warehouse.activation', $requestItem) }}" class="mt-3 flex flex-wrap items-end gap-3" data-no-ajax>
+                                        @csrf
+                                        @method('PATCH')
+                                        @include('portal.operations.warehouse-activation-select', ['selectedActivationLink' => $requestItem->operations_activation_id ? 'activation:'.$requestItem->operations_activation_id : ($requestItem->campaign_id ? 'campaign:'.$requestItem->campaign_id : '')])
+                                        <button class="rounded-xl border border-brand-white/20 px-4 py-3 text-sm">Save Link</button>
+                                    </form>
+                                </details>
+                            @endif
 
                             @if((int) $requestItem->requested_by === (int) auth()->id() && $requestItem->status === \App\Models\AssetWarehouseRequest::STATUS_RETURNED_FOR_CORRECTION)
                                 <form method="POST" action="{{ route('portal.assets.warehouse.correct', $requestItem) }}" class="mt-4 grid gap-3 md:grid-cols-2">

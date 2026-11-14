@@ -335,6 +335,7 @@
         $isAllWeeklyDepartments = $isAllWeeklyDepartments ?? false;
         $isHrDashboard = $weeklyDepartmentFilter === 'hr_admin' && \App\Services\HrDashboard::showWorkspace(request());
         $isBrandsWeeklyDepartment = ! $isAllWeeklyDepartments && $weeklyDepartmentFilter === 'brands_marketing';
+        $isOperationsWeeklyDepartment = $weeklyDepartmentFilter === 'operations_projects';
         $isCreativeWeeklyDepartment = !$isAllWeeklyDepartments && $weeklyDepartmentFilter === 'creatives';
         $weeklyBaseColumnCount = $isAllWeeklyDepartments
             ? 8 + ($weeklyDepartmentHasBreakdown ? 3 : 0)
@@ -363,7 +364,7 @@
             </div>
             <div class="dashboard-report-actions">
                 <button type="button" data-dashboard-present aria-pressed="false" class="rounded-lg border border-brand-white/20 px-4 py-2 text-sm">Presentation Mode</button>
-            @if($canManageActiveWeeklyDepartment && !$isBrandsWeeklyDepartment && !$isHrDashboard)
+            @if($canManageActiveWeeklyDepartment && !$isBrandsWeeklyDepartment && !$isHrDashboard && !$isOperationsWeeklyDepartment)
                 <div class="flex flex-wrap gap-2">
                     <button type="button" data-report-settings onclick="document.getElementById('weekly-column-manager').classList.toggle('hidden')"
                             class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-brand-white/75 hover:bg-brand-white/10 hover:text-brand-white">
@@ -382,7 +383,7 @@
         </div>
         @include('portal.partials.weekly-department-navigation')
         @include('portal.partials.weekly-report-toolbar')
-        @unless($isBrandsWeeklyDepartment || $isHrDashboard)
+        @unless($isBrandsWeeklyDepartment || $isHrDashboard || $isOperationsWeeklyDepartment)
 
         <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -1683,7 +1684,7 @@
             window.loadWeeklyConsolidatedUrl = loadWeeklyConsolidatedUrl;
             async function refreshWeeklyConsolidatedSilently() {
                 if (!weeklyConsolidatedRegion || weeklyConsolidatedRefreshing || document.hidden) return;
-                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], [data-brands-reports], [data-hr-dashboard], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
+                if (weeklyConsolidatedRegion.querySelector('[data-creative-studio], [data-crm-centre], [data-ops-handover], [data-operations-reporting], [data-brands-reports], [data-hr-dashboard], .dw')) return; // Creative workspace manages its own live refresh without resetting filters or tabs.
                 if (weeklyConsolidatedRegion.contains(document.activeElement)) return;
                 if (weeklyConsolidatedRegion.matches(':hover')) return;
                 if (weeklyConsolidatedRegion.querySelector('#weekly-consolidated-form:not(.hidden), #weekly-column-manager:not(.hidden), details[open]')) return;

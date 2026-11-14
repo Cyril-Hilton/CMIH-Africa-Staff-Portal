@@ -268,6 +268,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/warehouse-assets/collaborators', [WarehouseAssetController::class, 'grantCollaborator'])->name('assets.warehouse.collaborators.store');
     Route::delete('/warehouse-assets/collaborators/{collaborator}', [WarehouseAssetController::class, 'revokeCollaborator'])->name('assets.warehouse.collaborators.destroy');
     Route::post('/warehouse-assets/{asset}/request', [WarehouseAssetController::class, 'requestAsset'])->name('assets.warehouse.request');
+    Route::patch('/warehouse-assets/requests/{warehouseRequest}/activation', [WarehouseAssetController::class, 'linkActivation'])->name('assets.warehouse.activation');
     Route::patch('/warehouse-assets/requests/{warehouseRequest}/correct', [WarehouseAssetController::class, 'correct'])->name('assets.warehouse.correct');
     Route::post('/warehouse-assets/requests/{warehouseRequest}/evidence', [WarehouseAssetController::class, 'evidence'])->name('assets.warehouse.evidence');
     Route::post('/warehouse-assets/requests/{warehouseRequest}/action', [WarehouseAssetController::class, 'action'])->name('assets.warehouse.action');
@@ -379,6 +380,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/finance/advances/{advance}/cvo-action', [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionAdvance'])->name('finance.advances.cvo-action');
     Route::post('/finance/advances/{advance}/repayments', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAdvanceRepayment'])->name('finance.advances.repayments.store');
 
+    Route::post('/operations/reporting', [\App\Http\Controllers\Portal\OperationsReportingController::class, 'save'])->name('operations.reporting.save');
+    Route::post('/operations/reporting/{submission}/review', [\App\Http\Controllers\Portal\OperationsReportingController::class, 'review'])->name('operations.reporting.review');
     Route::get('/operations', [\App\Http\Controllers\Portal\DepartmentController::class, 'operations'])->name('operations');
     Route::post('/operations/vendors', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeVendor'])->name('operations.vendors.store');
     Route::post('/operations/promoters', [\App\Http\Controllers\Portal\DepartmentController::class, 'storePromoter'])->name('operations.promoters.store');

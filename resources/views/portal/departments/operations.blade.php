@@ -1,14 +1,13 @@
 <x-app-layout>
-<div class="mb-4"><a href="{{ route('portal.events.index') }}" class="inline-flex rounded-xl bg-brand-red px-4 py-3 font-semibold text-white">Events & Activations · Upload a Flyer</a></div>
 
     <x-slot name="header">
         <div>
             <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
-            <h2 class="text-3xl font-display text-brand-white">Operations & Projects Dashboard</h2>
+            <h2 class="text-3xl font-display text-brand-white">Operations & Projects</h2>
         </div>
     </x-slot>
 @if(isset($moduleDepartment))
-@include('portal.modules.navigation',['moduleToolTabs'=>['projects'=>'Projects & Activations','handovers'=>'Handovers & Requests','resources'=>'Vendors & Assets','people'=>'Promoters']])
+@include('portal.modules.navigation',['moduleToolTabs'=>['projects'=>'Campaign Tools','handovers'=>'Handovers & Requests','resources'=>'Vendor Tools','people'=>'Promoters']])
 <div class="contents">
 @endif
 
@@ -31,6 +30,7 @@
     </section>
     <div class="contents">
     <section class="module-panel" role="tabpanel" id="module-panel-projects" aria-labelledby="module-tab-projects" x-show="moduleTab==='projects'" x-cloak>
+        <div class="mb-4"><a href="{{ route('portal.events.index') }}" class="module-link">Events &amp; Activations · Upload a Flyer</a></div>
         <!-- BTL Campaigns & Live-Share Panel -->
         <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-4 sm:p-6">
             <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
@@ -409,7 +409,8 @@
 
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Asset Checkout & Inventory Logs</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white">Office Asset Checkout & Logs</h3>
+                    <a class="module-link" href="{{ route('portal.assets.warehouse.index') }}">Warehouse Assets</a>
                     <a href="{{ route('portal.export', ['table' => 'asset_logs']) }}" class="rounded-xl bg-brand-white/5 border border-brand-white/10 hover:bg-brand-white/10 px-3.5 py-1.5 text-xs text-brand-white font-semibold transition uppercase tracking-wider">
                         Export Logs
                     </a>
@@ -453,7 +454,8 @@
                 <div class="space-y-3 max-h-60 overflow-y-auto">
                     @forelse($assetLogs->where('action', 'checkout') as $log)
                         @php
-                            $isReturned = !$assets->firstWhere('id', $log->asset_id) || $assets->firstWhere('id', $log->asset_id)->status === 'available';
+                            $officeAsset = $assets->firstWhere('id', $log->asset_id);
+                            $isReturned = $officeAsset?->status !== 'checked_out' || (int) $officeAsset?->asset_logs_max_id !== $log->id;
                         @endphp
                         <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 text-xs flex justify-between items-center">
                             <div>

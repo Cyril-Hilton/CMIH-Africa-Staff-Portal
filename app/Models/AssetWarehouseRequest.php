@@ -23,6 +23,8 @@ class AssetWarehouseRequest extends Model
     protected $fillable = [
         'request_code',
         'asset_id',
+        'operations_activation_id',
+        'campaign_id',
         'requested_by',
         'reviewed_by',
         'issued_by',
@@ -62,6 +64,16 @@ class AssetWarehouseRequest extends Model
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class);
+    }
+
+    public function operationsActivation(): BelongsTo
+    {
+        return $this->belongsTo(PerformanceRegister::class);
     }
 
     public function requester(): BelongsTo

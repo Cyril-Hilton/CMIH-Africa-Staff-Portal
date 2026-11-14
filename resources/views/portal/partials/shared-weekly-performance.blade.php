@@ -14,7 +14,7 @@
 <div role="tabpanel" data-department="{{ $key }}" id="performance-panel-{{ $key }}" aria-labelledby="performance-tab-{{ $key }}" x-show="department === @js($key)" @if($key !== $initialPerformanceDepartment) style="display: none" @endif class="rounded-2xl border border-brand-white/15 bg-brand-white/5 p-4"><div class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-brand-white"><strong>{{ $department['label'] }}</strong><span class="text-xs text-brand-ash">
 @if($key === 'creatives')
 Live Creative Workflow & Evidence
-@elseif(!in_array($key, ['brands_marketing', 'hr_admin'], true))
+@elseif(!in_array($key, ['brands_marketing', 'hr_admin', 'operations_projects'], true))
 {{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}
 @endif
 </span></div>
@@ -27,6 +27,8 @@ Live Creative Workflow & Evidence
 @include('portal.client-relations.kpi-scorecards')
 @elseif($key === 'brands_marketing')
 @include('portal.brands.workspace')
+@elseif($key === 'operations_projects')
+@include('portal.operations.reporting', app(\App\Services\OperationsReporting::class)->build(request()))
 @elseif($key === 'hr_admin' && \App\Services\HrDashboard::showWorkspace(request()))
 @include('portal.hr-reporting.dashboard-workspace', app(\App\Services\HrDashboard::class)->build(request()))
 @else

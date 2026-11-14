@@ -17,6 +17,7 @@ class DepartmentModuleAlignmentTest extends TestCase
         foreach (['brands'=>'Retail KPI &amp; Insights','operations'=>'Execution Trackers','finance'=>'Revenue'] as $route=>$label) {
             $page=$this->actingAs($admin)->get(route('portal.'.$route));
             if($route==='brands')$page->assertOk()->assertSee('Add Report Entry')->assertSee('Perfect Store')->assertSee('Copy Entire Week');
+            elseif($route==='operations')$page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Update')->assertSee('Projects &amp; Activations',false)->assertSee('Copy Saved Weekly Reports');
             else $page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Activity')->assertSee($label,false)->assertSee('Copy Entire Week');
         }
         $this->get(route('portal.brands'))->assertSee('No POSM stock items recorded')->assertDontSee('Promotional Flyers Bundle');

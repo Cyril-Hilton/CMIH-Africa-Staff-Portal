@@ -1,19 +1,39 @@
 <?php
 
 return [
-    'labels' => ['project' => 'Master projects', 'activation' => 'Activations', 'posm_deployment' => 'POSM deployment & returns', 'procurement' => 'Procurement', 'supplier' => 'Suppliers', 'production' => 'Production & execution', 'client_approval' => 'Client approvals', 'project_report' => 'Project reports', 'risk_issue' => 'Risks & issues', 'milestone' => 'Milestones', 'risk' => 'Risk exposure'],
+    'labels' => ['project' => 'Master projects', 'activation' => 'Activations', 'posm_deployment' => 'POSM deployment & returns', 'procurement' => 'Procurement', 'supplier' => 'Suppliers', 'production' => 'Production & execution', 'client_approval' => 'Client approvals', 'project_report' => 'Project reports', 'risk_issue' => 'Risks & issues', 'milestone' => 'Milestones', 'risk' => 'Risk exposure', 'weekly_update' => 'Weekly updates'],
+    'tabs' => [
+        'overview' => 'Overview',
+        'projects' => 'Projects & Activations',
+        'assets' => 'Assets & POSM',
+        'execution' => 'Procurement & Execution',
+        'follow-up' => 'Approvals, Reports & Risks',
+        'weekly' => 'Weekly Workstream',
+        'kpis' => 'KPI Results',
+    ],
+    'groups' => [
+        'weekly' => ['weekly_update'],
+        'projects' => ['project', 'activation', 'milestone'],
+        'assets' => ['posm_deployment'],
+        'execution' => ['procurement', 'supplier', 'production'],
+        'follow-up' => ['client_approval', 'project_report', 'risk_issue', 'risk'],
+    ],
+    'private_fields' => ['budget', 'actual_cost', 'revenue', 'cost_to_completion', 'cost', 'contact_person', 'payment_status', 'exposure'],
     'tables' => [
-        'activation' => ['brand' => 'text', 'location' => 'text', 'outlet' => 'text', 'starts_on' => 'date', 'ends_on' => 'date', 'report_shared_on' => 'date', 'remarks' => 'text'],
+        'activation' => ['brand' => 'text', 'location' => 'text', 'outlet' => 'text', 'starts_on' => 'date', 'ends_on' => 'date', 'report_shared_on' => 'date', 'activation_status' => 'text', 'remarks' => 'text'],
         'posm_deployment' => ['brand' => 'text', 'category' => 'text', 'asset_name' => 'text', 'asset_code' => 'text', 'quantity' => 'number', 'returned_quantity' => 'number', 'location' => 'text', 'outlet' => 'text', 'deployed_on' => 'date', 'expected_return_on' => 'date', 'returned_on' => 'date', 'deployed_by' => 'text', 'received_by' => 'text', 'condition_before' => 'text', 'condition_after' => 'text', 'deployment_status' => 'text', 'return_status' => 'text', 'current_location' => 'text', 'remarks' => 'text'],
         'procurement' => ['item_service' => 'text', 'quantity' => 'number', 'supplier' => 'text', 'requested_on' => 'date', 'required_on' => 'date', 'po_status' => 'text', 'procurement_status' => 'text', 'delivery_status' => 'text', 'issue' => 'text'],
         'supplier' => ['supplier_name' => 'text', 'contact_person' => 'text', 'cost' => 'money', 'delivery_on' => 'date', 'performance' => 'text', 'payment_status' => 'text', 'issue' => 'text', 'resolution_action' => 'text'],
         'production' => ['production_item' => 'text', 'responsible_person' => 'text', 'due_on' => 'date', 'delivered_on' => 'date', 'production_status' => 'text', 'quality_check' => 'text', 'issue' => 'text', 'action_required' => 'text'],
         'client_approval' => ['item_for_approval' => 'text', 'submitted_on' => 'date', 'approval_status' => 'text', 'decided_on' => 'date', 'follow_up_action' => 'text', 'next_follow_up_on' => 'date', 'comments' => 'text'],
         'project_report' => ['activity_on' => 'date', 'due_on' => 'date', 'report_status' => 'text', 'shared_on' => 'date', 'client_feedback' => 'text', 'outstanding_actions' => 'text'],
-        'risk_issue' => ['category' => 'text', 'description' => 'text', 'impact' => 'text', 'priority' => 'text', 'action_required' => 'text', 'due_on' => 'date', 'issue_status' => 'text', 'resolved_on' => 'date', 'resolution' => 'text'],
+        'risk_issue' => ['category' => 'text', 'description' => 'text', 'impact' => 'text', 'priority' => 'text', 'rag_status' => 'text', 'action_required' => 'text', 'due_on' => 'date', 'issue_status' => 'text', 'resolved_on' => 'date', 'resolution' => 'text'],
     ],
-    'project_fields' => ['brand' => 'text', 'supporting_team' => 'text', 'location' => 'text', 'due_on' => 'date', 'project_stage' => 'text', 'project_status' => 'text', 'progress_percent' => 'number', 'key_issue' => 'text', 'action_required' => 'text', 'action_due_on' => 'date', 'is_activation' => 'text', 'outlet' => 'text', 'primary_requirement' => 'text', 'team_handyman_requirement' => 'text', 'travel_required' => 'text', 'asset_readiness' => 'text'],
+    'project_fields' => ['brand' => 'text', 'supporting_team' => 'text', 'location' => 'text', 'starts_on' => 'date', 'ends_on' => 'date', 'due_on' => 'date', 'project_stage' => 'text', 'project_status' => 'text', 'progress_percent' => 'number', 'rag_status' => 'text', 'key_issue' => 'text', 'action_required' => 'text', 'action_due_on' => 'date', 'action_owner' => 'text', 'is_activation' => 'text', 'outlet' => 'text', 'primary_requirement' => 'text', 'team_handyman_requirement' => 'text', 'travel_required' => 'text', 'asset_readiness' => 'text', 'readiness_status' => 'text'],
     'options' => [
+        'activation_status' => ['Upcoming', 'Ongoing', 'Completed', 'On Hold', 'Cancelled'],
+        'rag_status' => ['Green', 'Amber', 'Red'],
+
         'project_stage' => ['Briefing', 'Planning', 'Recce', 'Procurement', 'Production', 'Execution', 'Reporting'],
         'project_status' => ['Not Started', 'Planning', 'In Progress', 'On Hold', 'Completed', 'Cancelled'],
         'is_activation' => ['Yes', 'No'], 'travel_required' => ['Yes', 'No'],

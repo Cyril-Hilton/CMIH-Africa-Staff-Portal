@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Portal;
 use App\Http\Controllers\Controller;
 use App\Models\Asset;
 use App\Models\AssetWarehouseRequest;
+use App\Models\Campaign;
+use App\Services\OperationsReporting;
 use App\Models\PosmLedger;
 use App\Models\User;
 use App\Models\WarehouseAssetCollaborator;
@@ -12,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -51,7 +55,7 @@ class WarehouseAssetController extends Controller
             ->orderBy('name')
             ->get();
 
-        $requestsQuery = AssetWarehouseRequest::with(['asset', 'requester', 'reviewer', 'issuer', 'closer'])
+        $requestsQuery = AssetWarehouseRequest::with(['asset', 'requester', 'reviewer', 'issuer', 'closer', 'campaign:id,name', 'operationsActivation:id,title'])
             ->latest();
 
         if ($filters['request_status'] !== '') {
@@ -129,7 +133,14 @@ class WarehouseAssetController extends Controller
         $canGrantWarehouseCollaborators = $this->canGrantWarehouseCollaborators($request->user());
         $statusLabels = $this->warehouseStatusLabels();
 
+        $canLinkActivation = OperationsReporting::member($request->user()) || $canApproveWarehouse;
+        $activationOptions = $canLinkActivation ? OperationsReporting::activations()->orderByDesc('period_start')->get(['id', 'title', 'period_start']) : collect();
+        $campaignOptions = $canLinkActivation ? Campaign::orderBy('name')->get(['id', 'name']) : collect();
+
         return view('portal.warehouse-assets', compact(
+            'canLinkActivation',
+            'activationOptions',
+            'campaignOptions',
             'filters',
             'warehouseAssets',
             'warehouseRequests',
@@ -221,6 +232,7 @@ class WarehouseAssetController extends Controller
 
         $validated = $request->validate([
             'requested_quantity' => ['required', 'integer', 'min:1'],
+            'activation_link' => 'nullable|string|max:40',
             'requested_for' => ['nullable', 'date'],
             'destination_location' => ['required', 'string', 'max:255'],
             'purpose' => ['required', 'string', 'max:3000'],
@@ -233,7 +245,7 @@ class WarehouseAssetController extends Controller
             ]);
         }
 
-        AssetWarehouseRequest::create([
+        AssetWarehouseRequest::create($this->activationLink($request) + [
             'request_code' => $this->nextRequestCode(),
             'asset_id' => $asset->id,
             'requested_by' => $request->user()->id,
@@ -256,6 +268,7 @@ class WarehouseAssetController extends Controller
 
         $validated = $request->validate([
             'requested_quantity' => ['required', 'integer', 'min:1'],
+            'activation_link' => 'nullable|string|max:40',
             'requested_for' => ['nullable', 'date'],
             'destination_location' => ['required', 'string', 'max:255'],
             'purpose' => ['required', 'string', 'max:3000'],
@@ -269,7 +282,7 @@ class WarehouseAssetController extends Controller
             ]);
         }
 
-        $warehouseRequest->fill([
+        $warehouseRequest->fill(($request->has('activation_link') ? $this->activationLink($request) : []) + [
             'requested_quantity' => $validated['requested_quantity'],
             'requested_for' => $validated['requested_for'] ?? null,
             'destination_location' => $validated['destination_location'],
@@ -279,6 +292,42 @@ class WarehouseAssetController extends Controller
         ])->save();
 
         return back()->with('status', 'Warehouse asset request corrected and returned for review.');
+    }
+
+    public function linkActivation(Request $request, AssetWarehouseRequest $warehouseRequest): RedirectResponse
+    {
+        $this->authorizeWarehouseManager($request, 'approve');
+        $request->validate(['activation_link' => 'present|nullable|string|max:40']);
+        $warehouseRequest->update($this->activationLink($request));
+
+        return back()->with('status', 'Warehouse request link updated.');
+    }
+
+    private function activationLink(Request $request): array
+    {
+        $link = $request->input('activation_link');
+        if (! filled($link)) {
+            return ['operations_activation_id' => null, 'campaign_id' => null];
+        }
+        abort_unless(OperationsReporting::member($request->user()) || $this->canManageWarehouse($request->user(), 'approve'), 403);
+        $parts = explode(':', $link);
+        $id = $parts[1] ?? '';
+        if (count($parts) !== 2 || ! ctype_digit($id)) {
+            throw ValidationException::withMessages(['activation_link' => 'Choose a saved activation or campaign.']);
+        }
+        $selection = match ($parts[0]) {
+            'activation' => OperationsReporting::activations()->find($id),
+            'campaign' => Campaign::find($id),
+            default => null,
+        };
+        if (! $selection) {
+            throw ValidationException::withMessages(['activation_link' => 'The selected activation or campaign is unavailable.']);
+        }
+
+        return [
+            'operations_activation_id' => $parts[0] === 'activation' ? $selection->id : null,
+            'campaign_id' => $parts[0] === 'campaign' ? $selection->id : null,
+        ];
     }
 
     public function evidence(Request $request, AssetWarehouseRequest $warehouseRequest): RedirectResponse
@@ -331,18 +380,21 @@ class WarehouseAssetController extends Controller
             'evidence_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,avif', 'max:10240'],
         ]);
 
-        $asset = $warehouseRequest->asset()->lockForUpdate()->firstOrFail();
-        $note = $validated['note'] ?? null;
+        return DB::transaction(function () use ($request, $warehouseRequest, $validated) {
+            $warehouseRequest = AssetWarehouseRequest::lockForUpdate()->findOrFail($warehouseRequest->id);
+            $asset = $warehouseRequest->asset()->lockForUpdate()->firstOrFail();
+            $note = $validated['note'] ?? null;
 
-        return match ($validated['action']) {
-            'approve_check' => $this->approveCheck($warehouseRequest, $request->user(), $note),
-            'return_correction' => $this->returnCorrection($warehouseRequest, $request->user(), $note),
-            'reject' => $this->reject($warehouseRequest, $request->user(), $note),
-            'approve_use' => $this->approveUse($warehouseRequest, $request->user(), $note),
-            'issue' => $this->issue($request, $warehouseRequest, $asset, $note),
-            'close' => $this->closeRequest($warehouseRequest, $asset, $request->user(), $note),
-            'send_remodel' => $this->sendToRemodel($warehouseRequest, $asset, $request->user(), $note),
-        };
+            return match ($validated['action']) {
+                'approve_check' => $this->approveCheck($warehouseRequest, $request->user(), $note),
+                'return_correction' => $this->returnCorrection($warehouseRequest, $request->user(), $note),
+                'reject' => $this->reject($warehouseRequest, $request->user(), $note),
+                'approve_use' => $this->approveUse($warehouseRequest, $request->user(), $note),
+                'issue' => $this->issue($request, $warehouseRequest, $asset, $note),
+                'close' => $this->closeRequest($warehouseRequest, $asset, $request->user(), $note),
+                'send_remodel' => $this->sendToRemodel($warehouseRequest, $asset, $request->user(), $note),
+            };
+        });
     }
 
     public function export(Request $request): StreamedResponse|\Illuminate\Http\Response
@@ -618,13 +670,16 @@ class WarehouseAssetController extends Controller
     private function issue(Request $request, AssetWarehouseRequest $warehouseRequest, Asset $asset, ?string $note): RedirectResponse
     {
         abort_unless($warehouseRequest->status === AssetWarehouseRequest::STATUS_APPROVED_FOR_USE, 403);
+        if ($warehouseRequest->requested_quantity > (int) $asset->warehouse_quantity) {
+            throw ValidationException::withMessages(['requested_quantity' => 'The warehouse no longer has enough units to issue this request.']);
+        }
 
         $issueImage = $request->hasFile('evidence_image')
             ? $request->file('evidence_image')->store('assets/warehouse/evidence', 'public')
             : null;
 
         $asset->fill([
-            'warehouse_quantity' => max(0, (int) $asset->warehouse_quantity - (int) $warehouseRequest->requested_quantity),
+            'warehouse_quantity' => (int) $asset->warehouse_quantity - $warehouseRequest->requested_quantity,
             'status' => 'In Use',
             'assigned_to' => $warehouseRequest->requested_by,
             'last_handled_by' => $request->user()->id,

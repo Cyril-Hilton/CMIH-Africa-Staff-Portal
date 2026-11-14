@@ -5,8 +5,14 @@ $current=match($mode){'month'=>now()->startOfMonth(),'year'=>now()->startOfYear(
 $weekAnchor=\Carbon\CarbonImmutable::parse(request('weekly_from'))->startOfWeek();
 $currentWeek=\Carbon\CarbonImmutable::now()->startOfWeek();
 $weekOptions=collect([$currentWeek,$weekAnchor])->merge($savedWeeks)->map(fn($d)=>\Carbon\CarbonImmutable::parse($d)->startOfWeek())->unique(fn($d)=>$d->toDateString())->sortDesc();
+if ($weeklyDepartmentFilter === 'operations_projects') {
+    $operationWeeks = \App\Models\PerformanceRegister::query()->whereIn('department', \App\Models\User::departmentAliases('operations_projects'))
+        ->whereNotNull('approved_at')->distinct()->orderByDesc('period_start')->limit(156)->pluck('period_start');
+    $weekOptions = $weekOptions->merge($operationWeeks)->map(fn ($date) => \Carbon\CarbonImmutable::parse($date)->startOfWeek())->unique(fn ($date) => $date->toDateString())->sortDesc();
+}
 $weekState=$anchor->isSameDay($current)?'Current '.$mode:($anchor->lt($current)?'Historical '.$mode:'Upcoming '.$mode);
 $periodParams=request()->except(['weekly_page','crm_page','brands_page','hr_page','report_date','report_period','weekly_from','weekly_to','brands_date','brands_period','hr_from','hr_to','hr_period','attendance_date','attendance_period','revenue_date','revenue_period','reporting_summary_period']);
+$periodParams = array_filter($periodParams, fn ($key) => ! preg_match('/^ops_(?:.*_page|edit|add|review)$/', $key), ARRAY_FILTER_USE_KEY);
 $periodUrl=fn($date,$period=null)=>route('dashboard',array_merge($periodParams,['weekly_department'=>$weeklyDepartmentFilter,'report_period'=>$period??$mode,'report_date'=>$date])).'#staff-weekly-performance';
 @endphp
 <div class="dashboard-week-toolbar mt-4 rounded-xl border border-brand-white/20 p-4" aria-label="Department reporting period">

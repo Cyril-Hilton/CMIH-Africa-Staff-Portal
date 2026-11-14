@@ -31,7 +31,7 @@ class SharedWeeklyPerformance
                 $money = $kpi->dimension === 'financial' || (bool) preg_match('/GHS|GHC|GH₵|₵|USD|GBP|EUR|currency|money|cedi|dollar|£|€|\$/i', $kpi->unit);
                 $displayValue = fn($value) => $plan->department==='client_relations' && preg_match('/^(GHS|GHC|GH₵|₵)$/ui', $kpi->unit) ? 'GH₵ '.number_format((float)$value,2) : $value.' '.$kpi->unit;
                 $result[$plan->department]['kpis'][] = [
-                    'id' => $plan->id, 'name' => $kpi->name, 'scope' => $plan->scope_type, 'owner' => $plan->owner?->name ?? 'Unassigned',
+                    'id' => $plan->id, 'owner_id' => $plan->owner_id, 'name' => $kpi->name, 'scope' => $plan->scope_type, 'owner' => $plan->owner?->name ?? 'Unassigned',
                     'client' => $plan->client, 'project' => $plan->project, 'period' => $plan->period_start->format('d M').'–'.$plan->period_end->format('d M Y'),
                     'target' => $money && $plan->department!=='client_relations' ? '100% of agreed target' : $displayValue($plan->target),
                     'actual' => $actual === null ? 'Not reported / not approved' : ($money && $plan->department!=='client_relations' ? ($achievement === null ? 'Not measured' : $achievement.'% of target') : $displayValue($actual)),
@@ -46,7 +46,7 @@ class SharedWeeklyPerformance
             foreach ($items as $item) {
                 $verified = in_array($item->workflow_state, ['verified', 'closed']);
                 $overdue = ! $verified && $item->dueDate()?->lt(\Illuminate\Support\Carbon::parse($to)->endOfDay()->min(now()));
-                $result[$item->department]['deliverables'][] = ['id' => $item->id, 'project' => $item->campaign_name, 'client' => $item->client_name, 'owner' => $item->leadStaff?->name ?? 'Unassigned', 'state' => $item->workflow_state, 'progress' => $item->progress_percent, 'due' => $item->dueDate()?->format('d M Y'), 'overdue' => (bool) $overdue, 'quality' => $verified ? $item->quality_score : null, 'root_cause' => $item->root_cause];
+                $result[$item->department]['deliverables'][] = ['id' => $item->id, 'owner_id' => $item->lead_staff_id, 'project' => $item->campaign_name, 'client' => $item->client_name, 'owner' => $item->leadStaff?->name ?? 'Unassigned', 'state' => $item->workflow_state, 'progress' => $item->progress_percent, 'due' => $item->dueDate()?->format('d M Y'), 'overdue' => (bool) $overdue, 'quality' => $verified ? $item->quality_score : null, 'root_cause' => $item->root_cause];
                 $result[$item->department]['summary']['total']++;
                 $result[$item->department]['summary']['verified'] += (int) $verified;
                 $result[$item->department]['summary']['overdue'] += (int) $overdue;

@@ -284,7 +284,7 @@ document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : event.target?.parentElement;
     const link = target?.closest('a');
     if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
-    if (link.closest('[data-mega-pagination], [data-weekly-pagination], [data-weekly-department-tab]')) return;
+    if (link.closest('[data-no-silent], [data-mega-pagination], [data-weekly-pagination], [data-weekly-department-tab]')) return;
     if (!isPaginationLink(link) && !isFilterLink(link)) return;
 
     event.preventDefault();

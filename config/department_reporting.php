@@ -11,6 +11,7 @@ return [
     ],
     'operations_projects' => array_merge((require __DIR__.'/operations_tracker.php')['tables'], [
         'project' => ['awarded_on' => 'date', 'started_on' => 'date', 'completed_on' => 'date', 'budget' => 'money', 'actual_cost' => 'money', 'revenue' => 'money', 'cost_to_completion' => 'money', 'rework_count' => 'number', 'complaints' => 'number', 'quality_issues' => 'number', 'satisfaction_score' => 'number'] + (require __DIR__.'/operations_tracker.php')['project_fields'],
+        'weekly_update' => ['deliverables' => 'text', 'progress_percent' => 'number', 'kpi_commitments' => 'text', 'reported_results' => 'text', 'supporting_team' => 'text', 'action_required' => 'text', 'remarks' => 'text'],
         'milestone' => ['planned_on' => 'date', 'delivered_on' => 'date', 'impact' => 'text'],
         'risk' => ['probability' => 'number', 'exposure' => 'money', 'mitigation' => 'text'],
     ]),

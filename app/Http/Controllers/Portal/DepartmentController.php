@@ -22,7 +22,9 @@ use App\Support\SalaryAdvancePolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class DepartmentController extends Controller
@@ -726,11 +728,12 @@ class DepartmentController extends Controller
     {
         $user = $request->user();
         $this->authorizeDepartment('operations', $user);
+        app(\App\Services\DashboardReportingPeriod::class)->apply($request);
 
         $vendors = ThirdPartyVendor::with(['project','campaign'])->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
         $promoters = FreelancePromoter::latest()->paginate(5, ['*'], 'p_page')->withQueryString();
-        $assets = Asset::latest()->get();
-        $assetLogs = AssetLog::with(['asset', 'user'])->latest()->paginate(5, ['*'], 'al_page')->withQueryString();
+        $assets = Asset::where('is_warehouse_tracked', false)->withMax('assetLogs', 'id')->latest()->get();
+        $assetLogs = AssetLog::with(['asset', 'user'])->where('action', 'checkout')->whereHas('asset', fn ($q) => $q->where('is_warehouse_tracked', false))->latest('id')->paginate(5, ['*'], 'al_page')->withQueryString();
         $request->validate(['campaign_q'=>'nullable|string|max:150']);
         $campaignOptions=Campaign::orderBy('name')->get(['id','name']);
         $campaigns = Campaign::with(['projectLead', 'tasks.assignee', 'tasks.assigner', 'assetLogs.asset', 'assetLogs.user', 'campaignPhotos'])
@@ -747,7 +750,7 @@ class DepartmentController extends Controller
             });
         $staff = User::internalStaff()->where('status', 'active')->orderBy('name')->get();
 
-        return view('portal.departments.operations', compact('vendors', 'promoters', 'assets', 'assetLogs', 'campaignOptions', 'campaigns', 'staff') + app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'operations_projects'));
+        return view('portal.departments.operations', compact('vendors', 'promoters', 'assets', 'assetLogs', 'campaignOptions', 'campaigns', 'staff') + ['moduleDepartment' => 'operations_projects', 'moduleFrom' => $request->query('weekly_from'), 'moduleTo' => $request->query('weekly_to')]);
     }
 
     private function canViewCampaignTaskActivity(Task $task, User $viewer): bool
@@ -844,19 +847,20 @@ class DepartmentController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        AssetLog::create([
-            'asset_id' => $request->input('asset_id'),
-            'user_id' => $request->input('user_id'),
-            'action' => 'checkout',
-            'notes' => $request->input('notes'),
-            'reported_condition' => 'Good',
-        ]);
-
-        // Update asset status
-        Asset::find($request->input('asset_id'))->update([
-            'status' => 'checked_out',
-            'assigned_to' => $request->input('user_id'),
-        ]);
+        DB::transaction(function () use ($request) {
+            $asset = Asset::lockForUpdate()->findOrFail($request->input('asset_id'));
+            if ($asset->is_warehouse_tracked || strtolower($asset->status) !== 'available') {
+                throw ValidationException::withMessages(['asset_id' => 'Select an available office asset. Use Warehouse Assets for tracked stock.']);
+            }
+            AssetLog::create([
+                'asset_id' => $asset->id,
+                'user_id' => $request->input('user_id'),
+                'action' => 'checkout',
+                'notes' => $request->input('notes'),
+                'reported_condition' => 'Good',
+            ]);
+            $asset->update(['status' => 'checked_out', 'assigned_to' => $request->input('user_id')]);
+        });
 
         return back()->with('status', 'Asset checked out successfully.');
     }
@@ -873,20 +877,22 @@ class DepartmentController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        AssetLog::create([
-            'asset_id' => $log->asset_id,
-            'user_id' => $request->user()->id,
-            'action' => 'checkin',
-            'reported_condition' => $request->input('reported_condition'),
-            'notes' => $request->input('notes'),
-        ]);
-
-        // Update asset status
-        Asset::find($log->asset_id)->update([
-            'status' => 'available',
-            'condition' => $request->input('reported_condition'),
-            'assigned_to' => null,
-        ]);
+        DB::transaction(function () use ($log, $request) {
+            $asset = Asset::lockForUpdate()->findOrFail($log->asset_id);
+            if ($asset->is_warehouse_tracked || $log->action !== 'checkout' || $asset->status !== 'checked_out'
+                || $asset->assetLogs()->latest('id')->value('id') !== $log->id) {
+                throw ValidationException::withMessages(['asset_id' => 'This office asset checkout is no longer active.']);
+            }
+            AssetLog::create([
+                'asset_id' => $asset->id,
+                'user_id' => $request->user()->id,
+                'campaign_id' => $log->campaign_id,
+                'action' => 'checkin',
+                'reported_condition' => $request->input('reported_condition'),
+                'notes' => $request->input('notes'),
+            ]);
+            $asset->update(['status' => 'available', 'condition' => $request->input('reported_condition'), 'assigned_to' => null]);
+        });
 
         return back()->with('status', 'Asset checked back in successfully.');
     }

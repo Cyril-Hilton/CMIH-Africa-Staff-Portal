@@ -838,7 +838,7 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertSee('CVO Visible Mega Task');
         $dashboard->assertSee('Weekly Department Reports');
         $dashboard->assertSee('CVO Weekly Campaign');
-        $dashboard->assertSee('+ Add Activity');
+        $dashboard->assertSee('Add Weekly Update');
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
         $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $weeklyItem), false);
 
