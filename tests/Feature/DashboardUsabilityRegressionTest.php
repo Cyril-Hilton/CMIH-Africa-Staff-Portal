@@ -31,6 +31,68 @@ class DashboardUsabilityRegressionTest extends TestCase
         $this->postJson(route('portal.dashboard.weekly-consolidated.copy-week.store'),$payload+['items'=>$rows->pluck('id')->all()])->assertOk()->assertJsonPath('created',0)->assertJsonPath('existing',11);
         $this->assertSame('New week already edited',$draft->fresh()->deliverables);
     }
+    public function test_brands_copy_selects_the_complete_week_and_opens_the_destination_workstream(): void
+    {
+        $manager = $this->manager();
+        $author = User::factory()->create(['department' => 'brands_marketing', 'status' => 'active']);
+        $completed = $this->row($author);
+        $completed->update([
+            'week_start' => '2026-10-25 00:00:00',
+            'status' => 'Done',
+            'custom_fields' => ['brand' => 'Retail Brand'],
+            'supporting_staff_ids' => [$manager->id],
+            'supporting_roles' => [$manager->id => 'Coordinate retail visits'],
+        ]);
+        $deferred = $this->row($author, 2);
+        $deferred->update(['status' => 'Deferred']);
+        $payload = ['department' => 'brands_marketing', 'source_week' => '2026-10-19', 'target_week' => '2026-10-27'];
+
+        $this->actingAs($manager)->getJson(route('portal.dashboard.weekly-consolidated.copy-week.preview', $payload))
+            ->assertOk()->assertJsonCount(2, 'items')->assertJsonPath('target_week', '2026-10-26')
+            ->assertJsonPath('items.0.selected', true)->assertJsonPath('items.1.selected', true);
+
+        $result = $this->postJson(route('portal.dashboard.weekly-consolidated.copy-week.store'), $payload + [
+            'items' => [$completed->id, $deferred->id],
+        ])->assertOk()->assertJsonPath('created', 2);
+        $this->get($result->json('url'))->assertOk()->assertSee('Activity 0')->assertSee('Retail Brand');
+
+        $copy = WeeklyConsolidatedItem::where('carried_from_id', $completed->id)->firstOrFail();
+        $this->assertSame($author->id, $copy->lead_staff_id);
+        $this->assertSame([$manager->id => 'Coordinate retail visits'], $copy->supporting_roles);
+        $this->assertSame('Planned', $copy->status);
+        $this->assertSame('Done', $completed->fresh()->status);
+        $this->getJson(route('portal.brands.reports.detail', ['type' => 'weekly', 'id' => $copy->id]))
+            ->assertOk()->assertJsonPath('previous_week.date', '2026-10-25')
+            ->assertJsonPath('previous_week.results', '92%')
+            ->assertJsonPath('payload.data.task_in_week', '');
+
+
+        $module = $this->postJson(route('portal.dashboard.weekly-consolidated.copy-week.store'), $payload + [
+            'origin' => 'brands_module', 'items' => [$completed->id, $deferred->id],
+        ])->assertOk()->assertJsonPath('created', 0)->assertJsonPath('existing', 2);
+        $this->assertStringContainsString('/portal/brands?', $module->json('url'));
+        $this->get($module->json('url'))->assertOk()->assertSee('Activity 0');
+
+        $this->postJson(route('portal.brands.reports.submit'), [
+            'category' => 'workstream',
+            'title' => 'Activity 0',
+            'owner_id' => $author->id,
+            'week' => '2026-10-26',
+            'source_type' => 'weekly',
+            'source_id' => $copy->id,
+            'source_token' => \App\Services\BrandsReports::token($copy),
+            'data' => [
+                'project' => 'Activity 0',
+                'brand' => 'Retail Brand',
+                'status' => 'In Progress',
+                'task_in_week' => 'New activity for the destination week',
+            ],
+        ])->assertSuccessful();
+        $this->assertSame('reviewed', $copy->fresh()->report_status);
+        $this->assertSame('92%', $completed->fresh()->achieved_breakdown);
+
+    }
+
     public function test_bulk_copy_is_department_scoped_and_rejects_foreign_items_atomically():void {
         $manager=$this->manager();$other=$this->manager('finance');$own=$this->row($manager);$foreign=$this->row($other);
         $payload=['department'=>'brands_marketing','source_week'=>'2026-10-19','target_week'=>'2026-10-26'];

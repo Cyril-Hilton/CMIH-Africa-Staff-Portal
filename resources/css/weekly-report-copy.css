@@ -1,0 +1,94 @@
+.dashboard-copy-dialog {
+    width: min(44rem, calc(100% - 1.5rem));
+    max-height: calc(100dvh - 1.5rem);
+    margin: auto;
+    padding: 0;
+    border: 1px solid #465668;
+    border-radius: 1rem;
+    background: #171f28;
+    color: #f5f7fa;
+    color-scheme: dark;
+    box-shadow: 0 24px 80px #0009;
+}
+
+.dashboard-copy-dialog::backdrop { background: #000a; }
+
+.dashboard-copy-dialog form {
+    display: flex;
+    flex-direction: column;
+    max-height: inherit;
+}
+
+.copy-week-header,
+.copy-week-body,
+.copy-week-actions { padding: 1rem 1.25rem; }
+
+.copy-week-header,
+.copy-week-actions { background: #202c39; }
+
+.copy-week-header h2 { font-size: 1.35rem; font-weight: 700; }
+.dashboard-copy-dialog p { font-size: .875rem; line-height: 1.55; color: #c3cfdb; }
+.copy-week-header p { margin-top: .3rem; }
+.copy-week-body { overflow: auto; }
+.copy-week-body > * + * { margin-top: .75rem; }
+
+.copy-week-dates {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+    font-size: .875rem;
+}
+
+.copy-week-dates input {
+    display: block;
+    width: 100%;
+    margin-top: .3rem;
+    padding: .55rem .6rem;
+    border: 1px solid #748496;
+    border-radius: .5rem;
+    background: #131d27;
+}
+
+.copy-week-actions,
+.copy-week-selection {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+}
+
+.copy-week-selection[hidden] { display: none; }
+.copy-week-actions { justify-content: flex-end; }
+.copy-week-item {
+    display: flex;
+    align-items: start;
+    gap: .75rem;
+    border-top: 1px solid #465668;
+    padding: .7rem .25rem;
+    font-size: .875rem;
+}
+
+.copy-week-item input { flex: none; margin-top: .2rem; }
+.copy-week-item span { min-width: 0; overflow-wrap: anywhere; }
+.copy-week-item small { display: block; color: #c3cfdb; }
+.dashboard-copy-dialog button {
+    min-height: 2.5rem;
+    padding: .45rem .8rem;
+    border: 1px solid #748496;
+    border-radius: .55rem;
+    font-size: .875rem;
+    font-weight: 600;
+}
+
+.dashboard-copy-dialog [data-copy-submit] {
+    background: #b5daf4;
+    color: #102c42;
+    border-color: #b5daf4;
+}
+
+.dashboard-copy-dialog button:disabled { opacity: .55; }
+.dashboard-copy-dialog :is(button, input):focus-visible { outline: 2px solid #bbe6ff; outline-offset: 3px; }
+@media (max-width: 480px) {
+    .copy-week-dates { grid-template-columns: 1fr; }
+    .copy-week-actions > button { flex: 1 1 auto; }
+}

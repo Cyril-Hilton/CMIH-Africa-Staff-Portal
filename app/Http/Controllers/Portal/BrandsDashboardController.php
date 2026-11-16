@@ -22,7 +22,14 @@ class BrandsDashboardController extends Controller {
   $service=app(BrandsReports::class);$source=$service->source($type,$id);if($type==='register')abort_unless($source->approved_at,404);if($type==='weekly'&&in_array($source->report_status,['draft','submitted','returned'],true))abort_unless(BrandsReports::manager($r->user()),403);
   $p=$service->payload($source,$type);$fields=config('brands_dashboard.schemas.'.$p['category'],[]);$display=[];foreach($p['data'] as $key=>$value){if($key==='collaborator_roles'&&is_array($value))$value=nl2br(e($this->collaboratorRoles($value)));if(($fields[$key]['type']??'')==='staff')$value=User::whereIn('id',$value??[])->pluck('name')->join(', ');if(($fields[$key]['type']??'')==='select')$value=$fields[$key]['options'][$value]??$value;$display[]=['label'=>$fields[$key]['label']??ucwords(str_replace('_',' ',$key)),'html'=>\App\Support\ReportRichText::html(is_scalar($value)?(string)$value:'')];}
   if($type==='weekly')foreach(\App\Models\WeeklyConsolidatedColumn::where('user_id',$source->created_by)->whereIn('department',User::departmentAliases('brands_marketing'))->orderBy('order')->get() as $column){$value=$source->customFieldValue($column);if(filled($value))$display[]=['label'=>$column->label,'html'=>\App\Support\ReportRichText::html((string)$value)];}
-  return response()->json(['is_draft'=>$type==='weekly'&&in_array($source->report_status,['draft','submitted','returned'],true),'payload'=>$p,'source_type'=>$type,'source_id'=>$id,'source_token'=>BrandsReports::token($source),'collaborator_names'=>User::internalStaff()->whereIn('id',$p['data']['collaborators']??[])->pluck('name','id'),'display'=>$display,'can_edit'=>($type!=='weekly'||$source->workflow_state==='legacy')&&BrandsReports::member($r->user())&&(BrandsReports::manager($r->user())||(int)$p['owner_id']===$r->user()->id)])->header('Cache-Control','private, no-store');
+  $isDraft = $type === 'weekly' && in_array($source->report_status, ['draft', 'submitted', 'returned'], true);
+  $reference = $isDraft ? $source->previous_week_reference : null;
+  $previousWeek = !empty($reference['week_start']) ? [
+   'date' => $reference['week_start'],
+   'activity' => \App\Support\ReportRichText::html((string) ($reference['content']['deliverables'] ?? '')),
+   'results' => \App\Support\ReportRichText::html((string) ($reference['content']['achieved_breakdown'] ?? '')),
+  ] : null;
+  return response()->json(['is_draft'=>$isDraft,'previous_week'=>$previousWeek,'payload'=>$p,'source_type'=>$type,'source_id'=>$id,'source_token'=>BrandsReports::token($source),'collaborator_names'=>User::internalStaff()->whereIn('id',$p['data']['collaborators']??[])->pluck('name','id'),'display'=>$display,'owner_name'=>User::whereKey($p['owner_id'])->value('name'),'can_edit'=>($type!=='weekly'||$source->workflow_state==='legacy')&&BrandsReports::member($r->user())&&(BrandsReports::manager($r->user())||(int)$p['owner_id']===$r->user()->id)])->header('Cache-Control','private, no-store');
  }
  private function collaboratorRoles(array $roles):string {
   $names=User::whereIn('id',array_keys($roles))->pluck('name','id');
