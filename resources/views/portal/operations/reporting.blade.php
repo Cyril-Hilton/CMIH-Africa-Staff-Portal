@@ -21,7 +21,11 @@
         </div>
         @if($member)
             <div class="br-actions">
-                <a class="ops-button" href="{{ $workspaceUrl(['ops_review' => 0]) }}">{{ $manager ? 'Team Entries & Reviews' : 'My Entries & Reviews' }}</a>
+                <a class="ops-button" href="{{ $workspaceUrl(['ops_review' => 0]) }}">{{ $manager ? 'Team Entries & Reviews' : 'My Entries & Reviews' }}
+                    @if($reviewCounts['pending'] ?? 0)
+                        · {{ $reviewCounts['pending'] }} Pending
+                    @endif
+                </a>
                 @if($modules)
                     <a class="ops-button" href="{{ route('dashboard', request()->only([...$queryKeys, 'report_period', 'report_date']) + ['weekly_department' => 'operations_projects']) }}#staff-weekly-performance">Weekly Presentation</a>
                 @else

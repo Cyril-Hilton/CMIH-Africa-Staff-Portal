@@ -142,7 +142,17 @@ class OperationsReportingController extends Controller
             return $entry;
         });
 
-        return back()->with('status', $entry->state === 'published' ? 'Report published.' : 'Report submitted for manager review.');
+        $destination = route($moduleEntry ? 'portal.operations' : 'dashboard', [
+            'weekly_department' => OperationsReporting::DEPARTMENT,
+            'report_period' => 'week',
+            'report_date' => $entry->payload['period_start'],
+            'ops_review' => $entry->id,
+        ]).'#operations-reviews';
+
+        return redirect($destination)->with('status', $entry->state === 'published'
+            ? 'Report published.'
+            : 'Report submitted for manager review. Submission #'.$entry->id.'.')
+            ->with('operations_saved_kind', $entry->kind);
     }
 
     public function review(Request $request, OperationsReportSubmission $submission): RedirectResponse

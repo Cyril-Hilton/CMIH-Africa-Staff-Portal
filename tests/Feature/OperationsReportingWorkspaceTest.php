@@ -69,6 +69,44 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->assertDatabaseHas('performance_registers', ['owner_id' => $manager->id, 'approved_by' => $manager->id]);
     }
 
+    public function test_multiple_staff_entries_reach_the_pending_queue_even_from_a_focused_notification(): void
+    {
+        $staff = $this->person();
+        $manager = $this->person('manager');
+        $save = route('portal.operations.reporting.save');
+        $first = null;
+        foreach (range(1, 12) as $number) {
+            $response = $this->actingAs($staff)->from(route('dashboard', [
+                'weekly_department' => 'operations_projects', 'ops_add' => 'weekly_update',
+            ]))->post($save, [
+                'kind' => 'weekly_update', 'title' => 'Staff weekly activity '.$number,
+                'week' => '2026-11-09', 'status' => 'planned',
+            ])->assertSessionHasNoErrors()->assertSessionHas('operations_saved_kind', 'weekly_update');
+            $entry = OperationsReportSubmission::latest('id')->firstOrFail();
+            $first ??= $entry;
+            $this->get($response->headers->get('Location'))->assertOk()
+                ->assertSee('Staff weekly activity '.$number)->assertSee('Add Another Entry');
+        }
+        $this->assertDatabaseCount('operations_report_submissions', 12);
+        $this->assertDatabaseCount('performance_registers', 0);
+        $this->actingAs($manager)->get(route('portal.operations', ['ops_review' => $first->id]))
+            ->assertOk()->assertSee('Staff weekly activity 1')->assertSee('Staff weekly activity 12')
+            ->assertSee('12 Pending')
+            ->assertSee('of 12')->assertSee('Page 1 of 2');
+        $this->get(route('portal.operations', ['ops_review'=>0, 'ops_review_page'=>2]))
+            ->assertOk()->assertSee('Page 2 of 2');
+        $this->post(route('portal.operations.reporting.review', $first), ['revision'=>1, 'decision'=>'approve'])
+            ->assertSessionHasNoErrors();
+        $this->get(route('portal.operations', ['ops_review'=>0]))->assertOk()
+            ->assertSee('of 11')->assertDontSee('#'.$first->id.' · Staff weekly activity 1');
+        $this->get(route('portal.operations', ['ops_review'=>0, 'ops_review_state'=>'published']))->assertOk()
+            ->assertSee('#'.$first->id.' · Staff weekly activity 1');
+        $this->get(route('dashboard', ['weekly_department'=>'operations_projects', 'report_period'=>'week', 'report_date'=>'2026-11-09']))
+            ->assertOk()->assertSee('Staff weekly activity 1');
+        $this->actingAs($this->person())->get(route('portal.operations', ['ops_review'=>$first->id]))->assertOk()
+            ->assertDontSee('#'.$first->id.' · Staff weekly activity 1');
+    }
+
     public function test_manager_can_correct_and_publish_a_staff_submission_without_taking_ownership(): void
     {
         $staff = $this->person();

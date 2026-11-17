@@ -76,7 +76,8 @@ class OperationsReporting
             'ops_sort' => 'nullable|in:newest,oldest,title,owner,status',
             'ops_direction' => 'nullable|in:asc,desc',
             'ops_rows' => 'nullable|in:10,25,50',
-            'ops_review' => 'nullable|integer',
+            'ops_review' => 'nullable|integer|min:0',
+            'ops_review_state' => 'nullable|in:pending,returned,published,all',
             'ops_edit' => 'nullable|integer',
             'ops_add' => ['nullable', Rule::in(array_keys(self::schemas()))],
             'ops_warehouse' => 'nullable|in:inventory,movements',
@@ -222,9 +223,17 @@ class OperationsReporting
         $checkoutLogs = $warehouseHistory && $campaignIds->isNotEmpty()
             ? \App\Models\AssetLog::whereIn('campaign_id', $campaignIds)->with(['asset','user'])->latest()->get()->groupBy('campaign_id') : collect();
 
+        $reviewQuery = OperationsReportSubmission::query()
+            ->when(! $manager, fn ($query) => $query->where('submitted_by', $user->id));
+        $reviewCounts = $member ? (clone $reviewQuery)->selectRaw('state, COUNT(*) AS total')->groupBy('state')->pluck('total', 'state')->all() : [];
+        $focusedSubmission = $member && ! empty($filters['ops_review'])
+            ? (clone $reviewQuery)->find($filters['ops_review']) : null;
+        $reviewState = $filters['ops_review_state'] ?? $focusedSubmission?->state ?? 'pending';
         $submissions = $member && isset($filters['ops_review'])
-            ? OperationsReportSubmission::with('submitter')->when(! $manager, fn ($q) => $q->where('submitted_by', $user->id))
-                ->when($filters['ops_review'] > 0, fn ($q) => $q->whereKey($filters['ops_review']))->latest('id')->paginate(10, ['*'], 'ops_review_page')->withQueryString()->fragment('operations-reviews')
+            ? (clone $reviewQuery)->with('submitter')
+                ->when($reviewState !== 'all', fn ($query) => $query->where('state', $reviewState))
+                ->when($focusedSubmission, fn ($query) => $query->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$focusedSubmission->id]))
+                ->latest('id')->paginate(10, ['*'], 'ops_review_page')->withQueryString()->fragment('operations-reviews')
             : null;
         $edit = $member && isset($filters['ops_edit'])
             ? (clone $approved)->whereIn('kind', array_keys(self::schemas()))->where(fn (Builder $q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))->when(! $manager, fn (Builder $q) => $q->where(fn (Builder $person) => $person->where('owner_id', $user->id)->orWhere('submitted_by', $user->id)))->findOrFail($filters['ops_edit'])
@@ -248,7 +257,7 @@ class OperationsReporting
             $sourceArchive = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
         }
 
-        return compact('sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
+        return compact('reviewCounts', 'reviewState', 'sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
     }
 
     public static function activationExecuted(PerformanceRegister $row): bool
