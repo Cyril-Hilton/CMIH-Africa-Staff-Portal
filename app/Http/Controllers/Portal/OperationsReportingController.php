@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OperationsReportingController extends Controller
 {
@@ -161,15 +162,31 @@ class OperationsReportingController extends Controller
         abort_unless(OperationsReporting::manager($actor), 403);
         $input = $request->validate([
             'decision' => 'required|in:approve,return',
+            'source_version' => 'nullable|string|size:64',
+            'confirm_updated_report' => 'sometimes|accepted',
             'revision' => 'required|integer',
             'note' => 'required_if:decision,return|nullable|string|max:3000',
         ]);
-        DB::transaction(function () use ($actor, $submission, $input) {
+        $alreadyPublished = DB::transaction(function () use ($actor, $submission, $input) {
             $entry = OperationsReportSubmission::lockForUpdate()->findOrFail($submission->id);
-            abort_unless($entry->state === 'pending' && $entry->revision === (int) $input['revision'], 409);
+            if ($entry->state === 'published' && $input['decision'] === 'approve' && (int) $input['revision'] <= $entry->revision) {
+                return true;
+            }
+            if ($entry->state !== 'pending' || $entry->revision !== (int) $input['revision']) {
+                throw ValidationException::withMessages([
+                    'review' => 'This submission changed after you opened it. The latest entry is now displayed. Check its status and details before reviewing again.',
+                ]);
+            }
             if ($input['decision'] === 'approve') {
                 $source = $entry->register_id ? PerformanceRegister::lockForUpdate()->findOrFail($entry->register_id) : null;
-                abort_if($source && ! hash_equals(OperationsReporting::version($source), $entry->source_version), 409, 'The published report changed. Return this submission for correction.');
+                if ($source && ! hash_equals(OperationsReporting::version($source), $entry->source_version ?? '')) {
+                    $reviewedVersion = $input['source_version'] ?? '';
+                    if (empty($input['confirm_updated_report']) || ! hash_equals(OperationsReporting::version($source), $reviewedVersion)) {
+                        throw ValidationException::withMessages([
+                            'review' => 'The published report has changed. Compare the latest report with this submission below, then confirm you reviewed the differences before approving.',
+                        ]);
+                    }
+                }
                 $this->publish($entry, $source, $actor);
             } else {
                 $entry->state = 'returned';
@@ -179,7 +196,8 @@ class OperationsReportingController extends Controller
             PerformanceWorkflow::notify($entry->submitted_by, "ops-result:{$entry->id}:{$entry->revision}", $entry->state === 'published' ? 'Operations report published' : 'Operations corrections requested', 'Open the submission to see the decision.', route('portal.operations', ['ops_review' => $entry->id]).'#operations-reviews');
         });
 
-        return back()->with('status', $input['decision'] === 'approve' ? 'Report published.' : 'Report returned with correction notes.');
+        return back()->with('status', $alreadyPublished ? 'This report is already published. Approval confirmed.'
+            : ($input['decision'] === 'approve' ? 'Report published.' : 'Report returned with correction notes.'));
     }
 
     private function publish(OperationsReportSubmission $entry, ?PerformanceRegister $source, User $actor): void

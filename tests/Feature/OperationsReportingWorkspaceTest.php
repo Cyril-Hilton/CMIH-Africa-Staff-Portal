@@ -107,6 +107,59 @@ class OperationsReportingWorkspaceTest extends TestCase
             ->assertDontSee('#'.$first->id.' · Staff weekly activity 1');
     }
 
+    public function test_repeat_approval_is_safe_and_stale_reviews_show_a_recoverable_message(): void
+    {
+        $staff = $this->person();
+        $manager = $this->person('manager');
+        $this->actingAs($staff)->post(route('portal.operations.reporting.save'), [
+            'kind'=>'weekly_update', 'title'=>'Approval retry report', 'week'=>'2026-11-09', 'status'=>'planned',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $entry = OperationsReportSubmission::sole();
+        $url = route('portal.operations.reporting.review', $entry);
+        $this->actingAs($manager)->post($url, ['revision'=>1,'decision'=>'approve'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post($url, ['revision'=>1,'decision'=>'approve'])->assertRedirect()->assertSessionHasNoErrors()
+            ->assertSessionHas('status', 'This report is already published. Approval confirmed.');
+        $this->assertDatabaseCount('performance_registers', 1);
+        $this->assertSame(1, \App\Models\PerformanceEvent::where('entity_type','operations_submission')->where('action','approve')->count());
+        $this->assertSame(2, $entry->fresh()->revision);
+    }
+
+    public function test_changed_published_report_requires_explicit_review_and_returned_entry_can_be_resubmitted(): void
+    {
+        $staff=$this->person();$manager=$this->person('manager');
+        $save=route('portal.operations.reporting.save');
+        $payload=['kind'=>'weekly_update','title'=>'Original published report','week'=>'2026-11-09','status'=>'planned','owner_id'=>$staff->id];
+        $this->actingAs($manager)->post($save,$payload)->assertRedirect()->assertSessionHasNoErrors();
+        $source=PerformanceRegister::sole();
+        $this->actingAs($staff)->post($save,array_merge($payload,[
+            'title'=>'Staff correction','source'=>$source->id,'source_version'=>OperationsReporting::version($source),
+        ]))->assertRedirect()->assertSessionHasNoErrors();
+        $entry=OperationsReportSubmission::latest('id')->firstOrFail();
+        $source->update(['title'=>'Newer approved report']);
+        $review=route('portal.operations.reporting.review',$entry);
+        $this->actingAs($manager)->from(route('portal.operations',['ops_review'=>$entry->id]))
+            ->post($review,['revision'=>1,'decision'=>'approve'])->assertSessionHasErrors('review')->assertRedirect();
+        $this->assertSame('Newer approved report',$source->fresh()->title);
+        $this->get(route('portal.operations',['ops_review'=>$entry->id]))->assertOk()
+            ->assertSee('Latest Published Report')->assertSee('Newer approved report')->assertSee('confirm_updated_report',false);
+        $token=OperationsReporting::version($source->fresh());
+        $this->postJson($review,['revision'=>1,'decision'=>'approve','confirm_updated_report'=>'1','source_version'=>str_repeat('a',64)])
+            ->assertUnprocessable();
+        $this->post($review,['revision'=>1,'decision'=>'return','note'=>'Check the latest title and update.'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($staff)->get(route('portal.operations',['ops_review'=>$entry->id]))->assertOk()
+            ->assertSee('name="source_version" value="'.$token.'"',false);
+        $this->post($save,array_merge($payload,[
+            'title'=>'Updated staff correction','submission'=>$entry->id,'revision'=>$entry->fresh()->revision,'source_version'=>$token,
+        ]))->assertRedirect()->assertSessionHasNoErrors();
+        $source->refresh()->update(['title'=>'Another newer report']);
+        $this->actingAs($manager)->post($review,[
+            'revision'=>$entry->fresh()->revision,'decision'=>'approve',
+            'confirm_updated_report'=>'1','source_version'=>OperationsReporting::version($source->fresh()),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('Updated staff correction',$source->fresh()->title);
+        $this->assertDatabaseCount('performance_registers',1);
+    }
+
     public function test_manager_can_correct_and_publish_a_staff_submission_without_taking_ownership(): void
     {
         $staff = $this->person();

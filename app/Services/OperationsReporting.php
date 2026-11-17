@@ -235,6 +235,9 @@ class OperationsReporting
                 ->when($focusedSubmission, fn ($query) => $query->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$focusedSubmission->id]))
                 ->latest('id')->paginate(10, ['*'], 'ops_review_page')->withQueryString()->fragment('operations-reviews')
             : null;
+        $reviewSources = $submissions
+            ? PerformanceRegister::whereIn('id', $submissions->pluck('register_id')->filter())->get()->keyBy('id')
+            : collect();
         $edit = $member && isset($filters['ops_edit'])
             ? (clone $approved)->whereIn('kind', array_keys(self::schemas()))->where(fn (Builder $q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))->when(! $manager, fn (Builder $q) => $q->where(fn (Builder $person) => $person->where('owner_id', $user->id)->orWhere('submitted_by', $user->id)))->findOrFail($filters['ops_edit'])
             : null;
@@ -257,7 +260,7 @@ class OperationsReporting
             $sourceArchive = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
         }
 
-        return compact('reviewCounts', 'reviewState', 'sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
+        return compact('reviewSources', 'reviewCounts', 'reviewState', 'sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
     }
 
     public static function activationExecuted(PerformanceRegister $row): bool

@@ -17,6 +17,9 @@
     @if($submission)
         <input type="hidden" name="submission" value="{{ $submission->id }}">
         <input type="hidden" name="revision" value="{{ $submission->revision }}">
+        @if(isset($reviewSource) && $reviewSource)
+            <input type="hidden" name="source_version" value="{{ \App\Services\OperationsReporting::version($reviewSource) }}">
+        @endif
     @elseif($formRecord)
         <input type="hidden" name="source" value="{{ $formRecord->id }}">
         <input type="hidden" name="source_version" value="{{ \App\Services\OperationsReporting::version($formRecord) }}">
