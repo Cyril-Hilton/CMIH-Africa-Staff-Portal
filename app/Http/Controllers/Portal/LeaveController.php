@@ -120,13 +120,13 @@ class LeaveController extends Controller
     /**
      * Store a newly created leave application.
      */
-    public function show(Request $request, LeaveApplication $leave): View
+    public function show(Request $request, LeaveApplication $leave)
     {
         $user = $request->user();
         $isApplicant = $user->id === (int) $leave->user_id;
         $lineManager = (int) $leave->line_manager_id;
         $managesApplicant = $lineManager > 0 && ($user->id === $lineManager || $user->isActingLineManagerFor($lineManager));
-        $canReadReview = $isApplicant || $managesApplicant || $this->isLeaveFinalApprover($user);
+        $canReadReview = $isApplicant || $managesApplicant || $this->isLeaveFinalApprover($user) || $user->canAuditHrAndFinance();
         $assignedCover = in_array($user->id, [(int) $leave->covering_staff_id, (int) $leave->delegate_line_manager_id], true);
         abort_unless($canReadReview || $assignedCover, 403);
 
@@ -138,7 +138,7 @@ class LeaveController extends Controller
         };
         $leave->loadMissing(['user', 'lineManager', 'coveringStaff', 'delegateLineManager']);
 
-        return view('portal.leave-request', compact('leave', 'user', 'isApplicant', 'canReadReview', 'canReview'));
+        return response()->view('portal.leave-request', compact('leave', 'user', 'isApplicant', 'canReadReview', 'canReview'))->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request): RedirectResponse
@@ -522,7 +522,7 @@ class LeaveController extends Controller
     public function handoverFile(Request $request, LeaveApplication $leave)
     {
         $u=$request->user();
-        abort_unless(in_array($u->id,[(int)$leave->user_id,(int)$leave->covering_staff_id,(int)$leave->line_manager_id,(int)$leave->delegate_line_manager_id],true)||$u->hasFullHrAccess()||$this->isLeaveFinalApprover($u)||$u->isActingLineManagerFor((int)$leave->line_manager_id),403);
+        abort_unless(in_array($u->id,[(int)$leave->user_id,(int)$leave->covering_staff_id,(int)$leave->line_manager_id,(int)$leave->delegate_line_manager_id],true)||$u->hasFullHrAccess()||$u->canAuditHrAndFinance()||$this->isLeaveFinalApprover($u)||$u->isActingLineManagerFor((int)$leave->line_manager_id),403);
         $file=$leave->handover_attachment;abort_unless($file && \Illuminate\Support\Facades\Storage::disk('local')->exists($file['path']),404);
         return \Illuminate\Support\Facades\Storage::disk('local')->download($file['path'],$file['name'],['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
     }

@@ -18,6 +18,11 @@ if($existing?->project) $activityProjects->put($existing->project_id,$existing->
 @include('portal.performance.field',['name'=>'data['.$key.']','options'=>null,'type'=>$type,'value'=>$existing?->data[$key]??null,'required'=>false,'label'=>ucwords(str_replace('_',' ',$key)),'useOld'=>false])
 @endforeach
 @include('portal.performance.field',['name'=>'notes','options'=>null,'type'=>'textarea','value'=>$existing?->notes,'required'=>false,'label'=>'Private Notes','useOld'=>false])
+@include('portal.client-relations.supporting-staff', [
+    'options' => $supportingStaff,
+    'selected' => $existing?->supporting_staff_ids ?? [],
+    'ownerId' => $existing?->owner_id ?? auth()->id(),
+])
 @if($existing)
 @include('portal.performance.field',['name'=>'reason','options'=>null,'type'=>'textarea','value'=>null,'required'=>true,'label'=>'Update Reason / Confirmation Source','useOld'=>false])
 @endif

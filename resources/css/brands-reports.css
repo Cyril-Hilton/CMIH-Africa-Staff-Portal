@@ -84,6 +84,8 @@ html[data-theme=light] .br-status-danger{color:#923335;background:#ffe3e3;border
 
 .br-people-record-actions{margin-top:20px}.br-saved-entries ul{list-style:none;padding:0;margin:16px 0}.br-saved-entries li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--br-line)}.br-saved-entries li>div{min-width:0;overflow-wrap:anywhere}.br-saved-entries p{margin:5px 0 0;color:var(--br-muted);font-size:12px}.br-saved-entries .br-row-action{flex-shrink:0}@media(max-width:500px){.br-saved-entries li{align-items:flex-start;flex-direction:column}}
 
+.br-row-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.brands-reports a.br-row-action{border-radius:9px;text-decoration:none}
 
 .br-copy-reference {
     margin: 0 0 1rem;

@@ -73,7 +73,8 @@ class DepartmentController extends Controller
     {
         return (int) $user->id === $ownerId
             || User::normalizeDepartmentKey($user->department) === 'finance'
-            || $this->isCVO($user);
+            || $this->isCVO($user)
+            || $user->canAuditHrAndFinance();
     }
 
     private function downloadPrivateOrLegacyPublicFile(?string $path, ?string $downloadName = null)
@@ -134,10 +135,13 @@ class DepartmentController extends Controller
     /**
      * HR & Admin Department View
      */
-    public function hr(Request $request): View
+    public function hr(Request $request)
     {
         $viewer = $request->user();
-        $this->authorizeDepartment('admin', $viewer);
+        $auditOnly = $viewer->canAuditHrAndFinance() && ! $viewer->hasFullHrAccess();
+        if (! $auditOnly) {
+            $this->authorizeDepartment('admin', $viewer);
+        }
 
         $visitors = VisitorLog::with('host')->latest()->paginate(5, ['*'], 'v_page')->withQueryString();
         $staff = User::internalStaff()->orderBy('name')->get();
@@ -145,11 +149,11 @@ class DepartmentController extends Controller
         $preTickets = \App\Models\VisitorPreTicket::with('host')->orderBy('expected_arrival')->paginate(5, ['*'], 'pt_page')->withQueryString();
         $directoryEntries = \App\Models\PhoneDirectory::orderBy('category')->orderBy('name')->paginate(5, ['*'], 'd_page')->withQueryString();
         $recentAnnouncements = Announcement::with('user')->latest()->take(6)->get();
-        $identityDocuments = $viewer->canReviewIdentityDocuments()
+        $identityDocuments = $viewer->canReviewIdentityDocuments() || $auditOnly
             ? User::internalStaff()->where('status', 'active')->orderBy('name')->get()
             : collect();
         $canManageLeaves = $viewer->hasFullHrAccess();
-        $allLeaves = $canManageLeaves
+        $allLeaves = ($canManageLeaves || $auditOnly)
             ? LeaveApplication::with(['user', 'lineManager', 'coveringStaff', 'delegateLineManager'])
                 ->latest('start_date')
                 ->latest('id')
@@ -157,7 +161,7 @@ class DepartmentController extends Controller
                 ->withQueryString()
             : collect();
         $today = today();
-        $leaveStats = $canManageLeaves ? [
+        $leaveStats = ($canManageLeaves || $auditOnly) ? [
             'pending' => LeaveApplication::whereIn('status', ['pending_manager', 'pending_cvo', 'pending_hr'])->count(),
             'approved' => LeaveApplication::where('status', 'approved')->count(),
             'active' => LeaveApplication::where('status', 'approved')
@@ -171,14 +175,15 @@ class DepartmentController extends Controller
         $salaryAdvanceDefaultMinimum = SalaryAdvancePolicy::defaultMonthlyDeductionMinimum();
         $salaryAdvanceDefaultMaximumMultiplier = SalaryAdvancePolicy::defaultMaximumSalaryMultiplier();
         $salaryAdvanceTermsNote = SalaryAdvancePolicy::termsNote();
-        $salaryAdvanceRequests = $canManageLeaves
+        $salaryAdvanceRequests = ($canManageLeaves || $auditOnly)
             ? SalaryAdvance::with(['user', 'repayments', 'hrReviewer', 'financeReviewer', 'approver', 'disburser'])
                 ->latest()
                 ->paginate(12, ['*'], 'loan_page')
                 ->withQueryString()
             : collect();
 
-        return view('portal.departments.hr', compact(
+        return response()->view('portal.departments.hr', compact(
+            'auditOnly',
             'visitors',
             'staff',
             'metrics',
@@ -193,7 +198,7 @@ class DepartmentController extends Controller
             'salaryAdvanceDefaultMaximumMultiplier',
             'salaryAdvanceTermsNote',
             'salaryAdvanceRequests'
-        ));
+        ))->header('Cache-Control', 'private, no-store');
     }
 
     public function storeHrAnnouncement(Request $request): RedirectResponse
@@ -417,13 +422,15 @@ class DepartmentController extends Controller
     /**
      * Finance Department View
      */
-    public function finance(Request $request): View
+    public function finance(Request $request)
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
             || $user->isCvoOrSuperAdmin();
 
-        if ($isFinance) {
+        $auditOnly = $user->canAuditHrAndFinance() && ! $isFinance;
+        $canReadFinance = $isFinance || $auditOnly;
+        if ($canReadFinance) {
             $claims = PettyCashClaim::with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
             $invoices = \App\Models\SupplierInvoice::with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();
         } else {
@@ -431,7 +438,9 @@ class DepartmentController extends Controller
             $invoices = \App\Models\SupplierInvoice::where('submitted_by', $user->id)->with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();
         }
 
-        return view('portal.departments.finance', compact('user', 'claims', 'invoices') + ($isFinance ? app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'finance') : []));
+        return response()->view('portal.departments.finance', compact('user', 'claims', 'invoices', 'auditOnly')
+            + ($canReadFinance ? app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'finance') : []))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     /**
@@ -1130,7 +1139,7 @@ class DepartmentController extends Controller
     /**
      * View Salary Advances
      */
-    public function advancesIndex(Request $request): View
+    public function advancesIndex(Request $request)
     {
         $user = $request->user();
         $salaryAdvanceMinimum = SalaryAdvancePolicy::effectiveMonthlyDeductionMinimum($user);
@@ -1143,7 +1152,8 @@ class DepartmentController extends Controller
         $isCVO = $user->job_level === 'super_admin'
             || $user->access_role === 'super_admin';
 
-        if ($isFinance || $isCVO || $isHR) {
+        $auditOnly = $user->canAuditHrAndFinance() && ! ($isFinance || $isCVO || $isHR);
+        if ($isFinance || $isCVO || $isHR || $auditOnly) {
             $advances = SalaryAdvance::with(['user', 'repayments', 'hrReviewer', 'financeReviewer', 'cvoReviewer', 'approver', 'disburser'])->latest()->get();
             $pendingCvoAdvances = SalaryAdvance::with(['user', 'repayments', 'hrReviewer', 'financeReviewer'])
                 ->where('status', 'pending_cvo')
@@ -1162,7 +1172,8 @@ class DepartmentController extends Controller
             $pendingHrAdvances = collect();
         }
 
-        return view('portal.finance.advances', compact(
+        return response()->view('portal.finance.advances', compact(
+            'auditOnly',
             'user',
             'advances',
             'pendingCvoAdvances',
@@ -1174,7 +1185,7 @@ class DepartmentController extends Controller
             'salaryAdvanceMaximum',
             'salaryAdvanceDefaultMinimum',
             'salaryAdvanceTermsNote'
-        ));
+        ))->header('Cache-Control', 'private, no-store');
     }
 
     private function canActionSalaryAdvanceFinance(User $user): bool

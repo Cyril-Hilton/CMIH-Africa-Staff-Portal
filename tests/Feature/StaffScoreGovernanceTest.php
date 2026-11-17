@@ -109,6 +109,24 @@ class StaffScoreGovernanceTest extends TestCase
         $this->assertSame(65,$employee['score_components']['completion']['weight']);
         $this->assertSame(25,$department['score_components']['kpi']['weight']);
         $this->assertTrue($employee['score_complete']);
+        $plan = \App\Models\PerformanceTargetPlan::create([
+            'kpi_id' => $kpi->id, 'department' => 'creatives', 'scope_type' => 'department',
+            'owner_id' => $owner->id, 'submitted_by' => $owner->id, 'reviewer_id' => $manager->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-31',
+            'target' => 20, 'weight' => 1, 'rationale' => 'Approved department target',
+            'approved_at' => now(), 'approved_by' => $manager->id, 'scope_key' => 'department-award-test',
+        ]);
+        $this->getJson('/portal/awards/standings?period=2026-10')->assertOk()->assertJsonCount(0, 'calculated.departments');
+        \App\Models\PerformanceObservation::create([
+            'target_plan_id' => $plan->id, 'kpi_id' => $kpi->id, 'owner_id' => $owner->id,
+            'submitted_by' => $owner->id, 'approved_at' => now(), 'approved_by' => $manager->id,
+            'period_start' => '2026-10-01', 'period_end' => '2026-10-31', 'target' => 20, 'actual' => 12,
+            'source_reference' => 'Independently reviewed department source', 'scope_key' => 'department-award-result',
+        ]);
+        $updated = $this->getJson('/portal/awards/standings?period=2026-10')->assertOk();
+        $this->assertEquals(57.5, collect($updated->json('calculated.departments'))->firstWhere('key', 'creatives')['score']);
+        $this->assertEquals(62.5, collect($updated->json('calculated.employees'))->firstWhere('user_id', $owner->id)['score']);
+        $this->get('/dashboard')->assertOk()->assertSee('Department Dashboard KPIs')->assertSee('60% of target');
         $this->travelBack();
     }
 }

@@ -23,7 +23,7 @@ class PayrollController extends Controller
     /**
      * Display the payroll and banking configuration view.
      */
-    public function index(Request $request): View
+    public function index(Request $request)
     {
         $user = $request->user();
         $salary = $this->enteredSalary($user);
@@ -40,7 +40,12 @@ class PayrollController extends Controller
                 ->withQueryString()
             : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
 
-        $canViewAllPayroll = $user->canViewAllPayroll();
+        $auditOnly = $user->canAuditHrAndFinance() && ! $user->canViewAllPayroll();
+        $canViewAllPayroll = $user->canViewAllPayroll() || $auditOnly;
+        $auditedPayslips = $auditOnly && $hasPayslipsTable
+            ? Payslip::with('user:id,name')->when($periodFilter, fn ($q) => $q->where('period', $periodFilter))
+                ->latest()->orderByDesc('id')->paginate(20, ['*'], 'audit_payslip_page')->withQueryString()
+            : null;
 
         $staffPayroll = null;
         $payrollStaffOptions = collect();
@@ -62,7 +67,8 @@ class PayrollController extends Controller
             });
         }
 
-        return view('portal.payroll', compact('user', 'salary', 'myPayslips', 'staffPayroll', 'payrollStaffOptions', 'periodFilter'));
+        return response()->view('portal.payroll', compact('user', 'salary', 'myPayslips', 'staffPayroll', 'payrollStaffOptions', 'periodFilter', 'canViewAllPayroll', 'auditOnly', 'auditedPayslips'))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     /**
@@ -231,16 +237,16 @@ class PayrollController extends Controller
 
         abort_unless(
             $hasSignedAccess
-                || ($viewer && ((int) $viewer->id === (int) $payslip->user_id || $viewer->canViewAllPayroll())),
+                || ($viewer && ((int) $viewer->id === (int) $payslip->user_id || $viewer->canViewAllPayroll() || $viewer->canAuditHrAndFinance())),
             403
         );
 
         $staff = $payslip->user ?: $viewer;
 
-        return view('emails.staff-payslip', [
+        return response()->view('emails.staff-payslip', [
             'payslip' => $payslip,
             'staff' => $staff,
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     /**
@@ -383,9 +389,9 @@ class PayrollController extends Controller
                 'ghana-card-back',
                 'passport-photo',
             ];
-            $canDownload = in_array($type, $identityTypes, true)
+            $canDownload = $viewer->canAuditHrAndFinance() || (in_array($type, $identityTypes, true)
                 ? $viewer->canReviewIdentityDocuments()
-                : $viewer->hasFullHrAccess();
+                : $viewer->hasFullHrAccess());
 
             abort_unless($canDownload, 403);
         }

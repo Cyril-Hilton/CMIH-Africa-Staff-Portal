@@ -305,6 +305,9 @@ class AssetController extends Controller
     public function destroy(Asset $asset): RedirectResponse
     {
         $this->authorizeAssetManagement(request(), $asset);
+        if ($asset->is_warehouse_tracked && ($asset->warehouseRequests()->exists() || $asset->assetLogs()->exists())) {
+            return back()->withErrors(['asset' => 'This asset has movement history. Change its status instead of deleting it.']);
+        }
 
         if ($asset->image_path) {
             Storage::disk('public')->delete($asset->image_path);

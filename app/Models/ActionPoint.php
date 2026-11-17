@@ -25,6 +25,16 @@ class ActionPoint extends Model
         'due_date' => 'date',
     ];
 
+    public function scopeCurrent($query)
+    {
+        return $query->where('status', '!=', 'done');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->where('status', 'done');
+    }
+
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assignee_id');

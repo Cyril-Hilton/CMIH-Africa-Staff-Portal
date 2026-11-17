@@ -119,7 +119,13 @@
             <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
                 <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <h3 class="text-lg font-semibold text-brand-white">HR Review Queue</h3>
-                    <span class="text-xs uppercase tracking-[0.2em] text-brand-ash">{{ $pendingRequests->total() }} total</span>
+                    <div class="flex flex-wrap items-center gap-3 text-sm">
+                        <span class="text-brand-ash">{{ $pendingRequests->total() }} records</span>
+                        @if($canApproveFleet)
+                            <a href="{{ route('portal.fleet-requests.export', 'xlsx') }}" class="underline">Excel register</a>
+                            <a href="{{ route('portal.fleet-requests.export', 'pdf') }}" class="underline">PDF register</a>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -157,7 +163,9 @@
                                     </td>
                                     <td class="py-4 capitalize">{{ str_replace('_', ' ', $fleetRequest->status) }}</td>
                                     <td class="py-4">
-                                        <form method="POST" action="{{ route('portal.fleet-requests.action', $fleetRequest) }}" class="min-w-[18rem] space-y-2">
+                                        @include('portal.partials.fleet-request-downloads')
+                                        @if($canApproveFleet)
+<form method="POST" action="{{ route('portal.fleet-requests.action', $fleetRequest) }}" class="min-w-[18rem] space-y-2">
                                             @csrf
                                             <textarea name="hr_comment" rows="2" class="w-full rounded-lg border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:outline-none" placeholder="Comment or correction note">{{ old('hr_comment') }}</textarea>
                                             <div class="flex flex-wrap gap-2">
@@ -166,6 +174,8 @@
                                                 <button name="action" value="reject" class="rounded-lg border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-brand-red">Reject</button>
                                             </div>
                                         </form>
+@endif
+
                                     </td>
                                 </tr>
                             @empty
@@ -206,6 +216,7 @@
                                 <td class="py-4 capitalize">{{ str_replace('_', ' ', $fleetRequest->status) }}</td>
                                 <td class="py-4">{{ $fleetRequest->hr_comment ?: 'None' }}</td>
                                 <td class="py-4">
+                                    @include('portal.partials.fleet-request-downloads')
                                     @if($fleetRequest->status === 'returned_for_correction')
                                         <span class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-amber-200">Correction needed</span>
                                     @else

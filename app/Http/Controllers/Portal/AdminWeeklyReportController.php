@@ -19,12 +19,15 @@ class AdminWeeklyReportController extends Controller
 
     public function index(Request $r)
     {
-        $this->authorizeReport($r);
+        $auditOnly = $r->user()->canAuditHrAndFinance() && ! $r->user()->isCvoOrSuperAdmin();
+        if (! $auditOnly) {
+            $this->authorizeReport($r);
+        }
         $reports = AdminWeeklyReport::with(['lines.owner', 'preparer'])->orderByDesc('period_start')->paginate(6);
         $staff = User::humanAccounts()->where('status', 'active')->orderBy('name')->get(['id', 'name']);
         $previous = AdminWeeklyReport::whereNotNull('approved_at')->with('lines')->orderByDesc('period_end')->first();
 
-        return view('portal.admin-weekly.index', compact('reports', 'staff', 'previous'));
+        return response()->view('portal.admin-weekly.index', compact('reports', 'staff', 'previous', 'auditOnly'))->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $r)

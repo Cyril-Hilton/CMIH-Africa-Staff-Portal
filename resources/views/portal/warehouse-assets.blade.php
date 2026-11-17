@@ -258,6 +258,12 @@
                 </div>
             @endif
 
+            @if(app(\App\Services\WarehouseAssetIntake::class)->canReview(auth()->user()) || \App\Services\OperationsReporting::member(auth()->user()))
+                <div class="glass-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5">
+                    <div><h3 class="font-semibold">Asset Intake</h3><p class="mt-1 text-sm text-brand-ash">Review assets reported in Operations before they enter warehouse inventory.</p></div>
+                    <a class="rounded-xl border border-sky-400/40 px-4 py-2 text-sm font-semibold" href="{{ route('portal.assets.warehouse.intake') }}">Open asset review queue</a>
+                </div>
+            @endif
             <div id="warehouse-inventory" class="glass-panel rounded-2xl p-5 sm:p-6">
                 <h3 class="text-lg font-semibold text-brand-white">User Requisition Form</h3>
                 <p class="mt-1 text-sm text-brand-white/55">Submit asset requests for gatekeeper approval and custody audit.</p>
@@ -326,6 +332,9 @@
                                         @endif
                                         <div>
                                             <a href="{{ route('portal.assets.show', $asset) }}" class="font-semibold text-brand-white transition hover:text-brand-red">{{ $asset->name }}</a>
+                                            @if($canEditWarehouse)
+                                                <a class="ml-2 text-xs underline" href="{{ route('portal.assets.edit', $asset) }}">Edit</a>
+                                            @endif
                                             @if($asset->description)
                                                 <p class="mt-1 line-clamp-2 max-w-xs text-brand-white/45">{{ strip_tags($asset->description) }}</p>
                                             @endif

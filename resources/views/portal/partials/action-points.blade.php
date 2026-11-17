@@ -1,6 +1,7 @@
         <div data-action-points data-existing-confirmation data-endpoint="{{ route('portal.action-points.table') }}">
             <p data-action-status role="status" aria-live="polite" class="mb-3 text-sm"></p>
-            <div class="mb-6 flex justify-end">
+            <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <a href="{{ route('portal.action-points.archive') }}" class="rounded-xl border border-brand-white/20 px-4 py-2 text-sm">Completed archive</a>
                 {{-- Add Action Point Modal Trigger --}}
                 <details class="relative">
                     <summary class="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-brand-red px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark transition-all shadow-lg">

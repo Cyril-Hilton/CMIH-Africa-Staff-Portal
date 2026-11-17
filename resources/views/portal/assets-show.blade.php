@@ -70,6 +70,30 @@
                 {!! $asset->description ?: '<p>No description has been added.</p>' !!}
             </div>
 
+            @if($asset->is_warehouse_tracked && auth()->user()->canOwnWarehouseAssets())
+                <div class="flex flex-wrap items-center gap-3">
+                    <a class="rounded-lg border border-brand-white/20 px-3 py-2 text-sm" href="{{ route('portal.assets.edit', $asset) }}">Edit warehouse asset</a>
+                    @if(!$asset->warehouseRequests()->exists() && !$asset->assetLogs()->exists())
+                        <form method="POST" action="{{ route('portal.assets.destroy', $asset) }}" data-confirm="Delete this warehouse asset?">
+                            @csrf @method('DELETE')
+                            <button class="rounded-lg border border-brand-red/40 px-3 py-2 text-sm text-brand-red">Delete asset</button>
+                        </form>
+                    @endif
+                </div>
+            @endif
+            @if($asset->is_warehouse_tracked && (app(\App\Services\WarehouseAssetIntake::class)->canReview(auth()->user()) || auth()->user()->canAuditHrAndFinance()))
+                @php($sources = \App\Models\WarehouseAssetSuggestion::with('activation:id,title')->where('asset_id', $asset->id)->where('status', 'approved')->latest()->limit(30)->get())
+                @if($sources->isNotEmpty())
+                    <div class="rounded-xl border border-brand-white/10 p-4">
+                        <h3 class="font-semibold">Approved Operations Sources</h3>
+                        <ul class="mt-2 space-y-2 text-sm">
+                            @foreach($sources as $source)
+                                <li>{{ $source->source_reference }} · {{ $source->activation?->title ?? $source->reported['activity'] ?? $source->reported['basis'] }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+            @endif
             @if($asset->warehouse_notes)
                 <div class="mt-5 rounded-xl border border-brand-white/10 bg-brand-white/5 p-4">
                     <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-white/40">Warehouse Notes</p>

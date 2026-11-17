@@ -10,6 +10,17 @@ class BrandsReports {
  public static function manager(User $u):bool{return self::member($u)&&PerformanceAccess::manages($u,'brands_marketing');}
  public static function token($record):string{return hash('sha256',json_encode($record->getAttributes(),JSON_THROW_ON_ERROR));}
  public function source(string $type,int $id){$item=$type==='weekly'?WeeklyConsolidatedItem::findOrFail($id):PerformanceRegister::findOrFail($id);abort_unless(User::normalizeDepartmentKey($item->department)==='brands_marketing',404);return $item;}
+ public function canEdit(User $actor, WeeklyConsolidatedItem|PerformanceRegister $source, int $ownerId): bool {
+  if (!self::member($actor)) return false;
+  if ($source instanceof WeeklyConsolidatedItem) {
+   if ($source->workflow_state !== 'legacy') return false;
+   if (in_array($source->report_status, ['draft','submitted','returned'], true)) return self::manager($actor);
+   $authors = [$source->created_by, $source->report_submitted_by];
+  } else {
+   $authors = [$source->submitted_by];
+  }
+  return self::manager($actor) || in_array($actor->id, array_map('intval', [$ownerId, ...$authors]), true);
+ }
  public function payload($item,string $type):array {
   if($type==='weekly')return ['category'=>'workstream','title'=>$item->client_name?:$item->campaign_name?:'Weekly activity','owner_id'=>$item->lead_staff_id??$item->created_by,'week'=>$item->week_start->toDateString(),'data'=>['project'=>$item->campaign_name,'brand'=>$item->custom_fields['brand']??null,'task_in_week'=>$item->deliverables,'collaborators'=>$item->supporting_staff_ids??[],'collaborator_roles'=>array_map(self::plainDuty(...),$item->supporting_roles??[]),'priority'=>$item->priority??'Medium','status'=>$item->status??'Planned','project_start'=>$item->project_starts_on?->toDateString(),'project_end'=>$item->project_ends_on?->toDateString(),'kpis'=>$item->target_breakdown,'results'=>$item->achieved_breakdown,'gaps'=>$item->gap_breakdown,'notes'=>$item->notes]];
   $kind=$item->kind; $data=$item->data??[];
@@ -28,9 +39,9 @@ class BrandsReports {
   if($source&&!$draft)$r->validate(['reason'=>'required|string|min:5|max:2000']);
   $v['reason']=$v['reason']??($draft?'Weekly draft completed.':'New weekly report entry.');
   if($source&&($v['source_type']??'')==='weekly')abort_unless($source->workflow_state==='legacy',422,'Use the delivery workflow to update a verified commitment.');
-  if($source){$existing=$this->payload($source,$v['source_type']);abort_unless($existing['category']===$v['category'],422);abort_if($existing['week']!==$v['week'],422,'The reporting week is permanent. Create a new weekly entry instead.');abort_unless(self::manager($r->user())||(int)$existing['owner_id']===$r->user()->id||(int)($source->submitted_by??$source->created_by)===$r->user()->id,403);abort_unless(hash_equals(self::token($source),$v['source_token']),409,'This report changed. Refresh before submitting corrections.');}
+  if($source){$existing=$this->payload($source,$v['source_type']);abort_unless($existing['category']===$v['category'],422);abort_if($existing['week']!==$v['week'],422,'The reporting week is permanent. Create a new weekly entry instead.');abort_unless($this->canEdit($r->user(),$source,(int)$existing['owner_id']),403);abort_unless(hash_equals(self::token($source),$v['source_token']),409,'This report changed. Refresh before submitting corrections.');}
   $owner=User::findOrFail($v['owner_id']);abort_unless((User::normalizeDepartmentKey($owner->department)==='brands_marketing'&&$owner->isActive())||($source&&(int)$existing['owner_id']===$owner->id),422,'Choose an active Brands & Marketing owner.');
-  if(!self::manager($r->user()))abort_unless($owner->id===$r->user()->id,403);
+  if(!self::manager($r->user()))abort_unless($owner->id===($source?(int)$existing['owner_id']:$r->user()->id),403);
   $rules=[];foreach(config('brands_dashboard.schemas.'.$v['category']) as $key=>$field){$rules['data.'.$key]=match($field['type']){'number'=>'nullable|numeric|min:0|max:999999999999','date'=>'nullable|date_format:Y-m-d','select'=>['nullable',Rule::in(array_keys($field['options']))],'staff'=>'nullable|array|max:30',default=>'nullable|string|max:15000'};if($field['type']==='staff')$rules['data.'.$key.'.*']='integer|exists:users,id';}
   $data=$r->validate($rules)['data']??[];$data=array_intersect_key($data,config('brands_dashboard.schemas.'.$v['category']));
   foreach($data as $key=>$value){if(str_ends_with($key,'_percent')&&$value!==null&&(float)$value>100)throw ValidationException::withMessages(['data.'.$key=>'Use a percentage from 0 to 100.']);if(in_array($key,['planned_count','active_count','attrition_count','leave_count','absent_count','planned_scope','active_scope','scheduled','deployed','target_reach','total_reach','conversions','conversion_base'],true)&&$value!==null&&floor((float)$value)!=(float)$value)throw ValidationException::withMessages(['data.'.$key=>'Use a whole number of people or items.']);}

@@ -694,6 +694,24 @@ class User extends Authenticatable
             || strtolower(trim((string) $this->job_level)) === 'super_admin';
     }
 
+    public const EXECUTIVE_ACTIVITY_PERMISSION = 'view_executive_activity';
+
+    public const HR_FINANCE_AUDIT_PERMISSION = 'view_hr_finance_audit';
+
+    public function canAuditHrAndFinance(): bool
+    {
+        return $this->isActive() && ! $this->isServiceAccount()
+            && self::normalizeDepartmentKey($this->department) === 'executive'
+            && in_array(self::HR_FINANCE_AUDIT_PERMISSION, $this->permissions_matrix ?? [], true);
+    }
+
+    public function canViewExecutiveActivity(): bool
+    {
+        return $this->isActive() && ! $this->isServiceAccount() && ($this->isCvoOrSuperAdmin()
+            || (self::normalizeDepartmentKey($this->department) === 'executive'
+                && in_array(self::EXECUTIVE_ACTIVITY_PERMISSION, $this->permissions_matrix ?? [], true)));
+    }
+
     public function isCvoOrSuperAdmin(): bool
     {
         $position = strtolower(trim((string) $this->position_title));
@@ -930,6 +948,7 @@ class User extends Authenticatable
         $canonical = self::normalizeDepartmentKey($value);
 
         $labels = [
+            'executive' => 'Executive',
             'hr_admin' => 'HR & Admin',
             'finance' => 'Finance',
             'client_relations' => 'Client Relations',

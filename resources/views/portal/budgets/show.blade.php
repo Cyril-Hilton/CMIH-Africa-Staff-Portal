@@ -9,7 +9,7 @@
                 <a href="{{ route('portal.finance.budgets.index') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">
                     Back to Budgets
                 </a>
-                @if ($budget->canEdit(auth()->user()))
+                @if (!$auditOnly && $budget->canEdit(auth()->user()))
                     <a href="{{ route('portal.finance.budgets.edit', $budget) }}" class="rounded-full bg-brand-white/10 hover:bg-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white transition-all">
                         <x-ui-icon name="edit" /> Edit Details
                     </a>
@@ -131,13 +131,15 @@
                                         <td class="py-3 text-emerald-400 font-bold font-mono">{{ number_format($item->total, 2) }}</td>
                                         @if ($budget->created_by === auth()->id() || $budget->canEdit(auth()->user()) || $isFinance)
                                             <td class="py-3 text-right">
-                                                <form method="POST" action="{{ route('portal.finance.budgets.items.destroy', [$budget, $item]) }}" data-confirm="Remove line item?">
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.finance.budgets.items.destroy', [$budget, $item]) }}" data-confirm="Remove line item?">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="text-brand-red/70 hover:text-brand-red font-semibold">
                                                         <x-ui-icon name="close" /> Remove
                                                     </button>
                                                 </form>
+                                                @endif
                                             </td>
                                         @endif
                                     </tr>
@@ -161,7 +163,8 @@
                     @if ($budget->created_by === auth()->id() || $budget->canEdit(auth()->user()) || $isFinance)
                         <div class="mt-6 border-t border-brand-white/5 pt-4">
                             <h4 class="text-xs font-semibold uppercase tracking-wider text-brand-ash mb-3">Add Budget Line Item</h4>
-                            <form method="POST" action="{{ route('portal.finance.budgets.items.store', $budget) }}" class="grid gap-3 sm:grid-cols-4 items-end">
+                            @if(! $auditOnly)
+                                <form method="POST" action="{{ route('portal.finance.budgets.items.store', $budget) }}" class="grid gap-3 sm:grid-cols-4 items-end">
                                 @csrf
                                 <div>
                                     <label class="block text-[9px] uppercase tracking-widest text-brand-ash mb-1">Category</label>
@@ -189,13 +192,15 @@
                                     + Add Item
                                 </button>
                             </form>
+                            @endif
                         </div>
 
                         <!-- CSV Bulk Import -->
                         <div class="mt-6 border-t border-brand-white/5 pt-4 bg-brand-white/[0.01] rounded-xl p-4">
                             <h4 class="text-xs font-semibold uppercase tracking-wider text-brand-ash mb-2"><x-ui-icon name="download" /> Bulk Load via CSV</h4>
                             <p class="text-[10px] text-brand-white/50 mb-3">Upload a CSV file containing columns: <strong class="text-brand-white">Description, Quantity, Unit Price, Category</strong> in order. Quotation marks will be parsed out automatically.</p>
-                            <form method="POST" action="{{ route('portal.finance.budgets.import', $budget) }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
+                            @if(! $auditOnly)
+                                <form method="POST" action="{{ route('portal.finance.budgets.import', $budget) }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
                                 @csrf
                                 <input type="file" name="csv_file" required accept=".csv,text/csv" 
                                        class="text-xs text-brand-ash file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-white/10 file:text-brand-white hover:file:bg-brand-white/20">
@@ -203,6 +208,7 @@
                                     Load CSV spreadsheet
                                 </button>
                             </form>
+                            @endif
                         </div>
                     @endif
         </div>
@@ -216,7 +222,8 @@
                     <div class="space-y-3">
                         @if (in_array($budget->status, ['Draft', 'Rejected', 'Returned for Correction', 'Updated']))
                             @if ($budget->created_by === auth()->id() || auth()->user()->hasRole('super_admin'))
-                                <form method="POST" action="{{ route('portal.finance.budgets.submit', $budget) }}" class="space-y-2">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.budgets.submit', $budget) }}" class="space-y-2">
                                     @csrf
                                     <button type="submit" name="submit_target" value="finance" class="w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white py-2 text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-blue-600/20">
                                         <x-ui-icon name="upload" /> Submit to Finance for Approval
@@ -225,15 +232,18 @@
                                         <x-ui-icon name="bolt" /> Submit directly to CVO
                                     </button>
                                 </form>
+                                @endif
                             @endif
                             @if ($budget->created_by === auth()->id() || auth()->user()->hasRole('super_admin'))
-                                <form method="POST" action="{{ route('portal.finance.budgets.destroy', $budget) }}" class="block pt-2" data-confirm="Permanently delete this project budget?">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.budgets.destroy', $budget) }}" class="block pt-2" data-confirm="Permanently delete this project budget?">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="w-full rounded-xl border border-brand-red/35 bg-brand-red/5 hover:bg-brand-red/10 text-brand-red py-2.5 text-xs uppercase tracking-wider transition">
                                         <x-ui-icon name="spark" /> Delete Draft Budget
                                     </button>
                                 </form>
+                                @endif
                             @endif
                         @elseif (in_array($budget->status, ['Submitted to Finance', 'Submitted', 'Returned to Finance']))
                             @if ($isFinance)
@@ -241,25 +251,31 @@
                                     <p class="text-xs text-blue-300 font-semibold">Awaiting Finance Approval Action</p>
                                     <div class="flex flex-col gap-2">
                                         <div class="flex gap-2">
-                                            <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'approve']) }}" class="flex-1">
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'approve']) }}" class="flex-1">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded bg-emerald-500 hover:bg-emerald-400 text-brand-black py-2 text-xs font-bold uppercase tracking-widest transition">
                                                     Approve
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'reject']) }}" class="flex-1">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'reject']) }}" class="flex-1">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded border border-brand-red bg-brand-red/10 hover:bg-brand-red/20 text-brand-red py-2 text-xs uppercase tracking-widest transition">
                                                     Reject
                                                 </button>
                                             </form>
+                                            @endif
                                         </div>
-                                        <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'send_back']) }}" class="w-full">
+                                        @if(! $auditOnly)
+                                            <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'send_back']) }}" class="w-full">
                                             @csrf
                                             <button type="submit" class="w-full rounded border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 py-2 text-xs uppercase tracking-widest transition">
                                                 <x-ui-icon name="refresh" /> Send Back for Correction
                                             </button>
                                         </form>
+                                        @endif
                                     </div>
                                 </div>
                             @else
@@ -271,25 +287,31 @@
                                     <p class="text-xs text-purple-300 font-semibold">Awaiting CVO Final Approval Action</p>
                                     <div class="flex flex-col gap-2">
                                         <div class="flex gap-2">
-                                            <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'approve']) }}" class="flex-1">
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'approve']) }}" class="flex-1">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded bg-purple-500 hover:bg-purple-400 text-brand-black py-2 text-xs font-bold uppercase tracking-widest transition">
                                                     Approve
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'reject']) }}" class="flex-1">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'reject']) }}" class="flex-1">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded border border-brand-red bg-brand-red/10 hover:bg-brand-red/20 text-brand-red py-2 text-xs uppercase tracking-widest transition">
                                                     Reject
                                                 </button>
                                             </form>
+                                            @endif
                                         </div>
-                                        <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'send_back_finance']) }}" class="w-full">
+                                        @if(! $auditOnly)
+                                            <form method="POST" action="{{ route('portal.finance.budgets.cvo.action', [$budget, 'send_back_finance']) }}" class="w-full">
                                             @csrf
                                             <button type="submit" class="w-full rounded border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 py-2 text-xs uppercase tracking-widest transition">
                                                 <x-ui-icon name="refresh" /> Send Back to Finance
                                             </button>
                                         </form>
+                                        @endif
                                     </div>
                                 </div>
                             @else
@@ -299,12 +321,14 @@
                             <p class="text-xs text-purple-300 font-semibold"><x-ui-icon name="check" /> Approved by CVO. Ready for payment processing.</p>
                             @if ($isFinance)
                                 <div class="pt-2">
-                                    <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'reject']) }}">
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.finance.budgets.action', [$budget, 'reject']) }}">
                                         @csrf
                                         <button type="submit" class="w-full rounded bg-brand-red/15 hover:bg-brand-red/25 border border-brand-red/35 py-2 text-xs uppercase tracking-wider text-brand-red transition">
                                             Reject & Flag Budget
                                         </button>
                                     </form>
+                                    @endif
                                 </div>
                             @endif
                         @endif
@@ -342,8 +366,9 @@
                      }">
                     <h3 class="text-xs uppercase tracking-wider text-brand-ash font-bold border-b border-brand-white/5 pb-2">Collaborators</h3>
                     
-                    <!-- Collaborator sync form -->
-                    <form method="POST" action="{{ route('portal.finance.budgets.collaborators', $budget) }}" class="space-y-4">
+                    <!-- Collaborator permissions -->
+                    @if(! $auditOnly)
+                        <form method="POST" action="{{ route('portal.finance.budgets.collaborators', $budget) }}" class="space-y-4">
                         @csrf
                         
                         <!-- List of selected collaborators -->
@@ -400,6 +425,7 @@
                             </div>
                         @endif
                     </form>
+                    @endif
                 </div>
             </div>
         </div>

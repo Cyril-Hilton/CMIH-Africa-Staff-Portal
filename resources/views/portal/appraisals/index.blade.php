@@ -169,7 +169,11 @@
                         @foreach($staffAppraisals as $ap)
                             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 flex items-center justify-between text-xs">
                                 <div>
-                                    <p class="text-brand-white font-semibold">{{ $ap->employee->name ?? 'N/A' }}</p>
+                                    @if($user->canAuditHrAndFinance())
+                                        <a class="font-semibold underline" href="{{ route('portal.appraisals.audit.form', $ap) }}">{{ $ap->employee?->name ?? 'Staff record' }}</a>
+                                    @else
+                                        <p class="text-brand-white font-semibold">{{ $ap->employee->name ?? 'N/A' }}</p>
+                                    @endif
                                     <p class="text-brand-ash text-[10px]">{{ $ap->quarter }} {{ $ap->year }} · {{ $ap->status_label }}</p>
                                 </div>
                                 <div class="text-right">

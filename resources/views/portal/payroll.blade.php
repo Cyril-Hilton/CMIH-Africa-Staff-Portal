@@ -117,7 +117,8 @@
                 <h3 class="text-lg font-semibold text-brand-white mb-2">Payment & Banking Details</h3>
                 <p class="text-xs text-brand-white/50 mb-6">Bank transfer is the default payment method. Mobile Money can be saved as a backup, but bank details remain primary whenever both are available.</p>
 
-                <form method="POST" action="{{ route('portal.payroll.banking') }}" class="space-y-4">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.payroll.banking') }}" class="space-y-4">
                     @csrf
                     
                     <div class="border-b border-brand-white/10 pb-4">
@@ -173,6 +174,7 @@
                         </button>
                     </div>
                 </form>
+                @endif
             </div>
 
             <!-- Employment Documents Section -->
@@ -217,9 +219,7 @@
             </div>
         </div>
 
-        @php
-            $canViewAllPayroll = auth()->user()->canViewAllPayroll();
-        @endphp
+        @includeWhen($auditedPayslips !== null, 'portal.partials.audit-payslips')
 
         @if ($canViewAllPayroll && isset($staffPayroll))
             <!-- HR Ghana Statutory Payroll Ledger & Bulk Email Actions -->
@@ -232,12 +232,14 @@
                         <p class="text-xs text-brand-ash mt-1">Auto-calculates statutory SSNIT (5.5% employee / 13% employer) and GRA PAYE monthly tax brackets.</p>
                     </div>
 
+                    @unless($auditOnly)
                     <div class="flex flex-wrap items-center gap-2">
                         <details class="w-full sm:w-[420px] rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-left">
                             <summary class="cursor-pointer text-xs font-bold uppercase tracking-wider text-emerald-200">
                                 Issue Payslips
                             </summary>
-                            <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="mt-4 space-y-3" data-confirm="Generate and email payslips for the selected recipient(s)?">
+                            @if(! $auditOnly)
+                                <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="mt-4 space-y-3" data-confirm="Generate and email payslips for the selected recipient(s)?">
                                 @csrf
                                 <label class="block">
                                     <span class="text-[10px] uppercase tracking-wider text-brand-ash">Payslip Month</span>
@@ -262,15 +264,18 @@
                                     Generate & Email Payslip
                                 </button>
                             </form>
+                            @endif
                         </details>
                         {{-- HR Bulk Email Action --}}
-                        <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="hidden" data-confirm="Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?">
+                        @if(! $auditOnly)
+                            <form method="POST" action="{{ route('portal.payroll.distribute') }}" class="hidden" data-confirm="Distribute official PDF payslips to all active staff emails for period: {{ now()->format('F Y') }}?">
                             @csrf
                             <input type="hidden" name="period" value="{{ now()->format('Y-m') }}">
                             <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 transition-all shadow-lg">
                                 <x-ui-icon name="mail" /> Issue & Distribute Payslips (Email All)
                             </button>
                         </form>
+                        @endif
 
                         {{-- HR Payroll Export --}}
                         <a href="{{ route('portal.payroll.export-register') }}" class="inline-flex items-center gap-2 rounded-xl border border-brand-white/10 bg-brand-white/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-brand-white hover:bg-brand-white/20 transition-all">
@@ -282,6 +287,7 @@
                             <x-ui-icon name="users" /> Export Staff Directory
                         </a>
                     </div>
+                    @endunless
                 </div>
 
                 {{-- Payroll Breakdown Table --}}
@@ -330,12 +336,16 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-4 text-right">
+                                        @if($auditOnly)
+                                            <a class="underline" href="{{ route('portal.hr.staff.show', $staff) }}">Staff record</a>
+                                        @else
                                         <details class="relative inline-block text-left">
                                             <summary class="cursor-pointer rounded-lg border border-brand-white/10 bg-brand-white/5 px-2.5 py-1 text-[11px] font-semibold text-brand-white hover:bg-brand-white/10 transition-all">
                                                 Edit Salary
                                             </summary>
                                             <div class="absolute right-0 top-full mt-2 z-30 w-96 rounded-xl border border-brand-white/10 bg-brand-black/95 p-4 shadow-2xl backdrop-blur-xl text-left">
-                                                <form method="POST" action="{{ route('portal.payroll.salary', $staff) }}" enctype="multipart/form-data" class="space-y-3">
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.payroll.salary', $staff) }}" enctype="multipart/form-data" class="space-y-3">
                                                     @csrf
                                                     <p class="text-xs font-bold text-brand-white">Edit Salary & Contracts for {{ $staff->name }}</p>
                                                     <div class="grid grid-cols-3 gap-2">
@@ -358,8 +368,10 @@
                                                     </div>
                                                     <button type="submit" class="w-full rounded-lg bg-brand-red py-2 text-xs font-bold uppercase tracking-wider text-white">Save Changes</button>
                                                 </form>
+                                                @endif
                                             </div>
                                         </details>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

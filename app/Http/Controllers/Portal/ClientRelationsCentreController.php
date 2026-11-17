@@ -10,9 +10,22 @@ use Illuminate\Validation\Rule;
 class ClientRelationsCentreController extends Controller {
  private function filters(Request $r):array {
   abort_unless(CreativeAccess::staff($r->user()),403);
-  return $r->validate(['source'=>'nullable|in:all,workbook','q'=>'nullable|string|max:150','client'=>'nullable|string|max:255','owner'=>'nullable|integer|min:1','stage'=>['nullable',Rule::in(array_keys(config('crm_pipeline.stages')))],'from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from','sort'=>'nullable|in:client,revenue','per_page'=>'nullable|in:6,12,24,48','page'=>'nullable|integer|min:1']);
+  return $r->validate(['source'=>'nullable|in:all,workbook','account_scope'=>'nullable|in:engaged,all','period'=>'nullable|in:week,month,year','date'=>'nullable|date_format:Y-m-d','q'=>'nullable|string|max:150','client'=>'nullable|string|max:255','owner'=>'nullable|integer|min:1','stage'=>['nullable',Rule::in(array_keys(config('crm_pipeline.stages')))],'from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from','sort'=>'nullable|in:client,revenue','per_page'=>'nullable|in:6,12,24,48','page'=>'nullable|integer|min:1']);
  }
  public function data(Request $r,ClientRelationsCentre $centre){$f=$this->filters($r);return response()->json($centre->build($f,$r->user()))->header('Cache-Control','private, no-store');}
+ public function publishedRegister(Request $request)
+ {
+  abort_unless(CreativeAccess::staff($request->user()), 403);
+  $filters = $request->validate([
+   'weekly_from' => 'required|date_format:Y-m-d',
+   'weekly_to' => 'required|date_format:Y-m-d|after_or_equal:weekly_from',
+   'search_weekly' => 'nullable|string|max:255',
+  ]);
+  $publicCrmProgress = ClientRelationsPipeline::reportingRows($filters['search_weekly'] ?? null, $filters['weekly_from'], $filters['weekly_to']);
+
+  return response()->view('portal.client-relations.published-register', compact('publicCrmProgress'))
+   ->header('Cache-Control', 'private, no-store');
+ }
  public function relationship(Request $r){
   abort_unless(ClientRelationsPipeline::member($r->user())&&$r->user()->isLineManager(),403);
   $v=$r->validate(['client_name'=>'required|string|max:255','owner_id'=>'required|integer|exists:users,id','relationship'=>'required|in:current,previous,shared','starts_on'=>'nullable|date_format:Y-m-d','ends_on'=>'nullable|date_format:Y-m-d|after_or_equal:starts_on','note'=>'required|string|min:5|max:2000']);

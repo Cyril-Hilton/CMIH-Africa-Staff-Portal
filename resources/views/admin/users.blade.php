@@ -41,6 +41,7 @@
         $canManageAdmins = auth()->user()->hasRole('super_admin');
         $canArchiveUsers = auth()->user()->hasRole(['admin', 'super_admin']) || auth()->user()->isCvoOrSuperAdmin();
         $departmentLabels = [
+            'executive'           => 'Executive',
             'hr_admin'            => 'HR & Admin',
             'finance'             => 'Finance',
             'client_relations'    => 'Client Relations',
@@ -454,7 +455,11 @@
                 { key: 'manage_vendors', label: 'Manage Third-Party Vendors' },
                 { key: 'manage_appraisals', label: 'Manage Appraisals Builder' },
                 { key: 'manage_leaves', label: 'Manage Leave Approvals' },
-                { key: 'manage_visitors', label: 'Manage Visitor Logs' }
+                { key: 'manage_visitors', label: 'Manage Visitor Logs' },
+                @if(auth()->user()->isSuperAdmin())
+                { key: 'view_executive_activity', label: 'Executive Activity (read only)' },
+                { key: 'view_hr_finance_audit', label: 'HR & Finance Audit (read only)' }
+                @endif
             ],
             openModal(user) {
                 this.name = user.name;

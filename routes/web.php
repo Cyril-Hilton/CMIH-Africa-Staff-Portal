@@ -146,6 +146,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/client-relations/submissions', [\App\Http\Controllers\Portal\ClientRelationsSubmissionController::class, 'index'])->name('crm.submissions');
     Route::post('/client-relations/submissions/{submission}/review', [\App\Http\Controllers\Portal\ClientRelationsSubmissionController::class, 'review'])->name('crm.submissions.review');
     Route::get('/client-relations/centre/data', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'data'])->name('crm.centre.data');
+    Route::get('/client-relations/centre/published-register', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'publishedRegister'])->name('crm.centre.published-register');
     Route::get('/client-relations/centre/export/{format}', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'export'])->name('crm.centre.export');
     Route::post('/client-relations/account-targets/{target}/result', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'targetResult'])->name('crm.centre.target-result');
     Route::post('/client-relations/centre/relationships', [\App\Http\Controllers\Portal\ClientRelationsCentreController::class, 'relationship'])->name('crm.centre.relationship');
@@ -261,6 +262,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/printing-requests/{printingRequest}/review', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'review'])->name('printing-requests.review');
     Route::get('/printing-requests/{printingRequest}/preview', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'preview'])->name('printing-requests.preview');
     Route::get('/printing-requests/{printingRequest}/pdf', [\App\Http\Controllers\Portal\VendorPrintingRequestController::class, 'download'])->name('printing-requests.download');
+    Route::get('/warehouse-assets/intake', [\App\Http\Controllers\Portal\WarehouseAssetIntakeController::class, 'index'])->name('assets.warehouse.intake');
+    Route::post('/warehouse-assets/intake/{suggestion}', [\App\Http\Controllers\Portal\WarehouseAssetIntakeController::class, 'review'])->name('assets.warehouse.intake.review');
     Route::get('/warehouse-assets', [WarehouseAssetController::class, 'index'])->name('assets.warehouse.index');
     Route::post('/warehouse-assets', [WarehouseAssetController::class, 'store'])->name('assets.warehouse.store');
     Route::post('/warehouse-assets/import', [WarehouseAssetController::class, 'import'])->name('assets.warehouse.import');
@@ -333,10 +336,17 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/leaves/{leave}/handover-acknowledgement', [\App\Http\Controllers\Portal\LeaveController::class, 'acknowledgeHandover'])->name('leaves.handover.acknowledge');
     Route::post('/leaves/{leave}/resubmit', [\App\Http\Controllers\Portal\LeaveController::class, 'resubmit'])->name('leaves.resubmit');
     Route::get('/fleet-requests', [\App\Http\Controllers\Portal\FleetRequestController::class, 'index'])->name('fleet-requests');
+    Route::get('/fleet-requests/export/{format}', [\App\Http\Controllers\Portal\FleetRequestController::class, 'exportRegister'])->whereIn('format', ['xlsx', 'pdf'])->name('fleet-requests.export');
+    Route::get('/fleet-requests/{fleetRequest}/download/{format}', [\App\Http\Controllers\Portal\FleetRequestController::class, 'download'])->whereIn('format', ['xlsx', 'pdf'])->name('fleet-requests.download');
     Route::post('/fleet-requests', [\App\Http\Controllers\Portal\FleetRequestController::class, 'store'])->name('fleet-requests.store');
     Route::post('/fleet-requests/{fleetRequest}/resubmit', [\App\Http\Controllers\Portal\FleetRequestController::class, 'resubmit'])->name('fleet-requests.resubmit');
     Route::post('/fleet-requests/{fleetRequest}/action', [\App\Http\Controllers\Portal\FleetRequestController::class, 'action'])->name('fleet-requests.action');
 
+    Route::get('/boardroom-requests', [\App\Http\Controllers\Portal\BoardroomRequestController::class, 'index'])->name('boardroom-requests');
+    Route::post('/boardroom-requests', [\App\Http\Controllers\Portal\BoardroomRequestController::class, 'store'])->name('boardroom-requests.store');
+    Route::post('/boardroom-requests/{booking}/action', [\App\Http\Controllers\Portal\BoardroomRequestController::class, 'action'])->name('boardroom-requests.action');
+
+    Route::get('/action-points/archive', [\App\Http\Controllers\Portal\ActionPointController::class, 'archive'])->name('action-points.archive');
     Route::get('/action-points/table', [\App\Http\Controllers\Portal\ActionPointController::class, 'table'])->name('action-points.table');
     Route::post('/action-points', [\App\Http\Controllers\Portal\ActionPointController::class, 'store'])->name('action-points.store');
     Route::patch('/action-points/{actionPoint}', [\App\Http\Controllers\Portal\ActionPointController::class, 'update'])->name('action-points.update');
@@ -345,6 +355,9 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/id-card', [ProfileController::class, 'idCard'])->name('id-card');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
+
+    Route::get('/project-journey', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'index'])->name('project-journey');
+    Route::post('/project-journey/link', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'link'])->name('project-journey.link');
 
     // Department Modules
     Route::get('/visitors', [\App\Http\Controllers\Portal\DepartmentController::class, 'visitors'])->name('visitors');

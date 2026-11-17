@@ -17,6 +17,11 @@ class HrStaffController extends Controller
         abort_unless($request->user()?->hasFullHrAccess(), 403);
     }
 
+    private function authorizeRead(Request $request): void
+    {
+        abort_unless($request->user()->hasFullHrAccess() || $request->user()->canAuditHrAndFinance(), 403);
+    }
+
     private function staffQuery(Request $request)
     {
         $filters = $request->validate([
@@ -34,7 +39,7 @@ class HrStaffController extends Controller
 
     public function index(Request $request, HrStaffRecord $record)
     {
-        $this->authorizeHr($request);
+        $this->authorizeRead($request);
 
         return response()->view('portal.hr.staff-index', [
             'staff' => $this->staffQuery($request)->paginate(25)->withQueryString(),
@@ -46,7 +51,7 @@ class HrStaffController extends Controller
 
     public function show(Request $request, User $user, HrStaffRecord $record)
     {
-        $this->authorizeHr($request);
+        $this->authorizeRead($request);
         abort_unless(User::internalStaff()->whereKey($user->id)->exists(), 404);
         $data = $request->validate(['section' => ['nullable', Rule::in(array_keys(HrStaffRecord::HISTORIES))]]);
         $section = $data['section'] ?? 'leave';
@@ -59,7 +64,7 @@ class HrStaffController extends Controller
 
     public function document(Request $request, User $user, string $field, HrStaffRecord $record)
     {
-        $this->authorizeHr($request);
+        $this->authorizeRead($request);
         abort_unless(User::internalStaff()->whereKey($user->id)->exists(), 404);
         $path = $record->document($user, $field);
         abort_unless($path, 404, 'This document is not available.');

@@ -2,7 +2,9 @@
     $columns = match ($kind) {
         'project' => ['brand', 'project_stage', 'project_status', 'progress_percent', 'rag_status', 'due_on'],
         'activation' => ['brand', 'location', 'starts_on', 'ends_on', 'report_shared'],
-        'posm_deployment' => ['asset_code', 'quantity', 'current_location', 'expected_return_on', 'return_status'],
+        'posm_deployment' => ['asset_code', 'quantity', 'location', 'current_location', 'expected_return_on', 'return_status'],
+        'team_allocation' => ['outlet', 'location', 'setup_on', 'activation_dates_as_reported', 'client_service', 'technical_support', 'handyman', 'transport'],
+        'fabrication' => ['quantity', 'vendor', 'artwork_shared', 'starts_on', 'due_on', 'delivered_on'],
         'procurement' => ['item_service', 'supplier', 'quantity', 'required_on', 'delivery_status'],
         'supplier' => ['supplier_name', 'delivery_on', 'performance'],
         'production' => ['production_item', 'due_on', 'quality_check'],
@@ -15,9 +17,10 @@
     $tracker = app(\App\Services\OperationsTracker::class);
 @endphp
 <section class="br-table-section">
-    <header class="br-table-heading"><h4>{{ $labels[$kind] }} <small>{{ $entries->total() }}</small></h4>
-        @if($member)<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_add' => $kind]) }}">Add {{ $kind === 'weekly_update' ? 'Weekly Update' : \Illuminate\Support\Str::singular($labels[$kind]) }}</a>@endif
+    <header class="br-table-heading"><h4>{{ !empty($undated) ? 'POSM with no deployment date' : $labels[$kind] }} <small>{{ $entries->total() }}</small></h4>
+        @if($member && empty($undated))<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_add' => $kind]) }}">Add {{ $kind === 'weekly_update' ? 'Weekly Update' : \Illuminate\Support\Str::singular($labels[$kind]) }}</a>@endif
     </header>
+    @if(!empty($undated))<p>Source records without a deployment date. They appear separately and do not affect period totals or warehouse balances.</p>@endif
     <div class="br-table-wrap" tabindex="0" role="region" aria-label="{{ $labels[$kind] }}">
         <table class="br-table ops-table">
             <thead><tr>
@@ -35,7 +38,7 @@
                     $derived = $tracker->derived($kind, $data);
                     $campaignId = (int) ($data['campaign_id'] ?? 0);
                     $linked = $kind === 'activation' ? $linkedMovements->filter(fn ($movement) => $movement->operations_activation_id === $entry->id || ($campaignId && $movement->campaign_id === $campaignId && ! $movement->operations_activation_id)) : collect();
-                    $canEdit = $member && ($manager || $entry->owner_id === auth()->id() || $entry->submitted_by === auth()->id());
+                    $canEdit = empty($undated) && $member && ($manager || $entry->owner_id === auth()->id() || $entry->submitted_by === auth()->id());
                     $status = $editStatus($entry->status);
                 @endphp
                 <tbody x-data="{ expanded: false }">
@@ -43,7 +46,7 @@
                     <td class="ops-title"><button type="button" class="ops-expand" @click="expanded = !expanded" :aria-expanded="expanded.toString()" aria-controls="ops-register-{{ $entry->id }}"><span aria-hidden="true" x-text="expanded ? '−' : '+'">+</span> {{ $entry->title }}</button></td>
                     <td>{{ $entry->client ?: '—' }}</td>
                     <td>@include('portal.operations.collaborator-badges', ['people' => $staff->whereIn('id', $data['collaborator_ids'] ?? [])])</td>
-                    <td>{{ $staff->firstWhere('id', $entry->owner_id)?->name ?? '—' }}</td>
+                    <td>{{ $data['project_in_charge'] ?? $data['source_project_lead'] ?? (empty($data['import_no_owner']) ? $staff->firstWhere('id', $entry->owner_id)?->name : null) ?? '—' }}</td>
                     @foreach($columns as $column)
                         <td @class(['br-rich-cell' => $column === 'deliverables'])>
                             @php($value = $data[$column] ?? $derived[$column] ?? null)
@@ -53,12 +56,12 @@
                         </td>
                     @endforeach
                     <td><span class="br-badge" data-ops-status="{{ \Illuminate\Support\Str::slug($status, '_') }}">{{ $status }}</span></td>
-                    <td class="br-date-cell">{{ $entry->period_start->format('d M Y') }}</td>
+                    <td class="br-date-cell">{{ !empty($undated) ? 'Date not recorded' : $entry->period_start->format('d M Y') }}</td>
                 </tr>
                 <tr id="ops-register-{{ $entry->id }}" class="ops-detail-row" x-show="expanded" style="display:none">
                     <td colspan="{{ 6 + count($columns) }}">
                         <div class="br-table-heading"><strong>{{ $entry->reference }}</strong>@if($canEdit)<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_edit' => $entry->id]) }}">Edit Entry</a>@endif</div>
-                        @include('portal.operations.report-fields', ['detailFields' => array_intersect_key($data, $safeFields($kind)) + $derived + ['project' => $entry->project, 'evidence_link' => $modules && $member ? $entry->evidence_url : null]])
+                        @include('portal.operations.report-fields', ['detailFields' => array_intersect_key($data, $safeFields($kind)) + $derived + ['project' => $entry->project, 'source_reference' => $data['import_source'] ?? null, 'duration_as_reported' => $data['duration_as_reported'] ?? null, 'source_serial' => $data['source_serial'] ?? null, 'evidence_link' => $modules && $member ? $entry->evidence_url : null]])
                         @if($kind === 'activation' && $member)
                             @include('portal.operations.report-linked-assets', ['linked' => $linked, 'linkedLedger' => $linkedPosm->get($campaignId, collect()), 'linkedLogs' => $checkoutLogs->get($campaignId, collect()), 'activationId' => $entry->id, 'campaignId' => null])
                         @endif

@@ -25,6 +25,35 @@ class ClientRelationsPipeline
             && User::internalStaff()->whereKey($user->id)->exists();
     }
 
+    public static function supportingStaff()
+    {
+        return User::internalStaff()->where('status', 'active')->orderBy('name');
+    }
+
+    public static function validateSupportingStaff(\Illuminate\Http\Request $request, int $ownerId, array $retained = []): array
+    {
+        if (! $request->has('supporting_staff_ids') && ! $request->boolean('supporting_staff_present')) {
+            return in_array($ownerId, $retained, true)
+                ? ['supporting_staff_ids' => array_values(array_diff($retained, [$ownerId]))]
+                : [];
+        }
+
+        $validated = $request->validate([
+            'supporting_staff_ids' => 'sometimes|array|max:50',
+            'supporting_staff_ids.*' => 'required|integer|min:1|distinct',
+        ]);
+        $ids = array_map('intval', $validated['supporting_staff_ids'] ?? []);
+        if (in_array($ownerId, $ids, true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['supporting_staff_ids' => 'The account owner already leads this entry. Choose other staff for support.']);
+        }
+        $newIds = array_diff($ids, $retained);
+        if ($newIds && self::supportingStaff()->whereKey($newIds)->count() !== count($newIds)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['supporting_staff_ids' => 'Choose active internal staff to add to this entry.']);
+        }
+
+        return ['supporting_staff_ids' => $ids];
+    }
+
     public static function canReveal(User $user): bool
     {
         return \App\Services\Creative\CreativeAccess::staff($user);
@@ -62,8 +91,28 @@ class ClientRelationsPipeline
             'shared_next_action' => $p->shared_next_action, 'comments' => $p->comments,
             'has_proposed_amount' => $p->proposed_amount !== null, 'has_po_amount' => $p->po_amount !== null,
             'has_weighted_forecast' => $m['weighted_forecast'] !== null, 'po_state' => $p->po_state ?? 'unknown',
-            'public_action' => $p->public_action, 'expected_close_date' => $p->expected_close_date,
+            'week_end' => $p->week_end, 'supporting_staff_ids' => $p->supporting_staff_ids, 'public_action' => $p->public_action, 'expected_close_date' => $p->expected_close_date,
         ])->save();
+    }
+
+    public static function reportingRows(?string $search, ?string $from, ?string $to)
+    {
+        $rows = self::publicRows($search)
+            ->when($from, fn ($query) => $query->whereRaw('COALESCE(crm_weekly_progress.week_end, crm_weekly_progress.week_start) >= ?', [$from]))
+            ->when($to, fn ($query) => $query->whereDate('crm_weekly_progress.week_start', '<=', $to))
+            ->paginate(8, ['*'], 'crm_page')
+            ->withPath(route('dashboard'))
+            ->withQueryString()
+            ->appends(['weekly_department' => 'client_relations'])
+            ->fragment('staff-weekly-performance');
+
+        $names = User::whereKey($rows->getCollection()->flatMap(fn ($row) => $row->supporting_staff_ids ?? [])->unique()->values()->all())->pluck('name','id');
+
+        return $rows->through(function (CrmWeeklyProgress $row) use ($names) {
+            $row->supporting_staff_names = collect($row->supporting_staff_ids ?? [])->map(fn ($id) => $names->get($id))->filter()->values();
+
+            return $row;
+        });
     }
 
     /** Dedicated allow-list: shared business amounts are visible; contact details and private notes stay excluded. */

@@ -50,7 +50,7 @@ class AppraisalController extends Controller
             ->withQueryString();
 
         // Manager transparency matrix: list appraisals of staff assigned to them
-        if ($this->isHR($user)) {
+        if ($this->isHR($user) || $user->canAuditHrAndFinance()) {
             $staffAppraisals = Appraisal::with('employee')
                 ->latest()
                 ->paginate(5, ['*'], 'staff_appraisals_page')
@@ -363,9 +363,14 @@ class AppraisalController extends Controller
 
     // ─── Step 3: HR Final Audit ───────────────────────────────────────────────
 
-    public function showAuditForm(Appraisal $appraisal, Request $request): View
+    public function showAuditForm(Appraisal $appraisal, Request $request)
     {
         $user = $request->user();
+        if (! $this->isHR($user) && $user->canAuditHrAndFinance()) {
+            return response()->view('portal.appraisals.audit-record', [
+                'appraisal' => $appraisal->load('employee'), 'metrics' => AppraisalMetric::orderBy('category')->get(),
+            ])->header('Cache-Control', 'private, no-store');
+        }
         if (! $this->isHR($user)) {
             abort(403, 'Only HR or Super Admin can audit appraisals.');
         }
@@ -439,7 +444,7 @@ class AppraisalController extends Controller
         
         // Authorization check: Must be HR, or Manager of the same department
         $isAuthorized = false;
-        if ($this->isHR($currentUser)) {
+        if ($this->isHR($currentUser) || $currentUser->canAuditHrAndFinance()) {
             $isAuthorized = true;
         } elseif (!$currentUser->isHrAdministrator() && in_array($currentUser->access_role, ['admin', 'manager'], true)) {
             if ($currentUser->department === $user->department) {

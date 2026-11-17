@@ -1,9 +1,13 @@
 <x-app-layout>
+@php($auditOnly = ! auth()->user()->hasFullHrAccess())
     <x-slot name="header"><p class="text-xs uppercase tracking-widest text-brand-ash">HR staff record</p><h2 class="text-3xl font-display text-brand-white">{{ $staffMember->name }}</h2></x-slot>
     <div class="space-y-6 text-brand-white">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <a href="{{ route('portal.hr.staff.index') }}" class="underline">Back to staff register</a>
-            <form method="POST" action="{{ route('portal.hr.staff.export') }}" class="flex gap-3">@csrf<input type="hidden" name="scope" value="selected"><input type="hidden" name="ids[]" value="{{ $staffMember->id }}">@foreach($record->fields() as $field)<input type="hidden" name="fields[]" value="{{ $field }}">@endforeach<button name="format" value="xlsx" class="rounded-lg border border-brand-white/20 px-4 py-2">Export Profile Excel</button><button name="format" value="zip" class="rounded-lg bg-brand-red text-white px-4 py-2">Download full record</button></form>
+            @if(! $auditOnly)
+                <form method="POST" action="{{ route('portal.hr.staff.export') }}" class="flex gap-3">@csrf<input type="hidden" name="scope" value="selected"><input type="hidden" name="ids[]" value="{{ $staffMember->id }}">@foreach($record->fields() as $field)<input type="hidden" name="fields[]" value="{{ $field }}">@endforeach<button name="format" value="xlsx" class="rounded-lg border border-brand-white/20 px-4 py-2">Export Profile Excel</button><button name="format" value="zip" class="rounded-lg bg-brand-red text-white px-4 py-2">Download full record</button></form>
+@endif
+
         </div>
         <p class="text-sm text-brand-ash">{{ $staffMember->staff_id_number ?: 'No staff ID' }} · {{ ucfirst($staffMember->status) }} · {{ \App\Models\User::departmentLabel($staffMember->department) }}</p>
         @if(session('status'))<p role="status" class="rounded-xl bg-emerald-500/10 p-4 text-emerald-300">{{ session('status') }}</p>@endif
@@ -12,11 +16,13 @@
             <h3 class="text-xl font-display">Work notification email</h3>
             <p class="mt-2 text-sm text-brand-ash">Portal emails go to this work mailbox. Personal contact details remain separate. Set the correct work address when a new HR manager or staff member takes over.</p>
             <p class="mt-2 text-sm">Currently sending to: <strong>{{ $staffMember->notificationEmail() }}</strong></p>
-            <form method="POST" action="{{ route('portal.hr.staff.work-email', $staffMember) }}" class="mt-4 flex flex-wrap items-end gap-4">
+            @if(! $auditOnly)
+<form method="POST" action="{{ route('portal.hr.staff.work-email', $staffMember) }}" class="mt-4 flex flex-wrap items-end gap-4">
                 @csrf @method('PATCH')
                 <label class="text-sm">Work email<input required type="email" name="work_email" value="{{ old('work_email', $staffMember->work_email) }}" placeholder="name@cmihafrica.com" class="mt-2 block w-full rounded-lg border-brand-white/20 bg-brand-black"></label>
                 <button class="rounded-lg bg-brand-red px-4 py-2 text-white">Save work email</button>
             </form>
+            @endif
         </section>
         @foreach(\App\Services\HrStaffRecord::GROUPS as $group => $fields)
             <section class="rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6"><h3 class="mb-5 text-xl font-display">{{ $group }}</h3><dl class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

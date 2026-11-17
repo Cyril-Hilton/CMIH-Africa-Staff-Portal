@@ -1,5 +1,7 @@
 @php
     $taskReturnUrl = \App\Http\Controllers\Portal\TaskController::taskReturnUrl(request());
+    $brandsTracker = str_starts_with($taskReturnUrl, '/portal/brands')
+        || (str_starts_with($taskReturnUrl, '/dashboard') && str_contains($taskReturnUrl, 'brands_tab=productivity'));
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -8,7 +10,7 @@
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">My Assignments</p>
                 <h2 class="text-3xl font-display text-brand-white">Edit Task</h2>
             </div>
-            <a href="{{ $taskReturnUrl }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">{{ str_starts_with($taskReturnUrl, '/dashboard') ? 'Back to Mega Table' : 'Back to Tasks' }}</a>
+            <a href="{{ $taskReturnUrl }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">{{ $brandsTracker ? 'Back to Brands Task Tracker' : (str_starts_with($taskReturnUrl, '/dashboard') ? 'Back to Mega Table' : 'Back to Tasks') }}</a>
         </div>
     </x-slot>
 

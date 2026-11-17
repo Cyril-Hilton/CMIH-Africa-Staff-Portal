@@ -23,7 +23,7 @@ class OperationsReporting
         'planned' => 'Planned', 'in_progress' => 'In Progress', 'completed' => 'Completed',
         'cancelled' => 'Cancelled', 'submitted' => 'Submitted', 'approved' => 'Approved',
         'resolved' => 'Resolved', 'won' => 'Won', 'lost' => 'Lost', 'paid' => 'Paid',
-        'on_hold' => 'On Hold', 'blocked' => 'Blocked',
+        'on_hold' => 'On Hold', 'blocked' => 'Blocked', 'unrecorded' => 'Not Recorded',
     ];
 
     public static function member(User $user): bool
@@ -80,10 +80,15 @@ class OperationsReporting
             'ops_edit' => 'nullable|integer',
             'ops_add' => ['nullable', Rule::in(array_keys(self::schemas()))],
             'ops_warehouse' => 'nullable|in:inventory,movements',
+            'ops_source' => 'nullable|integer|min:0|max:30',
+            'ops_source_page' => 'nullable|integer|min:1|max:1000',
         ]);
         $from = $request->query('weekly_from');
         $to = $request->query('weekly_to');
         $tab = $filters['ops_tab'] ?? 'weekly';
+        if ($tab === 'sources') {
+            abort_unless($manager && $request->routeIs('portal.operations'), 403);
+        }
         $owner = isset($filters['ops_owner']) ? (int) $filters['ops_owner'] : null;
         $search = trim($filters['ops_q'] ?? '');
         $sort = $filters['ops_sort'] ?? 'newest';
@@ -91,7 +96,7 @@ class OperationsReporting
         $perPage = (int) ($filters['ops_rows'] ?? 10);
         $modules = $request->routeIs('portal.operations');
         $anchor = $modules ? 'operations-reporting' : 'staff-weekly-performance';
-        $returnQuery = $request->only(['report_period', 'report_date', 'ops_tab', 'ops_owner', 'ops_q', 'ops_sort', 'ops_status', 'ops_direction', 'ops_rows', 'ops_warehouse']);
+        $returnQuery = $request->only(['report_period', 'report_date', 'ops_tab', 'ops_owner', 'ops_q', 'ops_sort', 'ops_status', 'ops_direction', 'ops_rows', 'ops_warehouse', 'ops_source']);
         $returnQuery['ops_tab'] = $tab;
         $returnQuery += $modules ? ['module_view' => 'overview'] : ['weekly_department' => self::DEPARTMENT];
         $workspaceUrl = fn (array $parameters = [], bool $keepPeriod = true) => route(
@@ -99,7 +104,21 @@ class OperationsReporting
             array_filter(array_replace($keepPeriod ? $returnQuery : array_diff_key($returnQuery, ['report_period' => true, 'report_date' => true]), $parameters), fn ($value) => $value !== null && $value !== '')
         ).'#'.(isset($parameters['ops_review']) ? 'operations-reviews' : (isset($parameters['ops_add']) || isset($parameters['ops_edit']) ? 'operations-entry' : $anchor));
         $approved = PerformanceRegister::query()->whereIn('department', User::departmentAliases(self::DEPARTMENT))->whereNotNull('approved_at');
-        $published = (clone $approved)->whereBetween('period_start', [$from, $to]);
+        $published = (clone $approved)->where(fn (Builder $q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))
+            ->where(fn (Builder $period) => $period->whereBetween('period_start', [$from, $to])
+                ->orWhere(fn (Builder $spans) => $spans->whereIn('kind', ['fabrication', 'team_allocation'])
+                    ->where('period_start', '<', $from)->where('period_end', '>=', $from)));
+        $undatedPosm = collect();
+        if ($tab === 'assets' && $member) {
+            $undatedPosm = (clone $approved)->where('kind', 'posm_deployment')->where('data->import_undated', true)
+                ->when($owner, fn (Builder $q) => $q->where('owner_id', $owner))
+                ->when($filters['ops_status'] ?? null, fn (Builder $q, $status) => $q->where('status', $status))
+                ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match
+                    ->where('title', 'like', "%$search%")->orWhere('client', 'like', "%$search%")
+                    ->orWhere('data->brand', 'like', "%$search%")->orWhere('data->location', 'like', "%$search%")));
+            $this->sort($undatedPosm, $sort, $direction, 'title', 'owner_id', 'period_start');
+            $undatedPosm = $undatedPosm->orderBy('id')->paginate($perPage, ['*'], 'ops_undated_page')->appends($returnQuery)->fragment($anchor);
+        }
         $weekly = WeeklyConsolidatedItem::query()->whereIn('department', User::departmentAliases(self::DEPARTMENT))
             ->where('workflow_state', 'legacy')->whereBetween('week_start', [$from, $to]);
         $campaigns = Campaign::query()->where(function (Builder $query) use ($from, $to) {
@@ -109,7 +128,7 @@ class OperationsReporting
                         ->orWhere(fn (Builder $noEnd) => $noEnd->whereNull('end_date')->whereDate('start_date', '>=', $from)));
             })->orWhere(fn (Builder $undated) => $undated->whereNull('start_date')->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to));
         });
-        $historicalOwners = (clone $published)->distinct()->pluck('owner_id')
+        $historicalOwners = (clone $published)->where(fn (Builder $q) => $q->whereNull('data->import_no_owner')->orWhere('data->import_no_owner', false))->distinct()->pluck('owner_id')
             ->merge((clone $weekly)->distinct()->pluck('lead_staff_id'))
             ->merge((clone $campaigns)->distinct()->pluck('project_lead_id'));
         $collaboratorIds = (clone $published)->get(['data'])->flatMap(fn ($row) => $row->data['collaborator_ids'] ?? [])
@@ -118,6 +137,7 @@ class OperationsReporting
         $staff = User::internalStaff()->where(fn (Builder $users) => $users
             ->where(fn (Builder $active) => $active->where('status', 'active')->whereIn('department', User::departmentAliases(self::DEPARTMENT)))
             ->orWhereIn('id', $historicalOwners->merge($collaboratorIds)->filter()->unique()))->orderBy('name')->get();
+        $teamStaff = $staff->filter(fn (User $person) => User::normalizeDepartmentKey($person->department) === self::DEPARTMENT);
         $registers = $weeklyRows = $campaignRows = $inventory = $movements = $summary = $breakdowns = [];
         $kpiRows = $deliveryRows = $executionTrend = [];
         $paginate = fn (Builder $query, string $page) => $query->paginate($perPage, ['*'], $page)->appends($returnQuery)->fragment($anchor);
@@ -141,9 +161,9 @@ class OperationsReporting
             $rows = $filtered->get();
             $summary = app(OperationsTracker::class)->summary($rows);
             $activationRows = $rows->where('kind', 'activation');
-            $summary['activations_completed'] = $activationRows->filter(fn ($row) => $this->activationExecuted($row))->count();
+            $summary['activations_completed'] = $activationRows->filter(fn ($row) => self::activationExecuted($row))->count();
             $executionTrend = $this->executionTrend($approved, $request->query('report_period', 'week'), $from, $to, $owner, $search);
-            $summary['activation_reports_shared'] = $activationRows->filter(fn ($row) => filled($row->data['report_shared_on'] ?? null))->count();
+            $summary['activation_reports_shared'] = $activationRows->filter(fn ($row) => (! empty($row->data['report_shared_on']) || ($row->data['import_report_shared'] ?? null) === true))->count();
             foreach (['brand' => 'Brand', 'location' => 'Location', 'lead' => 'Project Lead'] as $field => $label) {
                 $breakdowns[$label] = $rows->where('kind', 'activation')->countBy(fn ($row) => $field === 'lead'
                     ? ($staff->firstWhere('id', $row->owner_id)?->name ?? 'Unassigned')
@@ -207,7 +227,7 @@ class OperationsReporting
                 ->when($filters['ops_review'] > 0, fn ($q) => $q->whereKey($filters['ops_review']))->latest('id')->paginate(10, ['*'], 'ops_review_page')->withQueryString()->fragment('operations-reviews')
             : null;
         $edit = $member && isset($filters['ops_edit'])
-            ? (clone $approved)->whereIn('kind', array_keys(self::schemas()))->when(! $manager, fn (Builder $q) => $q->where(fn (Builder $person) => $person->where('owner_id', $user->id)->orWhere('submitted_by', $user->id)))->findOrFail($filters['ops_edit'])
+            ? (clone $approved)->whereIn('kind', array_keys(self::schemas()))->where(fn (Builder $q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))->when(! $manager, fn (Builder $q) => $q->where(fn (Builder $person) => $person->where('owner_id', $user->id)->orWhere('submitted_by', $user->id)))->findOrFail($filters['ops_edit'])
             : null;
         $newKind = $member ? ($filters['ops_add'] ?? null) : null;
         $campaignOptions = $member && ($newKind === 'activation' || $edit?->kind === 'activation' || $submissions?->contains('kind', 'activation'))
@@ -223,10 +243,15 @@ class OperationsReporting
                 ->filter(fn ($row) => $search === '' || mb_stripos($row['project'] ?? '', $search) !== false);
         }
 
-        return compact('tab', 'filters', 'from', 'to', 'staff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
+        $sourceArchive = [];
+        if ($tab === 'sources' && is_file($path = storage_path('app/private/operations-workbook-snapshot.json'))) {
+            $sourceArchive = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        }
+
+        return compact('sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
     }
 
-    private function activationExecuted(PerformanceRegister $row): bool
+    public static function activationExecuted(PerformanceRegister $row): bool
     {
         $status = $row->data['activation_status'] ?? null;
 
@@ -254,7 +279,7 @@ class OperationsReporting
                         $fields->orWhere($key, 'like', "%$search%");
                     }
                 });
-            })->get()->filter(fn (PerformanceRegister $row) => $this->activationExecuted($row));
+            })->get()->filter(fn (PerformanceRegister $row) => self::activationExecuted($row));
 
         $byDate = $records->filter(fn ($row) => $row->period_start->betweenIncluded($anchor, Carbon::parse($to)))
             ->countBy(fn ($row) => $period === 'year' ? $row->period_start->format('Y-m') : $row->period_start->toDateString());

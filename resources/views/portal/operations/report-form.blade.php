@@ -27,8 +27,8 @@
     <label>Reporting week<input type="date" name="week" required value="{{ $previous('week', $week) }}" @readonly($formRecord || $submission)></label>
     @if($manager)
         <label>Owner<select name="owner_id">
-            <option value="" @selected(! $staff->where('status', 'active')->contains('id', $selectedOwner))>{{ $formRecord || $submission ? 'Keep current owner' : 'Myself' }}</option>
-            @foreach($staff->where('status', 'active') as $person)
+            <option value="" @selected(! $teamStaff->where('status', 'active')->contains('id', $selectedOwner))>{{ $formRecord || $submission ? 'Keep current owner' : 'Myself' }}</option>
+            @foreach($teamStaff->where('status', 'active') as $person)
                 <option value="{{ $person->id }}" @selected($selectedOwner === $person->id)>{{ $person->name }}</option>
             @endforeach
         </select></label>
@@ -56,13 +56,33 @@
     @if($formKind === 'activation')
         <label>Existing Campaign <small>(optional)</small><select name="campaign_id"><option value="">No linked campaign</option>@foreach($campaignOptions as $campaign)<option value="{{ $campaign->id }}" @selected((int) $previous('campaign_id', $values['campaign_id'] ?? 0) === $campaign->id)>{{ $campaign->name }}</option>@endforeach</select></label>
     @endif
+    @if($formKind === 'activation')
+        <label>Client Relations project <small>(optional)</small>
+            <select name="crm_project_id">
+                <option value="">No linked project</option>
+                @foreach(\App\Models\CrmPipelineProject::where('source_period_confirmed', true)->with('owner:id,name')->latest('week_start')->get(['id','project_name','client_name','week_start','owner_id']) as $project)
+                    <option value="{{ $project->id }}" @selected((int) $previous('crm_project_id', $values['crm_project_id'] ?? 0) === $project->id)>{{ $project->client_name }} · {{ $project->project_name }} · {{ $project->owner?->name }} · {{ $project->week_start?->format('d M Y') }}</option>
+                @endforeach
+            </select>
+        </label>
+    @else
+        <label>Related activation <small>(optional)</small>
+            <select name="activation_id">
+                <option value="">No linked activation</option>
+                @foreach(\App\Services\OperationsReporting::activations()->latest('period_start')->get(['id','title','period_start','reference']) as $activation)
+                    <option value="{{ $activation->id }}" @selected((int) $previous('activation_id', $values['activation_id'] ?? 0) === $activation->id)>{{ $activation->title }} · {{ $activation->period_start?->format('d M Y') }} · {{ $activation->reference }}</option>
+                @endforeach
+            </select>
+        </label>
+    @endif
     @foreach($safeFields($formKind) as $field => $type)
         @php
             $options = config('operations_tracker.options.'.$field);
             $value = $previous('data.'.$field, $values[$field] ?? '');
-            $narrative = in_array($field, ['deliverables','remarks','description','supporting_team','kpi_commitments','reported_results','issue','action_required','resolution','resolution_action','key_issue','primary_requirement','team_handyman_requirement','comments','client_feedback','outstanding_actions','follow_up_action','mitigation','impact'], true);
+            $narrative = in_array($field, ['planned_assets','deliverables','remarks','description','supporting_team','kpi_commitments','reported_results','issue','action_required','resolution','resolution_action','key_issue','primary_requirement','team_handyman_requirement','comments','client_feedback','outstanding_actions','follow_up_action','mitigation','impact'], true);
         @endphp
         <label @class(['ops-narrative' => $narrative])>{{ \Illuminate\Support\Str::headline($field) }}
+            @if($field === 'planned_assets')<small>List one asset per line. The warehouse manager reviews these after the report is published.</small>@endif
             @if($options)
                 <select name="data[{{ $field }}]"><option value="">Choose…</option>@foreach($options as $option)<option @selected($value === $option)>{{ $option }}</option>@endforeach</select>
             @elseif($narrative)

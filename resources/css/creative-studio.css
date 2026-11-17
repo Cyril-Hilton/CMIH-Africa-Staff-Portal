@@ -324,5 +324,14 @@
 .cs-dialog .cs-support-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:4px 12px;max-height:220px;overflow:auto;padding:4px}
 .cs-dialog .cs-support-options label{padding:7px 8px;border:1px solid #a9c1d62b;border-radius:8px}
 .cs-dialog .cs-support-options label small{display:block;color:#a9c1d6}
-.cs-support-line{font-size:.78rem;color:#b8cee0;margin:5px 0 8px;overflow-wrap:anywhere}
 .cs-planner-support{font-size:10px;line-height:1.4;color:#cce0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.cs-studio{--cs-support:#83e5d8}
+.cs-support-badges{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 0}
+.cs-support-label{color:#b8ccc9;font-size:10px}
+.cs-studio .cs-support-chip{display:inline-block;align-self:flex-start;max-width:100%;border:1px solid #74d6c69c;border-radius:6px;background:#16403d;color:#c5fff4;padding:2px 6px;font-size:9px;font-weight:750;line-height:1.35;overflow-wrap:anywhere}
+.cs-person .cs-support-chip{display:block;margin-top:3px}
+.cs-studio .cs-card[data-assignment=support],.cs-studio .cs-cal-bar.cs-planner-work[data-assignment=support]{border:1px dashed var(--cs-support);border-left:3px solid var(--cs-support);background:linear-gradient(125deg,#234644,#1d303a 72%)}
+.cs-studio .cs-cal-bar.cs-planner-work[data-assignment=support]:hover{background:linear-gradient(125deg,#2c5651,#253e48 72%);border-color:var(--cs-support)}
+.cs-calendar-key i.cs-support-key{width:12px;border:1px dashed var(--cs-support);background:#234644}
+.cs-day [data-cs-open] .cs-support-chip{margin-top:4px}

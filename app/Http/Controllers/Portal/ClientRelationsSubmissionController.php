@@ -9,18 +9,28 @@ class ClientRelationsSubmissionController extends Controller {
  public function index(Request $r) {
   abort_unless(ClientRelationsPipeline::member($r->user()),403);
   $manager=ClientRelationsSubmissions::manager($r->user());
+  $meta = ['can_review' => $manager, 'actor' => $r->user()->id, 'schema' => config('crm_scorecard')];
+  if ($r->boolean('form')) {
+   $staff = \App\Models\User::internalStaff()->where('status', 'active')
+    ->whereIn('department', \App\Models\User::departmentAliases('client_relations'))
+    ->when(! $manager, fn ($query) => $query->whereKey($r->user()->id))->orderBy('name')->get(['id', 'name']);
+
+   return response()->json($meta + ['staff' => $staff, 'supporting_staff' => ClientRelationsPipeline::supportingStaff()->get(['id','name'])])->header('Cache-Control', 'private, no-store');
+  }
   $items=CrmReportSubmission::with('submitter','reviewer')->when(!$manager,fn($q)=>$q->where('submitted_by',$r->user()->id))->whereIn('status',['pending','returned'])->latest()->limit(100)->get();
-  return response()->json(['can_review'=>$manager,'actor'=>$r->user()->id,'schema'=>config('crm_scorecard'),'entries'=>$items->map(fn($i)=>['id'=>$i->id,'revision'=>$i->revision,'type'=>$i->entity_type,'entity_id'=>$i->entity_id,'payload'=>$i->payload,'details'=>$this->details($i->payload),'status'=>$i->status,'note'=>$i->review_note,'submitted_by'=>$i->submitted_by,'author'=>$i->submitter?->name,'at'=>$i->updated_at?->toIso8601String(),'can_resubmit'=>$i->status==='returned' && (int)$i->submitted_by===$r->user()->id])])->header('Cache-Control','private, no-store');
+  $supportingStaff = \App\Models\User::whereKey($items->flatMap(fn ($item) => $item->payload['supporting_staff_ids'] ?? [])->unique()->values()->all())->get(['id','name'])->keyBy('id');
+  return response()->json($meta + ['entries'=>$items->map(fn($i)=>['id'=>$i->id,'revision'=>$i->revision,'type'=>$i->entity_type,'entity_id'=>$i->entity_id,'payload'=>$i->payload,'details'=>$this->details($i->payload, $supportingStaff),'supporting_staff'=>collect($i->payload['supporting_staff_ids']??[])->map(fn($id)=>$supportingStaff->get($id))->filter()->values(),'status'=>$i->status,'note'=>$i->review_note,'submitted_by'=>$i->submitted_by,'author'=>$i->submitter?->name,'at'=>$i->updated_at?->toIso8601String(),'can_resubmit'=>$i->status==='returned' && (int)$i->submitted_by===$r->user()->id])])->header('Cache-Control','private, no-store');
  }
- private function details(array $payload): array {
+ private function details(array $payload, \Illuminate\Support\Collection $supportingStaff): array {
   $details=[];
   foreach($payload as $key=>$value) {
-   if(in_array($key,['revision','reason']))continue;
+   if(in_array($key,['revision','reason']) || ($key === 'brand' && empty($value)))continue;
    $values=$key==='data' && is_array($value)?$value:[$key=>$value];
    foreach($values as $field=>$text) {
     if($field==='owner_id')$text=\App\Models\User::find($text)?->name??'Owner not available';
+    elseif($field==='supporting_staff_ids')$text=collect($text??[])->map(fn($id)=>$supportingStaff->get($id)?->name)->filter()->implode(', ') ?: 'None';
     elseif(str_ends_with($field,'_amount') && $text!==null)$text='GH₵ '.number_format((float)$text,2);
-    $details[]=['label'=>ucwords(str_replace('_',' ',$field==='owner_id'?'account_owner':$field)), 'html'=>\App\Support\ReportRichText::html(is_scalar($text)?(string)$text:($text===null?'Not recorded':json_encode($text)))];
+    $details[]=['label'=>match($field){'owner_id'=>'Account Owner','client_name'=>'Client / Brand','week_start'=>'Reporting From','week_end'=>'Reporting To','supporting_staff_ids'=>'Supporting Staff',default=>ucwords(str_replace('_',' ',$field))}, 'html'=>\App\Support\ReportRichText::html(is_scalar($text)?(string)$text:($text===null?'Not recorded':json_encode($text)))];
    }
   }
   return $details;

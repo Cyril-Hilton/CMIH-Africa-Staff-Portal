@@ -63,5 +63,53 @@ class ClientRelationsCentreTest extends TestCase {
  public function test_exports_use_all_matching_clients_and_keep_private_notes_out():void {
   $owner=$this->staff();$this->project($owner);$this->actingAs($this->staff('finance'))->get(route('portal.crm.centre.export',['format'=>'xlsx']))->assertOk()->assertHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');$pdf=$this->get(route('portal.crm.centre.export',['format'=>'pdf']))->assertOk()->assertHeader('Content-Type','application/pdf');$this->assertStringStartsWith('%PDF',$pdf->getContent());
  }
+ public function test_periods_keep_portfolio_only_accounts_out_of_weekly_metrics():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-16 12:00:00'));
+  $owner=$this->staff();
+  $this->project($owner,['client_name'=>'Engaged project','week_start'=>'2026-11-16']);
+  $this->project($owner,['client_name'=>'Previous week','week_start'=>'2026-11-12']);
+  $this->project($owner,['client_name'=>'Previous month','week_start'=>'2026-10-25']);
+  $this->project($owner,['client_name'=>'Running project','week_start'=>'2026-11-12','week_end'=>'2026-11-21']);
+  CrmClientRecord::create(['kind'=>'meeting','reference'=>'MEET-A','client_name'=>'Engaged meeting','owner_id'=>$owner->id,'status'=>'completed','data'=>['scheduled_at'=>'2026-11-16 10:00:00'],'created_by'=>$owner->id,'updated_by'=>$owner->id]);
+  CrmAccountRelationship::create(['client_name'=>'Portfolio only','owner_id'=>$owner->id,'relationship'=>'current','created_by'=>$owner->id]);
+  $url=fn($filters=[])=>route('portal.crm.centre.data',$filters);
+  $this->actingAs($owner)->getJson($url())->assertOk()->assertJsonPath('period.from','2026-11-16')
+   ->assertJsonPath('summary.engaged_clients',3)->assertJsonPath('summary.portfolio_clients',6)
+   ->assertJsonPath('summary.projects',2)->assertJsonCount(3,'clients')->assertDontSee('Previous week');
+  $this->getJson($url(['account_scope'=>'all']))->assertOk()->assertJsonPath('summary.engaged_clients',3)
+   ->assertJsonCount(6,'clients')->assertJsonPath('clients.3.engaged',false);
+  $this->getJson($url(['period'=>'week','date'=>'2026-11-12']))->assertOk()->assertJsonPath('summary.projects',2);
+  $this->getJson($url(['period'=>'month']))->assertOk()->assertJsonPath('summary.projects',3);
+  $this->getJson($url(['period'=>'year']))->assertOk()->assertJsonPath('summary.projects',4);
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-23 12:00:00'));
+  $this->getJson($url())->assertOk()->assertJsonPath('period.from','2026-11-23')->assertJsonPath('summary.engaged_clients',0);
+  $this->travelBack();
+ }
+ public function test_weekly_account_tabs_use_period_and_owner_filters_across_client_pages():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-16 12:00:00'));
+  $owner=$this->staff();$other=$this->staff();
+  $this->project($owner,['client_name'=>'Z Active account','week_start'=>'2026-11-16']);
+  $this->project($other,['client_name'=>'Other owner','week_start'=>'2026-11-16']);
+  foreach(range(1,8) as $number){
+   $this->project($owner,['client_name'=>'Historical '.$number,'week_start'=>'2026-11-10']);
+  }
+  $filters=['account_scope'=>'all','owner'=>$owner->id,'period'=>'week','date'=>'2026-11-16','per_page'=>6,'page'=>2];
+  $this->actingAs($owner)->getJson(route('portal.crm.centre.data',$filters))->assertOk()
+   ->assertJsonPath('summary.engaged_clients',1)->assertJsonPath('pagination.total',9)
+   ->assertJsonPath('client_options.0',['name'=>'Z Active account','key'=>'z active account','engaged'=>true])
+   ->assertJsonPath('client_options.6.engaged',false)
+   ->assertJsonPath('client_options.6.key','historical 6')->assertJsonPath('clients.0.key','historical 6');
+  $this->getJson(route('portal.crm.centre.data',array_replace($filters,['period'=>'month','page'=>1])))->assertOk()
+   ->assertJsonPath('summary.engaged_clients',9)->assertJsonPath('client_options.6.engaged',true);
+  $this->travelBack();
+ }
+ public function test_former_staff_allocations_remain_historical_in_all_accounts():void {
+  $owner=$this->staff();$former=$this->staff();$former->update(['status'=>'suspended']);
+  CrmAccountRelationship::create(['client_name'=>'GB Food','owner_id'=>$former->id,'relationship'=>'current','created_by'=>$owner->id]);
+  $this->actingAs($owner)->getJson(route('portal.crm.centre.data'))->assertOk()->assertJsonCount(0,'clients');
+  $this->getJson(route('portal.crm.centre.data',['account_scope'=>'all','client'=>'GB Food']))->assertOk()
+   ->assertJsonPath('clients.0.engaged',false)->assertJsonPath('clients.0.owners.0.role','Former Account Owner')
+   ->assertJsonPath('clients.0.owners.0.former_staff',true);
+ }
  public function test_guests_cannot_read_shared_business_data():void {$this->getJson(route('portal.crm.centre.data'))->assertUnauthorized();}
 }

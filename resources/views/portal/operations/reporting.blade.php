@@ -36,12 +36,16 @@
 
     <nav class="br-tabs ops-tabs" aria-label="Operations reporting categories">
         @foreach($tabs as $id => $label)
+            @continue($id === 'sources' && !($manager && $modules))
             <a class="ops-button" href="{{ $workspaceUrl(['ops_tab' => $id, 'ops_status' => null, 'ops_warehouse' => null]) }}" @if($id === $tab) aria-current="page" @endif>{{ $label }}</a>
         @endforeach
     </nav>
+    @if($tab === 'sources')
+        @include('portal.operations.report-sources')
+    @else
     <nav class="br-staff ops-staff" aria-label="Filter Operations reports by staff">
         <a class="ops-button" href="{{ $workspaceUrl(['ops_owner' => null]) }}" @unless($owner) aria-current="true" @endunless>All Operations Staff</a>
-        @foreach($staff as $person)
+        @foreach($teamStaff as $person)
             <a class="ops-button" href="{{ $workspaceUrl(['ops_owner' => $person->id]) }}" @if((int) $owner === $person->id) aria-current="true" @endif>
                 <img src="{{ $person->profilePhotoUrl() }}" alt="" loading="lazy" width="28" height="28">{{ $person->name }}
             </a>
@@ -96,10 +100,15 @@
     @if($tab === 'projects')
         @include('portal.operations.report-campaigns')
     @elseif($tab === 'assets' && $member)
+        <a class="ops-button" href="{{ route('portal.assets.warehouse.intake') }}">Warehouse Asset Intake</a>
+        @if($undatedPosm->total())
+            @include('portal.operations.report-register', ['kind' => 'posm_deployment', 'entries' => $undatedPosm, 'undated' => true])
+        @endif
         @include('portal.operations.report-assets')
     @elseif($tab === 'weekly')
         @include('portal.operations.report-weekly')
     @elseif($tab === 'kpis')
         @include('portal.operations.report-kpis')
+    @endif
     @endif
 </section>

@@ -13,7 +13,7 @@
 'people'=>['People & Employment','Staff records, identity checks, employment milestones and appraisal tools.'],
 'leave'=>['Leave & Attendance','Manage requests, leave entitlements and attendance reporting.'],
 'pay'=>['Pay & Benefits','Salary advance terms, staff agreements and repayment management.'],
-'workplace'=>['Workplace Services','Manage visitor arrivals, scheduled visits and the contact directory.'],
+'workplace'=>['Workplace Services','Manage transport, boardroom bookings, visitor arrivals and the contact directory.'],
 'communications'=>['Communications & Resources','Staff announcements, templates and reference tools.'],
 'reporting'=>['Reports & Presentation','Prepare HR and Administrator reports, then present approved results on the weekly dashboard.'],
 ])
@@ -27,6 +27,12 @@
 @foreach($hrWorkspaceTabs as $key=>$tab)
     <section role="tabpanel" id="hr-panel-{{ $key }}" aria-labelledby="hr-tab-{{ $key }}" tabindex="0" data-hr-panel="{{ $key }}" class="hr-workspace-panel">
         <div class="hr-workspace-panel-intro"><h3>{{ $tab[0] }}</h3><p>{{ $tab[1] }}</p></div>
+        @if($key === 'workplace')
+            <div class="hr-workspace-tool grid gap-3 sm:grid-cols-2">
+                <a class="rounded-xl border border-brand-white/20 p-4" href="{{ route('portal.fleet-requests') }}"><strong>Vehicle requests</strong><span class="mt-1 block text-sm text-brand-ash">Review requests and download Excel or PDF copies.</span></a>
+                <a class="rounded-xl border border-brand-white/20 p-4" href="{{ route('portal.boardroom-requests') }}"><strong>Boardroom requests</strong><span class="mt-1 block text-sm text-brand-ash">Review bookings and record room access and condition.</span></a>
+            </div>
+        @endif
         @if($key==='leave' && (auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true)))
         <a href="{{ route('portal.hr-reporting.index',['attendance_period'=>'weekly']).'#hr-attendance' }}" class="hr-workspace-tool rounded-xl border border-brand-white/10 p-4"><strong>Attendance Insights</strong><span class="block text-xs text-brand-ash mt-2">Weekly, monthly and yearly punctuality, working hours, lateness and overtime.</span></a>
         @endif

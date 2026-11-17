@@ -12,7 +12,7 @@ class CrmWeeklyProgress extends Model
 
     protected function casts(): array
     {
-        return ['week_start' => 'date', 'expected_close_date' => 'date'];
+        return ['supporting_staff_ids' => 'array', 'week_start' => 'date', 'week_end' => 'date', 'expected_close_date' => 'date'];
     }
 
     public function owner()

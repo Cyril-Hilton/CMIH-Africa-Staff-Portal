@@ -11,8 +11,26 @@ test('collaborator markup separates names and duties while treating both as text
 });
 test('tables expose column sorting and keep pagination scoped to their own table',()=>{
  const t={id:'people',title:'People',available:14,total:4,page:1,last:1,filter:{column:'count',q:'10',sort:'count',direction:'desc'},columns:[{key:'count',label:'Count',format:'number'}],rows:[{count:10,source_type:'register',id:12}]};
- const html=renderer.table.call({form:{elements:{per_page:{value:'10'}}},data:{can_enter:true},cell:renderer.cell},t);
+ const html=renderer.table.call({form:{elements:{per_page:{value:'10'}}},data:{can_enter:true},cell:renderer.cell,rowActions:renderer.rowActions},t);
  assert.match(html,/aria-sort="descending"/);assert.match(html,/data-br-column-sort="count"/);assert.match(html,/Search across all 14 entries/);assert.match(html,/data-br-table="people" data-br-page/);assert.match(html,/class="br-row-action"/);
+});
+
+test('Task Tracker offers direct edits only when allowed and preserves the return context', async () => {
+ context.URL=URL;
+ context.location={origin:'https://example.test',href:'https://example.test/dashboard?weekly_department=brands_marketing&brands_date=2026-11-04'};
+ const workspace={taskEditLink:renderer.taskEditLink};
+ const daily=renderer.rowActions.call(workspace,{id:12,source_type:'task',edit_url:'/portal/tasks/12/edit'});
+ assert.match(daily,/Edit Task/);
+ const href=daily.match(/href="([^"]+)"/)[1];
+ assert.equal(new URL(href).searchParams.get('return_to'),'/dashboard?weekly_department=brands_marketing&brands_date=2026-11-04&brands_tab=productivity#staff-weekly-performance');
+ assert.doesNotMatch(renderer.rowActions.call(workspace,{id:12,source_type:'task'}),/Edit Task/);
+ assert.match(renderer.rowActions.call(workspace,{id:4,source_type:'weekly',can_edit:true}),/data-br-edit-direct>Edit Entry/);
+ assert.doesNotMatch(renderer.rowActions.call(workspace,{id:4,source_type:'weekly',can_edit:false}),/data-br-edit-direct/);
+
+ const record={can_edit:true,payload:{title:'Existing report'}};
+ let opened;
+ await renderer.detail.call({root:{dataset:{detail:'/reports'}},api:async ()=>record,entryForm:async entry=>{opened=entry;}},'weekly','4',true);
+ assert.equal(opened,record);
 });
 
 test('workflow states use distinct labelled colours',()=>{

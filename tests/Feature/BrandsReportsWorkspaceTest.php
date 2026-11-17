@@ -81,6 +81,47 @@ $this->approve($other,$id)->assertForbidden();
   $v+=['source_type'=>'weekly','source_id'=>$row->id,'source_token'=>BrandsReports::token($row)];$v['data']['task_in_week']='Corrected report with completed outlet checks';$id=$this->actingAs($u)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');$this->approve($manager,$id)->assertOk();
   $this->assertSame('2026-11-02',$row->fresh()->week_start->toDateString());$this->assertSame('Keep this saved value',$row->fresh()->custom_fields['retained']);$this->assertDatabaseCount('weekly_consolidated_items',1);$this->assertDatabaseCount('weekly_report_versions',1);
  }
+ public function test_brands_task_tracker_links_to_existing_task_edit_and_returns_to_the_tracker(): void {
+  $author=$this->staff();$owner=$this->staff();$manager=$this->staff('manager');$other=$this->staff();
+  $task=Task::create(['department'=>'brands_marketing','title'=>'Confirm outlets','assigned_to'=>$owner->id,
+   'assigned_by'=>$author->id,'status'=>'Open','priority'=>'High','due_on'=>'2026-11-06']);
+  $tracker=route('portal.brands.reports.data',['tab'=>'productivity','date'=>'2026-11-04']);
+  $detail=route('portal.brands.reports.detail',['type'=>'task','id'=>$task->id]);
+  $edit=route('portal.tasks.edit',$task);
+  $this->actingAs($other)->getJson($tracker)->assertOk()->assertJsonPath('tables.0.rows.0.edit_url',null);
+  $this->get($edit)->assertForbidden();
+  $this->actingAs($owner)->getJson($detail)->assertOk()->assertJsonPath('edit_url',$edit);
+  $this->actingAs($author)->getJson($tracker)->assertOk()->assertJsonPath('tables.0.rows.0.edit_url',$edit);
+  $back='/portal/brands?brands_tab=productivity&brands_date=2026-11-04';
+  $this->get(route('portal.tasks.edit',[$task,'return_to'=>$back]))->assertOk()
+   ->assertSee('Back to Brands Task Tracker')->assertSee('Confirm outlets');
+  $this->patch(route('portal.tasks.update',$task),['title'=>'Confirm Accra outlets','priority'=>'High',
+   'status'=>'In Progress','completion_manager_id'=>$manager->id,'return_to'=>$back])->assertRedirect($back);
+  $this->getJson($tracker)->assertOk()->assertJsonPath('tables.0.rows.0.title','Confirm Accra outlets');
+  $this->assertSame($author->id,$task->fresh()->assigned_by);
+ }
+
+ public function test_weekly_task_tracker_author_can_correct_an_entry_with_a_different_owner(): void {
+  $author=$this->staff();$owner=$this->staff();$manager=$this->staff('manager');$other=$this->staff();
+  $row=WeeklyConsolidatedItem::create(['department'=>'brands_marketing','workflow_state'=>'legacy',
+   'client_name'=>'Retail week update','campaign_name'=>'Shopper Marketing','week_start'=>'2026-11-02','week_end'=>'2026-11-08',
+   'created_by'=>$author->id,'lead_staff_id'=>$owner->id,'deliverables'=>'Check the outlet list','status'=>'Planned']);
+  $tracker=route('portal.brands.reports.data',['tab'=>'workstream','date'=>'2026-11-04']);
+  $detail=route('portal.brands.reports.detail',['type'=>'weekly','id'=>$row->id]);
+  $this->actingAs($other)->getJson($detail)->assertOk()->assertJsonPath('can_edit',false);
+  $this->actingAs($author)->getJson($tracker)->assertOk()->assertJsonPath('tables.0.rows.0.can_edit',true);
+  $token=$this->getJson($detail)->assertOk()->assertJsonPath('can_edit',true)->assertJsonPath('payload.owner_id',$owner->id)->json('source_token');
+  $update=$this->payload($owner)+['source_type'=>'weekly','source_id'=>$row->id,'source_token'=>$token];
+  $update['data']['task_in_week']='Outlet list checked';
+  $this->postJson(route('portal.brands.reports.submit'),array_replace($update,['owner_id'=>$author->id]))->assertForbidden();
+  $id=$this->postJson(route('portal.brands.reports.submit'),$update)->assertAccepted()->json('id');
+  $this->assertSame('Check the outlet list',$row->fresh()->deliverables);
+  $this->approve($manager,$id)->assertOk();
+  $this->assertSame('Outlet list checked',$row->fresh()->deliverables);
+  $this->assertSame($owner->id,$row->fresh()->lead_staff_id);
+  $this->assertSame('2026-11-02',$row->fresh()->week_start->toDateString());
+ }
+
  public function test_productivity_uses_real_sessions_tasks_and_unmeasured_scores():void {
   $u=$this->staff();Attendance::create(['user_id'=>$u->id,'daily_objective'=>'QA retailer reporting','clock_in_at'=>'2026-11-02 09:00:00','clock_out_at'=>'2026-11-02 18:00:00','status'=>'On Time']);
   Task::create(['department'=>'brands_marketing','title'=>'A real assigned task','assigned_to'=>$u->id,'assigned_by'=>$u->id,'status'=>'Open','priority'=>'High','due_on'=>'2026-11-06']);

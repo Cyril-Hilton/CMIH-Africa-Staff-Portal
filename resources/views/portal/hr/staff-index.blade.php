@@ -1,4 +1,5 @@
 <x-app-layout>
+@php($auditOnly = ! auth()->user()->hasFullHrAccess())
     <x-slot name="header">
         <p class="text-xs uppercase tracking-widest text-brand-ash">HR & Admin</p>
         <h2 class="text-3xl font-display text-brand-white">Staff register</h2>
@@ -18,9 +19,11 @@
             <label class="text-sm">Status<select name="status" class="mt-2 block rounded-lg bg-brand-black border-brand-white/20"><option value="">All statuses</option>@foreach($statuses as $status)<option @selected(request('status') === $status)>{{ $status }}</option>@endforeach</select></label>
             <button class="rounded-lg bg-brand-red text-white px-4 py-2">Apply filters</button><a href="{{ route('portal.hr.staff.index') }}" class="py-2 underline">Reset</a>
         </form>
+        @unless($auditOnly)
         <form method="POST" action="{{ route('portal.hr.staff.export') }}" x-data="{ selected: [], fields: @js($record->fields()), format: 'xlsx', scope: 'selected', pageIds: @js($staff->pluck('id')->map(fn($id) => (string) $id)->values()) }" class="space-y-5">
             @csrf
             @foreach(['q', 'department', 'status'] as $filter)<input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">@endforeach
+        @endunless
             <div class="overflow-x-auto rounded-2xl border border-brand-white/10">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-brand-white/5"><tr><th class="p-4"><input type="checkbox" aria-label="Select all staff on this page" @change="selected = $event.target.checked ? [...pageIds] : []" :checked="pageIds.length > 0 && selected.length === pageIds.length"></th><th class="p-4">Staff member</th><th class="p-4">Department / position</th><th class="p-4">Date of birth</th><th class="p-4">Status</th></tr></thead>
@@ -32,6 +35,7 @@
                 </table>
             </div>
             {{ $staff->links() }}
+        @unless($auditOnly)
             <div class="rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 space-y-5">
                 <h3 class="text-xl font-display">Export staff information</h3>
                 <p class="text-sm text-brand-ash">Selections apply to this page. Choose all matching staff to include every page of the filtered results, or all staff to ignore filters.</p>
@@ -50,5 +54,6 @@
                 <div class="flex flex-wrap items-center gap-4"><button class="rounded-xl bg-brand-red text-white px-5 py-3 font-semibold disabled:opacity-40" :disabled="(scope === 'selected' && selected.length === 0) || (format === 'xlsx' && fields.length === 0)">Download export</button><span class="text-sm text-brand-ash" x-text="selected.length + ' staff selected on this page'"></span></div>
             </div>
         </form>
+        @endunless
     </div>
 </x-app-layout>

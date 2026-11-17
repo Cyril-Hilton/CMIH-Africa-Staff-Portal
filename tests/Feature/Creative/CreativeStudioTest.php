@@ -65,6 +65,8 @@ class CreativeStudioTest extends TestCase {
    ->assertJsonPath('supporting_staff.0.id', $support->id)->assertJsonCount(0, 'allowed');
   $list = route('portal.creative.data');
   $this->getJson($list)->assertOk()->assertJsonPath('items.0.id', $id);
+  $this->getJson(route('portal.creative.data',['assignee'=>$support->id,'view'=>'board']))
+   ->assertOk()->assertJsonPath('items.0.id',$id)->assertJsonPath('support_roster.0.id',$support->id);
 
   $plan = ['revision'=>$brief->revision, 'assignee_id'=>$assignee->id, 'planned_start'=>$start->toIso8601String(),
    'internal_eta'=>$start->copy()->addDay()->toIso8601String(), 'estimated_hours'=>5, 'acknowledge_warnings'=>true];
@@ -79,8 +81,13 @@ class CreativeStudioTest extends TestCase {
   $brief->task->update(['supporting_staff_ids'=>[(string) $other->id]]);
   $this->actingAs($support)->getJson($detail)->assertNotFound();
   $this->getJson($list)->assertOk()->assertJsonCount(0, 'items');
-  $this->actingAs($other)->getJson($list)->assertOk()
-   ->assertJsonPath('items.0.supporting_staff.0.name', $other->name);
+  $this->actingAs($other)->getJson(route('portal.creative.data',['assignee'=>$other->id,'view'=>'calendar']))
+   ->assertOk()->assertJsonPath('items.0.supporting_staff.0.name',$other->name)
+   ->assertJsonPath('items.0.assignee.id',$assignee->id)->assertJsonPath('pagination.total',1);
+  $this->getJson(route('portal.creative.data',['assignee'=>$support->id]))
+   ->assertOk()->assertJsonCount(0,'items');
+  $this->getJson(route('portal.creative.reports',['format'=>'data','assignee'=>$other->id,'period'=>'weekly','anchor'=>$start->toDateString()]))
+   ->assertOk()->assertJsonPath('total',1)->assertJsonPath('team.0.name',$assignee->name);
   $this->getJson($detail)->assertOk()->assertJsonPath('supporting_staff.0.id', $other->id);
   $this->deleteJson(route('portal.tasks.destroy', $brief->task_id))->assertForbidden();
 

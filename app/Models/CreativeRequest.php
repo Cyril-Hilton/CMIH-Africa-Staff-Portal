@@ -26,5 +26,10 @@ class CreativeRequest extends Model {
   });
  }
 
+ public function scopeWithParticipant($query, int $userId) {
+  return $query->where(fn ($briefs) => $briefs->where('assignee_id', $userId)
+   ->orWhere(fn ($support) => $support->withSupportingStaff($userId)));
+ }
+
  public function scopeVisibleTo($query,User $user){if(\App\Services\Creative\CreativeAccess::lead($user))return $query;return $query->where(fn($q)=>$q->where('visibility','shared')->orWhere('requester_id',$user->id)->orWhere('reviewer_id',$user->id)->orWhere('assignee_id',$user->id)->orWhere(fn($briefs)=>$briefs->withSupportingStaff($user->id))->orWhereHas('parts',fn($parts)=>$parts->where(fn($p)=>$p->where('assignee_id',$user->id)->orWhere('reviewer_id',$user->id))));}
 }

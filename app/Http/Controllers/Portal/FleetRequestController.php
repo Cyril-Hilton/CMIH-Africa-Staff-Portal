@@ -5,21 +5,23 @@ namespace App\Http\Controllers\Portal;
 use App\Http\Controllers\Controller;
 use App\Models\FleetRequest;
 use App\Services\NotificationService;
+use App\Services\PerformanceExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class FleetRequestController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request)
     {
         $user = $request->user();
 
+        $canViewAll = $user->canApproveFleetRequests() || $user->canAuditHrAndFinance();
         $focus = $request->integer('fleet_request');
         if ($focus > 0) {
             $record = FleetRequest::findOrFail($focus);
-            abort_unless((int) $record->user_id === (int) $user->id || $user->canApproveFleetRequests(), 403);
+            abort_unless((int) $record->user_id === (int) $user->id || $canViewAll, 403);
         }
 
         $myRequests = FleetRequest::with('reviewer')
@@ -30,7 +32,7 @@ class FleetRequestController extends Controller
             ->withQueryString();
 
         $pendingRequests = null;
-        if ($user->canApproveFleetRequests()) {
+        if ($canViewAll) {
             $pendingRequests = FleetRequest::with(['user', 'reviewer'])
                 ->when($focus > 0, fn ($query) => $query->whereKey($focus))
                 ->latest()
@@ -38,12 +40,76 @@ class FleetRequestController extends Controller
                 ->withQueryString();
         }
 
-        return view('portal.fleet-requests', [
+        return response()->view('portal.fleet-requests', [
+            'canApproveFleet' => $user->canApproveFleetRequests(),
             'myRequests' => $myRequests,
             'focusedFleetRequest' => $focus,
             'pendingRequests' => $pendingRequests,
             'companyVehicles' => FleetRequest::COMPANY_VEHICLES,
             'rideHailingOptions' => FleetRequest::RIDE_HAILING_OPTIONS,
+        ])->header('Cache-Control', 'private, no-store');
+    }
+
+    public function download(Request $request, FleetRequest $fleetRequest, string $format, PerformanceExport $export): Response
+    {
+        $actor = $request->user();
+        abort_unless((int) $fleetRequest->user_id === $actor->id || $actor->canApproveFleetRequests() || $actor->canAuditHrAndFinance(), 403);
+        $fleetRequest->load(['user', 'reviewer']);
+        $rows = [['Vehicle request #'.$fleetRequest->id], ['Field', 'Details']];
+        foreach ($this->exportFields($fleetRequest) as $label => $value) {
+            $rows[] = [$label, $value];
+        }
+
+        return $this->file($export, $format, 'vehicle-request-'.$fleetRequest->id, $rows, single: true);
+    }
+
+    public function exportRegister(Request $request, string $format, PerformanceExport $export): Response
+    {
+        abort_unless($request->user()->canApproveFleetRequests(), 403);
+        $records = FleetRequest::with(['user', 'reviewer'])->latest('requested_date')->orderByDesc('id')->get();
+        $rows = [['Vehicle request register'], ['Request ID', ...array_keys($this->exportFields(new FleetRequest()))]];
+        foreach ($records as $record) {
+            $rows[] = [$record->id, ...array_values($this->exportFields($record))];
+        }
+
+        return $this->file($export, $format, 'vehicle-request-register', $rows);
+    }
+
+    private function exportFields(FleetRequest $record): array
+    {
+        return [
+            'Requested by' => $record->user?->name,
+            'Vehicle / option' => $record->vehicle_option ? $record->optionLabel() : null,
+            'Pickup' => $record->pickup_location,
+            'Destination' => $record->destination,
+            'Requested date' => $record->requested_date?->toDateString(),
+            'Requested time (GMT)' => $record->requested_time,
+            'Passengers' => $record->passengers,
+            'Purpose' => $record->purpose,
+            'Notes' => $record->notes,
+            'Status' => \Illuminate\Support\Str::headline($record->status ?? ''),
+            'Reviewer' => $record->reviewer?->name,
+            'Reviewed at' => $record->reviewed_at?->timezone('Africa/Accra')->format('d M Y H:i'),
+            'Review comments' => $record->hr_comment,
+        ];
+    }
+
+    private function file(PerformanceExport $export, string $format, string $name, array $rows, bool $single = false): Response
+    {
+        if ($single && $format === 'pdf') {
+            $pdf = new \Dompdf\Dompdf(['isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
+            $pdf->loadHtml(view('exports.vehicle-request', ['title' => $rows[0][0], 'fields' => array_slice($rows, 2)])->render());
+            $pdf->setPaper('A4');
+            $pdf->render();
+            $content = $pdf->output();
+        } else {
+            $content = $format === 'pdf' ? $export->pdf($rows) : $export->xlsx($rows);
+        }
+
+        return response($content, 200, [
+            'Content-Type' => $format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="'.$name.'.'.$format.'"',
+            'Cache-Control' => 'private, no-store',
         ]);
     }
 

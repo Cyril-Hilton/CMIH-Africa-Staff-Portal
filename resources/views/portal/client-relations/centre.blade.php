@@ -1,5 +1,23 @@
-<section class="cr-centre" data-crm-centre data-endpoint="{{ route('portal.crm.centre.data') }}" data-export="{{ url('/portal/client-relations/centre/export') }}" data-relationships="{{ route('portal.crm.centre.relationship') }}" data-financials="{{ url('/portal/client-relations/financial-register') }}" data-allocations="{{ url('/portal/client-relations/allocations') }}" data-targets="{{ url('/portal/client-relations/account-targets') }}" data-submissions="{{ route('portal.crm.submissions') }}" data-store="{{ route('portal.crm.store') }}" data-records="{{ route('portal.crm.record') }}" data-module="{{ route('portal.crm.index') }}" data-from="{{ request('weekly_from') }}" data-to="{{ request('weekly_to') }}" aria-label="Client & Business Performance Centre">
-<header class="cr-header"><div><p class="cr-eyebrow">CLIENT RELATIONS / CONNECTIONS INTO GROWTH</p><h3>Client & Business Performance Centre</h3><p>See the relationships. Follow the business. Know the next move.</p></div><div class="cr-actions"><button type="button" data-cr-refresh>Refresh</button><button type="button" data-cr-export="xlsx">Excel</button><button type="button" data-cr-export="pdf">Business Review PDF</button>@if(\App\Services\ClientRelationsPipeline::member(auth()->user()))<button type="button" data-cr-new-entry>Add Weekly Entry</button><button type="button" data-cr-entries>My Entries &amp; Reviews</button><a href="{{ route('portal.crm.index') }}#crm-entry">Manage Pipeline</a>@endif</div></header>
+@php
+    $onClientDashboard = request()->routeIs('dashboard');
+    $clientFrom = request('weekly_from', request('from', now()->startOfWeek()->toDateString()));
+    $clientTo = request('weekly_to', request('to', now()->endOfWeek()->toDateString()));
+    $clientPeriod = request('period');
+    if (!in_array($clientPeriod, ['week', 'month', 'year'], true)) {
+        $start = \Illuminate\Support\Carbon::parse($clientFrom);
+        $end = \Illuminate\Support\Carbon::parse($clientTo);
+        $clientPeriod = match (true) {
+            $start->isStartOfYear() && $end->isSameDay($start->copy()->endOfYear()) => 'year',
+            $start->isStartOfMonth() && $end->isSameDay($start->copy()->endOfMonth()) => 'month',
+            $start->isSameDay($start->copy()->startOfWeek()) && $end->isSameDay($start->copy()->endOfWeek()) => 'week',
+            default => 'custom',
+        };
+    }
+@endphp
+<section class="cr-centre" data-crm-centre data-endpoint="{{ route('portal.crm.centre.data') }}" data-export="{{ url('/portal/client-relations/centre/export') }}" data-relationships="{{ route('portal.crm.centre.relationship') }}" data-financials="{{ url('/portal/client-relations/financial-register') }}" data-allocations="{{ url('/portal/client-relations/allocations') }}" data-targets="{{ url('/portal/client-relations/account-targets') }}" data-submissions="{{ route('portal.crm.submissions') }}" data-store="{{ route('portal.crm.store') }}" data-records="{{ route('portal.crm.record') }}" @if($onClientDashboard) data-cr-account-groups data-published-register="{{ route('portal.crm.centre.published-register', request()->only(['weekly_from','weekly_to','search_weekly','crm_page'])) }}" @endif data-module="{{ route('portal.crm.index') }}" data-from="{{ request('weekly_from') }}" data-to="{{ request('weekly_to') }}" aria-label="Client & Business Performance Centre">
+<header class="cr-header"><div><p class="cr-eyebrow">CLIENT RELATIONS / CONNECTIONS INTO GROWTH</p><h3>Client & Business Performance Centre</h3></div><div class="cr-actions"><button type="button" data-cr-refresh>Refresh</button><button type="button" data-cr-export="xlsx">Excel</button><button type="button" data-cr-export="pdf">Business Review PDF</button>@if(\App\Services\ClientRelationsPipeline::member(auth()->user()))<button type="button" data-cr-new-entry class="cr-primary">Add Weekly Entry</button><button type="button" data-cr-entries>{{ \App\Services\ClientRelationsSubmissions::manager(auth()->user()) ? 'Team Entries & Reviews' : 'My Entries' }}</button><a data-cr-workspace-link href="{{ $onClientDashboard
+    ? route('portal.crm.index', ['cr_module_view' => 'portfolio', 'from' => $clientFrom, 'to' => $clientTo])
+    : route('dashboard', ['weekly_department' => 'client_relations', 'weekly_from' => $clientFrom, 'weekly_to' => $clientTo]).'#staff-weekly-performance' }}">{{ $onClientDashboard ? 'Open Client Relations Module' : 'Open Weekly Dashboard' }}</a>@endif</div></header>
 <p role="status" class="cr-status" data-cr-status>Connecting client relationships and business results…</p>
 <div data-cr-pulse class="cr-pulse"></div>
 <nav class="cr-tabs" aria-label="Client Relations Views">
@@ -7,15 +25,36 @@
 </nav>
 <nav class="cr-chips cr-owner-tabs" data-cr-owner-tabs aria-label="Filter all Client Relations views by account owner"></nav>
 <form data-cr-filters data-no-silent data-no-ajax class="cr-filters" aria-label="Filter Client Relations Business">
+@unless($onClientDashboard)
+<label>Accounts<select name="account_scope"><option value="engaged">Engaged This Period</option><option value="all">All Accounts</option></select></label>
+@endunless
 <label>Data Source<select name="source"><option value="workbook">Source Workbook</option><option value="all" selected>All Portal Records</option></select></label>
 <label>Search<input name="q" placeholder="Client or project" maxlength="150"></label>
 <label>Client<select name="client"><option value="">All Clients</option></select></label>
 <label>Account Owner<select name="owner"><option value="">All Owners</option></select></label>
 <label>Sales Stage<select name="stage"><option value="">All Sales Stages</option>@foreach(config('crm_pipeline.stages') as $key=>$stage)<option value="{{ $key }}">{{ ucwords($stage['label']) }}</option>@endforeach</select></label>
-<label hidden>From<input type="date" name="from" value="{{ request('weekly_from',now()->startOfYear()->toDateString()) }}"></label><label hidden>Through<input type="date" name="to" value="{{ request('weekly_to',now()->endOfYear()->toDateString()) }}"></label>
+<input type="hidden" name="from" value="{{ $clientFrom }}"><input type="hidden" name="to" value="{{ $clientTo }}">
+@if(!$onClientDashboard)
+<label>Reporting Period<select name="period">
+    @foreach(['week' => 'Weekly', 'month' => 'Monthly', 'year' => 'Yearly'] as $key => $label)
+        <option value="{{ $key }}" @selected($clientPeriod === $key)>{{ $label }}</option>
+    @endforeach
+    @if($clientPeriod === 'custom')<option value="" selected>Linked Date Range</option>@endif
+</select></label>
+<label>Date in Period<input type="date" name="date" value="{{ request('date', $clientFrom) }}" required></label>
+@endif
 <label>Sort Clients<select name="sort"><option value="client">Client Name</option><option value="revenue">Revenue: Highest First</option></select></label><label>Clients Per Page<select name="per_page"><option>6</option><option selected>12</option><option>24</option><option>48</option></select></label>
 <button type="submit">Apply Filters</button><button type="button" data-cr-reset>Clear Filters</button>
 </form>
 <div data-cr-content aria-busy="true"></div><nav class="cr-pagination" data-cr-pagination aria-label="Client Relationship Pages"></nav>
+@if(\App\Services\ClientRelationsPipeline::member(auth()->user()))
+<template data-cr-project-fields>
+    @include('portal.client-relations.project-fields', ['record' => null, 'useOld' => false, 'clientList' => 'crm-entry-client-names', 'ownerOptions' => []])
+    <datalist id="crm-entry-client-names" data-cr-client-options></datalist>
+</template>
+<template data-cr-support-template>
+    @include('portal.client-relations.supporting-staff', ['options' => [], 'selected' => [], 'ownerId' => null])
+</template>
+@endif
 <dialog class="cr-dialog" data-cr-dialog aria-label="Client Relations Details"><header><strong data-cr-dialog-title>Client Details</strong><button type="button" data-cr-close aria-label="Close Client Relations Details">Close</button></header><div data-cr-dialog-body></div></dialog>
 </section>

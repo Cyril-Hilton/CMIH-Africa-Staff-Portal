@@ -114,9 +114,18 @@ class UserController extends Controller
             return back()->withErrors(['job_level' => 'Only Super Admin can grant executive system privileges.']);
         }
 
+        $permissions = array_values(array_filter($validated['permissions'] ?? [], 'is_string'));
+        if (! $actor->isSuperAdmin()) {
+            $executivePermissions = [User::EXECUTIVE_ACTIVITY_PERMISSION, User::HR_FINANCE_AUDIT_PERMISSION];
+            $permissions = array_values(array_merge(
+                array_diff($permissions, $executivePermissions),
+                array_intersect($user->permissions_matrix ?? [], $executivePermissions),
+            ));
+        }
+
         $user->update([
             'job_level' => $validated['job_level'],
-            'permissions_matrix' => $validated['permissions'] ?? [],
+            'permissions_matrix' => $permissions,
         ]);
 
         return back()->with('status', 'Permissions matrix and job level updated.');
@@ -126,7 +135,7 @@ class UserController extends Controller
     {
         $this->authorizeTarget($user);
         $validated = $request->validate([
-            'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives'],
+            'department' => ['required', 'string', 'in:hr_admin,finance,client_relations,operations_projects,brands_marketing,creatives,executive'],
         ]);
 
         $user->update(['department' => $validated['department']]);

@@ -12,7 +12,7 @@ class CrmClientRecord extends Model
 
     protected function casts(): array
     {
-        return ['data' => 'array'];
+        return ['supporting_staff_ids' => 'array', 'data' => 'array'];
     }
 
     public function owner()

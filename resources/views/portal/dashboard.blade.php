@@ -36,6 +36,9 @@
     @include('portal.partials.dashboard-ux-styles')
     <div data-dashboard-today>
     @include('portal.partials.executive-dashboard-summary')
+    @if($executiveActivity !== null)
+        @include('portal.partials.executive-activity')
+    @endif
     </div>
 
     <!-- Session Status and Errors -->
@@ -607,7 +610,7 @@
         @endunless
         @include('portal.partials.shared-weekly-performance')
 
-        <details id="action-points-disclosure" class="mega-table-disclosure glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
+        <details id="action-points-disclosure" @if(request()->boolean('action_points')) open @endif class="mega-table-disclosure glass-panel mt-8 rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6 shadow-2xl">
             <summary aria-controls="action-points-content">
                 <div class="min-w-0">
                     <h3 class="text-lg font-bold text-brand-white">Meeting Action Points</h3>
@@ -868,14 +871,14 @@
     @include('portal.partials.staff-performance-score')
 </details>
 @endif
-    <details class="dashboard-secondary"><summary class="dashboard-section-summary">Agency Insights · {{ now()->format('F Y') }}</summary>
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Agency Insights · {{ now()->format('F Y') }}<span class="mt-1 block text-xs font-normal text-brand-ash">{{ $collectiveStats['reached_activations'] }} of {{ $collectiveStats['target_activations'] }} tasks registered this month completed</span></span></summary>
     <!-- 2. Collective KPIs & Department Badges -->
     <div class="mb-8">
         <div class="flex items-center justify-between gap-4 mb-4">
             <h3 class="text-lg font-display text-brand-white uppercase tracking-wider">Collective Agency Dashboard</h3>
             @if($winningDept)
                 <div class="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs text-amber-400 uppercase tracking-widest font-semibold animate-pulse">
-                    <span>Top Performer:</span>
+                    <span>{{ $lockedAwards->has('department_of_the_month') ? 'Award winner' : 'Current award leader' }}</span>
                     <span>{{ $departments[$winningDept] ?? $winningDept }}</span>
                 </div>
             @endif
@@ -907,29 +910,76 @@
         </div>
     </div>
 
-    <!-- 3. Analytical Charts Block -->
-    <div class="grid gap-6 md:grid-cols-2 mb-8">
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Task Progress · Tasks Registered This Month</h4>
-            <div class="h-64">
-                <canvas id="velocityChart"></canvas>
+    <div class="grid min-w-0 gap-5 xl:grid-cols-[3fr_2fr]">
+        <div class="min-w-0 rounded-xl border border-brand-white/10 p-4">
+            <h4 class="mb-3 font-semibold">Task Progress by Department</h4>
+            <p class="mb-3 text-xs text-brand-ash">Tasks registered this month in the six reporting departments.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[32rem] text-left text-sm">
+                    <thead class="text-brand-ash">
+                        <tr><th scope="col" class="p-2">Department</th><th scope="col" class="p-2">Completed</th><th scope="col" class="p-2">Other open</th><th scope="col" class="p-2">In review</th><th scope="col" class="p-2">Overdue</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-brand-white/10">
+                        @foreach($departmentChartData as $row)
+                            <tr>
+                                <th scope="row" class="p-2 font-medium">{{ $row['department'] }}</th>
+                                <td class="p-2 tabular-nums">{{ $row['completed'] }}</td>
+                                <td class="p-2 tabular-nums">{{ $row['in_progress'] }}</td>
+                                <td class="p-2 tabular-nums">{{ $row['review_waiting'] }}</td>
+                                <td class="p-2 tabular-nums">{{ $row['delayed'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </div>
-        <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
-            <h4 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4">Verified Completions by Approval Date</h4>
-            <p class="mb-3 text-xs text-brand-ash">Uses recorded approval dates. Historical undated completions are excluded; later edits do not change the completion week.</p>
-            <div class="h-64">
-                <canvas id="trendsChart"></canvas>
-            </div>
+        <div class="min-w-0 rounded-xl border border-brand-white/10 p-4">
+            <h4 class="mb-3 font-semibold">Verified Completions by Approval Date</h4>
+            <p class="mb-4 text-xs text-brand-ash">Uses recorded approval dates. Completions without an approval date are excluded.</p>
+            @php
+                $peak = max(1, collect($weeklyTrends)->max('completed'));
+            @endphp
+            <ol class="space-y-3">
+                @foreach($weeklyTrends as $row)
+                    <li class="grid grid-cols-[7rem_minmax(0,1fr)_2.5rem] items-center gap-3 text-sm">
+                        <span class="text-brand-ash">{{ $row['week'] }}</span>
+                        <span class="h-2 overflow-hidden rounded-full bg-brand-white/10" aria-hidden="true">
+                            <span class="block h-full rounded-full bg-brand-red" style="width: {{ 100 * $row['completed'] / $peak }}%"></span>
+                        </span>
+                        <strong class="text-right tabular-nums">{{ $row['completed'] }}</strong>
+                    </li>
+                @endforeach
+            </ol>
         </div>
     </div>
 
+    <section class="mt-6 space-y-3" aria-labelledby="published-department-kpis">
+        <h3 id="published-department-kpis" class="text-lg font-semibold">Department Dashboard KPIs</h3>
+        <p class="text-sm text-brand-ash">Results and activity measures from this month’s department dashboards. Each measure keeps its original scope.</p>
+        <div class="grid gap-3">
+            @foreach($publishedDepartmentKpis as $department)
+                <details class="min-w-0 rounded-xl border border-brand-white/10 p-4">
+                    <summary class="cursor-pointer font-semibold">{{ $department['label'] }} <span class="ml-2 text-xs font-normal text-brand-ash">{{ count($department['items']) }} measures</span></summary>
+                    <ul class="mt-3 divide-y divide-brand-white/10 text-sm">
+                        @forelse($department['items'] as $item)
+                            <li class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+                                <span>{{ $item['label'] }} <span class="block text-xs text-brand-ash">{{ $item['scope'] }}</span></span>
+                                <strong class="tabular-nums">{{ $item['result'] }}</strong>
+                            </li>
+                        @empty
+                            <li class="py-2 text-brand-ash">No published measures available to show here for this period.</li>
+                        @endforelse
+                    </ul>
+                    <a href="{{ $department['link'] }}" class="mt-3 inline-block text-sm underline">View department dashboard</a>
+                </details>
+            @endforeach
+        </div>
+    </section>
+
     </details>
-    <details class="dashboard-secondary"><summary class="dashboard-section-summary">Recognition & Awards</summary>
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Recognition &amp; Awards<span class="mt-1 block text-xs font-normal text-brand-ash">{{ count($awardStandings['measured_employees']) }} staff with measured activity · {{ count($awardStandings['incomplete_employees']) }} awaiting a full score</span></span></summary>
     <!--  Performance Awards Leaderboard Section -->
-    <div id="mega-table-live-region"
-         data-refresh-url="{{ route('portal.dashboard.live', request()->query()) }}"
-         class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
+    <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Recognitions & Standing</p>
@@ -942,12 +992,12 @@
                          Lock & Issue Awards
                     </button>
                 @endif
-                <select id="leaderboard-period" onchange="fetchLeaderboard(this.value)"
+                <select id="leaderboard-period" aria-label="Award reporting period" onchange="fetchLeaderboard(this.value)"
                         class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-xs text-brand-white">
                     @php
                         $monthsToShow = [];
                         for ($i = 0; $i < 6; $i++) {
-                            $m = now()->subMonths($i);
+                            $m = now()->startOfMonth()->subMonths($i);
                             $monthsToShow[$m->format('Y-m')] = $m->format('F Y');
                         }
                         $yearToShow = now()->format('Y');
@@ -964,8 +1014,11 @@
             </div>
         </div>
 
-        <div id="award-period-notice" class="hidden mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
-            <!-- Dynamic notice e.g. estimated standings -->
+        <p id="award-period-notice" role="status" class="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
+            Rankings require a measured task completion rate. Full award standings also require attendance and verified KPI results.
+        </p>
+        <div id="measured-performance" class="mb-6">
+            @include('portal.partials.measured-performance', ['standings' => $awardStandings])
         </div>
 
         <div class="grid gap-6">
@@ -988,13 +1041,6 @@
                 </div>
             </div>
 
-            <!-- Charts Column -->
-            <div class="min-w-0 rounded-xl border border-brand-white/10 bg-brand-black/20 p-4 sm:p-5 flex flex-col justify-between">
-                <h4 class="text-xs uppercase tracking-widest text-brand-ash font-bold border-b border-brand-white/5 pb-2 mb-4">Performance Scores</h4>
-                <div class="h-72 md:h-80 relative flex-1 min-w-0">
-                    <canvas id="leaderboardChart"></canvas>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -2004,102 +2050,6 @@
                 }
             });
 
-            if (typeof Chart !== 'undefined') {
-            // Task Progress · Tasks Registered This Month Chart
-            const ctxVelocity = document.getElementById('velocityChart').getContext('2d');
-            const deptChartData = @json($departmentChartData);
-            
-            new Chart(ctxVelocity, {
-                type: 'bar',
-                data: {
-                    labels: deptChartData.map(d => d.department),
-                    datasets: [
-                        {
-                            label: 'Completed',
-                            data: deptChartData.map(d => d.completed),
-                            backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                            borderColor: 'rgb(16, 185, 129)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Other Unfinished',
-                            data: deptChartData.map(d => d.in_progress),
-                            backgroundColor: 'rgba(59, 130, 246, 0.6)',
-                            borderColor: 'rgb(59, 130, 246)',
-                            borderWidth: 1
-                        },
-                        { label: 'Creative Review Waiting', data: deptChartData.map(d => d.review_waiting), backgroundColor: 'rgba(148,163,184,.6)' },
-                        {
-                            label: 'Overdue',
-                            data: deptChartData.map(d => d.delayed),
-                            backgroundColor: 'rgba(239, 68, 68, 0.6)',
-                            borderColor: 'rgb(239, 68, 68)',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            stacked: true,
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: { color: '#888' }
-                        },
-                        y: {
-                            stacked: true,
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: { color: '#888' }
-                        }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
-                    }
-                }
-            });
-
-            // Verified Completions by Approval Date Chart
-            const ctxTrends = document.getElementById('trendsChart').getContext('2d');
-            const weeklyTrends = @json($weeklyTrends);
-
-            new Chart(ctxTrends, {
-                type: 'line',
-                data: {
-                    labels: weeklyTrends.map(t => t.week),
-                    datasets: [{
-                        label: 'Recorded completion approvals',
-                        data: weeklyTrends.map(t => t.completed),
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: { color: '#888' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            ticks: { color: '#888', stepSize: 1 }
-                        }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
-                    }
-                }
-            });
-
-            } else {
-                ['velocityChart','trendsChart'].forEach(id => { const canvas=document.getElementById(id); if(canvas){canvas.parentElement.setAttribute('role','status');canvas.parentElement.textContent='Charts are unavailable. Department report figures remain available.';} });
-            }
-
             // Attendance Geolocation and Input validation
             const dailyObjective = document.getElementById('daily_objective');
             const clockInBtn = document.getElementById('clock-in-btn');
@@ -2130,63 +2080,8 @@
             }
 
             //  Performance Leaderboard JS Implementation 
-            let leaderboardChartInstance = null;
             let currentStandingsData = null;
-
-            function renderLeaderboardChart(labels, scores) {
-                const canvas=document.getElementById('leaderboardChart');
-                if(!canvas)return;
-                if(typeof Chart==='undefined'){canvas.parentElement.textContent='The chart is unavailable. Award standings remain available above.';return;}
-                const ctx = canvas.getContext('2d');
-                if (leaderboardChartInstance) {
-                    leaderboardChartInstance.destroy();
-                }
-                leaderboardChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Performance Score (%)',
-                            data: scores,
-                            backgroundColor: 'rgba(212, 175, 55, 0.6)',
-                            borderColor: '#d4af37',
-                            borderWidth: 1,
-                            borderRadius: 6
-                        }]
-                    },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            padding: { left: 4, right: 8 }
-                        },
-                        scales: {
-                            x: {
-                                min: 0,
-                                max: 100,
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                ticks: { color: '#888', font: { size: 11 } }
-                            },
-                            y: {
-                                grid: { display: false },
-                                ticks: {
-                                    color: '#fff',
-                                    autoSkip: false,
-                                    font: { size: 11, weight: '600' },
-                                    callback: function(value) {
-                                        const label = this.getLabelForValue(value) || '';
-                                        return label.length > 20 ? `${label.slice(0, 20)}...` : label;
-                                    }
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: { display: false }
-                        }
-                    }
-                });
-            }
+            let awardRequestId = 0;
 
             function escapeAwardHtml(value) {
                 return String(value ?? '')
@@ -2380,140 +2275,126 @@
                 `;
             }
 
-            window.fetchLeaderboard = function(period) {
+            function renderAwardStandings(data) {
+                currentStandingsData = data;
+                const period = data.period;
                 const notice = document.getElementById('award-period-notice');
                 const employeeCards = document.getElementById('employee-award-cards');
                 const departmentCards = document.getElementById('department-award-cards');
 
-                employeeCards.innerHTML = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">Loading standings...</div>';
-                departmentCards.innerHTML = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">Loading standings...</div>';
+                const isYear = period.length === 4;
+                const empType = isYear ? 'employee_of_the_year' : 'employee_of_the_month';
+                const deptType = isYear ? 'department_of_the_year' : 'department_of_the_month';
+                const topEmps = data.calculated.employees || [];
+                const topDepts = data.calculated.departments || [];
+                const employeeByName = Object.fromEntries(topEmps.map(emp => [emp.name, emp]));
+                const departmentByKey = Object.fromEntries(topDepts.map(dept => [dept.key, dept]));
 
-                fetch(`/portal/awards/standings?period=${encodeURIComponent(period)}`, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    credentials: 'same-origin',
-                })
-                    .then(res => {
-                        const contentType = res.headers.get('content-type') || '';
-                        if (!res.ok || !contentType.includes('application/json')) {
-                            throw new Error('Leaderboard data is temporarily unavailable.');
+                const lockedEmp = data.locked[empType];
+                const lockedDept = data.locked[deptType];
+
+                // Render Employee cards
+                let empHtml = '';
+                if (lockedEmp) {
+                    const winnerMetrics = employeeByName[lockedEmp.winner] || { score: lockedEmp.winner_score };
+                    const firstRunnerMetrics = employeeByName[lockedEmp.first_runner_up] || { score: lockedEmp.first_runner_up_score };
+                    const secondRunnerMetrics = employeeByName[lockedEmp.second_runner_up] || { score: lockedEmp.second_runner_up_score };
+
+                    empHtml += renderEmployeeWinnerCard(
+                        lockedEmp.winner || 'N/A',
+                        winnerMetrics.avatar || lockedEmp.winner_avatar || '/images/default-avatar.png',
+                        winnerMetrics.department || PerformanceAwardDeptLabel(lockedEmp.winner_val),
+                        lockedEmp.winner_score,
+                        winnerMetrics
+                    );
+                    empHtml += renderEmployeeRunnerCard(
+                        2,
+                        lockedEmp.first_runner_up || 'N/A',
+                        firstRunnerMetrics.avatar || '/images/default-avatar.png',
+                        firstRunnerMetrics.department || '',
+                        lockedEmp.first_runner_up_score,
+                        firstRunnerMetrics
+                    );
+                    empHtml += renderEmployeeRunnerCard(
+                        3,
+                        lockedEmp.second_runner_up || 'N/A',
+                        secondRunnerMetrics.avatar || '/images/default-avatar.png',
+                        secondRunnerMetrics.department || '',
+                        lockedEmp.second_runner_up_score,
+                        secondRunnerMetrics
+                    );
+                } else {
+                    if (topEmps.length > 0) {
+                        empHtml += renderEmployeeWinnerCard(topEmps[0].name, topEmps[0].avatar, topEmps[0].department, topEmps[0].score, topEmps[0]);
+                        if (topEmps.length > 1) {
+                            empHtml += renderEmployeeRunnerCard(2, topEmps[1].name, topEmps[1].avatar, topEmps[1].department, topEmps[1].score, topEmps[1]);
                         }
-
-                        return res.json();
-                    })
-                    .then(data => {
-                        currentStandingsData = data;
-                        
-                        const isYear = period.length === 4;
-                        const empType = isYear ? 'employee_of_the_year' : 'employee_of_the_month';
-                        const deptType = isYear ? 'department_of_the_year' : 'department_of_the_month';
-                        const topEmps = data.calculated.employees || [];
-                        const topDepts = data.calculated.departments || [];
-                        const employeeByName = Object.fromEntries(topEmps.map(emp => [emp.name, emp]));
-                        const departmentByKey = Object.fromEntries(topDepts.map(dept => [dept.key, dept]));
-
-                        const lockedEmp = data.locked[empType];
-                        const lockedDept = data.locked[deptType];
-
-                        // Render Employee cards
-                        let empHtml = '';
-                        if (lockedEmp) {
-                            const winnerMetrics = employeeByName[lockedEmp.winner] || { score: lockedEmp.winner_score };
-                            const firstRunnerMetrics = employeeByName[lockedEmp.first_runner_up] || { score: lockedEmp.first_runner_up_score };
-                            const secondRunnerMetrics = employeeByName[lockedEmp.second_runner_up] || { score: lockedEmp.second_runner_up_score };
-
-                            empHtml += renderEmployeeWinnerCard(
-                                lockedEmp.winner || 'N/A',
-                                winnerMetrics.avatar || lockedEmp.winner_avatar || '/images/default-avatar.png',
-                                winnerMetrics.department || PerformanceAwardDeptLabel(lockedEmp.winner_val),
-                                lockedEmp.winner_score,
-                                winnerMetrics
-                            );
-                            empHtml += renderEmployeeRunnerCard(
-                                2,
-                                lockedEmp.first_runner_up || 'N/A',
-                                firstRunnerMetrics.avatar || '/images/default-avatar.png',
-                                firstRunnerMetrics.department || '',
-                                lockedEmp.first_runner_up_score,
-                                firstRunnerMetrics
-                            );
-                            empHtml += renderEmployeeRunnerCard(
-                                3,
-                                lockedEmp.second_runner_up || 'N/A',
-                                secondRunnerMetrics.avatar || '/images/default-avatar.png',
-                                secondRunnerMetrics.department || '',
-                                lockedEmp.second_runner_up_score,
-                                secondRunnerMetrics
-                            );
-                        } else {
-                            if (topEmps.length > 0) {
-                                empHtml += renderEmployeeWinnerCard(topEmps[0].name, topEmps[0].avatar, topEmps[0].department, topEmps[0].score, topEmps[0]);
-                                if (topEmps.length > 1) {
-                                    empHtml += renderEmployeeRunnerCard(2, topEmps[1].name, topEmps[1].avatar, topEmps[1].department, topEmps[1].score, topEmps[1]);
-                                }
-                                if (topEmps.length > 2) {
-                                    empHtml += renderEmployeeRunnerCard(3, topEmps[2].name, topEmps[2].avatar, topEmps[2].department, topEmps[2].score, topEmps[2]);
-                                }
-                            } else {
-                                empHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">No complete employee scores yet. Rankings await verified tasks and KPI results.</div>';
-                            }
+                        if (topEmps.length > 2) {
+                            empHtml += renderEmployeeRunnerCard(3, topEmps[2].name, topEmps[2].avatar, topEmps[2].department, topEmps[2].score, topEmps[2]);
                         }
-                        employeeCards.innerHTML = empHtml;
+                    } else {
+                        empHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">No complete employee scores yet. Rankings await verified tasks and KPI results.</div>';
+                    }
+                }
+                employeeCards.innerHTML = empHtml;
 
-                        // Render Department cards
-                        let deptHtml = '';
-                        if (lockedDept) {
-                            const winnerDeptMetrics = departmentByKey[lockedDept.winner_val] || { score: lockedDept.winner_score };
-                            const firstDeptMetrics = departmentByKey[lockedDept.first_runner_up_val] || { score: lockedDept.first_runner_up_score };
-                            const secondDeptMetrics = departmentByKey[lockedDept.second_runner_up_val] || { score: lockedDept.second_runner_up_score };
+                // Render Department cards
+                let deptHtml = '';
+                if (lockedDept) {
+                    const winnerDeptMetrics = departmentByKey[lockedDept.winner_val] || { score: lockedDept.winner_score };
+                    const firstDeptMetrics = departmentByKey[lockedDept.first_runner_up_val] || { score: lockedDept.first_runner_up_score };
+                    const secondDeptMetrics = departmentByKey[lockedDept.second_runner_up_val] || { score: lockedDept.second_runner_up_score };
 
-                            deptHtml += renderDeptWinnerCard(lockedDept.winner_val_label, lockedDept.winner_score, winnerDeptMetrics.member_count, winnerDeptMetrics);
-                            deptHtml += renderDeptRunnerCard(2, lockedDept.first_runner_up_val_label, lockedDept.first_runner_up_score, firstDeptMetrics.member_count, firstDeptMetrics);
-                            deptHtml += renderDeptRunnerCard(3, lockedDept.second_runner_up_val_label, lockedDept.second_runner_up_score, secondDeptMetrics.member_count, secondDeptMetrics);
-                        } else {
-                            if (topDepts.length > 0) {
-                                deptHtml += renderDeptWinnerCard(topDepts[0].label, topDepts[0].score, topDepts[0].member_count, topDepts[0]);
-                                if (topDepts.length > 1) {
-                                    deptHtml += renderDeptRunnerCard(2, topDepts[1].label, topDepts[1].score, topDepts[1].member_count, topDepts[1]);
-                                }
-                                if (topDepts.length > 2) {
-                                    deptHtml += renderDeptRunnerCard(3, topDepts[2].label, topDepts[2].score, topDepts[2].member_count, topDepts[2]);
-                                }
-                            } else {
-                                deptHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">No complete department scores yet. Rankings await verified reporting.</div>';
-                            }
+                    deptHtml += renderDeptWinnerCard(lockedDept.winner_val_label, lockedDept.winner_score, winnerDeptMetrics.member_count, winnerDeptMetrics);
+                    deptHtml += renderDeptRunnerCard(2, lockedDept.first_runner_up_val_label, lockedDept.first_runner_up_score, firstDeptMetrics.member_count, firstDeptMetrics);
+                    deptHtml += renderDeptRunnerCard(3, lockedDept.second_runner_up_val_label, lockedDept.second_runner_up_score, secondDeptMetrics.member_count, secondDeptMetrics);
+                } else {
+                    if (topDepts.length > 0) {
+                        deptHtml += renderDeptWinnerCard(topDepts[0].label, topDepts[0].score, topDepts[0].member_count, topDepts[0]);
+                        if (topDepts.length > 1) {
+                            deptHtml += renderDeptRunnerCard(2, topDepts[1].label, topDepts[1].score, topDepts[1].member_count, topDepts[1]);
                         }
-                        departmentCards.innerHTML = deptHtml;
-
-                        // Render Notice
-                        notice.classList.remove('hidden');
-                        if (lockedEmp || lockedDept) {
-                            notice.className = "mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-400";
-                            notice.innerHTML = `Official awards locked for period: <strong>${escapeAwardHtml(period)}</strong>`;
-                        } else {
-                            notice.className = "mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400";
-                            notice.innerHTML = 'Official awards have not been locked for this period yet. Showing real-time estimated standings.';
+                        if (topDepts.length > 2) {
+                            deptHtml += renderDeptRunnerCard(3, topDepts[2].label, topDepts[2].score, topDepts[2].member_count, topDepts[2]);
                         }
+                    } else {
+                        deptHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">No complete department scores yet. Rankings await verified reporting.</div>';
+                    }
+                }
+                departmentCards.innerHTML = deptHtml;
 
-                        // Render Chart
-                        const chartLabels = [];
-                        const chartScores = [];
-                        topEmps.slice(0, 5).forEach(e => {
-                            chartLabels.push(e.name);
-                            chartScores.push(e.score);
-                        });
-                        renderLeaderboardChart(chartLabels, chartScores);
-                    })
-                    .catch(() => {
-                        employeeCards.innerHTML = '<div class="lg:col-span-3 text-center py-6 text-brand-white/40">Employee standings are temporarily unavailable.</div>';
-                        departmentCards.innerHTML = '<div class="lg:col-span-3 text-center py-6 text-brand-white/40">Department standings are temporarily unavailable.</div>';
-                        notice.className = 'mb-6 rounded-xl border border-brand-white/10 bg-brand-white/5 p-3 text-xs text-brand-white/60';
-                        notice.textContent = 'Performance standings could not be refreshed. Please try again shortly.';
-                        notice.classList.remove('hidden');
-                    });
+                // Render Notice
+                notice.classList.remove('hidden');
+                if (lockedEmp || lockedDept) {
+                    notice.className = "mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-400";
+                    notice.innerHTML = `Official awards locked for period: <strong>${escapeAwardHtml(period)}</strong>`;
+                } else {
+                    notice.className = "mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400";
+                    notice.innerHTML = 'Official awards have not been locked for this period yet. Measured task rankings are available below.';
+                }
+
             }
+
+            window.fetchLeaderboard = async function(period) {
+                const requestId = ++awardRequestId;
+                const notice = document.getElementById('award-period-notice');
+                notice.textContent = 'Loading performance for the selected period…';
+                try {
+                    const url = new URL(@js(route('portal.awards.standings', [], false)), window.location.origin);
+                    url.searchParams.set('period', period);
+                    const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+                    if (!response.ok) throw new Error('Standings unavailable');
+                    const data = await response.json();
+                    if (requestId !== awardRequestId) return;
+
+                    document.getElementById('measured-performance').innerHTML = data.measured_html;
+                    renderAwardStandings(data);
+                } catch {
+                    if (requestId !== awardRequestId) return;
+                    if (currentStandingsData) document.getElementById('leaderboard-period').value = currentStandingsData.period;
+                    notice.textContent = 'That period could not load. The last loaded figures are still displayed.';
+                }
+            };
 
             function PerformanceAwardDeptLabel(val) {
                 const departments = {
@@ -2595,9 +2476,8 @@
                 if (e.target === this) closeAwardLockModal();
             });
 
-            // Initial fetch
-            const initialPeriod = document.getElementById('leaderboard-period').value;
-            fetchLeaderboard(initialPeriod);
+            // Render the current period from the dashboard response.
+            renderAwardStandings(@js($awardPayload));
         });
     </script>
 </x-app-layout>

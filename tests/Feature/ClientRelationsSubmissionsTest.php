@@ -63,6 +63,60 @@ class ClientRelationsSubmissionsTest extends TestCase {
   $this->actingAs($this->staff('manager','finance'))->postJson(route('portal.crm.store'),$this->payload($u))->assertForbidden();
   $this->getJson(route('portal.crm.submissions'))->assertForbidden();
  }
+ public function test_project_range_syncs_across_reporting_views_without_a_source_note(): void {
+  $staff=$this->staff();
+  $manager=$this->staff('manager');
+  $period=['from'=>'2026-11-16','to'=>'2026-11-22'];
+  $register=['weekly_from'=>$period['from'],'weekly_to'=>$period['to']];
+  $payload=array_diff_key($this->payload($staff),['reason'=>true]);
+  $payload=array_replace($payload,['week_start'=>'2026-11-12','week_end'=>'2026-11-19','project_name'=>'Cross-week retail rollout','remarks'=>'Private project note']);
+
+  $this->actingAs($staff)->getJson(route('portal.crm.submissions',['form'=>1]))
+   ->assertJsonPath('can_review',false)->assertJsonCount(1,'staff')->assertJsonPath('staff.0.id',$staff->id);
+  $this->postJson(route('portal.crm.store'),array_replace($payload,['week_end'=>'2026-11-11']))
+   ->assertUnprocessable()->assertJsonValidationErrors('week_end');
+  $id=$this->postJson(route('portal.crm.store'),$payload)->assertStatus(202)->json('submission_id');
+  $this->getJson(route('portal.crm.centre.data',$period))->assertJsonPath('summary.projects',0);
+  $this->get(route('portal.crm.centre.published-register',$register))->assertOk()->assertDontSee('Cross-week retail rollout');
+
+  $this->actingAs($manager)->getJson(route('portal.crm.submissions',['form'=>1]))
+   ->assertJsonPath('can_review',true)->assertJsonCount(2,'staff');
+  $this->postJson(route('portal.crm.submissions.review',$id),['revision'=>1,'decision'=>'approve'])->assertOk();
+  $this->getJson(route('portal.crm.centre.data',$period))->assertJsonPath('summary.projects',1)
+   ->assertJsonPath('clients.0.projects.0.week_end','2026-11-19')->assertJsonPath('totals.actual_amount.value',null)
+   ->assertDontSee('Private project note');
+  $this->get(route('portal.crm.index',$period))->assertOk()->assertSee('Cross-week retail rollout');
+  $this->get(route('portal.crm.centre.published-register',$register))->assertOk()
+   ->assertSee('Cross-week retail rollout')->assertSee('19 Nov 2026')->assertDontSee('Private project note');
+  $this->getJson(route('portal.crm.centre.data',['from'=>'2026-11-20','to'=>'2026-11-22']))->assertJsonPath('summary.projects',0);
+ }
+ public function test_supporting_staff_are_kept_through_review_and_publication():void {
+  $owner=$this->staff();$manager=$this->staff('manager');$support=$this->staff('staff','creatives');
+  $former=$this->staff();$former->update(['status'=>'suspended']);
+  $this->actingAs($owner)->getJson(route('portal.crm.submissions',['form'=>1]))->assertOk()
+   ->assertJsonFragment(['id'=>$support->id,'name'=>$support->name])->assertDontSee($former->name);
+  $payload=$this->payload($owner);
+  foreach ([$owner,$former] as $invalid) {
+   $this->postJson(route('portal.crm.store'),$payload+['supporting_staff_ids'=>[$invalid->id]])->assertUnprocessable()->assertJsonValidationErrors('supporting_staff_ids');
+  }
+  $payload['supporting_staff_ids']=[$support->id];
+  $id=$this->postJson(route('portal.crm.store'),$payload)->assertStatus(202)->json('submission_id');
+  $this->actingAs($manager)->getJson(route('portal.crm.submissions'))->assertOk()->assertSee($support->name);
+  $this->postJson(route('portal.crm.submissions.review',$id),['revision'=>1,'decision'=>'return','note'=>'Confirm the support assignment.'])->assertOk();
+  $this->actingAs($owner)->getJson(route('portal.crm.submissions'))->assertJsonPath('entries.0.payload.supporting_staff_ids.0',$support->id);
+  $this->postJson(route('portal.crm.store'),$payload+['submission_id'=>$id,'submission_revision'=>2])->assertStatus(202);
+  $this->actingAs($manager)->postJson(route('portal.crm.submissions.review',$id),['revision'=>3,'decision'=>'approve'])->assertOk();
+  $project=CrmPipelineProject::sole();
+  $this->assertSame([$support->id],$project->supporting_staff_ids);
+  $this->getJson(route('portal.crm.centre.data'))->assertJsonPath('clients.0.projects.0.supporting_staff.0',$support->name);
+  $this->get(route('portal.crm.centre.published-register',['weekly_from'=>now()->startOfWeek()->toDateString(),'weekly_to'=>now()->endOfWeek()->toDateString()]))
+   ->assertOk()->assertSee('Supporting Staff')->assertSee($support->name);
+  $this->actingAs($support)->postJson(route('portal.crm.update',$project),$payload+['revision'=>1])->assertForbidden();
+  $this->actingAs($manager)->postJson(route('portal.crm.update',$project),array_replace($payload,['revision'=>1,'supporting_staff_ids'=>[]]))->assertOk();
+  $this->assertSame([],$project->fresh()->supporting_staff_ids);
+  $this->postJson(route('portal.crm.record'),['kind'=>'meeting','client_name'=>'Dove','reference'=>'SUPPORT-1','owner_id'=>$owner->id,'status'=>'completed','supporting_staff_ids'=>[$support->id],'data'=>['title'=>'Joint client meeting','scheduled_at'=>today()->toDateString()]])->assertCreated();
+  $this->getJson(route('portal.crm.centre.data'))->assertJsonPath('clients.0.activities.0.supporting_staff.0',$support->name);
+ }
  public function test_dashboard_task_delete_keeps_filters_and_rejects_external_redirects():void {
   $m=$this->staff('manager');$t=Task::create(['title'=>'Daily follow up','assigned_to'=>$m->id,'created_by'=>$m->id,'department'=>'client_relations','status'=>'Open','priority'=>'Medium']);
   $return='/dashboard?tab=client_relations&weekly_department=client_relations#mega-table-disclosure';

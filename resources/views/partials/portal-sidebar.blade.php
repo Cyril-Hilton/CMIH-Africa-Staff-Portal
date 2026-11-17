@@ -38,6 +38,8 @@
     if ($user->isCvoOrSuperAdmin()) {
         // Executive access includes every department module
         $deptLinks = array_values($allDeptModules);
+    } elseif ($user->canAuditHrAndFinance()) {
+        $deptLinks = [$allDeptModules['hr_admin'], $allDeptModules['finance']];
     } else {
         // Transport / Supporting staff in HR dept — NO HR module link
         $isTransportOrSupport = $hrLevel === 4;
@@ -66,6 +68,10 @@
         ['label' => 'Profile',                'route' => 'portal.profile'],
     ];
 
+    if (app(\App\Services\ProjectJourney::class)->canAccess($user)) {
+        array_splice($coreLinks, 1, 0, [['label' => 'Project Journey', 'route' => 'portal.project-journey']]);
+    }
+
     // ── Financial Tools Links ────────────────────────────────────────────────
     $financialLinks = [
         ['label' => 'Claims & Invoices',        'route' => 'portal.finance'],
@@ -78,6 +84,7 @@
     $hrmLinks = [
         ['label' => 'Leaves & Absences',   'route' => 'portal.leaves'],
         ['label' => 'Fleet Requests',      'route' => 'portal.fleet-requests'],
+        ['label' => 'Boardroom Requests',  'route' => 'portal.boardroom-requests'],
         ['label' => 'Appraisals',          'route' => 'portal.appraisals.index'],
         ['label' => 'Office Asset Manager', 'route' => 'portal.assets'],
         ['label' => 'Warehouse Assets Manager', 'route' => 'portal.assets.warehouse.index'],

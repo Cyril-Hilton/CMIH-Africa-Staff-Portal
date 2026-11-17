@@ -21,7 +21,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request)
     {
         $user = $request->user();
         app(\App\Services\DashboardReportingPeriod::class)->apply($request);
@@ -120,12 +120,8 @@ class DashboardController extends Controller
 
         $currentMonth = Carbon::now()->format('Y-m');
         $currentYear = Carbon::now()->format('Y');
-        $awardStandings = app(PerformanceAwardController::class)->calculateStandingsData($currentMonth);
-        $awardDepartmentScores = collect($awardStandings['departments'] ?? [])->keyBy('key');
-
-        $deptPerformances = [];
-        $winningDept = null;
-        $maxPerformance = -1;
+        $awardPayload = app(PerformanceAwardController::class)->standingsPayload($currentMonth);
+        $awardStandings = $awardPayload['calculated'];
 
         $deptMapping = [
             'hr_admin' => ['hr_admin', 'admin', 'transport'],
@@ -136,33 +132,11 @@ class DashboardController extends Controller
             'creatives' => ['creatives'],
         ];
 
-        foreach ($departments as $key => $label) {
-            $mappedDepts = $deptMapping[$key] ?? [$key];
-            $departmentTaskStats = TaskStatsService::forDepartments($mappedDepts);
-            $awardDepartmentScore = $awardDepartmentScores->get($key, []);
-            $performance = (float) ($awardDepartmentScore['score'] ?? 0);
-            $memberCount = (int) ($awardDepartmentScore['member_count'] ?? 0);
-            $activeMemberCount = (int) ($awardDepartmentScore['active_member_count'] ?? 0);
-
-            $deptPerformances[$key] = [
-                'label' => $label,
-                'total' => $departmentTaskStats['total'],
-                'completed' => $departmentTaskStats['completed'],
-                'member_count' => $memberCount,
-                'active_member_count' => $activeMemberCount,
-                'performance' => $performance,
-            ];
-
-            if ($memberCount > 0 && $performance > $maxPerformance) {
-                $maxPerformance = $performance;
-                $winningDept = $key;
-            }
-        }
-
         // Monthly task cohorts; review waiting is neutral and never stacked twice.
         $insights = app(\App\Services\DashboardInsights::class);
         $departmentChartData = $insights->departments($departments, $deptMapping, $insightFrom, $insightTo);
         $weeklyTrends = $insights->completionTrend();
+        $publishedDepartmentKpis = $insights->publishedKpis($user, $insightFrom, $insightTo, $departments);
 
         // 5. Recent Items
         $recentTasks = Task::with(['assigner', 'assignee'])->where('assigned_to', $user->id)->realWork()->latest()->take(5)->get();
@@ -228,7 +202,7 @@ class DashboardController extends Controller
         }
 
         $canViewAllWeeklyDepartments = true; // Shared percentage-only cross-department review is available to every staff member.
-        $defaultWeeklyDepartment = $user->isCvoOrSuperAdmin()
+        $defaultWeeklyDepartment = $user->canViewExecutiveActivity()
             ? 'all'
             : $this->normalizeDepartment((string) $user->department);
         if ($defaultWeeklyDepartment !== 'all' && ! array_key_exists($defaultWeeklyDepartment, $departments)) {
@@ -262,15 +236,16 @@ class DashboardController extends Controller
             $savedWeeks=$savedWeeks->merge($creativeWeeks->flatMap(fn($r)=>collect(['received_at','planned_start','internal_eta','submitted_at','completed_at','source_recorded_at'])->map(fn($field)=>$r->$field)->filter()));
         }
         if(\Illuminate\Support\Facades\Schema::hasTable('performance_registers')) {
-            $savedWeeks=$savedWeeks->merge(\App\Models\PerformanceRegister::whereNotNull('approved_at')->when($weeklyDepartmentFilter!=='all',fn($q)=>$q->where('department',$weeklyDepartmentFilter))->select('period_start')->distinct()->pluck('period_start'));
+            $savedWeeks=$savedWeeks->merge(\App\Models\PerformanceRegister::whereNotNull('approved_at')->where(fn ($q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))->when($weeklyDepartmentFilter!=='all',fn($q)=>$q->where('department',$weeklyDepartmentFilter))->select('period_start')->distinct()->pluck('period_start'));
         }
 
         $searchWeekly = $request->query('search_weekly');
         $publicCrmProgress = \Illuminate\Support\Facades\Schema::hasTable('crm_weekly_progress')
-            ? \App\Services\ClientRelationsPipeline::publicRows(is_string($searchWeekly) ? $searchWeekly : null)
-                ->when($request->filled('weekly_from'), fn ($q) => $q->whereDate('crm_weekly_progress.week_start', '>=', $request->query('weekly_from')))
-                ->when($request->filled('weekly_to'), fn ($q) => $q->whereDate('crm_weekly_progress.week_start', '<=', $request->query('weekly_to')))
-                ->paginate(8, ['*'], 'crm_page')->withQueryString()->appends(['weekly_department' => 'client_relations'])
+            ? \App\Services\ClientRelationsPipeline::reportingRows(
+                is_string($searchWeekly) ? $searchWeekly : null,
+                $request->query('weekly_from'),
+                $request->query('weekly_to')
+            )
             : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 8);
 
         $isAllWeeklyDepartments = $weeklyDepartmentFilter === 'all';
@@ -283,10 +258,10 @@ class DashboardController extends Controller
         if ($hasWeeklyItemsTable) {
             $weeklyBaseQuery = WeeklyConsolidatedItem::query()->where('workflow_state', 'legacy');
             // Legacy Finance narratives may contain amounts; public visibility uses the safe KPI projection instead.
-            if (! $user->isCvoOrSuperAdmin() && User::normalizeDepartmentKey($user->department) !== 'finance') {
+            if (! $user->canAuditHrAndFinance() && ! $user->isCvoOrSuperAdmin() && User::normalizeDepartmentKey($user->department) !== 'finance') {
                 $weeklyBaseQuery->whereNotIn('department', User::departmentAliases('finance'));
             }
-            if (! $user->hasFullHrAccess()) {
+            if (! $user->hasFullHrAccess() && ! $user->canAuditHrAndFinance()) {
                 $weeklyBaseQuery->whereNotIn('department', User::departmentAliases('hr_admin'));
             }
             if (! $isAllWeeklyDepartments) {
@@ -392,10 +367,10 @@ class DashboardController extends Controller
 
         $lockedDepartmentAward = $lockedAwards->get('department_of_the_month');
         $topAwardDepartment = collect($awardStandings['departments'] ?? [])->first();
-        $winningDept = $lockedDepartmentAward?->winner_val ?: ($topAwardDepartment['key'] ?? $winningDept);
+        $winningDept = $lockedDepartmentAward?->winner_val ?: ($topAwardDepartment['key'] ?? null);
 
         $actionPoints = \Illuminate\Support\Facades\Schema::hasTable('action_points')
-            ? \App\Models\ActionPoint::with(['assignee', 'creator', 'updater'])
+            ? \App\Models\ActionPoint::current()->with(['assignee', 'creator', 'updater'])
                 ->latest()
                 ->get()
             : collect();
@@ -403,9 +378,14 @@ class DashboardController extends Controller
         $sharedWeeklyPerformance = app(\App\Services\SharedWeeklyPerformance::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
         $weeklyDepartmentTables = app(\App\Services\WeeklyDepartmentTables::class)->build('all', $request->query('weekly_from') ?: now()->startOfWeek()->toDateString(), $request->query('weekly_to') ?: now()->endOfWeek()->toDateString());
 
-        return view('portal.dashboard', compact(
+        $executiveActivity = $user->canViewExecutiveActivity()
+            ? app(\App\Services\ExecutiveActivity::class)->build($request, $departments)
+            : null;
+
+        return response()->view('portal.dashboard', compact(
+            'executiveActivity',
             'user', 'individualStats', 'collectiveStats', 'winningDept',
-            'deptPerformances', 'departmentChartData', 'weeklyTrends',
+            'awardPayload', 'awardStandings', 'departmentChartData', 'weeklyTrends', 'publishedDepartmentKpis',
             'recentTasks', 'announcements', 'teamActiveCount',
             'pendingApprovalsCount', 'departmentTables', 'departmentColumns',
             'departments', 'todayAttendance', 'hasTodayTask', 'allStaff',
@@ -417,7 +397,7 @@ class DashboardController extends Controller
             'weeklySort', 'weeklySortDirection', 'weeklyDepartmentHasBreakdown',
             'canManageActiveWeeklyDepartment', 'isAllWeeklyDepartments',
             'insightFrom', 'insightTo', 'reportAsOf', 'savedWeeks', 'actionPoints', 'weeklyAccountability', 'publicCrmProgress', 'staffPerformanceScore', 'weeklyDepartmentTables', 'sharedWeeklyPerformance'
-        ));
+        ))->header('Cache-Control', 'private, no-store');
     }
 
     private function sanitizeSort(?string $sort, array $allowed, string $fallback): string
@@ -579,7 +559,7 @@ class DashboardController extends Controller
 
     // ── Custom Dashboard Column Management ────────────────────────────────────
 
-    public function live(Request $request): View
+    public function live(Request $request): View|\Illuminate\Http\Response
     {
         return $this->index($request);
     }

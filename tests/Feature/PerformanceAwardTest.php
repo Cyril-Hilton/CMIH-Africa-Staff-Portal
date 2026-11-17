@@ -138,6 +138,10 @@ class PerformanceAwardTest extends TestCase
         $this->assertEquals($employee->name, $data['calculated']['incomplete_employees'][0]['name']);
         $this->assertNull($data['calculated']['incomplete_employees'][0]['score']);
         $this->assertFalse($data['calculated']['incomplete_employees'][0]['score_complete']);
+        $this->assertSame($employee->name, $data['calculated']['measured_employees'][0]['label']);
+        $this->assertNull($data['calculated']['measured_employees'][0]['score']);
+        $this->assertStringContainsString('Task Completion Rankings', $data['measured_html']);
+        $this->getJson('/portal/awards/standings?period=2026-13')->assertUnprocessable();
     }
 
     public function test_award_score_penalizes_missed_workday_clock_ins_even_with_full_task_completion(): void

@@ -20,7 +20,7 @@ class CreativeReport
             'yearly' => $start->copy()->endOfYear(), default => $start->copy()->endOfWeek(),
         };
         $query = CreativeRequest::visibleTo($actor)->where('is_group',false)
-            ->when($filters['assignee'] ?? null, fn($q, $v) => $q->where('assignee_id', $v))
+            ->when($filters['assignee'] ?? null, fn($q, $v) => $q->withParticipant((int) $v))
             ->when($filters['q'] ?? null, fn($q, $v) => $q->where(fn($q) => $q->where('title', 'like', '%'.$v.'%')->orWhere('client', 'like', '%'.$v.'%')->orWhere('reference', 'like', '%'.$v.'%')))
             ->where(function ($q) use ($start, $end) {
                 foreach (['received_at','requested_deadline','submitted_at','completed_at','delivered_at'] as $field) {

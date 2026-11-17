@@ -15,3 +15,155 @@
 .cr-owner-tabs{margin:16px 0;gap:8px;flex-wrap:wrap}.cr-owner-tabs button{min-height:40px}.cr-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.cr-entry-details{display:grid;gap:12px}.cr-entry-details>div{padding:10px 0;border-bottom:1px solid #ffffff20;min-width:0}.cr-entry-details dt{font-size:12px;color:#a8c0d0}.cr-entry-details dd{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}.cr-review-note{border-left:3px solid #f2c875;background:#f2c87510;padding:14px;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere}.cr-dialog form label{margin-block:12px}.cr-dialog .cr-actions{margin-top:18px;gap:12px}@media(max-width:600px){.cr-entry-grid{grid-template-columns:1fr}.cr-owner-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px}.cr-owner-tabs button{flex-shrink:0;white-space:nowrap}}
 
 .cr-owner-tabs img{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none;border:1px solid #ffffff40}.cr-owner-tabs button{gap:8px;text-align:left}.cr-owner-tabs small{display:block;font-size:10px;color:var(--cr-muted);margin-top:2px}
+
+.cr-dialog [data-cr-entry-fields] .cr-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.cr-dialog .cr-checkbox-label input[type="checkbox"] {
+    display: inline-block;
+    width: 1rem;
+    min-height: 1rem;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--cr-cyan);
+}
+
+.cr-centre .cr-primary,
+.cr-centre .cr-dialog form[data-cr-entry-form] button[type="submit"] {
+    background: #6ee7d4;
+    border-color: #6ee7d4;
+    color: #0a2530;
+}
+.cr-centre .cr-primary:hover,
+.cr-centre .cr-dialog form[data-cr-entry-form] button[type="submit"]:hover {
+    background: #a4f3e6;
+}
+
+.cr-account-groups { display: grid; gap: .85rem; margin-bottom: 1rem; }
+.cr-account-group {
+    min-width: 0;
+    padding: .9rem 1rem;
+    border: 1px solid var(--cr-line);
+    border-radius: .75rem;
+    background: #182737;
+}
+.cr-account-group--engaged {
+    border-color: #548f8c;
+    background: #142c32;
+}
+.cr-centre .cr-account-group h4 {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    margin: 0 0 .65rem;
+    color: #d5e1f2;
+    font-size: .95rem;
+}
+.cr-centre .cr-account-group--engaged h4 { color: #b8f9ed; }
+.cr-account-group h4 span {
+    padding: .12rem .48rem;
+    border: 1px solid currentColor;
+    border-radius: 1rem;
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+}
+.cr-account-group .cr-account-list {
+    max-height: 10rem;
+    margin: 0;
+    padding: .2rem;
+    overflow: auto;
+    scrollbar-color: #7495aa transparent;
+}
+.cr-centre .cr-account-group .cr-account-list button {
+    max-width: 100%;
+    flex: none;
+    text-align: left;
+    overflow-wrap: anywhere;
+    border-color: #667f9b;
+    background: #20354b;
+    color: #e6effb;
+}
+.cr-centre .cr-account-list button small { display: block; margin-top: .2rem; color: #b8ccdf; }
+.cr-centre .cr-account-group--engaged .cr-account-list button {
+    border-color: #68c6b8;
+    background: #1b4146;
+    color: #d5fff6;
+}
+.cr-centre .cr-account-group--engaged .cr-account-list [aria-pressed=true] {
+    background: #85e1d0;
+    border-color: #c5fff3;
+    color: #102d33;
+}
+.cr-centre .cr-account-group--all .cr-account-list [aria-pressed=true] {
+    background: #c0d5ed;
+    border-color: #ecf6ff;
+    color: #15283d;
+}
+.cr-centre .cr-account-list [aria-pressed=true] small { color: inherit; }
+.cr-centre .cr-account-list button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.cr-centre .cr-pagination[hidden] { display: none; }
+@media (max-width: 600px) {
+    .cr-account-group { padding: .7rem; }
+    .cr-account-group .cr-account-list { max-height: 12rem; }
+}
+
+.cr-web-layout--compact {
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.25fr);
+    align-items: start;
+    gap: 1rem;
+}
+.cr-web-side { min-width: 0; display: grid; gap: .65rem; }
+.cr-web-layout--compact .cr-web { padding: .65rem; border-radius: .85rem; }
+.cr-web-layout--compact .cr-web svg { height: clamp(205px, 23vw, 285px); min-height: 0; }
+.cr-web-layout--compact .cr-web [data-cr-node] text { font-size: 24px; }
+.cr-web-layout--compact .cr-web [aria-pressed=true] circle:first-of-type {
+    fill: #27686e;
+    stroke: #c1fff6;
+    stroke-width: 4;
+}
+.cr-web-layout--compact .cr-legend { flex-wrap: wrap; padding: .4rem; }
+.cr-web-account { padding: .7rem .9rem; }
+.cr-web-account summary { cursor: pointer; font-size: .85rem; font-weight: 650; }
+.cr-web-account[open] summary { margin-bottom: .7rem; }
+.cr-web-project { padding: clamp(.85rem, 2vw, 1.35rem); }
+.cr-web-project-heading, .cr-project-overview-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .45rem .75rem;
+}
+.cr-centre .cr-web-project-heading h4, .cr-centre .cr-project-overview-heading h4 { margin: 0; }
+.cr-centre .cr-project-overview-heading h4 { font-size: 1.12rem; overflow-wrap: anywhere; }
+.cr-project-picker { display: grid; gap: .3rem; margin: .8rem 0 1rem; font-size: .8rem; }
+.cr-project-picker select {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--cr-line);
+    border-radius: .55rem;
+    padding: .45rem .6rem;
+    background: #10202f;
+    color: #edf6fb;
+}
+.cr-project-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+    gap: .65rem;
+    margin: .8rem 0;
+    padding: .7rem 0;
+    border-block: 1px solid var(--cr-line);
+}
+.cr-project-facts dt { color: var(--cr-muted); font-size: .75rem; }
+.cr-project-facts dd { margin: .22rem 0 0; font-size: .84rem; overflow-wrap: anywhere; }
+.cr-web-project [data-cr-project-overview] section { margin: .75rem 0; }
+.cr-web-project h5 { font-size: .82rem; margin-bottom: .25rem; font-weight: 650; color: var(--cr-cyan); }
+.cr-web-project .weekly-rich-content { font-size: .87rem; line-height: 1.55; overflow-wrap: anywhere; overflow-x: auto; }
+.cr-centre .cr-project-full { margin-top: .65rem; border-color: var(--cr-cyan); }
+@media (max-width: 950px) {
+    .cr-web-layout--compact { grid-template-columns: 1fr; }
+    .cr-web-layout--compact .cr-web svg { height: clamp(180px, 46vw, 240px); }
+}
+.cr-web-project-heading + [data-cr-project-overview] { margin-top: 1rem; }
+.cr-centre [data-cr-web-project] { align-self: start; }

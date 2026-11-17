@@ -4,30 +4,18 @@ $useOld=(string)old('editing_project_id','new')===(string)($record?->id??'new');
 @endphp
 <form method="POST" action="{{ $record?route('portal.crm.update',$record):route('portal.crm.store') }}" class="mt-4 space-y-4" data-crm-project-form>@csrf
 <input type="hidden" name="editing_project_id" value="{{ $record?->id??'new' }}">@if($record)<input type="hidden" name="revision" value="{{ $record->revision }}">@endif
-<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-<label class="min-w-0 text-xs text-brand-ash">Client<input name="client_name" list="crm-client-names" value="{{ $useOld?old('client_name',$record?->client_name):$record?->client_name }}" required maxlength="255" class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2.5 text-brand-white"></label>
-@foreach(['project_name'=>'Project','brand'=>'Brand'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'text','value'=>$record?->{$field},'required'=>$field==='project_name','label'=>$label])@endforeach
-@include('portal.performance.field',['name'=>'owner_id','options'=>auth()->user()->isLineManager()?$staff->pluck('name','id')->all():[auth()->id()=>auth()->user()->name],'type'=>'text','value'=>$record?->owner_id??auth()->id(),'required'=>true,'label'=>'Account Owner'])
-@include('portal.performance.field',['name'=>'stage','options'=>collect(config('crm_pipeline.stages'))->mapWithKeys(fn($s,$key)=>[$key=>ucwords($s['label'])])->all(),'type'=>'text','value'=>$record?->stage,'required'=>true,'label'=>'Sales Stage'])
-@include('portal.performance.field',['name'=>'week_start','options'=>null,'type'=>'date','value'=>($record?->import_key&&!$record->source_period_confirmed)?null:($record?->week_start?->toDateString()??now()->startOfWeek()->toDateString()),'required'=>true,'label'=>'Reporting Week'])
-</div>
-@include('portal.performance.field',['name'=>'description','options'=>null,'type'=>'textarea','value'=>$record?->description,'required'=>false,'label'=>'Project Description'])
-<details class="rounded-xl border border-teal-300/25 p-4"><summary class="cursor-pointer font-semibold text-teal-100">Commercial Figures · GH₵</summary><p class="mt-2 text-xs text-brand-ash">Enter the figures you have. Leave unavailable figures blank; zero means a confirmed zero.</p><div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-@foreach(['proposed_amount'=>'Proposed Amount','po_amount'=>'PO Amount','target_amount'=>'Revenue Target','actual_amount'=>'Reported Revenue · Requires Finance Confirmation','invoiced_amount'=>'Invoiced','collected_amount'=>'Cash Collected','rate_card_value'=>'Rate Card Value','execution_value'=>'Execution Value'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'number','value'=>$record?->{$field},'required'=>false,'label'=>$label.' (GH₵)'])@endforeach
-</div></details>
-<details class="rounded-xl border border-indigo-300/25 p-4"><summary class="cursor-pointer font-semibold text-indigo-100">Next Actions, Dates & Shared Updates</summary><div class="mt-3 grid gap-3 sm:grid-cols-2">
-@foreach(['shared_bottlenecks'=>'Bottlenecks','shared_next_action'=>'Next Action','comments'=>'Comments'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'textarea','value'=>$record?->{$field},'required'=>false,'label'=>$label.' · Visible to Staff'])@endforeach
-@include('portal.performance.field',['name'=>'public_action','options'=>config('crm_pipeline.public_actions'),'type'=>'text','value'=>$record?->public_action,'required'=>false,'label'=>'Action Category'])
-@include('portal.performance.field',['name'=>'expected_close_date','options'=>null,'type'=>'date','value'=>$record?->expected_close_date?->toDateString(),'required'=>false,'label'=>'Expected Close Date'])
-@include('portal.performance.field',['name'=>'po_state','options'=>['unknown'=>'Not Recorded','not_requested'=>'Not Requested','requested'=>'Requested / Outstanding','received'=>'Received','not_required'=>'Not Required'],'type'=>'text','value'=>$record?->po_state,'required'=>false,'label'=>'PO Tracking'])
-<label class="text-xs text-brand-ash"><input type="hidden" name="new_business" value="0"><input type="checkbox" name="new_business" value="1" @checked($record?->new_business)> New Business Opportunity</label>
-</div></details>
-<details class="rounded-xl border border-brand-white/15 p-4"><summary class="cursor-pointer text-sm font-semibold">Contacts & Private Notes</summary><p class="mt-2 text-xs text-brand-ash">Available within Client Relations and to CVO / Super Admin.</p><div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-@foreach(['contact_name'=>'Contact Name','contact_position'=>'Contact Position','contact_info'=>'Contact Details','po_status'=>'PO Status Notes','invoice_status'=>'Invoice Status Notes','source_reference'=>'Source Reference'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'text','value'=>$record?->{$field},'required'=>false,'label'=>$label])@endforeach
-@foreach(['bottlenecks'=>'Private Bottleneck Notes','next_action'=>'Private Next Action','remarks'=>'Private Remarks'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'textarea','value'=>$record?->{$field},'required'=>false,'label'=>$label])@endforeach
-</div></details>
+@include('portal.client-relations.project-fields', [
+    'record' => $record,
+    'useOld' => $useOld,
+    'clientList' => 'crm-client-names',
+    'ownerOptions' => auth()->user()->isLineManager() ? $staff->pluck('name', 'id')->all() : [auth()->id() => auth()->user()->name],
+])
+@include('portal.client-relations.supporting-staff', [
+    'options' => $supportingStaff,
+    'selected' => array_map('intval', $useOld ? old('supporting_staff_ids', old('supporting_staff_present') ? [] : ($record?->supporting_staff_ids ?? [])) : ($record?->supporting_staff_ids ?? [])),
+    'ownerId' => $record?->owner_id ?? auth()->id(),
+])
 @if($record?->import_key&&!$record->source_period_confirmed)<div class="rounded-xl border border-amber-300/30 p-3"><p class="text-sm text-amber-200">Confirm the Reporting Date</p><p class="mt-2 text-xs text-brand-ash">This source date needs confirmation before it contributes to totals.</p>@if(auth()->user()->isLineManager())<label class="mt-3 block text-sm"><input type="checkbox" name="confirm_source_period" value="1"> I checked the source and confirm the reporting date entered above.</label>@endif</div>@endif
-@include('portal.performance.field',['name'=>'reason','options'=>null,'type'=>'text','value'=>null,'required'=>true,'label'=>'Update / Source Note'])
-<button type="submit" class="min-h-[44px] rounded-xl bg-brand-red px-4 py-3 font-semibold text-white">Save Project & Update Weekly View</button>
+<button type="submit" class="min-h-[44px] rounded-xl bg-brand-red px-4 py-3 font-semibold text-white">{{ auth()->user()->isLineManager() ? 'Save Project & Update Weekly View' : 'Submit Project for Manager Review' }}</button>
 </form>
 @if($record?->import_key)<details class="mt-3 rounded-xl border border-brand-white/15 p-3"><summary class="cursor-pointer text-xs">Original Workbook Reference</summary><p class="mt-2 text-xs">{{ $record->source_reference }} · {{ $record->source_period_label }}</p><p class="mt-2 text-xs">Workbook Forecast: {{ $record->source_forecast===null?'Not Supplied':'GH₵ '.number_format((float)$record->source_forecast,2) }}. Retained separately from stage-based calculations.</p></details>@endif

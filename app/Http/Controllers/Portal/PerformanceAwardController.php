@@ -50,7 +50,16 @@ class PerformanceAwardController extends Controller
      */
     public function getStandings(Request $request): JsonResponse
     {
-        $period = $request->query('period', Carbon::now()->format('Y-m'));
+        $period = $request->validate(['period' => ['sometimes', 'string', 'regex:/^20[0-9]{2}(?:-(?:0[1-9]|1[0-2]))?$/']])['period']
+            ?? now()->format('Y-m');
+        $data = $this->standingsPayload($period);
+        $data['measured_html'] = view('portal.partials.measured-performance', ['standings' => $data['calculated']])->render();
+
+        return response()->json($data)->header('Cache-Control', 'private, no-store');
+    }
+
+    public function standingsPayload(string $period): array
+    {
         $standings = $this->calculateStandingsData($period);
 
         // Check if there is already a locked award for this period
@@ -59,7 +68,7 @@ class PerformanceAwardController extends Controller
             ->get()
             ->keyBy('award_type');
 
-        return response()->json([
+        return [
             'period' => $period,
             'calculated' => $standings,
             'locked' => $lockedAwards->map(function ($award) {
@@ -79,7 +88,7 @@ class PerformanceAwardController extends Controller
                     'second_runner_up_score' => $award->second_runner_up_score,
                 ];
             }),
-        ]);
+        ];
     }
 
     /**
@@ -292,7 +301,7 @@ class PerformanceAwardController extends Controller
             });
 
             $teamScore = $endDate->gte(Carbon::parse(config('performance.score_effective_from')))
-                ? app(\App\Services\StaffPerformanceScore::class)->team($deptUsers, $startDate, $endDate) : null;
+                ? app(\App\Services\StaffPerformanceScore::class)->team($deptUsers, $startDate, $endDate, $key) : null;
             $deptScore = $teamScore ? $teamScore['score'] : ($memberScores->isNotEmpty() ? $memberScores->avg('score') : 0);
             $deptTaskRate = $teamScore ? ($teamScore['components']['completion']['raw'] ?? 0) : ($memberScores->isNotEmpty() ? $memberScores->avg('task_rate') : 0);
             $deptPunctuality = $memberScores->isNotEmpty() ? $memberScores->avg('punctuality') : 0;
@@ -305,9 +314,9 @@ class PerformanceAwardController extends Controller
                 'score' => $deptScore === null ? null : round($deptScore, 1),
                 'score_complete' => $teamScore['complete'] ?? true,
                 'score_components' => $teamScore['components'] ?? null,
-                'task_rate' => round($deptTaskRate, 1),
+                'task_rate' => $teamScore ? $teamScore['components']['completion']['raw'] : round($deptTaskRate, 1),
                 'kpi_rate' => $teamScore['components']['kpi']['raw'] ?? null,
-                'punctuality' => round($deptPunctuality, 1),
+                'punctuality' => $teamScore ? $teamScore['components']['punctuality']['raw'] : round($deptPunctuality, 1),
                 'attendance_rate' => round($deptAttendanceRate, 1),
                 'member_count' => $memberCount,
                 'active_member_count' => $memberScores->where('has_activity', true)->count(),
@@ -330,11 +339,45 @@ class PerformanceAwardController extends Controller
         });
 
         return [
+            'measured_employees' => $this->rankMeasuredWork($employeeStandings),
+            'measured_departments' => $this->rankMeasuredWork(array_filter($deptStandings, fn ($row) => $row['active_member_count'] > 0)),
             'employees' => array_slice(array_values(array_filter($employeeStandings, fn ($row) => $row['score_complete'])), 0, 10),
-            'departments' => array_values(array_filter($deptStandings, fn ($row) => $row['score_complete'])),
+            'departments' => array_values(array_filter($deptStandings, fn ($row) => $row['score_complete'] && $row['member_count'] > 0)),
             'incomplete_employees' => array_values(array_filter($employeeStandings, fn ($row) => ! $row['score_complete'])),
-            'incomplete_departments' => array_values(array_filter($deptStandings, fn ($row) => ! $row['score_complete'])),
+            'incomplete_departments' => array_values(array_filter($deptStandings, fn ($row) => ! $row['score_complete'] && $row['member_count'] > 0)),
         ];
+    }
+
+    private function rankMeasuredWork(array $rows): array
+    {
+        $rows = collect($rows)
+            ->sortBy([
+                fn ($a, $b) => ($b['task_rate'] ?? -1) <=> ($a['task_rate'] ?? -1),
+                fn ($a, $b) => strcasecmp($a['name'] ?? $a['label'], $b['name'] ?? $b['label']),
+            ])
+            ->values();
+        $position = null;
+        $previousRate = null;
+
+        return $rows->map(function (array $row, int $index) use (&$position, &$previousRate) {
+            $rate = $row['task_rate'];
+            if ($rate !== $previousRate) {
+                $position = $index + 1;
+                $previousRate = $rate;
+            }
+
+            return [
+                'rank' => $rate === null ? null : $position,
+                'label' => $row['name'] ?? $row['label'],
+                'department' => $row['department'] ?? null,
+                'task_rate' => $rate,
+                'punctuality' => $row['punctuality'],
+                'attendance_days' => $row['attendance_days'] ?? null,
+                'expected_workdays' => $row['expected_workdays'] ?? null,
+                'kpi_rate' => $row['kpi_rate'] ?? null,
+                'score' => $row['score'],
+            ];
+        })->all();
     }
 
     private function shouldExcludeFromAwardStandings(User $user): bool

@@ -17,8 +17,11 @@ class DepartmentModuleWorkspace
         $schemas = config('department_reporting.'.$department, []);
         $kind = $dates['register_kind'] ?? array_key_first($schemas);
         abort_unless(isset($schemas[$kind]), 422, 'Choose a reporting category for this department.');
-        $registers = PerformanceAccess::scope(PerformanceRegister::query(), $request->user(), 'owner_id')
-            ->where('department',$department)->where('kind',$kind)->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)
+        $registerQuery = PerformanceRegister::query();
+        if ($department !== 'finance' || ! $request->user()->canAuditHrAndFinance()) {
+            PerformanceAccess::scope($registerQuery, $request->user(), 'owner_id');
+        }
+        $registers = $registerQuery->where('department',$department)->where('kind',$kind)->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)
             ->when($dates['module_q']??null,fn($q,$search)=>$q->where(fn($q)=>$q->where('title','like','%'.$search.'%')->orWhere('reference','like','%'.$search.'%')))
             ->orderByDesc('period_start')->orderByDesc('id')->paginate(10,['*'],'module_register_page')->withQueryString()->appends(['module_view'=>'registers']);
         return ['moduleDepartment'=>$department,'moduleFrom'=>$from,'moduleTo'=>$to,'moduleSchemas'=>$schemas,'moduleKind'=>$kind,'moduleRegisters'=>$registers,

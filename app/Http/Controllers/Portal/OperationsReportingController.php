@@ -40,6 +40,9 @@ class OperationsReportingController extends Controller
             'status' => ['required', Rule::in(array_keys(OperationsReporting::STATUSES))],
             'evidence_url' => 'nullable|url:http,https|max:2000',
             'campaign_id' => 'nullable|integer|exists:campaigns,id',
+            'crm_project_id' => ['nullable', 'integer', Rule::exists('crm_pipeline_projects', 'id')->where('source_period_confirmed', true)],
+            'activation_id' => ['nullable', 'integer', Rule::exists('performance_registers', 'id')
+                ->where('department', OperationsReporting::DEPARTMENT)->where('kind', 'activation')->whereNotNull('approved_at')],
             'collaborators_present' => 'nullable|boolean',
             'collaborator_ids' => 'nullable|array|max:50',
             'collaborator_ids.*' => 'required|integer|distinct',
@@ -66,6 +69,11 @@ class OperationsReportingController extends Controller
             $data['campaign_id'] = (int) $input['campaign_id'];
         }
 
+        $linkField = $input['kind'] === 'activation' ? 'crm_project_id' : 'activation_id';
+        if (array_key_exists($linkField, $input)) {
+            $data[$linkField] = ! empty($input[$linkField]) ? (int) $input[$linkField] : null;
+        }
+
         $entry = DB::transaction(function () use ($input, $data, $actor, $manager, $includePrivate, $moduleEntry) {
             $entry = empty($input['submission']) ? new OperationsReportSubmission : OperationsReportSubmission::lockForUpdate()->findOrFail($input['submission']);
             $managerCorrection = $entry->exists && $manager && $entry->state === 'pending';
@@ -77,6 +85,7 @@ class OperationsReportingController extends Controller
             $source = $sourceId ? PerformanceRegister::whereIn('department', User::departmentAliases(OperationsReporting::DEPARTMENT))
                 ->where('kind', $input['kind'])->whereNotNull('approved_at')->lockForUpdate()->findOrFail($sourceId) : null;
             if ($source) {
+                abort_if(($source->data['import_undated'] ?? false) === true, 422, 'This undated workbook record is retained as source history.');
                 abort_unless($manager || $source->owner_id === $actor->id || $source->submitted_by === $actor->id, 403);
                 abort_unless(hash_equals(OperationsReporting::version($source), $input['source_version'] ?? $entry->source_version ?? ''), 409, 'This report changed. Open the published row and start a fresh correction.');
             }
@@ -102,8 +111,11 @@ class OperationsReportingController extends Controller
                 'period_end' => $source?->period_end?->toDateString() ?? ($entry->payload['period_end'] ?? $week->copy()->endOfWeek()->toDateString()),
                 'status' => $input['status'],
                 'evidence_url' => $moduleEntry ? ($input['evidence_url'] ?? null) : ($entry->payload['evidence_url'] ?? $source?->evidence_url),
-                'data' => $data + array_diff_key($source?->data ?? [], OperationsReporting::fields($input['kind'], $includePrivate), ['campaign_id' => true]),
+                'data' => $data + array_diff_key(($entry->payload['data'] ?? []) + ($source?->data ?? []), OperationsReporting::fields($input['kind'], $includePrivate), ['campaign_id' => true]),
             ];
+            if (! empty($input['owner_id'])) {
+                unset($payload['data']['import_no_owner']);
+            }
             $previousPayload = $entry->payload ?? [];
             $entry->fill([
                 'submitted_by' => $entry->submitted_by ?? $actor->id,
@@ -170,6 +182,7 @@ class OperationsReportingController extends Controller
         ]);
         $before = $register->exists ? $register->getAttributes() : [];
         $register->fill($entry->payload + ['approved_by' => $actor->id, 'approved_at' => now()])->save();
+        app(\App\Services\WarehouseAssetIntake::class)->fromOperations($register);
         $entry->update(['register_id' => $register->id, 'state' => 'published', 'reviewed_by' => $actor->id]);
         PerformanceWorkflow::record('register', $register->id, $actor->id, $source ? 'update' : 'create', $before, $register->getAttributes(), 'Published Operations report');
     }

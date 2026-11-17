@@ -21,9 +21,14 @@ class HrDashboard
         );
     }
 
+    public static function canRead(User $user): bool
+    {
+        return self::canAccess($user) || $user->canAuditHrAndFinance();
+    }
+
     public static function showWorkspace(Request $request): bool
     {
-        return self::canAccess($request->user())
+        return self::canRead($request->user())
             && !$request->boolean('hr_existing')
             && !$request->has('attendance_period')
             && (!$request->attributes->get('explicit_weekly_period') || $request->has('hr_tab'));
@@ -32,7 +37,7 @@ class HrDashboard
     public static function tabs(User $user): array
     {
         $tabs = config('hr_dashboard');
-        return $user->hasFullHrAccess() ? $tabs : array_intersect_key($tabs, ['overview' => true, 'operations' => true]);
+        return ($user->hasFullHrAccess() || $user->canAuditHrAndFinance()) ? $tabs : array_intersect_key($tabs, ['overview' => true, 'operations' => true]);
     }
 
     public static function team()
@@ -48,7 +53,7 @@ class HrDashboard
     public function build(Request $request): array
     {
         $user = $request->user();
-        abort_unless(self::canAccess($user), 403);
+        abort_unless(self::canRead($user), 403);
         $tabs = self::tabs($user);
         $tab = $request->query('hr_tab');
         $tab = is_string($tab) && isset($tabs[$tab]) ? $tab : 'overview';
@@ -114,7 +119,7 @@ class HrDashboard
         if ($tab === 'overview') {
             $fleet = FleetRequest::query()->whereBetween('requested_date', [$from, $to])->when($owner, fn ($q) => $q->where('user_id', $owner));
             $stats['Fleet requests in period'] = $fleet->count();
-            if ($user->hasFullHrAccess()) {
+            if ($user->hasFullHrAccess() || $user->canAuditHrAndFinance()) {
                 $staff = User::internalStaff()->where('status', 'active')->when($owner, fn ($q) => $q->whereKey($owner));
                 $stats['Current active headcount'] = (clone $staff)->count();
                 $attendanceStaff = User::internalStaff()->get()->reject(fn ($person) => $person->isCvoOrSuperAdmin())->pluck('id');

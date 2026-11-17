@@ -12,48 +12,87 @@ class ClientRelationsCentre {
    ->unique(fn($p)=>self::key($p->client_name).'|'.self::key($p->project_name))->values();
  }
  public function build(array $f,User $actor):array {
-  $from=Carbon::parse($f['from']??now()->startOfYear())->startOfDay();$to=Carbon::parse($f['to']??now()->endOfYear())->endOfDay();
+  [$from, $to] = ClientRelationsPeriod::dates($f);
   $all=CrmPipelineProject::with('owner')->where('source_period_confirmed',true)->whereDate('week_start','<=',$to)->get()->map(fn($p)=>RevenueReview::projection($p));
   // Latest confirmed snapshot per client/project, not the sum of repeated weekly snapshots.
   $workbook=($f['source']??'all')==='workbook';
   if($workbook)$all=$all->whereNotNull('import_key')->values();
-  $current=$this->latest($all)->filter(fn($p)=>$p->week_start->gte($from))->values();
-  $records=CrmClientRecord::with('owner')->get()->filter(fn($r)=>$this->recordDate($r)->betweenIncluded($from,$to))->values();
+  $current=$this->latest($all->filter(fn($p)=>($p->week_end ?? $p->week_start)->gte($from)));
+  $records=CrmClientRecord::with('owner')->get()->filter(fn($r)=>!in_array($r->status,['draft','cancelled','withdrawn'],true) && $this->recordInPeriod($r,$from,$to))->values();
   $relationships=CrmAccountRelationship::with('owner')->get();
   $allocations=CrmAccountAllocation::with('owner')->get()->filter(fn($a)=>(empty($f['q'])||str_contains(self::key($a->client_name),self::key($f['q'])))&&(empty($f['client'])||self::key($a->client_name)===self::key($f['client']))&&(empty($f['owner'])||(int)$a->owner_id===(int)$f['owner'])&&empty($f['stage']))->values();
-  $ledger=CrmFinancialRegister::with('owner')->whereBetween('source_year',[$from->year,$to->year])->get()->filter(fn($r)=>!$r->as_of||$r->as_of->betweenIncluded($from,$to))->sortByDesc('id')->unique(fn($r)=>self::key($r->client_name).'|'.self::key($r->project_name))->values();
-  if($workbook)$records=collect();
-  $names=$current->pluck('client_name')->merge($records->pluck('client_name'))->merge($relationships->pluck('client_name'))->merge($ledger->pluck('client_name'))->merge($allocations->pluck('client_name'))->unique(fn($n)=>self::key($n))->sort()->values();
-  $clientOptions=$names->map(fn($n)=>['name'=>$n,'key'=>self::key($n)])->values();
-  $match=function($p)use($f){return (empty($f['q'])||str_contains(self::key($p->client_name.' '.$p->project_name),self::key($f['q']))) && (empty($f['client'])||self::key($p->client_name)===self::key($f['client'])) && (empty($f['stage'])||$p->stage===$f['stage']) && (empty($f['owner'])||(int)$p->owner_id===(int)$f['owner']);};
-  $projects=$current->filter($match)->values();
-  $ledger=$ledger->filter(fn($r)=>(empty($f['q'])||str_contains(self::key($r->client_name.' '.$r->project_name),self::key($f['q'])))&&(empty($f['client'])||self::key($r->client_name)===self::key($f['client']))&&(empty($f['owner'])||(int)$r->owner_id===(int)$f['owner'])&&empty($f['stage']))->values();
-  $names=$names->filter(fn($n)=>(empty($f['q'])||str_contains(self::key($n),self::key($f['q']))||$projects->contains(fn($p)=>self::key($p->client_name)===self::key($n))||$ledger->contains(fn($r)=>self::key($r->client_name)===self::key($n))||$allocations->contains(fn($a)=>self::key($a->client_name)===self::key($n)))&&(empty($f['client'])||self::key($n)===self::key($f['client'])))->values();
-  if(!empty($f['owner'])||!empty($f['stage']))$names=$names->filter(fn($n)=>$projects->contains(fn($p)=>self::key($p->client_name)===self::key($n))||$ledger->contains(fn($r)=>self::key($r->client_name)===self::key($n))||$allocations->contains(fn($a)=>self::key($a->client_name)===self::key($n))||(empty($f['stage'])&&$records->contains(fn($a)=>self::key($a->client_name)===self::key($n)&&(empty($f['owner'])||(int)$a->owner_id===(int)$f['owner']))))->values();
-  $records=$records->filter(fn($r)=>$names->contains(fn($n)=>self::key($n)===self::key($r->client_name))&&(empty($f['owner'])||(int)$r->owner_id===(int)$f['owner']))->values();
-  $score=app(ClientRelationsScorecard::class)->build($projects,$records);
+  $registered = CrmFinancialRegister::with('owner')->whereBetween('source_year', [$from->year, $to->year])
+   ->where(fn ($query) => $query->whereNull('as_of')->orWhereDate('as_of', '<=', $to))->get();
+  $referenceView = $workbook && $from->isStartOfYear() && $to->isSameDay($from->copy()->endOfYear());
+  $ledger = $registered->filter(fn ($row) => $row->as_of ? $row->as_of->betweenIncluded($from, $to) : $referenceView)
+   ->sortByDesc('id')->unique(fn ($row) => self::key($row->client_name).'|'.self::key($row->project_name))->values();
+  if($workbook) $records=collect();
+  $accountMatches = fn ($row) => (empty($f['client']) || self::key($row->client_name) === self::key($f['client']))
+   && (empty($f['owner']) || (int) $row->owner_id === (int) $f['owner']);
+  $searchMatches = fn ($value) => empty($f['q']) || str_contains(self::key($value), self::key($f['q']));
+  $match = fn ($project) => $accountMatches($project)
+   && $searchMatches($project->client_name.' '.$project->project_name)
+   && (empty($f['stage']) || $project->stage === $f['stage']);
+  $projects = $current->filter($match)->values();
+  $ledgerMatches = fn ($row) => empty($f['stage']) && $accountMatches($row)
+   && $searchMatches($row->client_name.' '.$row->project_name);
+  $ledger = $ledger->filter($ledgerMatches)->values();
+  $records=$records->filter(fn ($row) =>
+   (empty($f['q']) || str_contains(self::key($row->client_name.' '.($row->data['title'] ?? '').' '.$row->reference), self::key($f['q'])))
+   && (empty($f['client']) || self::key($row->client_name) === self::key($f['client']))
+   && (empty($f['owner']) || (int) $row->owner_id === (int) $f['owner'])
+   && (empty($f['stage']) || $projects->contains('id', $row->project_id)))->values();
+  $engaged = $projects->pluck('client_name')->merge($records->pluck('client_name'))
+   ->merge($ledger->whereNotNull('as_of')->pluck('client_name'))->map(self::key(...))->unique()->flip();
+  $portfolioRecords = $projects->pluck('client_name')->merge($records->pluck('client_name'))
+   ->merge($ledger->pluck('client_name'))->merge($allocations->pluck('client_name'));
+  if (empty($f['stage'])) {
+   $portfolioRecords = $portfolioRecords->merge($all->filter($match)->pluck('client_name'))
+    ->merge($relationships->filter(fn ($row) => $accountMatches($row) && $searchMatches($row->client_name))->pluck('client_name'))
+    ->merge($registered->filter($ledgerMatches)->pluck('client_name'));
+  }
+  $names = $portfolioRecords->unique(self::key(...))->sort()->values();
+  $portfolioCount = $names->count();
+  if (($f['account_scope'] ?? 'engaged') !== 'all') {
+   $names = $names->filter(fn ($name) => $engaged->has(self::key($name)) || ($referenceView && $ledger->contains(fn ($row) => self::key($row->client_name) === self::key($name))));
+  }
+  // Projects remain visible through their end date. Financial snapshots belong to their reporting start.
+  $financialProjects=$projects->filter(fn($project)=>$project->week_start->gte($from));
+  $score=app(ClientRelationsScorecard::class)->build($financialProjects,$records);
   $financialFields=['proposed_amount','po_amount','target_amount','actual_amount','invoiced_amount','collected_amount'];
-  $totals=[];foreach($financialFields as $field){$known=$projects->whereNotNull($field);$totals[$field]=['value'=>$known->isEmpty()?null:round((float)$known->sum($field),2),'coverage'=>$known->count(),'total'=>$projects->count()];}
+  $totals=[];foreach($financialFields as $field){$known=$financialProjects->whereNotNull($field);$totals[$field]=['value'=>$known->isEmpty()?null:round((float)$known->sum($field),2),'coverage'=>$known->count(),'total'=>$financialProjects->count()];}
   $sort=$f['sort']??'client';$names=$names->sortBy(fn($n)=>$sort==='revenue'?-($projects->filter(fn($p)=>self::key($p->client_name)===self::key($n))->sum('actual_amount')):self::key($n))->values();
+  $names=$names->sortByDesc(fn($name)=>$engaged->has(self::key($name)))->values();
+  // Match the tab order to the populated client pages, including accounts beyond the first page.
+  $clientOptions=$names->map(fn($name)=>['name'=>$name,'key'=>self::key($name),'engaged'=>$engaged->has(self::key($name))])->values();
   $per=(int)($f['per_page']??12);$last=max(1,(int)ceil($names->count()/$per));$page=min((int)($f['page']??1),$last);
   $selected=$names->slice(($page-1)*$per,$per)->values();
   $pipeline=app(ClientRelationsPipeline::class);
   $businessEvents=PerformanceEvent::with('actor')->where('entity_type','crm_project')->whereIn('entity_id',$projects->pluck('id'))->orderByDesc('id')->get()->groupBy('entity_id');
-  $projectDTO=function($p)use($pipeline,$businessEvents){$dto=$this->project($p,$pipeline);$dto['history']=($businessEvents[$p->id]??collect())->take(50)->map(function($event){$changes=[];foreach(['owner_id','stage','proposed_amount','po_amount','target_amount','actual_amount','invoiced_amount','collected_amount','week_start','expected_close_date'] as $field)if(($event->before[$field]??null)!==($event->after[$field]??null))$changes[]=['field'=>$field,'before'=>$event->before[$field]??null,'after'=>$event->after[$field]??null];return ['action'=>$event->action,'actor'=>$event->actor?->name??'System','at'=>$event->created_at,'changes'=>$changes];})->values();return $dto;};
-  $clients=$selected->map(function($name)use($projects,$all,$relationships,$records,$projectDTO,$actor,$to,$ledger,$allocations){
+  $supportNames = User::whereKey($projects->flatMap(fn ($project) => $project->supporting_staff_ids ?? [])
+   ->merge($records->flatMap(fn ($record) => $record->supporting_staff_ids ?? []))->unique()->values()->all())->pluck('name','id');
+  $supportFor = fn ($row) => collect($row->supporting_staff_ids ?? [])->map(fn ($id) => $supportNames->get($id))->filter()->values()->all();
+  $projectDTO=function($p)use($pipeline,$businessEvents,$supportFor){$dto=$this->project($p,$pipeline);$dto['supporting_staff']=$supportFor($p);$dto['history']=($businessEvents[$p->id]??collect())->take(50)->map(function($event){$changes=[];foreach(['owner_id','stage','proposed_amount','po_amount','target_amount','actual_amount','invoiced_amount','collected_amount','week_start','week_end','expected_close_date'] as $field)if(($event->before[$field]??null)!==($event->after[$field]??null))$changes[]=['field'=>$field,'before'=>$event->before[$field]??null,'after'=>$event->after[$field]??null];return ['action'=>$event->action,'actor'=>$event->actor?->name??'System','at'=>$event->created_at,'changes'=>$changes];})->values();return $dto;};
+  $clients=$selected->map(function($name)use($projects,$all,$relationships,$records,$projectDTO,$actor,$from,$to,$ledger,$allocations,$engaged,$supportFor){
    $key=self::key($name);$allocation=$allocations->filter(fn($a)=>self::key($a->client_name)===$key);$finance=$ledger->filter(fn($r)=>self::key($r->client_name)===$key);$own=$projects->filter(fn($p)=>self::key($p->client_name)===$key)->values();
    $history=$all->filter(fn($p)=>self::key($p->client_name)===$key);$links=$relationships->filter(fn($r)=>self::key($r->client_name)===$key);
-   $owners=$own->toBase()->map(fn($p)=>['id'=>$p->owner_id,'name'=>$p->owner?->name??'Unassigned','role'=>'Current Project Owner','from'=>null,'to'=>null,'source'=>'Project record'])
-    ->merge($history->filter(fn($p)=>!$own->pluck('owner_id')->contains($p->owner_id))->unique('owner_id')->map(fn($p)=>['id'=>$p->owner_id,'name'=>$p->owner?->name??'Unassigned','role'=>'Historical Owner','from'=>null,'to'=>null,'source'=>'Historical snapshot; tenure not confirmed']))
-    ->merge($links->map(fn($r)=>['id'=>$r->owner_id,'name'=>$r->owner?->name??'Unassigned','role'=>ucfirst($r->relationship).' Account Owner','from'=>$r->starts_on?->toDateString(),'to'=>$r->ends_on?->toDateString(),'source'=>'Recorded account relationship']))->merge($finance->map(fn($r)=>['id'=>$r->owner_id,'name'=>$r->owner?->name??'Unassigned','role'=>'Workbook Register Owner','from'=>null,'to'=>null,'source'=>$r->source_sheet]))->merge($allocation->map(fn($a)=>['id'=>$a->owner_id,'name'=>$a->owner?->name??$a->reported_owner??'Owner Not Assigned','role'=>$a->owner_id?'Allocated Account Owner':'Owner Name From Workbook','from'=>null,'to'=>null,'source'=>$a->source_sheet]))->unique(fn($o)=>$o['id'].'|'.$o['name'].'|'.$o['role'])->values();
-   $activities=$records->filter(fn($r)=>self::key($r->client_name)===$key)->map(fn($r)=>$this->record($r))->values();
+   $owners=$own->toBase()->map(fn($p)=>$this->ownerNode($p->owner, 'Current Project Owner', 'Project record'))
+    ->merge($history->filter(fn($p)=>!$own->pluck('owner_id')->contains($p->owner_id))->unique('owner_id')->map(fn($p)=>$this->ownerNode($p->owner, 'Historical Owner', 'Historical snapshot; tenure not confirmed')))
+    ->merge($links->map(fn($r)=>$this->ownerNode($r->owner, ucfirst($r->relationship).' Account Owner', 'Recorded account relationship', $r->starts_on?->toDateString(), $r->ends_on?->toDateString())))
+    ->merge($finance->map(fn($r)=>$this->ownerNode($r->owner, 'Workbook Register Owner', $r->source_sheet)))
+    ->merge($allocation->map(fn($a)=>$this->ownerNode($a->owner, $a->owner_id?'Allocated Account Owner':'Owner Name From Workbook', $a->source_sheet, reportedName: $a->reported_owner)))
+    ->unique(fn($o)=>$o['id'].'|'.$o['name'].'|'.$o['role'])->values();
+   $activities=$records->filter(fn($r)=>self::key($r->client_name)===$key)->map(fn($r)=>$this->record($r)+['supporting_staff'=>$supportFor($r)])->values();
    // Honour Creative confidentiality even when the client name matches.
-   $creative=CreativeRequest::visibleTo($actor)->with('assignee')->whereRaw('LOWER(TRIM(client)) = ?',[$key])->where('received_at','<=',$to)->orderByDesc('received_at')->get()->map(fn($r)=>['id'=>$r->id,'title'=>$r->title,'stage'=>$r->stage,'owner'=>$r->assignee?->name??'Awaiting Creative assignment','received'=>$r->received_at?->toIso8601String(),'deadline'=>$r->requested_deadline?->toIso8601String(),'url'=>route('portal.creative',['request'=>$r->id]),'link_type'=>'Client-level handover'])->values();
-   return ['name'=>$name,'key'=>$key,'owners'=>$owners,'finance'=>$finance->map(fn($r)=>['id'=>$r->id,'revision'=>$r->revision,'can_edit'=>ClientRelationsPipeline::member($actor)&&($actor->isLineManager()||(int)$r->owner_id===$actor->id),'title'=>$r->project_name,'owner'=>['id'=>$r->owner_id,'name'=>$r->owner?->name??'Unassigned'],'po'=>$r->po_amount===null?null:(float)$r->po_amount,'balance'=>$r->po_balance===null?null:(float)$r->po_balance,'invoiced'=>$r->invoiced_amount===null?null:(float)$r->invoiced_amount,'po_status'=>$r->po_status,'invoice_status'=>$r->invoice_status,'as_of'=>$r->as_of?->toDateString(),'source'=>$r->source_sheet.' · Row '.$r->source_row,'year'=>$r->source_year,'discrepancy'=>($r->po_balance!==null&&(float)$r->po_balance<0)||($r->po_amount!==null&&$r->po_balance!==null&&$r->invoiced_amount!==null&&abs((float)$r->po_amount-(float)$r->po_balance-(float)$r->invoiced_amount)>0.02)])->values(),'projects'=>$own->map($projectDTO),'allocations'=>$allocation->map(fn($a)=>$this->allocation($a,$actor))->values(),'activities'=>$activities,'creative'=>$creative,'operations'=>\App\Models\OperationsHandover::with('lead')->whereHas('project',fn($q)=>$q->whereRaw('LOWER(TRIM(client_name)) = ?',[$key]))->orderByDesc('id')->get()->map(fn($h)=>['id'=>$h->id,'title'=>$h->title,'stage'=>$h->stage,'owner'=>$h->lead?->name??'Awaiting Operations assignment','url'=>route('portal.operations.handovers.index',['handover'=>$h->id])])];
+   $creative=CreativeRequest::visibleTo($actor)->with('assignee')->whereRaw('LOWER(TRIM(client)) = ?',[$key])->where(fn ($query) => $query->whereBetween('received_at',[$from,$to])
+    ->orWhereBetween('submitted_at',[$from,$to])->orWhereBetween('delivered_at',[$from,$to])
+    ->orWhereBetween('completed_at',[$from,$to])->orWhere(fn ($plan) => $plan->where('planned_start','<=',$to)->where('internal_eta','>=',$from)))
+    ->orderByDesc('received_at')->get()->map(fn($r)=>['id'=>$r->id,'title'=>$r->title,'stage'=>$r->stage,'owner'=>$r->assignee?->name??'Awaiting Creative assignment','received'=>$r->received_at?->toIso8601String(),'deadline'=>$r->requested_deadline?->toIso8601String(),'url'=>route('portal.creative',['request'=>$r->id]),'link_type'=>'Client-level handover'])->values();
+   return ['name'=>$name,'key'=>$key,'engaged'=>$engaged->has($key),'owners'=>$owners,'finance'=>$finance->map(fn($r)=>['id'=>$r->id,'revision'=>$r->revision,'can_edit'=>ClientRelationsPipeline::member($actor)&&($actor->isLineManager()||(int)$r->owner_id===$actor->id),'title'=>$r->project_name,'owner'=>['id'=>$r->owner_id,'name'=>$r->owner?->name??'Unassigned'],'po'=>$r->po_amount===null?null:(float)$r->po_amount,'balance'=>$r->po_balance===null?null:(float)$r->po_balance,'invoiced'=>$r->invoiced_amount===null?null:(float)$r->invoiced_amount,'po_status'=>$r->po_status,'invoice_status'=>$r->invoice_status,'as_of'=>$r->as_of?->toDateString(),'source'=>$r->source_sheet.' · Row '.$r->source_row,'year'=>$r->source_year,'discrepancy'=>($r->po_balance!==null&&(float)$r->po_balance<0)||($r->po_amount!==null&&$r->po_balance!==null&&$r->invoiced_amount!==null&&abs((float)$r->po_amount-(float)$r->po_balance-(float)$r->invoiced_amount)>0.02)])->values(),'projects'=>$own->map($projectDTO),'allocations'=>$allocation->map(fn($a)=>$this->allocation($a,$actor))->values(),'activities'=>$activities,'creative'=>$creative,'operations'=>\App\Models\OperationsHandover::with('lead')->whereHas('project',fn($q)=>$q->whereRaw('LOWER(TRIM(client_name)) = ?',[$key]))->where(fn ($query) => $query->whereBetween('created_at',[$from,$to])->orWhereBetween('event_at',[$from,$to])->orWhereBetween('meeting_held_at',[$from,$to])->orWhereBetween('accepted_at',[$from,$to])->orWhereBetween('verified_at',[$from,$to]))->orderByDesc('id')->get()->map(fn($h)=>['id'=>$h->id,'title'=>$h->title,'stage'=>$h->stage,'owner'=>$h->lead?->name??'Awaiting Operations assignment','url'=>route('portal.operations.handovers.index',['handover'=>$h->id])])];
   })->values();
   $priorFrom=$from->copy()->subDays((int)$from->diffInDays($to->copy()->startOfDay())+1);$priorTo=$from->copy()->subSecond();
   $previous=$this->latest($all->filter(fn($p)=>$p->week_start->betweenIncluded($priorFrom,$priorTo)))->filter($match);
-  $priorKnown=$previous->whereNotNull('actual_amount');$nowKnown=$projects->whereNotNull('actual_amount');
+  $priorKnown=$previous->whereNotNull('actual_amount');$nowKnown=$financialProjects->whereNotNull('actual_amount');
   $previousRevenue=$priorKnown->isEmpty()?null:(float)$priorKnown->sum('actual_amount');$currentRevenue=$nowKnown->isEmpty()?null:(float)$nowKnown->sum('actual_amount');
   $growth=$previousRevenue!==null&&$previousRevenue>0&&$currentRevenue!==null?round(100*($currentRevenue-$previousRevenue)/$previousRevenue,2):null;
   $targets=CrmAccountTarget::with('owner')->when($workbook,fn($q)=>$q->where('reference','like','import-%'))->where('needs_reconciliation',false)->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)->get()->filter(fn($t)=>(empty($f['client'])||self::key($t->client_name)===self::key($f['client']))&&(empty($f['owner'])||(int)$t->owner_id===(int)$f['owner'])&&(empty($f['q'])||str_contains(self::key($t->client_name),self::key($f['q']))))->map(function($t)use($actor){
@@ -65,14 +104,15 @@ class ClientRelationsCentre {
   $issues=$records->where('kind','issue')->where('status','!=','cancelled');$resolved=$issues->where('status','resolved');
   $datedIssues=$issues->filter(fn($r)=>!empty($r->data['sla_due']));$timely=$datedIssues->filter(fn($r)=>$r->status==='resolved'&&!empty($r->data['resolved_on'])&&Carbon::parse($r->data['resolved_on'])->lte(Carbon::parse($r->data['sla_due'])->endOfDay()));
   $radar=[['name'=>'Revenue Target','value'=>$score['achievement'],'coverage'=>$score['target_coverage']],['name'=>'Deal Conversion','value'=>$decided->count()?round(100*$wins/$decided->count(),1):null,'coverage'=>$decided->count()],['name'=>'Issue Resolution','value'=>$issues->count()?round(100*$resolved->count()/$issues->count(),1):null,'coverage'=>$issues->count()],['name'=>'Timely Resolution','value'=>$datedIssues->count()?round(100*$timely->count()/$datedIssues->count(),1):null,'coverage'=>$datedIssues->count()],['name'=>'Client Satisfaction','value'=>$score['client_satisfaction'],'coverage'=>$score['satisfaction_responses']]];
+  $asOf = $to->copy()->min(now())->startOfDay();
   $actions=[];foreach($projects as $p){$m=$pipeline->financials($p);$reasons=[];$sharedBlock=$this->sharedText($p,'shared_bottlenecks','bottlenecks');$sharedNext=$this->sharedText($p,'shared_next_action','next_action');
    if($sharedBlock)$reasons[]=$sharedBlock;
-   if($p->expected_close_date?->isBefore(today())&&!in_array($p->stage,['project_completed','lost','cancelled']))$reasons[]='Expected close date passed';
+   if($p->expected_close_date?->isBefore($asOf)&&!in_array($p->stage,['project_completed','lost','cancelled']))$reasons[]='Expected close date passed';
    if(in_array($p->po_state,['requested','not_requested']))$reasons[]='PO '.str_replace('_',' ',$p->po_state);
    if(($m['outstanding']??0)>0)$reasons[]='Invoice balance: GH₵ '.number_format($m['outstanding'],2);
-   if($reasons||$sharedNext)$actions[]=['id'=>'p'.$p->id,'project_id'=>$p->id,'client'=>$p->client_name,'title'=>$p->project_name,'owner'=>$p->owner?->name??'Unassigned','reason'=>implode(' · ',$reasons),'next'=>$sharedNext??config('crm_pipeline.public_actions.'.$p->public_action,'Confirm next action'),'due'=>$p->expected_close_date?->toDateString(),'overdue'=>(bool)$p->expected_close_date?->isBefore(today())];
+   if($reasons||$sharedNext)$actions[]=['id'=>'p'.$p->id,'project_id'=>$p->id,'client'=>$p->client_name,'title'=>$p->project_name,'owner'=>$p->owner?->name??'Unassigned','reason'=>implode(' · ',$reasons),'next'=>$sharedNext??config('crm_pipeline.public_actions.'.$p->public_action,'Confirm next action'),'due'=>$p->expected_close_date?->toDateString(),'overdue'=>(bool)$p->expected_close_date?->isBefore($asOf)];
   }
-  foreach($records->whereIn('kind',['issue','meeting','invoice']) as $r){$due=$r->data['sla_due']??$r->data['due_on']??$r->data['scheduled_at']??null;if(in_array($r->status,['resolved','completed','paid','cancelled','draft']))continue;$actions[]=['id'=>'r'.$r->id,'project_id'=>$r->project_id,'client'=>$r->client_name,'title'=>$r->data['title']??$r->reference,'owner'=>$r->owner?->name??'Unassigned','reason'=>ucfirst($r->kind).' · '.str_replace('_',' ',$r->status),'next'=>$r->data['corrective_action']??'Follow up with the responsible owner','due'=>$due,'overdue'=>$due?Carbon::parse($due)->isBefore(today()):false];}
+  foreach($records->whereIn('kind',['issue','meeting','invoice']) as $r){$due=$r->data['sla_due']??$r->data['due_on']??$r->data['scheduled_at']??null;if(in_array($r->status,['resolved','completed','paid','cancelled','draft']))continue;$actions[]=['id'=>'r'.$r->id,'project_id'=>$r->project_id,'client'=>$r->client_name,'title'=>$r->data['title']??$r->reference,'owner'=>$r->owner?->name??'Unassigned','reason'=>ucfirst($r->kind).' · '.str_replace('_',' ',$r->status),'next'=>$r->data['corrective_action']??'Follow up with the responsible owner','due'=>$due,'overdue'=>$due?Carbon::parse($due)->isBefore($asOf):false];}
   $flow=[];foreach(['proposed_amount'=>'Proposed','po_amount'=>'PO Confirmed','actual_amount'=>'Finance Confirmed Revenue','invoiced_amount'=>'Invoiced','collected_amount'=>'Collected'] as $field=>$label)$flow[]=['name'=>$label]+$totals[$field];
   $funnel=collect(config('crm_pipeline.stages'))->map(fn($s,$key)=>['key'=>$key,'name'=>ucwords($s['label']),'count'=>$projects->where('stage',$key)->count(),'value'=>$projects->where('stage',$key)->whereNotNull('proposed_amount')->isEmpty()?null:(float)$projects->where('stage',$key)->sum('proposed_amount')])->values();
   $ledgerTotals=[];foreach(['po_amount','po_balance','invoiced_amount'] as $field){$known=$ledger->whereNotNull($field);$ledgerTotals[$field]=['value'=>$known->isEmpty()?null:round((float)$known->sum($field),2),'coverage'=>$known->count(),'total'=>$ledger->count()];}
@@ -86,7 +126,7 @@ class ClientRelationsCentre {
    $radar=[['name'=>'Pipeline Progression','value'=>$probability->isEmpty()?null:round($probability->avg(fn($p)=>config('crm_pipeline.stages.'.$p->stage.'.probability')),1),'coverage'=>$probability->count()],['name'=>'Confirmed Project Share','value'=>$projects->count()?round(100*$projects->whereIn('stage',['project_ongoing','project_completed'])->count()/$projects->count(),1):null,'coverage'=>$projects->count()],['name'=>'PO Utilisation','value'=>$pairedPo->isEmpty()?null:round(100*$pairedPo->sum(fn($r)=>(float)$r->po_amount-(float)$r->po_balance)/$pairedPo->sum('po_amount'),1),'coverage'=>$pairedPo->count()],['name'=>'Billing Progress','value'=>$pairedBilling->isEmpty()?null:round(100*$pairedBilling->sum('invoiced_amount')/$pairedBilling->sum('po_amount'),1),'coverage'=>$pairedBilling->count()],['name'=>'Proposal Coverage','value'=>$projects->count()?round(100*$proposed->count()/$projects->count(),1):null,'coverage'=>$projects->count()]];
    $flow=[['name'=>'Proposed (Pipeline)']+$totals['proposed_amount'],['name'=>'PO Raised (Register)']+$ledgerTotals['po_amount'],['name'=>'PO Balance (Register)']+$ledgerTotals['po_balance'],['name'=>'Invoiced (Register)']+$ledgerTotals['invoiced_amount']];
   }
-  return ['pending_revenue'=>$projects->filter(fn($p)=>$p->reported_actual_amount!==null&&$p->actual_amount===null)->count(),'allocations'=>$allocations->map(fn($a)=>$this->allocation($a,$actor))->values(),'ledger_summary'=>['totals'=>$ledgerTotals,'records'=>$ledger->count(),'undated'=>$ledger->whereNull('as_of')->count()],'source'=>$workbook?'workbook':'all','clients'=>$clients,'client_options'=>$clientOptions,'pagination'=>['page'=>$page,'last'=>$last,'total'=>$names->count(),'per_page'=>$per], 'summary'=>['clients'=>$names->count(),'projects'=>$projects->count(),'won'=>$wins,'issues'=>$issues->whereIn('status',['open','in_progress'])->count(),'achievement'=>$score['achievement'],'weighted_pipeline'=>$score['weighted_pipeline'],'rate_card_gap'=>$score['rate_card_gap'],'execution_gap'=>$score['execution_gap']], 'totals'=>$totals,'flow'=>$flow,'radar'=>$radar,'funnel'=>$funnel,'targets'=>$targets,'actions'=>collect($actions)->sortByDesc('overdue')->values(),'growth'=>['pipeline_percent'=>$pipelineGrowth,'pipeline_current'=>$recent,'pipeline_previous'=>$prior,'pipeline_trend'=>$trend,'percent'=>$growth,'previous'=>$previousRevenue,'current'=>$currentRevenue,'previous_from'=>$priorFrom->toDateString(),'previous_to'=>$priorTo->toDateString(),'new_business'=>$projects->where('new_business',true)->whereNotNull('actual_amount')->isEmpty()?null:(float)$projects->where('new_business',true)->sum('actual_amount'),'existing_business'=>$projects->where('new_business',false)->whereNotNull('actual_amount')->isEmpty()?null:(float)$projects->where('new_business',false)->sum('actual_amount')],'period'=>['from'=>$from->toDateString(),'to'=>$to->toDateString()],'stages'=>config('crm_pipeline.stages'),'staff'=>$this->staffForPeriod($from,$to),'can_manage'=>ClientRelationsPipeline::member($actor),'can_manage_relationships'=>ClientRelationsPipeline::member($actor)&&$actor->isLineManager(),'source_pending'=>CrmAccountTarget::where('needs_reconciliation',true)->count()];
+  return ['pending_revenue'=>$projects->filter(fn($p)=>$p->reported_actual_amount!==null&&$p->actual_amount===null)->count(),'allocations'=>$allocations->map(fn($a)=>$this->allocation($a,$actor))->values(),'ledger_summary'=>['totals'=>$ledgerTotals,'records'=>$ledger->count(),'undated'=>$ledger->whereNull('as_of')->count()],'source'=>$workbook?'workbook':'all','clients'=>$clients,'client_options'=>$clientOptions,'pagination'=>['page'=>$page,'last'=>$last,'total'=>$names->count(),'per_page'=>$per], 'summary'=>['engaged_clients'=>$engaged->count(),'portfolio_clients'=>$portfolioCount,'clients'=>$names->count(),'projects'=>$projects->count(),'won'=>$wins,'issues'=>$issues->whereIn('status',['open','in_progress'])->count(),'achievement'=>$score['achievement'],'weighted_pipeline'=>$score['weighted_pipeline'],'rate_card_gap'=>$score['rate_card_gap'],'execution_gap'=>$score['execution_gap']], 'totals'=>$totals,'flow'=>$flow,'radar'=>$radar,'funnel'=>$funnel,'targets'=>$targets,'actions'=>collect($actions)->sortByDesc('overdue')->values(),'growth'=>['pipeline_percent'=>$pipelineGrowth,'pipeline_current'=>$recent,'pipeline_previous'=>$prior,'pipeline_trend'=>$trend,'percent'=>$growth,'previous'=>$previousRevenue,'current'=>$currentRevenue,'previous_from'=>$priorFrom->toDateString(),'previous_to'=>$priorTo->toDateString(),'new_business'=>$financialProjects->where('new_business',true)->whereNotNull('actual_amount')->isEmpty()?null:(float)$financialProjects->where('new_business',true)->sum('actual_amount'),'existing_business'=>$financialProjects->where('new_business',false)->whereNotNull('actual_amount')->isEmpty()?null:(float)$financialProjects->where('new_business',false)->sum('actual_amount')],'period'=>['from'=>$from->toDateString(),'to'=>$to->toDateString()],'stages'=>config('crm_pipeline.stages'),'staff'=>$this->staffForPeriod($from,$to),'can_manage'=>ClientRelationsPipeline::member($actor),'can_manage_relationships'=>ClientRelationsPipeline::member($actor)&&$actor->isLineManager(),'source_pending'=>CrmAccountTarget::where('needs_reconciliation',true)->count()];
  }
  /** Inactive owners remain discoverable through dated history, never a new weekly roster.
   * Suspension dates were not historically recorded, so do not infer them from updated_at.
@@ -97,19 +137,47 @@ class ClientRelationsCentre {
   $currentWeek=now()->startOfWeek()->startOfDay();
   if($from->lt($currentWeek)) {
    $pastTo=$to->copy()->min($currentWeek->copy()->subMicrosecond());
-   $historical=CrmPipelineProject::where('source_period_confirmed',true)->whereBetween('week_start',[$from->toDateString(),$pastTo->toDateString()])->pluck('owner_id');
+   $historical=CrmPipelineProject::where('source_period_confirmed',true)->whereDate('week_start','<=',$pastTo)->whereRaw('COALESCE(week_end, week_start) >= ?',[$from->toDateString()])->pluck('owner_id');
    $weekly=\App\Models\WeeklyConsolidatedItem::whereIn('department',User::departmentAliases('client_relations'))->whereDate('week_start','<=',$pastTo)->whereDate('week_end','>=',$from)->get(['lead_staff_id','supporting_staff_ids']);
    foreach($weekly as $row)$historical=$historical->merge([$row->lead_staff_id])->merge($row->supporting_staff_ids??[]);
-   $historical=$historical->merge(CrmClientRecord::all()->filter(fn($r)=>$this->recordDate($r)->betweenIncluded($from,$pastTo))->pluck('owner_id'))
+   $historical=$historical->merge(CrmClientRecord::all()->filter(fn($r)=>$this->recordInPeriod($r,$from,$pastTo))->pluck('owner_id'))
     ->merge(CrmFinancialRegister::whereNotNull('as_of')->whereBetween('as_of',[$from,$pastTo])->pluck('owner_id'));
   }
   return User::internalStaff()->whereIn('department',User::departmentAliases('client_relations'))->orderBy('name')->get()
    ->filter(fn($u)=>$u->status==='active'||($u->status==='suspended'&&$historical->contains($u->id)))
    ->map(fn($u)=>['id'=>$u->id,'name'=>$u->name,'active'=>$u->status==='active','photo_url'=>$u->profilePhotoUrl()])->values();
  }
+ private function ownerNode(?User $owner, string $role, string $source, ?string $from = null, ?string $to = null, ?string $reportedName = null): array
+ {
+  $former = $owner !== null && ! ClientRelationsPipeline::staffMember($owner);
+
+  return [
+   'id' => $owner?->id,
+   'name' => $owner?->name ?? $reportedName ?? 'Owner Not Assigned',
+   'role' => $former ? 'Former Account Owner' : $role,
+   'former_staff' => $former,
+   'from' => $from,
+   'to' => $to,
+   'source' => $source,
+  ];
+ }
  private function allocation($a,User $actor):array{return ['id'=>$a->id,'revision'=>$a->revision,'owner_id'=>$a->owner_id,'can_edit'=>ClientRelationsPipeline::member($actor)&&($actor->isLineManager()||(int)$a->owner_id===$actor->id),'client'=>$a->client_name,'owner'=>$a->owner?->name??$a->reported_owner??'Owner Not Assigned','owner_confirmed'=>$a->owner_id!==null,'ytd'=>$a->ytd_target===null?null:(float)$a->ytd_target,'monthly'=>$a->monthly_target===null?null:(float)$a->monthly_target,'budget'=>$a->budget_target===null?null:(float)$a->budget_target,'reported'=>$a->reported_target===null?null:(float)$a->reported_target,'source'=>$a->source_sheet.' · Row '.$a->source_row];}
  private function sharedText($p,string $field,string $source):?string {return $p->$field?:($p->import_key?($p->source_values[$source]??null):null);}
+ private function recordInPeriod(CrmClientRecord $record, Carbon $from, Carbon $to): bool
+ {
+  if ($this->recordDate($record)->betweenIncluded($from, $to)) {
+   return true;
+  }
+
+  $completionDate = match ($record->kind) {
+   'issue' => $record->data['resolved_on'] ?? null,
+   'meeting' => $record->data['completed_at'] ?? null,
+   default => null,
+  };
+
+  return $completionDate && Carbon::parse($completionDate)->betweenIncluded($from, $to);
+ }
  private function recordDate($r):Carbon {foreach(['scheduled_at','opened_on','invoice_date','responded_on'] as $field)if(!empty($r->data[$field]))return Carbon::parse($r->data[$field]);return $r->created_at;}
  private function record($r):array {return ['id'=>$r->id,'project_id'=>$r->project_id,'kind'=>$r->kind,'reference'=>$r->reference,'title'=>$r->data['title']??$r->reference,'owner'=>$r->owner?->name??'Unassigned','status'=>$r->status,'date'=>$this->recordDate($r)->toIso8601String(),'due'=>$r->data['sla_due']??$r->data['due_on']??null,'amount'=>$r->kind==='invoice'?($r->data['amount']??null):null,'paid'=>$r->kind==='invoice'?($r->data['paid_amount']??null):null];}
- private function project($p,$pipeline):array {$money=[];foreach(['proposed_amount','po_amount','target_amount','actual_amount','invoiced_amount','collected_amount','rate_card_value','execution_value'] as $f)$money[$f]=$p->$f===null?null:(float)$p->$f;return ['revenue_status'=>$p->revenue_label??RevenueReview::label($p),'reported_revenue'=>$p->reported_actual_amount??$p->actual_amount,'id'=>$p->id,'title'=>$p->project_name,'client'=>$p->client_name,'brand'=>$p->brand,'owner'=>['id'=>$p->owner_id,'name'=>$p->owner?->name??'Unassigned'],'stage'=>$p->stage,'week'=>$p->week_start->toDateString(),'due'=>$p->expected_close_date?->toDateString(),'description'=>$p->description,'description_html'=>\App\Support\ReportRichText::html($p->description),'bottleneck_html'=>\App\Support\ReportRichText::html($this->sharedText($p,'shared_bottlenecks','bottlenecks')),'next_html'=>\App\Support\ReportRichText::html($this->sharedText($p,'shared_next_action','next_action')??config('crm_pipeline.public_actions.'.$p->public_action)),'comments_html'=>\App\Support\ReportRichText::html($p->comments),'bottleneck'=>$this->sharedText($p,'shared_bottlenecks','bottlenecks'),'next'=>$this->sharedText($p,'shared_next_action','next_action')??config('crm_pipeline.public_actions.'.$p->public_action),'comments'=>$p->comments,'po_state'=>$p->po_state,'new_business'=>$p->new_business,'updated'=>$p->updated_at?->toIso8601String(),'source_forecast'=>$p->source_forecast===null?null:(float)$p->source_forecast,'money'=>$money,'metrics'=>$pipeline->financials($p)];}
+ private function project($p,$pipeline):array {$money=[];foreach(['proposed_amount','po_amount','target_amount','actual_amount','invoiced_amount','collected_amount','rate_card_value','execution_value'] as $f)$money[$f]=$p->$f===null?null:(float)$p->$f;return ['revenue_status'=>$p->revenue_label??RevenueReview::label($p),'reported_revenue'=>$p->reported_actual_amount??$p->actual_amount,'id'=>$p->id,'title'=>$p->project_name,'client'=>$p->client_name,'brand'=>$p->brand,'owner'=>['id'=>$p->owner_id,'name'=>$p->owner?->name??'Unassigned'],'stage'=>$p->stage,'week'=>$p->week_start->toDateString(),'week_end'=>$p->week_end?->toDateString(),'due'=>$p->expected_close_date?->toDateString(),'description'=>$p->description,'description_html'=>\App\Support\ReportRichText::html($p->description),'bottleneck_html'=>\App\Support\ReportRichText::html($this->sharedText($p,'shared_bottlenecks','bottlenecks')),'next_html'=>\App\Support\ReportRichText::html($this->sharedText($p,'shared_next_action','next_action')??config('crm_pipeline.public_actions.'.$p->public_action)),'comments_html'=>\App\Support\ReportRichText::html($p->comments),'bottleneck'=>$this->sharedText($p,'shared_bottlenecks','bottlenecks'),'next'=>$this->sharedText($p,'shared_next_action','next_action')??config('crm_pipeline.public_actions.'.$p->public_action),'comments'=>$p->comments,'po_state'=>$p->po_state,'new_business'=>$p->new_business,'updated'=>$p->updated_at?->toIso8601String(),'source_forecast'=>$p->source_forecast===null?null:(float)$p->source_forecast,'money'=>$money,'metrics'=>$pipeline->financials($p)];}
 }

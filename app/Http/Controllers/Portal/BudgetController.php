@@ -33,11 +33,17 @@ class BudgetController extends Controller
         return $user->isCvoOrSuperAdmin();
     }
 
-    public function index(Request $request): View
+    public function index(Request $request)
     {
         $user = $request->user();
         $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
             || $user->isCvoOrSuperAdmin();
+
+        if ($user->canAuditHrAndFinance() && ! $isFinance) {
+            return response()->view('portal.budgets.audit-index', [
+                'budgets' => ProjectBudget::with('creator:id,name')->latest()->orderByDesc('id')->paginate(20),
+            ])->header('Cache-Control', 'private, no-store');
+        }
 
         // 1. My Budgets (created by the user)
         $myBudgets = ProjectBudget::where('created_by', $user->id)
@@ -175,10 +181,10 @@ class BudgetController extends Controller
             ->with('status', 'Project budget created! You can now add line items, manage collaborators, or submit it.');
     }
 
-    public function show(ProjectBudget $budget, Request $request): View
+    public function show(ProjectBudget $budget, Request $request)
     {
         $user = $request->user();
-        if (! $budget->canView($user)) {
+        if (! $budget->canView($user) && ! $user->canAuditHrAndFinance()) {
             abort(403, ' Access Denied. You are not authorized to view this budget.');
         }
 
@@ -193,7 +199,9 @@ class BudgetController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('portal.budgets.show', compact('budget', 'allStaff', 'isFinance', 'isCVO'));
+        $auditOnly = $user->canAuditHrAndFinance() && ! $isFinance;
+        return response()->view('portal.budgets.show', compact('budget', 'allStaff', 'isFinance', 'isCVO', 'auditOnly'))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function edit(ProjectBudget $budget, Request $request): View
@@ -530,7 +538,7 @@ class BudgetController extends Controller
     public function export(ProjectBudget $budget, Request $request): StreamedResponse
     {
         $user = $request->user();
-        if (! $budget->canView($user)) {
+        if (! $budget->canView($user) && ! $user->canAuditHrAndFinance()) {
             abort(403, ' Access Denied.');
         }
 

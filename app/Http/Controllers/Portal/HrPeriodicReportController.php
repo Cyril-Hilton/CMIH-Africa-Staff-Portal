@@ -21,18 +21,21 @@ class HrPeriodicReportController extends Controller
 
     private function schema(Request $r): array
     {
-        return collect(config('hr_reporting'))->filter(fn ($s) => empty($s['sensitive']) || $r->user()->hasFullHrAccess())->all();
+        return collect(config('hr_reporting'))->filter(fn ($s) => empty($s['sensitive']) || ($r->user()->hasFullHrAccess() || $r->user()->canAuditHrAndFinance()))->all();
     }
 
     public function index(Request $r)
     {
-        $this->authorizeReport($r);
+        $auditOnly = $r->user()->canAuditHrAndFinance() && ! $r->user()->hasFullHrAccess();
+        if (! $auditOnly) {
+            $this->authorizeReport($r);
+        }
         $r->validate(['frequency' => 'nullable|in:weekly,monthly']);
         $reports = HrPeriodicReport::with(['entries' => fn ($q) => $q->whereIn('section', array_keys($this->schema($r))), 'previous.entries' => fn ($q) => $q->whereIn('section', array_keys($this->schema($r))), 'preparer'])->when($r->frequency, fn ($q) => $q->where('frequency', $r->frequency))->orderByDesc('period_start')->paginate(6);
         $schema = $this->schema($r);
         $staff = User::humanAccounts()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
 
-        return view('portal.hr-reporting.index', compact('reports', 'schema', 'staff'));
+        return response()->view('portal.hr-reporting.index', compact('reports', 'schema', 'staff', 'auditOnly'))->header('Cache-Control', 'private, no-store');
     }
 
     public function create(Request $r)

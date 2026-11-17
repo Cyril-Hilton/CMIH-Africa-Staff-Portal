@@ -15,13 +15,13 @@
     </style>
     <div data-hr-group="reporting" class="hr-workspace-tool"><details class="rounded-xl border border-brand-white/20 p-4"><summary class="cursor-pointer font-semibold">KPI Targets, Results & Measurement Guide</summary>@include('portal.modules.kpis',['kpiDepartment'=>'hr_admin'])</details></div>
     <div data-hr-group="reporting" class="hr-workspace-tool grid gap-3 sm:grid-cols-2">
-        @if(auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>Human Resources Reporting</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
+        @if($auditOnly || auth()->user()->hasFullHrAccess() || in_array(auth()->user()->hrLevel(),[1,2],true))<a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.hr-reporting.index') }}"><strong>Human Resources Reporting</strong><span class="block text-xs text-brand-ash mt-1">Recruitment, employees, attendance, training, performance and HR priorities</span></a>@endif
         <a class="rounded-xl border border-brand-white/20 bg-brand-white/5 p-4 text-brand-white" href="{{ route('portal.admin-weekly.index') }}"><strong>Administrator Reporting</strong><span class="block text-xs text-brand-ash mt-1">Office administration, fleet, drivers, assets and next-period priorities</span></a>
     </div>
 
     @php
         // Only HR Managers (Level 1) and Super Admin can access sensitive HR data
-        $canDoSensitiveHr = auth()->user()->hasFullHrAccess();
+        $canDoSensitiveHr = auth()->user()->hasFullHrAccess() || $auditOnly;
         $canManageHrAnnouncements = auth()->user()->canManageHrAnnouncements();
     @endphp
 
@@ -32,9 +32,18 @@
     @endif
 
     @if($errors->any())<div role="alert" class="mb-5 rounded-xl border border-red-400/30 p-4"><strong>Please Check Your Entries</strong><ul class="mt-2 list-disc pl-5 text-sm">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+    @if($auditOnly)
+        <nav aria-label="HR audit records" class="mb-5 flex flex-wrap gap-4 text-sm">
+            <strong>Read-only HR audit</strong>
+            <a class="underline" href="{{ route('portal.hr.staff.index') }}">Staff records &amp; documents</a>
+            <a class="underline" href="{{ route('portal.hr-reporting.attendance') }}">Attendance</a>
+            <a class="underline" href="{{ route('portal.appraisals.index') }}">Appraisals</a>
+            <a class="underline" href="{{ route('portal.payroll') }}">Payroll</a>
+        </nav>
+    @endif
     @include('portal.partials.hr-workspace-navigation')
 
-    @if(auth()->user()->canReviewIdentityDocuments())
+    @if($auditOnly || auth()->user()->canReviewIdentityDocuments())
         <details data-hr-group="people" class="hr-workspace-tool glass-panel rounded-2xl border border-brand-white/10"><summary class="hr-module-summary"><span><strong>Identity Verification Register</strong><span class="hr-module-description">Review authorised identity documents when needed.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-4 sm:p-6">@include('portal.partials.identity-document-register', ['identityDocuments' => $identityDocuments])</div></details>
     @endif
 
@@ -60,7 +69,8 @@
                 </a>
             </div>
 
-            <form method="POST" action="{{ route('portal.hr.announcements.store') }}" class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.5fr)]">
+            @if(! $auditOnly)
+                <form method="POST" action="{{ route('portal.hr.announcements.store') }}" class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.5fr)]">
                 @csrf
                 <div class="space-y-4">
                     <div>
@@ -120,6 +130,7 @@
                     </button>
                 </div>
             </form>
+            @endif
 
             <div class="mt-6 grid gap-3 md:grid-cols-3">
                 @forelse($recentAnnouncements as $announcement)
@@ -160,7 +171,8 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('portal.hr.salary-advance-settings.update') }}" class="mt-5 grid gap-4 rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 lg:grid-cols-3 lg:items-end">
+            @if(! $auditOnly)
+                <form method="POST" action="{{ route('portal.hr.salary-advance-settings.update') }}" class="mt-5 grid gap-4 rounded-xl border border-brand-white/10 bg-brand-black/30 p-4 lg:grid-cols-3 lg:items-end">
                 @csrf
                 <div>
                     <x-input-label for="default_min_monthly_deduction" :value="__('Default Minimum Monthly Deduction (GHC)')" />
@@ -184,6 +196,7 @@
                     Save Loan Policy
                 </button>
             </form>
+            @endif
 
             <div class="mt-5 overflow-x-auto rounded-xl border border-brand-white/10">
                 <table class="w-full min-w-[860px] text-left text-xs text-brand-white/70">
@@ -224,7 +237,8 @@
                                     <p class="mt-1 text-[10px] text-brand-white/35">{{ $overrideMaximum ? 'Staff-specific cap' : 'Using default multiplier' }}</p>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <form id="loan-minimum-{{ $employee->id }}" method="POST" action="{{ route('portal.hr.salary-advance-minimum.update', $employee) }}" class="grid gap-2 md:grid-cols-2">
+                                    @if(! $auditOnly)
+                                        <form id="loan-minimum-{{ $employee->id }}" method="POST" action="{{ route('portal.hr.salary-advance-minimum.update', $employee) }}" class="grid gap-2 md:grid-cols-2">
                                         @csrf
                                         <input name="min_monthly_deduction" type="number" step="0.01" min="0.01"
                                                value="{{ old('min_monthly_deduction', $overrideMinimum ? number_format((float) $overrideMinimum, 2, '.', '') : '') }}"
@@ -235,6 +249,7 @@
                                                placeholder="Max payout"
                                                class="w-40 rounded-md border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-xs text-brand-white placeholder-brand-white/30 focus:border-amber-500 focus:outline-none">
                                     </form>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <button type="submit" form="loan-minimum-{{ $employee->id }}" class="rounded-lg bg-amber-500/20 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-amber-300 hover:bg-amber-500/30">
@@ -349,9 +364,10 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-4">
-                                    @if($loan->status === 'pending_hr')
+                                    @if(! $auditOnly && $loan->status === 'pending_hr')
                                         <div class="min-w-[18rem] space-y-2 text-right">
-                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="space-y-2 rounded-xl border border-brand-white/10 bg-brand-black/30 p-3 text-left">
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="space-y-2 rounded-xl border border-brand-white/10 bg-brand-black/30 p-3 text-left">
                                                 @csrf
                                                 <input type="hidden" name="action" value="approve">
                                                 @if($loan->repayment_style === 'monthly_deduction')
@@ -366,7 +382,9 @@
                                                     Approve Terms
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="flex gap-2">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="flex gap-2">
                                                 @csrf
                                                 <input type="hidden" name="action" value="correction">
                                                 <input name="feedback" required type="text" placeholder="Correction note" class="min-w-0 flex-1 rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-cyan-400 focus:ring-0">
@@ -374,7 +392,9 @@
                                                     Send Back
                                                 </button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}">
                                                 @csrf
                                                 <input type="hidden" name="action" value="reject">
                                                 <input type="hidden" name="feedback" value="Rejected by HR Manager">
@@ -382,6 +402,7 @@
                                                     Reject
                                                 </button>
                                             </form>
+                                            @endif
                                         </div>
                                     @elseif($loan->status === 'pending_finance')
                                         <span class="text-[10px] text-amber-300/80">Awaiting Finance payment decision</span>
@@ -410,7 +431,7 @@
         </div></details>
         @endif
 
-        @if($canManageLeaves)
+        @if($canManageLeaves || $auditOnly)
         @php
             $leaveStatusStyles = [
                 'approved' => 'border-green-500/30 bg-green-500/10 text-green-300',
@@ -500,6 +521,7 @@
                                     <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase {{ $leaveStatusStyles[$leave->status] ?? 'border-brand-white/20 text-brand-white/60' }}">
                                         {{ ucwords(str_replace('_', ' ', $leave->status)) }}
                                     </span>
+                                    @if($auditOnly)<a class="underline" href="{{ route('portal.leaves.show', $leave) }}">View request and handover</a>@endif
                                     @if($leave->comments)
                                         <p class="mt-2 max-w-[14rem] whitespace-pre-wrap text-[10px] leading-snug text-brand-white/45">{{ trim(strip_tags($leave->comments)) }}</p>
                                     @endif
@@ -513,27 +535,33 @@
                                     @if($canApproveAtThisStage)
                                         <div class="flex min-w-[15rem] flex-col items-end gap-2">
                                             <div class="flex flex-wrap justify-end gap-2">
-                                                <form method="POST" action="{{ route('portal.leaves.approve', $leave) }}">
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.leaves.approve', $leave) }}">
                                                     @csrf
                                                     <button type="submit" class="rounded-lg bg-green-500/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-green-300 hover:bg-green-500/20">
                                                         Approve
                                                     </button>
                                                 </form>
-                                                <form method="POST" action="{{ route('portal.leaves.reject', $leave) }}">
+                                                @endif
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.leaves.reject', $leave) }}">
                                                     @csrf
                                                     <input type="hidden" name="rejection_comments" value="Rejected by HR Manager">
                                                     <button type="submit" class="rounded-lg bg-brand-red/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-red hover:bg-brand-red/20">
                                                         Reject
                                                     </button>
                                                 </form>
+                                                @endif
                                             </div>
-                                            <form method="POST" action="{{ route('portal.leaves.return', $leave) }}" class="flex w-full items-center justify-end gap-2">
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.leaves.return', $leave) }}" class="flex w-full items-center justify-end gap-2">
                                                 @csrf
                                                 <input type="text" name="rejection_comments" required placeholder="Correction notes" class="min-w-0 flex-1 rounded-lg border border-brand-white/10 bg-brand-black/40 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-cyan-400 focus:ring-0">
                                                 <button type="submit" class="shrink-0 rounded-lg bg-cyan-500/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/20">
                                                     Send back
                                                 </button>
                                             </form>
+                                            @endif
                                         </div>
                                     @elseif($leave->status === 'pending_manager')
                                         <span class="text-[10px] text-yellow-300/70">Awaiting line manager</span>
@@ -565,7 +593,8 @@
             <!-- Visitor Log Form and Listing -->
             <details data-hr-group="workplace" class="glass-panel rounded-2xl p-0 border border-brand-white/10 bg-brand-white/5"><summary class="hr-module-summary"><span><strong>Visitor Arrivals</strong><span class="hr-module-description">Register arrivals and review recent visits.</span></span><span class="hr-module-chevron" aria-hidden="true">⌄</span></summary><div class="min-w-0 p-6">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="logout" /> Visitor Management System</h3>
-                <form method="POST" action="{{ route('portal.hr.visitors.store') }}" class="space-y-4 mb-6">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.hr.visitors.store') }}" class="space-y-4 mb-6">
                     @csrf
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -596,6 +625,7 @@
                         </button>
                     </div>
                 </form>
+                @endif
 
                 <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash mb-3 border-t border-brand-white/10 pt-4">Recent Visits</h4>
                 <div class="space-y-3 max-h-60 overflow-y-auto">
@@ -608,12 +638,14 @@
                             </div>
                             <div class="text-right">
                                 @if($visitor->status === 'checked_in')
-                                    <form method="POST" action="{{ route('portal.hr.visitors.checkout', $visitor) }}">
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.hr.visitors.checkout', $visitor) }}">
                                         @csrf
                                         <button type="submit" class="rounded-full bg-brand-red px-3 py-1 text-[10px] text-brand-white uppercase font-bold hover:bg-brand-red-dark transition-all">
                                             Check Out
                                         </button>
                                     </form>
+                                    @endif
                                 @else
                                     <span class="text-emerald-400 font-semibold uppercase text-[10px]">Out ({{ optional($visitor->time_out)->format('H:i') }})</span>
                                 @endif
@@ -691,13 +723,15 @@
                                 <td class="px-4 py-3">{{ \App\Models\User::departmentLabel($member->department) }}</td>
                                 <td class="px-4 py-3 font-mono text-brand-white">{{ (int) $member->leave_balance }} day(s)</td>
                                 <td class="px-4 py-3">
-                                    <form method="POST" action="{{ route('portal.hr.leave-balance.update', $member) }}" class="ml-auto flex max-w-xs items-center justify-end gap-2">
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.hr.leave-balance.update', $member) }}" class="ml-auto flex max-w-xs items-center justify-end gap-2">
                                         @csrf
                                         <input type="number" name="leave_balance" min="0" max="365" step="1" value="{{ old('leave_balance', $member->leave_balance) }}" class="w-24 rounded-lg border border-brand-white/10 bg-brand-black px-3 py-2 text-xs text-brand-white focus:border-brand-red focus:ring-0">
                                         <button type="submit" class="rounded-lg bg-brand-red px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-brand-red-dark">
                                             Save
                                         </button>
                                     </form>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -722,7 +756,8 @@
                 </div>
             </div>
             <div class="space-y-6">
-                <form method="POST" action="{{ route('portal.hr.appraisals.metrics.store') }}" class="space-y-4">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.hr.appraisals.metrics.store') }}" class="space-y-4">
                     @csrf
                     <div>
                         <x-input-label for="metric_name" :value="__('Metric Name')" />
@@ -775,6 +810,7 @@
                         Add Metric Row
                     </button>
                 </form>
+                @endif
 
                 <div>
                     <h4 class="text-xs uppercase tracking-[0.15em] text-brand-ash mb-3">Active Assessment Parameters</h4>
@@ -800,13 +836,15 @@
                                                 <p class="text-brand-white/60 text-[10px] mt-1">{!! $m->description !!}</p>
                                             @endif
                                         </div>
-                                        <form method="POST" action="{{ route('portal.hr.appraisals.metrics.destroy', $m) }}">
+                                        @if(! $auditOnly)
+                                            <form method="POST" action="{{ route('portal.hr.appraisals.metrics.destroy', $m) }}">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="text-brand-red hover:text-red-400 transition-colors">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </form>
+                                        @endif
                                     </div>
                                 @empty
                                     <p class="text-[10px] text-brand-white/30 italic">No metrics listed in this section.</p>
@@ -918,7 +956,8 @@
             {{-- Add Pre-Ticket --}}
             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5">
                 <h4 class="text-xs uppercase tracking-widest text-brand-ash font-semibold mb-4">Schedule a Visitor</h4>
-                <form method="POST" action="{{ route('portal.hr.pre-tickets.store') }}" class="space-y-3">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.hr.pre-tickets.store') }}" class="space-y-3">
                     @csrf
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
@@ -965,6 +1004,7 @@
                         <x-ui-icon name="id" /> Create Pre-Ticket
                     </button>
                 </form>
+                @endif
             </div>
             {{-- Pre-Ticket Ledger --}}
             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5">
@@ -986,12 +1026,14 @@
                                     @if($pt->status === 'arrived')
                                         <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-400"><x-ui-icon name="check" /> Arrived</span>
                                     @elseif($pt->status === 'pending')
-                                        <form method="POST" action="{{ route('portal.hr.pre-tickets.arrive', $pt) }}">
+                                        @if(! $auditOnly)
+                                            <form method="POST" action="{{ route('portal.hr.pre-tickets.arrive', $pt) }}">
                                             @csrf @method('PATCH')
                                             <button type="submit" class="rounded-lg bg-sky-600/20 border border-sky-500/30 px-2 py-1 text-[10px] text-sky-400 hover:bg-sky-600/40 transition-all">
                                                 Mark Arrived
                                             </button>
                                         </form>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -1021,7 +1063,8 @@
             {{-- Add Entry Form --}}
             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5">
                 <h4 class="text-xs uppercase tracking-widest text-brand-ash font-semibold mb-4">Add Directory Entry</h4>
-                <form method="POST" action="{{ route('portal.hr.directory.store') }}" class="space-y-3">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.hr.directory.store') }}" class="space-y-3">
                     @csrf
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
@@ -1065,6 +1108,7 @@
                         Add to Directory
                     </button>
                 </form>
+                @endif
             </div>
             {{-- Directory Listing --}}
             <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5">
@@ -1079,10 +1123,12 @@
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="rounded-full border border-brand-white/10 px-2 py-0.5 text-[10px] text-brand-white/50 capitalize">{{ $entry->category }}</span>
-                                <form method="POST" action="{{ route('portal.hr.directory.destroy', $entry) }}" data-confirm="Remove entry?">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.hr.directory.destroy', $entry) }}" data-confirm="Remove entry?">
                                     @csrf @method('DELETE')
                                     <button aria-label="Close" type="submit" class="text-brand-red/60 hover:text-brand-red transition-colors"><x-ui-icon name="close" /></button>
                                 </form>
+                                @endif
                             </div>
                         </div>
                     @empty

@@ -22,8 +22,8 @@ class ClientRelationsPipelineController extends Controller
     public function index(Request $r, Pipeline $service)
     {
         $this->authorizeMember($r);
-        $filters = $r->validate(['q' => 'nullable|string|max:255', 'stage' => ['nullable', Rule::in(array_keys(config('crm_pipeline.stages')))], 'owner' => 'nullable|integer', 'from' => 'nullable|date', 'to' => 'nullable|date']);
-        $q = CrmPipelineProject::with('owner')->when($r->filled('q'), fn ($q) => $q->where(fn ($w) => $w->where('client_name', 'like', '%'.$filters['q'].'%')->orWhere('project_name', 'like', '%'.$filters['q'].'%')))->when($r->filled('stage'), fn ($q) => $q->where('stage', $filters['stage']))->when($r->filled('owner'), fn ($q) => $q->where('owner_id', $filters['owner']))->when($r->filled('from'), fn ($q) => $q->whereDate('week_start', '>=', $filters['from']))->when($r->filled('to'), fn ($q) => $q->whereDate('week_start', '<=', $filters['to']));
+        $filters = $r->validate(['q' => 'nullable|string|max:255', 'stage' => ['nullable', Rule::in(array_keys(config('crm_pipeline.stages')))], 'owner' => 'nullable|integer', 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d|after_or_equal:from']);
+        $q = CrmPipelineProject::with('owner')->when($r->filled('q'), fn ($q) => $q->where(fn ($w) => $w->where('client_name', 'like', '%'.$filters['q'].'%')->orWhere('project_name', 'like', '%'.$filters['q'].'%')))->when($r->filled('stage'), fn ($q) => $q->where('stage', $filters['stage']))->when($r->filled('owner'), fn ($q) => $q->where('owner_id', $filters['owner']))->when($r->filled('from'), fn ($q) => $q->whereRaw('COALESCE(week_end, week_start) >= ?', [$filters['from']]))->when($r->filled('to'), fn ($q) => $q->whereDate('week_start', '<=', $filters['to']));
         // History snapshots stay browsable; only one latest dated snapshot per owner/client/project contributes to the live scorecard.
         $scorecardProjects = (clone $q)->where('source_period_confirmed', true)->orderByDesc('week_start')->orderByDesc('source_row')->get()->unique(fn ($p) => $p->import_key ? $p->owner_id.'|'.mb_strtolower(trim($p->client_name)).'|'.mb_strtolower(trim($p->project_name)) : 'manual-'.$p->id)->values();
         $projects = $q->orderByDesc('week_start')->orderByDesc('source_row')->paginate(15)->withQueryString();
@@ -33,7 +33,12 @@ class ClientRelationsPipelineController extends Controller
         $clientNames = CrmPipelineProject::query()->select('client_name')->distinct()->orderBy('client_name')->pluck('client_name')->merge(\App\Models\CrmFinancialRegister::pluck('client_name'))->merge(\App\Models\CrmAccountAllocation::pluck('client_name'))->unique()->sort()->values();
         $targets = CrmAccountTarget::orderByDesc('period_start')->get();
 
-        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects','clientNames'));
+        $supportingStaff = Pipeline::supportingStaff()->get(['id', 'name', 'status']);
+        $savedSupport = $projects->getCollection()->flatMap(fn ($project) => $project->supporting_staff_ids ?? [])
+            ->merge($clientRecords->flatMap(fn ($record) => $record->supporting_staff_ids ?? []))->unique();
+        $supportingStaff = $supportingStaff->concat(User::internalStaff()->whereKey($savedSupport->diff($supportingStaff->pluck('id'))->values()->all())->get(['id', 'name', 'status']));
+
+        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects','clientNames','supportingStaff'));
     }
 
     public function history(Request $r)
@@ -76,7 +81,7 @@ class ClientRelationsPipelineController extends Controller
         if ($project) {
             abort_unless($r->user()->isLineManager() || (int) $project->owner_id === $r->user()->id, 403);
         }
-        $rules = ['client_name' => 'required|string|max:255', 'brand' => 'nullable|string|max:255', 'project_name' => 'required|string|max:255', 'owner_id' => 'required|integer|exists:users,id', 'stage' => ['required', Rule::in(array_keys(config('crm_pipeline.stages')))], 'expected_close_date' => 'nullable|date', 'week_start' => 'required|date', 'public_action' => ['nullable', Rule::in(array_keys(config('crm_pipeline.public_actions')))], 'new_business' => 'nullable|boolean', 'po_state' => 'nullable|in:unknown,not_requested,requested,received,not_required', 'confirm_source_period' => 'nullable|boolean', 'revision' => 'nullable|integer', 'reason' => 'required|string|max:2000'];
+        $rules = ['client_name' => 'required|string|max:255', 'brand' => 'nullable|string|max:255', 'project_name' => 'required|string|max:255', 'owner_id' => 'required|integer|exists:users,id', 'stage' => ['required', Rule::in(array_keys(config('crm_pipeline.stages')))], 'expected_close_date' => 'nullable|date', 'week_start' => 'required|date_format:Y-m-d', 'week_end' => 'nullable|date_format:Y-m-d|after_or_equal:week_start', 'public_action' => ['nullable', Rule::in(array_keys(config('crm_pipeline.public_actions')))], 'new_business' => 'nullable|boolean', 'po_state' => 'nullable|in:unknown,not_requested,requested,received,not_required', 'confirm_source_period' => 'nullable|boolean', 'revision' => 'nullable|integer', 'reason' => 'nullable|string|max:2000'];
         foreach (['rate_card_value', 'execution_value', 'proposed_amount', 'po_amount', 'target_amount', 'actual_amount', 'invoiced_amount', 'collected_amount'] as $f) {
             $rules[$f] = 'nullable|numeric|min:0|max:9999999999.99';
         }
@@ -91,8 +96,9 @@ class ClientRelationsPipelineController extends Controller
         if (! $r->user()->isLineManager()) {
             abort_unless((int) $v['owner_id'] === $r->user()->id, 403);
         }
+        $v += Pipeline::validateSupportingStaff($r, (int) $v['owner_id'], $project?->supporting_staff_ids ?? []);
         if (isset($v['collected_amount'],$v['invoiced_amount']) && $v['collected_amount'] > $v['invoiced_amount']) {
-            return back()->withErrors(['collected_amount' => 'Collections exceed invoicing. Reconcile the recorded values.'])->withInput();
+            throw \Illuminate\Validation\ValidationException::withMessages(['collected_amount' => 'Collections exceed invoicing. Reconcile the recorded values.']);
         }
         if ($r->boolean('confirm_source_period')) {
             abort_unless($project?->import_key && $r->user()->isLineManager(), 403);
@@ -107,6 +113,9 @@ class ClientRelationsPipelineController extends Controller
             if ($project) {
                 abort_if((int) $v['revision'] !== (int) $item->revision, 409, 'Pipeline changed. Refresh before saving.');
             }$before = $item->getAttributes();
+            if ($project && ! array_key_exists('week_end', $v) && $item->week_start->toDateString() !== $v['week_start']) {
+                $item->week_end = null;
+            }
             $item->fill(collect($v)->except(['revision', 'reason', 'confirm_source_period'])->all());
             if ($project?->import_key) {
                 $item->source_reference = $before['source_reference'];
@@ -123,7 +132,7 @@ class ClientRelationsPipelineController extends Controller
                 \App\Models\CrmAccountRelationship::firstOrCreate(['client_name'=>$before['client_name'],'owner_id'=>$before['owner_id'],'relationship'=>'previous','ends_on'=>today()->toDateString()],['starts_on'=>null,'note'=>'Project ownership changed; original tenure start is not confirmed.','created_by'=>$r->user()->id]);
             }
             $service->publish($item);
-            PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason']);
+            PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason'] ?? ($project ? 'Client Relations project updated.' : 'Client Relations project created.'));
             return $item;
         });
 
@@ -147,6 +156,7 @@ class ClientRelationsPipelineController extends Controller
         if (! $r->user()->isLineManager()) {
             abort_unless((int) $v['owner_id'] === $r->user()->id, 403);
         }
+        $v += Pipeline::validateSupportingStaff($r, (int) $v['owner_id'], $record?->supporting_staff_ids ?? []);
         if (! empty($v['project_id'])) {
             $p = CrmPipelineProject::findOrFail($v['project_id']);
             if (mb_strtolower(trim($p->client_name)) !== mb_strtolower(trim($v['client_name']))) {

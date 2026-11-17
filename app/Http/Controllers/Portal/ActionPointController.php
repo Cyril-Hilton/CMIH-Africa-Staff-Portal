@@ -13,9 +13,16 @@ class ActionPointController extends Controller
 {
     public function table(Request $request): \Illuminate\Http\Response
     {
-        $actionPoints = ActionPoint::with(['assignee','creator','updater'])->latest()->get();
+        $actionPoints = ActionPoint::current()->with(['assignee','creator','updater'])->latest()->get();
         $allStaff = User::internalStaff()->where(fn($q)=>$q->where('status','active')->orWhereIn('id',$actionPoints->pluck('assignee_id')->filter()))->orderBy('name')->get();
         return response()->view('portal.partials.action-points',compact('actionPoints','allStaff'))->header('Cache-Control','private, no-store');
+    }
+
+    public function archive(): \Illuminate\Http\Response
+    {
+        $points = ActionPoint::archived()->with(['assignee', 'creator', 'updater'])->latest('updated_at')->orderByDesc('id')->paginate(25);
+
+        return response()->view('portal.action-points-archive', compact('points'))->header('Cache-Control', 'private, no-store');
     }
 
     public function store(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
@@ -65,12 +72,12 @@ class ActionPointController extends Controller
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Action point status updated to ' . $actionPoint->status_label,
+                    'message' => $actionPoint->status === 'done' ? 'Action point completed and moved to the archive.' : 'Action point status updated to '.$actionPoint->status_label,
                     'status' => $actionPoint->status,
                 ]);
             }
 
-            return back()->with('status', 'Action point status updated to ' . $actionPoint->status_label);
+            return back()->with('status', $actionPoint->status === 'done' ? 'Action point completed and moved to the archive.' : 'Action point status updated to '.$actionPoint->status_label);
         }
 
         $validated = $request->validate([

@@ -60,3 +60,22 @@ test('collaborators display on calendar cards and can be selected, saved or clea
  await studio.submit({...form, entries: []});
  assert.equal(JSON.stringify(saved.supporting_staff_ids), '[]');
 });
+
+test('the weekly planner plots one shared brief in the lead and supporting staff lanes', () => {
+ const studio = make();
+ studio.data.support_roster = [{id: 4, name:'Operations Colleague', department:'operations_projects'}];
+ studio.items = [brief({allowed:[],requester:{name:'Requester'},department:'creatives',
+  supporting_staff:[{id:4,name:'Operations Colleague'},{id:1,name:'Creative One'}]})];
+ const end = new Date('2026-11-15T00:00:00Z');
+ const week = studio.weekPlanner(studio.week, end);
+ assert.match(week,/data-person-id="1"[\s\S]*?data-assignment="lead" data-cs-open="1"/);
+ assert.match(week,/data-person-id="4"[\s\S]*?data-assignment="support" data-cs-open="1"/);
+ assert.match(week,/Lead: Creative One/);
+ assert.equal([...week.matchAll(/data-cs-open="1"/g)].length,2);
+ const board = studio.board();
+ assert.equal([...board.matchAll(/data-cs-card="1"/g)].length,1);
+ assert.match(board,/cs-support-chip">Operations Colleague/);
+ studio.filter.assignee='4';
+ assert.doesNotMatch(studio.weekPlanner(studio.week,end),/data-person-id="1"/);
+ assert.match(studio.board(),/data-assignment="support"/);
+});

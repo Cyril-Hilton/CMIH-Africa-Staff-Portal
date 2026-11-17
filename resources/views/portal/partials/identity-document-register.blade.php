@@ -10,7 +10,7 @@
         <div>
             <p class="text-xs uppercase tracking-[0.25em] text-brand-ash">Confidential Staff Records</p>
             <h2 class="mt-1 text-xl font-semibold text-brand-white">Identity Verification Register</h2>
-            <p class="mt-1 text-xs text-brand-white/50">National ID and passport documents are stored privately and available only to HR Managers, CVO, and Super Admin.</p>
+            <p class="mt-1 text-xs text-brand-white/50">National ID and passport documents are stored privately and available to staff with confidential record access.</p>
         </div>
         <div class="flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wider">
             <span class="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-emerald-300">{{ $completeIdentityCount }} complete</span>

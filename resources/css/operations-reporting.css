@@ -1,4 +1,34 @@
-.ops-reporting { --ops-panel: #161e27; }
+.module-workspace[data-department="operations_projects"],
+.brands-reports.ops-reporting {
+    --ops-accent: #ffb468;
+    --ops-accent-soft: #ffae611d;
+    --ops-accent-line: #ffae6152;
+    --ops-panel: #211d1a;
+    --ops-action: #ffb36a;
+    --ops-action-hover: #ffd2a5;
+    --ops-action-ink: #361a0a;
+    --ops-card-surface: #211d1a;
+    --ops-card-line: #ffffff1f;
+    --ops-card-text: #f5eee8;
+    --ops-card-muted: #cbbfb6;
+    --ops-table-head-top: #522e1a;
+    --ops-table-head-bottom: #382216;
+    --ops-table-heading: #ffe1c5;
+    --ops-table-row: #261b13;
+    --ops-table-stripe: #302017;
+    --ops-table-hover: #452a1b;
+    --ops-table-detail: #302017;
+    --ops-table-line: #d78a504a;
+    --ops-table-scroll: #966142;
+}
+.brands-reports.ops-reporting { --br-accent: var(--ops-accent); }
+
+.module-workspace[data-department="operations_projects"] .module-tabs button:hover,
+.module-workspace[data-department="operations_projects"] .module-tabs [aria-selected="true"] {
+    color: var(--ops-accent);
+    border-color: var(--ops-accent-line);
+    background: var(--ops-accent-soft);
+}
 .ops-reporting .ops-button {
     display: inline-flex;
     min-height: 42px;
@@ -7,8 +37,8 @@
     flex: none;
     padding: .55rem .8rem;
     color: inherit;
-    background: #ffffff07;
-    border: 1px solid var(--br-line);
+    background: var(--ops-accent-soft);
+    border: 1px solid var(--ops-accent-line);
     border-radius: .5rem;
     font-size: .79rem;
     font-weight: 600;
@@ -16,20 +46,84 @@
 }
 .ops-reporting .ops-button:hover { border-color: var(--br-accent); }
 .ops-reporting :is(.ops-button, .ops-expand, .ops-sort, summary, .br-table-wrap):focus-visible { outline: 2px solid var(--br-accent); outline-offset: 3px; }
-.ops-reporting .ops-primary { background: #a9d4ed; color: #142f45; border-color: #a9d4ed; }
-.ops-reporting .ops-primary:hover { background: #cdf0ff; border-color: #cdf0ff; }
+.ops-reporting .ops-primary {
+    background: var(--ops-action);
+    color: var(--ops-action-ink);
+    border-color: var(--ops-action);
+}
+.ops-reporting .ops-primary:hover { background: var(--ops-action-hover); border-color: var(--ops-action-hover); }
 .ops-reporting .ops-tabs { flex-wrap: wrap; }
 .ops-reporting .ops-tabs .ops-button { border-radius: .45rem .45rem 0 0; background: transparent; border-color: transparent; white-space: nowrap; }
-.ops-reporting .ops-tabs [aria-current] { border-bottom: 3px solid var(--br-accent); color: var(--br-accent); }
-.ops-reporting .ops-staff [aria-current] { border-color: var(--br-accent); background: #8dc7f522; }
+.ops-reporting .ops-tabs .ops-button:hover,
+.ops-reporting .ops-tabs .ops-button[aria-current] { background: var(--ops-accent-soft); color: var(--ops-accent); }
+.ops-reporting .ops-tabs .ops-button[aria-current] { border-bottom: 3px solid var(--ops-accent); }
+.ops-reporting .ops-staff [aria-current] { border-color: var(--ops-accent); color: var(--ops-accent); }
 .ops-reporting .ops-staff { overflow: auto; padding: .2rem; }
-.ops-reporting .ops-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9rem,100%),1fr)); gap: .65rem; }
-.ops-reporting .ops-metrics > div { background: var(--ops-panel); border: 1px solid var(--br-line); padding: .9rem; border-radius: .65rem; }
-.ops-reporting .ops-metrics span { font-size: .75rem; color: var(--br-muted); }
-.ops-reporting .ops-metrics strong { display: block; font-size: 1.6rem; margin-top: .3rem; font-variant-numeric: tabular-nums; }
+.ops-reporting .ops-metrics { container: ops-metrics / inline-size; }
+.ops-reporting .ops-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(var(--ops-metric-columns), minmax(0, 1fr));
+    gap: .75rem;
+    margin: 0 0 .75rem;
+}
+.ops-reporting .ops-metrics-row--activity { --ops-metric-columns: 5; }
+.ops-reporting .ops-metrics-row--follow-up { --ops-metric-columns: 4; }
+.ops-reporting .ops-metric {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: .55rem;
+    min-width: 0;
+    min-height: 5.85rem;
+    padding: .85rem 1rem .75rem;
+    border: 1px solid var(--ops-card-line);
+    border-radius: .7rem;
+    background: linear-gradient(118deg, var(--ops-accent-soft), transparent 70%), var(--ops-card-surface);
+    box-shadow: inset 0 1px #ffffff0c, 0 5px 16px #00000015;
+}
+.ops-reporting .ops-metric::before {
+    position: absolute;
+    inset: -1px auto auto 1rem;
+    width: 2rem;
+    height: 2px;
+    border-radius: 1rem;
+    background: var(--ops-accent);
+    content: "";
+}
+.ops-reporting .ops-metric dt { color: var(--ops-card-muted); font-size: .8rem; line-height: 1.35; overflow-wrap: anywhere; }
+.ops-reporting .ops-metric dd {
+    color: var(--ops-card-text);
+    font-size: clamp(1.65rem, 2.2vw, 2.15rem);
+    font-weight: 700;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+.ops-reporting .ops-metrics-row--follow-up .ops-metric { background: var(--ops-card-surface); }
+.ops-reporting .ops-metrics-row--follow-up .ops-metric::before { background: var(--ops-accent-line); }
+.ops-reporting .ops-metrics-row--follow-up .ops-metric[data-attention] dd { color: var(--ops-accent); }
+@container ops-metrics (max-width: 46rem) {
+    .ops-reporting .ops-metrics-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ops-reporting .ops-metrics-row--activity .ops-metric:last-child { grid-column: 1 / -1; }
+}
 .ops-reporting .ops-breakdowns { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(16rem,100%),1fr)); gap: 1rem; }
 .ops-reporting .ops-breakdowns table { min-width: 0; }
-.ops-reporting .ops-table { min-width: 0; }
+.ops-reporting .br-table-wrap {
+    border-color: var(--ops-table-line);
+    scrollbar-color: var(--ops-table-scroll) var(--ops-table-row);
+}
+.brands-reports.ops-reporting .ops-table { min-width: 0; }
+.brands-reports.ops-reporting .ops-table th {
+    background: linear-gradient(180deg, var(--ops-table-head-top), var(--ops-table-head-bottom));
+    color: var(--ops-table-heading);
+}
+.brands-reports.ops-reporting .ops-table :is(th, td) { border-color: var(--ops-table-line); }
+.brands-reports.ops-reporting .ops-table td { background: var(--ops-table-row); }
+.brands-reports.ops-reporting .ops-table tbody > tr:nth-child(even) > td,
+.brands-reports.ops-reporting .ops-table tbody:nth-of-type(even) > tr > td { background: var(--ops-table-stripe); }
+.brands-reports.ops-reporting .ops-table tbody > tr:hover > td { background: var(--ops-table-hover); }
+.brands-reports.ops-reporting .ops-table tbody > .ops-detail-row > td { background: var(--ops-table-detail); }
 .ops-reporting .ops-table td:not(.br-rich-cell):not(.br-empty-cell) { min-width: 7rem; }
 .ops-reporting .ops-table :is(th, td) { padding: .72rem .85rem; }
 .ops-reporting .ops-table td.ops-title { min-width: 13rem; }
@@ -40,7 +134,7 @@
 .ops-reporting .ops-expand span { width: 1rem; text-align: center; flex-shrink: 0; font-size: 1rem; }
 .ops-reporting .ops-sort { display: inline-flex; gap: .45rem; }
 .ops-reporting .ops-sort span, .ops-reporting .ops-review summary > span { color: var(--br-muted); }
-.ops-reporting .ops-table .ops-detail-row > td { max-width: 0; background: var(--ops-panel); padding: 1.15rem; }
+.ops-reporting .ops-table .ops-detail-row > td { max-width: 0; padding: 1.15rem; }
 .ops-reporting .ops-detail {
     display: grid;
     grid-template-columns: repeat(auto-fit,minmax(min(13rem,100%),1fr));
@@ -61,7 +155,28 @@
 .ops-reporting .br-badge:is([data-ops-status=completed],[data-ops-status=approved],[data-ops-status=published],[data-ops-status=available],[data-ops-status=closed],[data-ops-status=green],[data-ops-status=done]) { background: #45b88725; color: #9ceac5; }
 .ops-reporting .br-badge:is([data-ops-status=in_progress],[data-ops-status=ongoing],[data-ops-status=issued],[data-ops-status=on_hold],[data-ops-status=pending],[data-ops-status=amber]) { background: #d5a34726; color: #ffdb8f; }
 .ops-reporting .br-badge:is([data-ops-status=returned],[data-ops-status=blocked],[data-ops-status=overdue],[data-ops-status=red],[data-ops-status=cancelled]) { background: #e76b7022; color: #ffacae; }
-html[data-theme=light] .ops-reporting { --ops-panel: #f2f6fa; }
+html[data-theme=light] .module-workspace[data-department="operations_projects"],
+html[data-theme=light] .brands-reports.ops-reporting {
+    --ops-accent: #9b420d;
+    --ops-accent-soft: #b95b1310;
+    --ops-accent-line: #ae52164d;
+    --ops-panel: #fcf6ef;
+    --ops-action: #ffc18a;
+    --ops-action-hover: #ffcd9f;
+    --ops-card-surface: #fffaf4;
+    --ops-card-line: #50321526;
+    --ops-card-text: #312219;
+    --ops-card-muted: #665044;
+    --ops-table-head-top: #ffe9d5;
+    --ops-table-head-bottom: #f6dbc3;
+    --ops-table-heading: #5a311a;
+    --ops-table-row: #fffaf5;
+    --ops-table-stripe: #fbefe3;
+    --ops-table-hover: #f7e3d0;
+    --ops-table-detail: #f9eadc;
+    --ops-table-line: #aa653f3a;
+    --ops-table-scroll: #be805b;
+}
 html[data-theme=light] .ops-reporting .br-badge { color: #1e4a65; }
 html[data-theme=light] .ops-reporting .br-badge:is([data-ops-status=completed],[data-ops-status=approved],[data-ops-status=published],[data-ops-status=available],[data-ops-status=closed],[data-ops-status=green],[data-ops-status=done]) { color: #125437; }
 html[data-theme=light] .ops-reporting .br-badge:is([data-ops-status=in_progress],[data-ops-status=ongoing],[data-ops-status=issued],[data-ops-status=on_hold],[data-ops-status=pending],[data-ops-status=amber]) { color: #644506; }
@@ -77,7 +192,7 @@ html[data-theme=light] .ops-reporting .br-badge:is([data-ops-status=returned],[d
 .ops-reporting :is(.ops-execution-comparison, .ops-execution-trend) dd { display: flex; align-items: center; gap: .7rem; font-variant-numeric: tabular-nums; }
 .ops-reporting .ops-execution-comparison small { display: block; color: var(--br-muted); }
 .ops-reporting .ops-execution-track { flex: 1; height: .75rem; border-radius: 1rem; overflow: hidden; background: var(--br-line); }
-.ops-reporting .ops-execution-track i { display: block; height: 100%; border-radius: inherit; background: #4b9bd2; }
+.ops-reporting .ops-execution-track i { display: block; height: 100%; border-radius: inherit; background: var(--ops-accent); }
 .ops-reporting .ops-execution-track .previous { background: #8193a3; }
 .ops-reporting .ops-execution-comparison strong, .ops-reporting .ops-execution-trend strong { min-width: 2.4em; text-align: right; }
 .ops-reporting .ops-execution-trend dt { font-size: .8rem; color: var(--br-muted); }

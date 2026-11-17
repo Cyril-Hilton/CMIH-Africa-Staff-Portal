@@ -997,8 +997,10 @@ class TaskController extends Controller
     public static function taskReturnUrl(Request $request): string
     {
         $value = $request->input('return_to', $request->query('return_to'));
-        if (is_string($value) && strlen($value) < 4000 && str_starts_with($value, '/dashboard')
-            && parse_url($value, PHP_URL_PATH) === '/dashboard' && !preg_match('/[\x00-\x20\x7f]/', $value)) {
+        if (is_string($value) && strlen($value) < 4000 && str_starts_with($value, '/')
+            && in_array(parse_url($value, PHP_URL_PATH), ['/dashboard', '/portal/brands'], true)
+            && !str_contains($value, '\\') && !preg_match('/[\x00-\x20\x7f]/', $value)
+            && !str_starts_with($value, '//')) {
             return $value;
         }
         return route('portal.tasks');

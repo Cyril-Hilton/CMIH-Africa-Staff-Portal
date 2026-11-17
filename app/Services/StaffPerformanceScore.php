@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PerformanceKpi;
 use App\Models\PerformanceObservation;
+use App\Models\PerformanceTargetPlan;
 use App\Models\Task;
 use App\Models\User;
 use App\Models\WeeklyConsolidatedItem;
@@ -110,7 +111,7 @@ class StaffPerformanceScore
         return ['score' => $coverage === 100 ? round($subtotal, 2) : null, 'subtotal' => round($subtotal, 2), 'coverage_weight' => $coverage, 'complete' => $coverage === 100, 'components' => $components, 'formula_version' => '10-65-25-v3-impact'];
     }
 
-    public function team(Collection $users, Carbon $start, Carbon $end): array
+    public function team(Collection $users, Carbon $start, Carbon $end, ?string $department = null): array
     {
         $users=$users->reject(fn($u)=>$u->isServiceAccount());
         $members = $users->map(fn ($u) => $this->user($u, $start, $end));
@@ -118,7 +119,10 @@ class StaffPerformanceScore
         $punctual = $members->sum('punctual_days');
         $total = $members->sum('completion_points_total');
         $verified = $members->sum('completion_points_verified');
-        $kpis = $members->flatMap(fn ($m) => $m['kpis']);
+        $kpis = $department === null ? collect() : $this->departmentMeasures($department, $start, $end);
+        if ($kpis->isEmpty()) {
+            $kpis = $members->flatMap(fn ($m) => $m['kpis']);
+        }
         $measured = $kpis->whereNotNull('achievement');
         $weight = $measured->sum('weight');
         $kpi = $weight > 0 ? $measured->sum(fn ($m) => $m['achievement'] * $m['weight']) / $weight : null;
@@ -129,4 +133,27 @@ class StaffPerformanceScore
 
         return $result + ['member_count' => $users->count(), 'complete_members' => $members->where('complete', true)->count(), 'expected_workdays' => $expected, 'punctual_days' => $punctual, 'completion_points_total' => $total, 'completion_points_verified' => $verified, 'completion_total' => $members->sum('completion_total'), 'completion_verified' => $members->sum('completion_verified'), 'kpi_measured' => $measured->count(), 'kpi_expected' => $kpis->count()];
     }
+
+    private function departmentMeasures(string $department, Carbon $start, Carbon $end): Collection
+    {
+        return PerformanceTargetPlan::with(['kpi', 'observation'])
+            ->whereIn('department', User::departmentAliases($department))
+            ->where('scope_type', 'department')
+            ->whereNotNull('approved_at')
+            ->whereNull('withdrawn_at')
+            ->whereDate('period_start', '>=', $start)
+            ->whereDate('period_end', '<=', $end)
+            ->get()
+            ->map(function (PerformanceTargetPlan $plan) {
+                $observation = $plan->observation;
+                $independent = $observation?->approved_at && $observation->approved_by
+                    && ! in_array((int) $observation->approved_by, [(int) $observation->submitted_by, (int) $plan->owner_id], true);
+                $achievement = $independent
+                    ? PerformanceMath::achievement($plan->target, $observation->actual, $plan->kpi->direction)
+                    : null;
+
+                return ['weight' => $plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement))];
+            });
+    }
+
 }

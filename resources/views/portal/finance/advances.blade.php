@@ -90,7 +90,8 @@
                             </div>
 
                             <div class="space-y-3 border-t border-brand-white/5 pt-2">
-                                <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="space-y-2 rounded-lg border border-sky-500/10 bg-sky-500/5 p-3">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="space-y-2 rounded-lg border border-sky-500/10 bg-sky-500/5 p-3">
                                     @csrf
                                     <input type="hidden" name="action" value="approve">
                                     @if($loan->repayment_style === 'monthly_deduction')
@@ -114,17 +115,21 @@
                                         Approve Terms & Send to Finance
                                     </button>
                                 </form>
+                                @endif
 
                                 <div class="flex flex-wrap gap-2">
                                     <button type="button" onclick="const note = prompt('Enter correction reason for staff:'); if (note) { const f = document.getElementById('hr-corr-form-{{ $loan->id }}'); f.feedback.value = note; f.submit(); }" class="rounded bg-cyan-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-cyan-300 hover:bg-cyan-500/35">
                                         Send Back
                                     </button>
-                                    <form id="hr-corr-form-{{ $loan->id }}" method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="hidden">
+                                    @if(! $auditOnly)
+                                        <form id="hr-corr-form-{{ $loan->id }}" method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}" class="hidden">
                                         @csrf
                                         <input type="hidden" name="action" value="correction">
                                         <input type="hidden" name="feedback" value="">
                                     </form>
-                                    <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}">
+                                    @endif
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.hr.salary-advances.action', $loan) }}">
                                         @csrf
                                         <input type="hidden" name="action" value="reject">
                                         <input type="hidden" name="feedback" value="Rejected by HR Manager">
@@ -132,6 +137,7 @@
                                             Reject
                                         </button>
                                     </form>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -168,7 +174,8 @@
                             </div>
 
                             <div class="space-y-3 border-t border-brand-white/5 pt-2">
-                                <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}" class="space-y-2 rounded-lg border border-emerald-500/10 bg-emerald-500/5 p-3">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}" class="space-y-2 rounded-lg border border-emerald-500/10 bg-emerald-500/5 p-3">
                                     @csrf
                                     <input type="hidden" name="action" value="approve_and_disburse">
                                     @if ($item->repayment_style === 'monthly_deduction')
@@ -182,30 +189,37 @@
                                         Approve & Mark Paid Out
                                     </button>
                                 </form>
+                                @endif
 
                                 <div class="flex flex-wrap gap-2">
-                                    <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}">
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}">
                                         @csrf
                                         <input type="hidden" name="action" value="verify">
                                         <button type="submit" class="rounded bg-purple-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-purple-300 hover:bg-purple-500/35">
                                             Escalate to CVO
                                         </button>
                                     </form>
+                                    @endif
                                     <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('ret-form-{{ $item->id }}'); f.feedback.value = note; f.submit(); }" class="rounded bg-cyan-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-cyan-300 hover:bg-cyan-500/35">
                                         Return for Correction
                                     </button>
-                                    <form id="ret-form-{{ $item->id }}" method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}" class="hidden">
+                                    @if(! $auditOnly)
+                                        <form id="ret-form-{{ $item->id }}" method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}" class="hidden">
                                         @csrf
                                         <input type="hidden" name="action" value="correction">
                                         <input type="hidden" name="feedback" value="">
                                     </form>
-                                    <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}">
+                                    @endif
+                                    @if(! $auditOnly)
+                                        <form method="POST" action="{{ route('portal.finance.advances.finance-action', $item) }}">
                                         @csrf
                                         <input type="hidden" name="action" value="reject">
                                         <button type="submit" class="rounded bg-brand-red/20 px-2.5 py-1 text-[10px] font-bold uppercase text-brand-red hover:bg-brand-red/35">
                                             Reject
                                         </button>
                                     </form>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -231,35 +245,43 @@
                             <p class="text-[10px] font-semibold text-emerald-400">Verified by Finance Department</p>
 
                             <div class="flex flex-wrap gap-2 border-t border-brand-white/5 pt-2">
-                                <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
                                     @csrf
                                     <input type="hidden" name="action" value="approve">
                                     <button type="submit" class="rounded bg-purple-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-purple-300 hover:bg-purple-500/35">
                                         Approve Loan
                                     </button>
                                 </form>
-                                <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
+                                @endif
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
                                     @csrf
                                     <input type="hidden" name="action" value="return_to_finance">
                                     <button type="submit" class="rounded bg-cyan-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-cyan-300 hover:bg-cyan-500/35">
                                         Return to Finance
                                     </button>
                                 </form>
+                                @endif
                                 <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('cvo-ret-adv-{{ $item->id }}'); f.feedback.value = note; f.submit(); }" class="rounded bg-amber-500/20 px-2.5 py-1 text-[10px] font-bold uppercase text-amber-300 hover:bg-amber-500/35">
                                     Return to Creator
                                 </button>
-                                <form id="cvo-ret-adv-{{ $item->id }}" method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}" class="hidden">
+                                @if(! $auditOnly)
+                                    <form id="cvo-ret-adv-{{ $item->id }}" method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}" class="hidden">
                                     @csrf
                                     <input type="hidden" name="action" value="return_for_correction">
                                     <input type="hidden" name="feedback" value="">
                                 </form>
-                                <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
+                                @endif
+                                @if(! $auditOnly)
+                                    <form method="POST" action="{{ route('portal.finance.advances.cvo-action', $item) }}">
                                     @csrf
                                     <input type="hidden" name="action" value="reject">
                                     <button type="submit" class="rounded bg-brand-red/20 px-2.5 py-1 text-[10px] font-bold uppercase text-brand-red hover:bg-brand-red/35">
                                         Reject
                                     </button>
                                 </form>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -294,7 +316,8 @@
                                     <p class="font-mono text-brand-white">GHC {{ number_format($item->amount, 2) }}</p>
                                 </div>
                             </div>
-                            <form method="POST" action="{{ route('portal.finance.advances.repayments.store', $item) }}" class="space-y-2 border-t border-brand-white/5 pt-3">
+                            @if(! $auditOnly)
+                                <form method="POST" action="{{ route('portal.finance.advances.repayments.store', $item) }}" class="space-y-2 border-t border-brand-white/5 pt-3">
                                 @csrf
                                 <div class="grid grid-cols-2 gap-2">
                                     <input name="amount" type="number" step="0.01" min="0.01" max="{{ number_format($balance, 2, '.', '') }}" required placeholder="Amount" class="rounded-md border border-brand-white/10 bg-brand-black/50 px-2.5 py-2 text-[10px] text-brand-white placeholder-brand-white/30 focus:border-emerald-400 focus:ring-0">
@@ -309,6 +332,7 @@
                                     Record Repayment
                                 </button>
                             </form>
+                            @endif
                         </div>
                     @endforeach
                 </div>
@@ -340,7 +364,8 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route('portal.finance.advances.store') }}" class="space-y-4">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.finance.advances.store') }}" class="space-y-4">
                     @csrf
                     <div>
                         <x-input-label for="amount" :value="__('Loan Amount Requested (GHC)')" />
@@ -373,6 +398,7 @@
                         Submit Advance Request
                     </button>
                 </form>
+                @endif
             </div>
 
             <div class="glass-panel rounded-2xl border border-brand-white/10 bg-brand-white/5 p-6">
@@ -389,7 +415,7 @@
                                 <div>
                                     <p class="text-sm font-semibold text-brand-white">GHC {{ number_format($advance->amount, 2) }}</p>
                                     <p class="mt-0.5 font-mono text-xs text-brand-ash">{{ $advance->created_at->format('d M Y H:i') }}</p>
-                                    @if ($isFinanceStaff)
+                                    @if ($isFinanceStaff || $auditOnly)
                                         <p class="text-[10px] text-brand-white/60">Requested by: {{ $advance->user->name }}</p>
                                     @endif
                                 </div>
@@ -424,7 +450,7 @@
                                 </div>
                             @endif
 
-                            @if ($advance->status === 'returned_for_correction' && ($advance->user_id === auth()->id() || auth()->user()->hasRole('super_admin')))
+                            @if (! $auditOnly && $advance->status === 'returned_for_correction' && ($advance->user_id === auth()->id() || auth()->user()->hasRole('super_admin')))
                                 <button @click="triggerResubmit({{ json_encode($advance) }})" class="mt-3 rounded bg-cyan-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-black transition hover:bg-cyan-400">
                                     Correct & Resubmit
                                 </button>
@@ -465,7 +491,8 @@
                 </div>
             </div>
 
-            <form :action="resubmitActionUrl" method="POST" class="space-y-4">
+            @if(! $auditOnly)
+                <form :action="resubmitActionUrl" method="POST" class="space-y-4">
                 @csrf
                 <div>
                     <x-input-label for="resubmit_amount" :value="__('Loan Amount Requested (GHC)')" />
@@ -501,6 +528,7 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
 </div>{{-- Shared dialog state scope --}}

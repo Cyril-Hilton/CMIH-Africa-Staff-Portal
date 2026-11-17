@@ -91,7 +91,7 @@ class HrDashboardActivityController extends Controller
     public function attachment(Request $request, HrDashboardActivity $activity)
     {
         $user = $request->user();
-        abort_unless(HrDashboard::canAccess($user) && isset(HrDashboard::tabs($user)[$activity->tab]), 404);
+        abort_unless(HrDashboard::canRead($user) && isset(HrDashboard::tabs($user)[$activity->tab]), 404);
         $file = $activity->attachment;
         abort_unless($file && Storage::disk('local')->exists($file['path']), 404);
         return Storage::disk('local')->download($file['path'], $file['name'], [

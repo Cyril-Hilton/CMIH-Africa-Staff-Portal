@@ -4,6 +4,7 @@
             <div>
                 <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Departments</p>
                 <h2 class="text-3xl font-display text-brand-white"><x-ui-icon name="wallet" /> Finance Workspace</h2>
+                @if($auditOnly)<p class="mt-1 text-sm text-brand-ash">Read-only finance audit</p>@endif
             </div>
             <div class="flex gap-3">
                 <a href="{{ route('portal.finance.budgets.index') }}" class="rounded-full border border-brand-white/20 px-4 py-2 text-xs uppercase tracking-[0.3em] text-brand-white/70 hover:bg-brand-white/10 transition-all">
@@ -68,7 +69,8 @@
             <!-- Submit Claim Widget -->
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 h-fit">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.15em] text-brand-white mb-4"><x-ui-icon name="wallet" /> New Reimbursement Claim</h3>
-                <form method="POST" action="{{ route('portal.finance.claims.store') }}" enctype="multipart/form-data" class="space-y-4">
+                @if(! $auditOnly)
+                    <form method="POST" action="{{ route('portal.finance.claims.store') }}" enctype="multipart/form-data" class="space-y-4">
                     @csrf
                     <div class="grid grid-cols-2 gap-3">
                         <div>
@@ -107,6 +109,7 @@
                         Submit Expense Claim
                     </button>
                 </form>
+                @endif
             </div>
 
             <!-- Claims Audit Board -->
@@ -170,24 +173,32 @@
                                         @if($claim->status === 'Pending' || $claim->status === 'Updated')
                                             <span class="text-[9px] text-amber-400/80 italic"><x-ui-icon name="clock" /> Awaiting CVO</span>
                                         @elseif($claim->status === 'CVO Approved' && $isFinanceUser)
-                                            <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'pay']) }}" class="inline">
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'pay']) }}" class="inline">
                                                 @csrf
                                                 <button type="submit" class="rounded bg-emerald-500/20 hover:bg-emerald-500/40 px-2.5 py-1 text-[9px] uppercase font-semibold text-emerald-300">Pay Claim</button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'flag']) }}" class="inline">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'flag']) }}" class="inline">
                                                 @csrf
                                                 <button type="submit" class="rounded bg-brand-red/20 hover:bg-brand-red/40 px-2.5 py-1 text-[9px] uppercase font-semibold text-brand-red">Flag</button>
                                             </form>
-                                            <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'reject']) }}" class="inline">
+                                            @endif
+                                            @if(! $auditOnly)
+                                                <form method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'reject']) }}" class="inline">
                                                 @csrf
                                                 <button type="submit" class="rounded bg-slate-500/20 hover:bg-slate-500/40 px-2.5 py-1 text-[9px] uppercase font-semibold text-slate-400">Reject</button>
                                             </form>
+                                            @endif
                                             <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('ret-claim-{{ $claim->id }}'); f.notes.value = note; f.submit(); }"
                                                     class="rounded bg-cyan-500/20 hover:bg-cyan-500/40 px-2.5 py-1 text-[9px] uppercase font-semibold text-cyan-300">Return</button>
-                                            <form id="ret-claim-{{ $claim->id }}" method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'return']) }}" class="hidden">
+                                            @if(! $auditOnly)
+                                                <form id="ret-claim-{{ $claim->id }}" method="POST" action="{{ route('portal.finance.claims.action', [$claim, 'return']) }}" class="hidden">
                                                 @csrf
                                                 <input type="hidden" name="notes" value="">
                                             </form>
+                                            @endif
                                         @elseif($claim->status === 'Returned for Correction' && ($claim->user_id === auth()->id() || auth()->user()->hasRole('super_admin')))
                                             <button type="button" @click="triggerResubmitClaim({{ json_encode($claim) }})"
                                                     class="rounded bg-cyan-500 text-brand-black px-2.5 py-1 text-[9px] uppercase font-bold hover:bg-cyan-400 transition">Correct</button>
@@ -221,7 +232,8 @@
                 <!-- Submit Invoice -->
                 <div class="rounded-xl border border-brand-white/10 bg-brand-white/5 p-5 h-fit">
                     <h4 class="text-xs uppercase tracking-widest text-brand-ash font-semibold mb-3">Submit Invoice</h4>
-                    <form method="POST" action="{{ route('portal.finance.invoices.store') }}" enctype="multipart/form-data" class="space-y-3">
+                    @if(! $auditOnly)
+                        <form method="POST" action="{{ route('portal.finance.invoices.store') }}" enctype="multipart/form-data" class="space-y-3">
                         @csrf
                         <div>
                             <label class="block text-[10px] uppercase tracking-widest text-brand-ash mb-1">Supplier Name *</label>
@@ -267,6 +279,7 @@
                             Submit Invoice
                         </button>
                     </form>
+                    @endif
                 </div>
 
                 <!-- Invoice ledger -->
@@ -324,20 +337,26 @@
                                             @if ($inv->status === 'Pending' || $inv->status === 'Updated')
                                                 <span class="text-[9px] text-amber-400/80 italic"><x-ui-icon name="clock" /> Awaiting CVO</span>
                                             @elseif ($inv->status === 'CVO Approved' && $isFinanceUser)
-                                                <form method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'pay']) }}" class="inline">
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'pay']) }}" class="inline">
                                                     @csrf
                                                     <button type="submit" class="rounded bg-emerald-500/20 hover:bg-emerald-500/40 px-2 py-1 text-[9px] uppercase font-bold text-emerald-400">Pay</button>
                                                 </form>
-                                                <form method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'reject']) }}" class="inline">
+                                                @endif
+                                                @if(! $auditOnly)
+                                                    <form method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'reject']) }}" class="inline">
                                                     @csrf
                                                     <button type="submit" class="rounded bg-brand-red/20 hover:bg-brand-red/40 px-2 py-1 text-[9px] uppercase font-bold text-brand-red">Reject</button>
                                                 </form>
+                                                @endif
                                                 <button type="button" onclick="const note = prompt('Enter correction reason:'); if (note) { const f = document.getElementById('ret-inv-{{ $inv->id }}'); f.notes.value = note; f.submit(); }"
                                                         class="rounded bg-cyan-500/20 hover:bg-cyan-500/40 px-2 py-1 text-[9px] uppercase font-bold text-cyan-300">Return</button>
-                                                <form id="ret-inv-{{ $inv->id }}" method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'return']) }}" class="hidden">
+                                                @if(! $auditOnly)
+                                                    <form id="ret-inv-{{ $inv->id }}" method="POST" action="{{ route('portal.finance.invoices.action', [$inv, 'return']) }}" class="hidden">
                                                     @csrf
                                                     <input type="hidden" name="notes" value="">
                                                 </form>
+                                                @endif
                                             @elseif ($inv->status === 'Returned for Correction' && ($inv->submitted_by === auth()->id() || auth()->user()->hasRole('super_admin')))
                                                 <button type="button" @click="triggerResubmitInvoice({{ json_encode($inv) }})"
                                                         class="rounded bg-cyan-500 text-brand-black px-2 py-1 text-[9px] uppercase font-bold hover:bg-cyan-400 transition">Correct</button>
@@ -375,7 +394,8 @@
             <h3 class="text-lg font-semibold text-brand-white mb-2">Correct & Resubmit Reimbursement Claim</h3>
             <p class="text-xs text-brand-ash mb-4">Modify and correct your reimbursement claim details below.</p>
 
-            <form :action="resubmitClaimActionUrl" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @if(! $auditOnly)
+                <form :action="resubmitClaimActionUrl" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
                 
                 <div class="grid grid-cols-2 gap-3">
@@ -423,6 +443,7 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
 
@@ -443,7 +464,8 @@
             <h3 class="text-lg font-semibold text-brand-white mb-2">Correct & Resubmit Supplier Invoice</h3>
             <p class="text-xs text-brand-ash mb-4">Modify and correct your supplier invoice details below.</p>
 
-            <form :action="resubmitInvoiceActionUrl" method="POST" enctype="multipart/form-data" class="space-y-4">
+            @if(! $auditOnly)
+                <form :action="resubmitInvoiceActionUrl" method="POST" enctype="multipart/form-data" class="space-y-4">
                 @csrf
                 
                 <div>
@@ -501,6 +523,7 @@
                     </button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
 </div>{{-- Shared dialog state scope --}}

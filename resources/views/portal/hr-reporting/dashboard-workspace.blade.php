@@ -59,6 +59,7 @@
     @if($errors->any())<ul class="br-error" role="alert">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
     <section class="br-table-section" aria-label="{{ $tabs[$tab][0] }} activities">
         <header class="br-table-heading"><h4>{{ $tabs[$tab][0] }} <small>{{ $activities->total() }}</small></h4><span class="br-table-hint">Scroll wide tables to see more</span></header>
+        @if(App\Services\HrDashboard::canAccess(auth()->user()))
         <details class="mb-4" @if($edit || $errors->any()) open @endif>
             <summary class="hr-report-control {{ $entryClass }}">{{ $edit ? 'Edit' : 'Add' }} {{ $entryLabel }} Entry</summary>
             @if($adminTab)<p class="br-help mt-2">Use this form for administrative work. Keep confidential staff records in the restricted HR tabs.</p>@endif
@@ -113,6 +114,7 @@
                 </div>
             </form>
         </details>
+        @endif
         <form class="br-table-tools" method="GET" action="{{ route('dashboard') }}#hr-activity-table" data-no-ajax data-no-silent>
             @foreach($filters + array_intersect_key($tableFilters, array_flip(['hr_sort', 'hr_direction'])) as $key => $value)
                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -152,7 +154,7 @@
                         <td><span class="br-status-badge br-status-{{ $tone }}">{{ $row->status }}</span></td>
                         <td class="br-description-cell whitespace-pre-wrap">{{ $row->remarks ?? '—' }}</td>
                         <td>@if($row->attachment)<a class="underline" href="{{ route('portal.hr-dashboard.activities.attachment', $row) }}">Download</a>@else — @endif</td>
-                        <td>@if($full || in_array(auth()->id(), [$row->created_by, $row->assigned_to]))<a class="hr-report-control" href="{{ $dashboardUrl(['hr_edit' => $row->id, 'hr_page' => $activities->currentPage()]) }}">Edit {{ $entryLabel }} Entry</a>@else — @endif</td>
+                        <td>@if(App\Services\HrDashboard::canAccess(auth()->user()) && ($full || in_array(auth()->id(), [$row->created_by, $row->assigned_to])))<a class="hr-report-control" href="{{ $dashboardUrl(['hr_edit' => $row->id, 'hr_page' => $activities->currentPage()]) }}">Edit {{ $entryLabel }} Entry</a>@else — @endif</td>
                     </tr>
                 @empty
                     <tr><td class="br-empty-cell" colspan="9">No activities match the selected date, staff, and table filters.</td></tr>
