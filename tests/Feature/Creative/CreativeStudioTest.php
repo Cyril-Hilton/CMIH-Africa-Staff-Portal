@@ -445,4 +445,35 @@ class CreativeStudioTest extends TestCase {
   $after=app(\App\Services\Creative\CreativeProjection::class)->item($r->fresh(),$requester);
   $this->assertSame('Final client work.pdf',$after['final_preview']['name']);$this->assertSame($before['on_time_submission'],$after['on_time_submission']);$this->assertSame($before['quality_score'],$after['quality_score']);
  }
+ public function test_multiple_showcase_images_are_saved_atomically_without_affecting_workflow_or_scoring(): void {
+  Storage::fake('local');config(['creative.upload_scan_required'=>false]);$sender=$this->staff();$r=$this->brief($sender);$r->forceFill(['stage'=>'completed','delivered_at'=>now(),'completed_at'=>now()])->save();
+  $this->actingAs($sender)->post(route('portal.creative.upload',$r),['kind'=>'deliverable','files'=>[UploadedFile::fake()->image('front.png'),UploadedFile::fake()->image('side.png')]],['Accept'=>'application/json'])->assertOk();
+  $this->assertCount(2,$r->attachments()->get());$before=$r->fresh()->only(['stage','quality_score','completed_at','first_submitted_at']);
+  $this->getJson(route('portal.creative.show',$r))->assertOk()->assertJsonCount(2,'final_previews');
+  $this->post(route('portal.creative.upload',$r),['kind'=>'deliverable','files'=>[UploadedFile::fake()->image('good.png'),UploadedFile::fake()->create('bad.exe',5,'application/octet-stream')]],['Accept'=>'application/json'])->assertUnprocessable();
+  $this->assertSame(2,$r->attachments()->count());$this->assertEquals($before,$r->fresh()->only(array_keys($before)));
+ }
+ public function test_report_filters_calendar_totals_and_kpi_dates_match_the_full_selected_cohort(): void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-18 12:00:00'));$sender=$this->staff();$owner=$this->staff('creatives');
+  for($n=0;$n<3;$n++){$r=$this->brief($sender,['title'=>'Accuracy cohort '.$n,'priority'=>$n<2?'High':'Low']);$r->forceFill(['assignee_id'=>$owner->id,'planned_start'=>'2026-11-16 09:00:00','internal_eta'=>'2026-11-20 16:00:00','stage'=>'scheduled'])->save();}
+  $filters=['from'=>'2026-11-16','to'=>'2026-11-22','q'=>'Accuracy cohort','priority'=>'High','department'=>'client_relations','calendar_mode'=>'week','calendar_anchor'=>'2026-11-16','per_page'=>1];
+  $this->actingAs($sender)->getJson(route('portal.creative.data',$filters))->assertOk()->assertJsonPath('pagination.total',2)->assertJsonCount(1,'items')->assertJsonPath('calendar_summary.planned',2)->assertJsonPath('kpi_snapshot.from','2026-11-16')->assertJsonPath('kpi_snapshot.to','2026-11-22');
+  $this->getJson(route('portal.creative.reports',['format'=>'data','period'=>'weekly','anchor'=>'2026-11-18']+$filters))->assertOk()->assertJsonPath('total',2);
+ }
+ public function test_period_delivery_counts_exclude_out_of_period_and_future_completion_dates(): void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-18 12:00:00'));$sender=$this->staff();$items=collect();
+  foreach(['2026-11-10 12:00:00','2026-11-17 12:00:00','2026-11-20 12:00:00'] as $date){$r=$this->brief($sender);$r->forceFill(['stage'=>'completed','completed_at'=>$date,'quality_score'=>80])->save();$items->push($r);}
+  $stats=app(\App\Services\Creative\CreativeDeliveryStats::class)->build($items,'2026-11-16','2026-11-22');$this->assertSame(1,$stats['verified']);$this->assertSame(1,$stats['quality_expected']);$this->assertEquals(80,$stats['quality_credit']);
+ }
+ public function test_capacity_overload_uses_remaining_days_rather_than_elapsed_weekdays(): void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-18 12:00:00'));$owner=$this->staff('creatives');$sender=$this->staff();
+  DB::table('creative_capacities')->insert(['user_id'=>$owner->id,'weekly_hours'=>40,'updated_by'=>$sender->id,'created_at'=>now(),'updated_at'=>now()]);
+  $r=$this->brief($sender);$r->forceFill(['assignee_id'=>$owner->id,'stage'=>'in_progress','planned_start'=>'2026-11-18 09:00:00','internal_eta'=>'2026-11-20 17:00:00','estimated_hours'=>30])->save();
+  $summary=collect(app(CreativeCapacity::class)->summary($sender,now()->startOfWeek(),now()->endOfWeek()))->firstWhere('id',$owner->id);$this->assertEquals(40,$summary['available']);$this->assertEquals(24,$summary['remaining_available']);$this->assertEquals(6,$summary['overload']);
+ }
+ public function test_correction_counts_do_not_treat_client_scope_changes_as_creative_errors(): void {
+  $sender=$this->staff();$r=$this->brief($sender);$r->forceFill(['iteration'=>5])->save();
+  foreach(['correction','scope_change','clarification'] as $type)$r->updates()->create(['author_id'=>$sender->id,'kind'=>'changes_requested','body'=>'Recorded feedback','metadata'=>['feedback_type'=>$type]]);
+  $stats=app(\App\Services\Creative\CreativeDeliveryStats::class)->build(collect([$r]));$this->assertSame(1,$stats['correction_rounds']);$this->assertSame(1,$stats['scope_changes']);$this->assertSame(1,$stats['clarifications']);
+ }
 }

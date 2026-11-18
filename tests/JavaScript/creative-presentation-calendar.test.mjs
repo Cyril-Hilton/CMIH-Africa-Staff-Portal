@@ -85,3 +85,13 @@ test('showcase credits people and exposes timeline facts without requiring an im
  s.items=[brief({requester:{name:'Client Relations Person'},client_relations_contact:{name:'Account Owner'},supporting_staff:[{id:2,name:'Support Artist'}],accountability_events:[{kind:'changes_requested',feedback_type:'scope_change',actor:'Account Owner',department:'Client Relations',at:'2026-11-12T10:00:00Z',iteration:1}],on_time_submission:true,final_preview:null,next_action:'Awaiting client approval'})];
  const html=s.exhibit();assert.match(html,/Made visible/);assert.match(html,/Account Owner/);assert.match(html,/Support Artist/);assert.match(html,/Scope change requested by/);assert.match(html,/met the recorded Creative HOD deadline/);assert.match(html,/Visual preview optional/);assert.match(html,/No effect on KPI scores/);assert.doesNotMatch(html,/<script>/);assert.equal(s.primaryView(),'report');
 });
+
+test('showcase slider cycles images in both directions and pauses after manual input',()=>{
+ const s=make();s.galleryIndices=new Map();s.galleryPausedUntil=new Map();s.root={querySelector(){return null;}};
+ const item=brief({final_previews:[{url:'/front',mime:'image/png',name:'Front'},{url:'/side',mime:'image/png',name:'Side'},{url:'/back',mime:'image/png',name:'Back'}]});s.items=[item];
+ assert.match(s.galleryMedia(item),/1 \/ 3/);s.moveGallery(1,1,true);assert.match(s.galleryMedia(item),/src="\/side"/);assert.ok(s.galleryPausedUntil.get(1)>Date.now());s.moveGallery(1,-1);s.moveGallery(1,-1);assert.match(s.galleryMedia(item),/3 \/ 3/);
+});
+test('calendar and showcase use the same recorded responsibility findings',()=>{
+ const s=make();const item=brief({requester:{name:'Request Owner'},client_relations_contact:{name:'Account Lead'},supporting_staff:[{id:2,name:'Support Artist'}],on_time_submission:false,next_action:'Assigned creative',accountability_events:[]});s.items=[item];
+ const html=s.calendarAccountability();assert.match(html,/Account Lead/);assert.match(html,/Support Artist/);assert.match(html,/after the recorded Creative HOD deadline/);assert.match(html,/Review due/);assert.match(html,/data-cs-open="1"/);
+});

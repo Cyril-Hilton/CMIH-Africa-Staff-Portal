@@ -19,11 +19,15 @@ class CreativeReport
             'monthly' => $start->copy()->endOfMonth(), 'quarterly' => $start->copy()->endOfQuarter(),
             'yearly' => $start->copy()->endOfYear(), default => $start->copy()->endOfWeek(),
         };
+        if(!empty($filters['from']))$start=Carbon::parse($filters['from'])->startOfDay();
+        if(!empty($filters['to']))$end=Carbon::parse($filters['to'])->endOfDay();
+        abort_if($start->gt($end)||$start->diffInDays($end)>731,422,'Choose a reporting range of no more than two years.');
         $query = CreativeRequest::visibleTo($actor)->where('is_group',false)
             ->when($filters['assignee'] ?? null, fn($q, $v) => $q->withParticipant((int) $v))
-            ->when($filters['q'] ?? null, fn($q, $v) => $q->where(fn($q) => $q->where('title', 'like', '%'.$v.'%')->orWhere('client', 'like', '%'.$v.'%')->orWhere('reference', 'like', '%'.$v.'%')))
+            ->when($filters['q'] ?? null, fn($q, $v) => $q->where(fn($q) => $q->where('title', 'like', '%'.$v.'%')->orWhere('client', 'like', '%'.$v.'%')->orWhere('reference', 'like', '%'.$v.'%')->orWhere('brief','like','%'.$v.'%')->orWhereHas('requester',fn($person)=>$person->where('name','like','%'.$v.'%'))))
+            ->when($filters['department']??null,fn($q,$v)=>$q->where('department',$v))->when($filters['priority']??null,fn($q,$v)=>$q->where('priority',$v))->when($filters['stage']??null,fn($q,$v)=>$q->where('stage',$v),fn($q)=>$q->where('stage','!=','archived'))
             ->where(function ($q) use ($start, $end) {
-                foreach (['received_at','requested_deadline','submitted_at','completed_at','delivered_at'] as $field) {
+                foreach (['received_at','requested_deadline','internal_eta','first_submitted_at','submitted_at','reviewed_at','completed_at','delivered_at'] as $field) {
                     $q->orWhereBetween($field, [$start, $end]);
                 }
                 $q->orWhere(fn($q) => $q->where('planned_start','<=',$end)->where('internal_eta','>=',$start));
@@ -31,7 +35,7 @@ class CreativeReport
                 CreativeReportingPeriod::includeHistory($q,$start,$end);
             });
         $items = $query->with(['assignee','requester','reviewer','attachments','firstSubmission','hodDeadlineSnapshots','updates'=>fn($q)=>$q->where('created_at','<=',$end)])->get();
-        $inside = fn($date) => $date && $date->betweenIncluded($start, $end);
+        $inside = fn($date) => $date && $date->betweenIncluded($start, $end->copy()->min(now()));
         $submitted = $items->filter(fn($i) => $inside($i->first_submitted_at));
         $verified = $items->filter(fn($i) => $inside($i->completed_at));
         $onTime = $items->filter(function($brief) use($start,$end) {
@@ -66,7 +70,7 @@ class CreativeReport
             'waiting'=>$waiting->count(),'review_wait_hours'=>$waiting->sum(fn($i)=>$i->submitted_at?max(0, $i->submitted_at->diffInHours(min(now(),$end),false)):0),
             'stages'=>$items->countBy('stage')->all(),'buckets'=>$buckets,'gallery'=>$gallery,'gallery_total'=>$items->filter(fn($i)=>$i->attachments->contains(fn($a)=>$a->kind==='deliverable'))->count(),
             'timeline'=>$events->take(24)->all(),'timeline_total'=>$events->count(),'actions'=>$actions->take(12)->all(),'actions_total'=>$actions->count(),
-            'team'=>$items->groupBy(fn($i)=>$i->assignee?->name?:'Unassigned')->map(fn($group,$name)=>['name'=>$name,'work'=>$group->count(),'verified'=>$group->filter(fn($i)=>$inside($i->completed_at))->count()])->values()->all(),
+            'team'=>$items->groupBy(fn($i)=>$i->assignee_id??'unassigned')->map(fn($group,$id)=>['id'=>$id,'name'=>$group->first()->assignee?->name?:'Unassigned','work'=>$group->count(),'verified'=>$group->filter(fn($i)=>$inside($i->completed_at))->count()])->values()->all(),
             'kpis'=>app(CreativeKpiSnapshot::class)->forPeriod($start,$end),
             'note'=>'Delivery counts are activity measures, not staff scores. Stage and review queues show the current state of this period’s work. Historical totals use recorded milestone dates. Undated history is not assigned an invented date.'];
     }
