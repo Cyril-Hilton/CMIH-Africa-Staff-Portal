@@ -100,12 +100,14 @@ class ExecutiveProjectTracker
         $briefs = CreativeRequest::visibleTo($viewer)->whereNull('parent_request_id')->whereNotIn('id', $linkedBriefs)
             ->where(function ($query) use ($from, $to) {
                 $query->whereBetween('received_at', [$from, $to])->orWhereBetween('requested_deadline', [$from, $to])
-                    ->orWhereBetween('completed_at', [$from, $to])->orWhereBetween('created_at', [$from, $to])
+                    ->orWhereBetween('completed_at', [$from, $to])->orWhere(fn($created)=>$created->where('legacy',false)->whereBetween('created_at',[$from,$to]))
                     ->orWhere(fn ($q) => $q->where('planned_start', '<=', $to)->where('internal_eta', '>=', $from));
+                \App\Services\Creative\CreativeReportingPeriod::includeHistory($query,$from,$to);
             })->with(['task', 'parts.task'])->get();
         foreach ($briefs as $brief) {
             // Recurring system/developer assignments belong in Daily tasks, rather than project journeys.
             if ($brief->legacy && in_array($brief->task?->title, Task::LEGACY_AUTO_COMPLETED_TITLES, true)) continue;
+            $linkedBriefs->push($brief->id);
             $packages = $brief->is_group && $brief->parts->isNotEmpty() ? $brief->parts : collect([$brief]);
             $complete = $packages->every(fn ($part) => in_array($part->stage, ['completed','archived'], true) && $part->completed_at);
             $reportedComplete = $packages->every(fn ($part) => in_array($part->stage, ['completed','archived'], true));
@@ -159,7 +161,9 @@ class ExecutiveProjectTracker
                 $data['challenges'] ?? $data['key_issue'] ?? null, $progress));
         }
 
-        $weekly = WeeklyConsolidatedItem::whereIn('workflow_state',['legacy','approved','verified','closed'])
+        $linkedWeeklyIds=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')
+            ->whereIn('creative_request_id',$linkedBriefs)->pluck('source_id');
+        $weekly = WeeklyConsolidatedItem::whereNotIn('id',$linkedWeeklyIds)->whereIn('workflow_state',['legacy','approved','verified','closed'])
             ->where(fn ($q) => $q->whereNull('report_status')->orWhereNotIn('report_status',['draft','submitted','returned']))
             ->whereBetween('week_start',[$from->toDateString(),$to->toDateString()])
             ->when(!$private, fn ($q) => $q->whereNotIn('department',array_merge(User::departmentAliases('hr_admin'),User::departmentAliases('finance'))))->get();

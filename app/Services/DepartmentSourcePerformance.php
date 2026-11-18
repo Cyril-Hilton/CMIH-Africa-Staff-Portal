@@ -60,8 +60,11 @@ class DepartmentSourcePerformance
             $decided=$wins+$projects->whereIn('stage',['lost','closed_lost'])->count();
             $metrics[]=$this->metric('Deal conversion',$decided?:null,$decided?$wins:null,'deals',$decided,$decided,'Won projects / decided projects. No decisions means no conversion rate yet.');
         } elseif ($department==='creatives') {
-            $briefs=CreativeRequest::whereNull('parent_request_id')->where(fn($q)=>$q->whereBetween('received_at',[$from.' 00:00:00',$to.' 23:59:59'])
-                ->orWhereBetween('requested_deadline',[$from.' 00:00:00',$to.' 23:59:59']))->when($owner,fn($q)=>$q->where('assignee_id',$owner))->get();
+            $briefs=CreativeRequest::whereNull('parent_request_id')->where(function($q) use($from,$to) { $q->whereBetween('received_at',[$from.' 00:00:00',$to.' 23:59:59'])
+                ->orWhereBetween('requested_deadline',[$from.' 00:00:00',$to.' 23:59:59'])
+                ->orWhereBetween('completed_at',[$from.' 00:00:00',$to.' 23:59:59']);
+                \App\Services\Creative\CreativeReportingPeriod::includeHistory($q,$from.' 00:00:00',$to.' 23:59:59');
+            })->when($owner,fn($q)=>$q->where('assignee_id',$owner))->get();
             $area('Briefs & planning',$briefs->count()+$count(['brief']),'No brief / planning report recorded.');
             $area('Delivery & review',$briefs->filter(fn($b)=>$b->first_submitted_at||$b->submitted_at||$b->completed_at)->count()+$records->where('kind','brief')->filter(fn($r)=>isset($r->data['final_delivered_on']))->count(),'No submission / delivery result reported.');
             $area('Quality & revisions',$briefs->whereNotNull('quality_score')->count()+$records->where('kind','brief')->filter(fn($r)=>isset($r->data['quality_score'])||isset($r->data['revision_rounds']))->count(),'No quality or revision result recorded.');

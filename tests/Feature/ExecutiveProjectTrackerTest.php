@@ -117,6 +117,24 @@ class ExecutiveProjectTrackerTest extends TestCase
         $this->assertFalse($legacy['complete']);
     }
 
+    public function test_imported_creative_weekly_work_uses_its_source_week_and_is_not_counted_twice(): void
+    {
+        $this->travelTo(now()->setDate(2026,11,18)->setTime(12,0));
+        $viewer=$this->viewer(); $owner=User::factory()->create(['department'=>'creatives']);
+        $weekly=WeeklyConsolidatedItem::create(['department'=>'creatives','week_start'=>'2026-11-09','week_end'=>'2026-11-15',
+            'campaign_name'=>'Imported earlier artwork','deliverables'=>'Produce artwork','lead_staff_id'=>$owner->id,
+            'created_by'=>$owner->id,'updated_by'=>$owner->id,'status'=>'In Progress']);
+        $brief=CreativeRequest::create(['uuid'=>(string)Str::uuid(),'reference'=>'CR-IMPORT-WEEK','title'=>'Imported earlier artwork',
+            'requester_id'=>$owner->id,'assignee_id'=>$owner->id,'legacy'=>true,'stage'=>'in_progress','source_recorded_at'=>now()]);
+        \Illuminate\Support\Facades\DB::table('creative_sources')->insert(['creative_request_id'=>$brief->id,'source_type'=>'weekly','source_id'=>$weekly->id]);
+        $this->actingAs($viewer);
+        $current=$this->tracker(['tracker_type'=>'all','tracker_q'=>'Imported earlier artwork'])->assertOk()->viewData('tracker');
+        $this->assertSame(0,$current['counts']['all']);
+        $earlier=$this->tracker(['tracker_type'=>'all','tracker_q'=>'Imported earlier artwork','report_date'=>'2026-11-09'])->assertOk()->viewData('tracker');
+        $this->assertSame(1,$earlier['counts']['projects']);
+        $this->assertSame(0,$earlier['counts']['weekly']);
+    }
+
     public function test_tracker_preserves_confidentiality_and_requires_executive_access(): void
     {
         $this->travelTo(now()->setDate(2026,11,18)->setTime(12,0));
