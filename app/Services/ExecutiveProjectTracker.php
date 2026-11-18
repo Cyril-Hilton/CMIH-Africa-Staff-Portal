@@ -104,8 +104,11 @@ class ExecutiveProjectTracker
                     ->orWhere(fn ($q) => $q->where('planned_start', '<=', $to)->where('internal_eta', '>=', $from));
             })->with(['task', 'parts.task'])->get();
         foreach ($briefs as $brief) {
+            // Recurring system/developer assignments belong in Daily tasks, rather than project journeys.
+            if ($brief->legacy && in_array($brief->task?->title, Task::LEGACY_AUTO_COMPLETED_TITLES, true)) continue;
             $packages = $brief->is_group && $brief->parts->isNotEmpty() ? $brief->parts : collect([$brief]);
             $complete = $packages->every(fn ($part) => in_array($part->stage, ['completed','archived'], true) && $part->completed_at);
+            $reportedComplete = $packages->every(fn ($part) => in_array($part->stage, ['completed','archived'], true));
             $review = $packages->every(fn ($part) => in_array($part->stage, ['in_review','delivered','completed','archived'], true));
             $working = $packages->contains(fn ($part) => !in_array($part->stage, ['brief_received','backlog','needs_info'], true));
             $people = collect();
@@ -117,15 +120,15 @@ class ExecutiveProjectTracker
             $steps = [
                 $this->step('Brief received', 'Brief originator', 'done', $brief->received_at?->format('d M Y H:i') ?? 'Recorded creative brief'),
                 $this->step('Design & collaboration', 'Creatives + supporting staff', $review ? 'done' : 'current', $packages->count().' work packages · '.Str::headline($brief->stage)),
-                $this->step('Review / client feedback', 'Creative lead / Client Relations', $complete ? 'done' : ($review ? 'current' : 'waiting'), 'Submission and review recorded in the creative brief'),
-                $this->step('Creative completion', 'Creative lead', $complete ? 'done' : 'waiting', $complete ? 'Completion verified' : 'Awaiting verified completion'),
+                $this->step('Review / client feedback', 'Creative lead / Client Relations', $reportedComplete ? 'done' : ($review ? 'current' : 'waiting'), 'Submission and review recorded in the creative brief'),
+                $this->step('Creative completion', 'Creative lead', $complete ? 'done' : ($reportedComplete ? 'current' : 'waiting'), $complete ? 'Completion verified' : ($reportedComplete ? 'Completion reported; verification timestamp not recorded' : 'Awaiting verified completion')),
             ];
             $rows->push($this->row('creative-'.$brief->id, 'projects', $brief->title, $brief->client,
                 ['creatives'], $people->all(), $review && !$complete ? ($brief->reviewer_id ?: $brief->requester_id) : ($brief->assignee_id ?: $brief->requester_id),
-                $complete ? 'Creative complete' : ($review ? 'Creative review / feedback' : ($working ? 'Design & collaboration' : 'Creative planning')),
+                $complete ? 'Creative complete' : ($reportedComplete ? 'Completion verification' : ($review ? 'Creative review / feedback' : ($working ? 'Design & collaboration' : 'Creative planning'))),
                 $steps, [['label'=>'Creative brief', 'title'=>$brief->reference, 'url'=>route('portal.creative', ['request'=>$brief->id])]],
-                $brief->internal_eta ?: $brief->requested_deadline, filled($brief->blocker), $complete, false, $brief->updated_at,
-                'Creative-origin / unlinked brief', ['No connected end-to-end project is recorded. Operations handover and execution are not inferred.'], $brief->blocker));
+                $brief->internal_eta ?: $brief->requested_deadline, filled($brief->blocker) || ($reportedComplete && !$complete), $complete, false, $brief->updated_at,
+                'Creative-origin / unlinked brief', ['No connected end-to-end project is recorded. Operations handover and execution are not inferred.'], $brief->blocker, null, !$reportedComplete));
         }
 
         $private = $viewer->isCvoOrSuperAdmin() || $viewer->canAuditHrAndFinance();
@@ -184,7 +187,6 @@ class ExecutiveProjectTracker
         foreach ($tasks as $task) {
             if (!$task->canBeViewedBy($viewer)) continue;
             // Creative briefs already provide the richer task journey, including parent packages.
-            if ($task->creativeRequest) continue;
             $verified = $task->completion_review_status==='approved';
             $reported = in_array(strtolower($task->status ?? ''),['completed','done','approved','paid'],true);
             $department = User::normalizeDepartmentKey($task->department ?: $task->assignee?->department);
@@ -222,10 +224,10 @@ class ExecutiveProjectTracker
         return compact('records','summary','counts','distribution','type','status','from','to','period','names')+['updatedAt'=>now()];
     }
 
-    private function row(string $key,string $type,string $title,?string $client,array $departments,array $people,?int $owner,string $current,array $steps,array $sources,$due,bool $attention,bool $complete,bool $cancelled,$updated,string $origin,array $gaps=[],?string $blocker=null,$progress=null): array
+    private function row(string $key,string $type,string $title,?string $client,array $departments,array $people,?int $owner,string $current,array $steps,array $sources,$due,bool $attention,bool $complete,bool $cancelled,$updated,string $origin,array $gaps=[],?string $blocker=null,$progress=null,bool $overdueEligible=true): array
     {
         try { $due=$due ? Carbon::parse($due) : null; } catch (\Throwable) { $due=null; }
-        $overdue=!$complete&&!$cancelled&&$due&&$due->copy()->endOfDay()->isPast();
+        $overdue=$overdueEligible&&!$complete&&!$cancelled&&$due&&$due->copy()->endOfDay()->isPast();
         return ['key'=>$key,'type'=>$type,'title'=>$title,'client'=>$client,'departments'=>array_values(array_unique($departments)),
             'people_ids'=>collect($people)->filter(fn($id)=>is_numeric($id)&&(int)$id>0)->map(fn($id)=>(int)$id)->unique()->values()->all(),'owner_id'=>$owner,'current'=>$current,'steps'=>$steps,
             'sources'=>$sources,'due'=>$due,'attention'=>!$cancelled&&($attention||$overdue),'overdue'=>$overdue,'complete'=>$complete,'cancelled'=>$cancelled,

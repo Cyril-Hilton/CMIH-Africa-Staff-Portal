@@ -96,6 +96,27 @@ class ExecutiveProjectTrackerTest extends TestCase
         $this->get(route('dashboard'))->assertOk()->assertSee('Live Project & Team Tracker',false)->assertSee('aria-label="Tracker work types"',false);
     }
 
+    public function test_recurring_assignments_stay_in_daily_tasks_and_legacy_completion_is_not_mislabeled_as_review(): void
+    {
+        $this->travelTo(now()->setDate(2026,11,18)->setTime(12,0));
+        $viewer=User::factory()->create(['status'=>'active','access_role'=>'super_admin']);
+        $owner=User::factory()->create(['department'=>'creatives']);
+        foreach ([Task::LEGACY_AUTO_COMPLETED_TITLES[0], 'Legacy campaign artwork'] as $index=>$title) {
+            $task=Task::create(['title'=>$title,'department'=>'creatives','assigned_to'=>$owner->id,'assigned_by'=>$owner->id,
+                'status'=>'Completed','priority'=>'Medium','due_on'=>'2026-11-17']);
+            CreativeRequest::create(['uuid'=>(string)Str::uuid(),'reference'=>'CR-OLD-'.$index,'title'=>$title,
+                'task_id'=>$task->id,'requester_id'=>$owner->id,'assignee_id'=>$owner->id,'legacy'=>true,'stage'=>'completed','requested_deadline'=>'2026-11-17']);
+        }
+        $this->actingAs($viewer);
+        $recurring=$this->tracker(['tracker_type'=>'all','tracker_q'=>Task::LEGACY_AUTO_COMPLETED_TITLES[0]])->assertOk()->viewData('tracker');
+        $this->assertSame(0,$recurring['counts']['projects']);
+        $this->assertSame('tasks',$recurring['records']->first()['type']);
+        $legacy=$this->tracker(['tracker_q'=>'Legacy campaign artwork'])->assertOk()->viewData('tracker')['records']->first();
+        $this->assertSame('Completion verification',$legacy['current']);
+        $this->assertFalse($legacy['overdue']);
+        $this->assertFalse($legacy['complete']);
+    }
+
     public function test_tracker_preserves_confidentiality_and_requires_executive_access(): void
     {
         $this->travelTo(now()->setDate(2026,11,18)->setTime(12,0));
