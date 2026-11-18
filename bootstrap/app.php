@@ -32,6 +32,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
             if ($e->getStatusCode() === 419) {
+                if ($request->is('portal/attendance/clock-in')) {
+                    $message = 'Your clock-in session expired. Please use Clock In on the dashboard to try again.';
+                    if ($request->expectsJson()) return response()->json(['message' => $message], 419);
+                    return redirect()->route('dashboard')
+                        ->withInput($request->only('daily_objective', 'remote_notes'))
+                        ->withErrors(['attendance' => $message]);
+                }
                 return back()->withInput()->with('status', 'Your session has expired. Please refresh the page and try again.');
             }
         });

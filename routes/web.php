@@ -293,6 +293,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/messages/broadcast/create', [MessageController::class, 'createBroadcast'])->name('messages.broadcast.create');
 
     Route::get('/hr-reporting/attendance', \App\Http\Controllers\Portal\HrAttendanceController::class)->name('hr-reporting.attendance');
+    Route::get('/attendance/clock-in', [\App\Http\Controllers\Portal\AttendanceController::class, 'clockInPage'])->name('attendance.clock-in.recover');
     Route::post('/attendance/clock-in', [\App\Http\Controllers\Portal\AttendanceController::class, 'clockIn'])->name('attendance.clock-in');
     Route::post('/attendance/clock-out', [\App\Http\Controllers\Portal\AttendanceController::class, 'clockOut'])->name('attendance.clock-out');
     Route::get('/attendance-performance/export', \App\Http\Controllers\Portal\AttendancePerformanceExportController::class)->name('attendance-performance.export');

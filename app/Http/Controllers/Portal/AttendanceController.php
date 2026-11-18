@@ -9,20 +9,37 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class AttendanceController extends Controller
 {
+    /** Recover a refreshed, bookmarked or login-restored clock-in URL without changing attendance. */
+    public function clockInPage(Request $request): RedirectResponse
+    {
+        $recorded = Attendance::where('user_id', $request->user()->id)
+            ->whereDate('clock_in_at', Carbon::today())->exists();
+
+        return redirect()->route('dashboard')->with('status', $recorded
+            ? 'You are already clocked in for today.'
+            : 'Please use Clock In on your dashboard to submit your attendance.');
+    }
+
     /**
      * Handle Clock In request.
      */
     public function clockIn(Request $request): RedirectResponse
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'daily_objective' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric'],
             'longitude' => ['nullable', 'numeric'],
             'remote_notes' => ['nullable', 'string', 'max:500'],
         ]);
+
+        if ($validator->fails()) {
+            throw (new ValidationException($validator))->redirectTo(route('dashboard'));
+        }
 
         $user = Auth::user();
         
@@ -46,7 +63,8 @@ class AttendanceController extends Controller
             ->first();
 
         if (! $todayTask) {
-            return back()->withErrors(['attendance' => 'You must add a task or project for today before you can clock in.']);
+            return redirect()->route('dashboard')->withInput($request->only('daily_objective', 'remote_notes'))
+                ->withErrors(['attendance' => 'You must add a task or project for today before you can clock in.']);
         }
 
         $dailyObjective = trim((string) $request->input('daily_objective', ''));

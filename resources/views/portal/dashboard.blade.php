@@ -114,13 +114,13 @@
                             <div>
                                 <textarea id="daily_objective" name="daily_objective" rows="2"
                                     class="w-full rounded-xl border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-sm text-brand-white placeholder-brand-white/40 focus:border-brand-red focus:ring-0" 
-                                    placeholder="Optional: add a focus note, or leave blank to use your first task for today."></textarea>
+                                    placeholder="Optional: add a focus note, or leave blank to use your first task for today.">{{ old('daily_objective') }}</textarea>
                             </div>
                             
                             <div class="flex flex-wrap items-center gap-3">
                                 <input type="text" name="remote_notes" id="remote_notes" 
                                     class="flex-1 min-w-[200px] rounded-xl border border-brand-white/10 bg-brand-black/40 px-3 py-2 text-xs text-brand-white placeholder-brand-white/40 focus:border-brand-red focus:ring-0" 
-                                    placeholder="Remote notes (e.g. WFH, Field Site - optional)">
+                                    placeholder="Remote notes (e.g. WFH, Field Site - optional)" value="{{ old('remote_notes') }}">
                                 
                                 <button type="submit" id="clock-in-btn" data-clock-in-submit
                                     class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-6 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-brand-white transition-all flex items-center gap-2">

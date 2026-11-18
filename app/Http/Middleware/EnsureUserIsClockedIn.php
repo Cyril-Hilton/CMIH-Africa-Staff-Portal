@@ -35,6 +35,7 @@ class EnsureUserIsClockedIn
         $allowedRoutes = [
             'dashboard',
             'portal.attendance.clock-in',
+            'portal.attendance.clock-in.recover',
             'portal.attendance-performance.export',
             'portal.notifications.poll',
             'portal.announcements',
