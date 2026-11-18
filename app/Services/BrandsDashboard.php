@@ -12,7 +12,7 @@ class BrandsDashboard {
   $aliases=User::departmentAliases('brands_marketing');
   $weekly=WeeklyConsolidatedItem::with('leadStaff','creator')->whereIn('department',$aliases)->whereDate('week_start','<=',$to)->whereDate('week_end','>=',$from)->when($period!=='week',fn($q)=>$q->whereDate('week_start','>=',$from))->get();
   if(!BrandsReports::manager($actor))$weekly=$weekly->reject(fn($w)=>in_array($w->report_status,['draft','submitted','returned'],true))->values();
-  $registers=PerformanceRegister::whereIn('department',$aliases)->whereNotNull('approved_at')->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)->when($period!=='week',fn($q)=>$q->whereDate('period_start','>=',$from))->get();
+  $registers=PerformanceRegister::whereIn('department',$aliases)->whereNotNull('approved_at')->where('status','!=','cancelled')->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)->when($period!=='week',fn($q)=>$q->whereDate('period_start','>=',$from))->get();
   $historyIds=$from->lt(now()->startOfWeek())?$weekly->pluck('lead_staff_id')->merge($weekly->pluck('created_by'))->merge($weekly->flatMap(fn($w)=>$w->supporting_staff_ids??[]))->merge($registers->pluck('owner_id')):collect();
   $staff=User::internalStaff()->whereIn('department',$aliases)->orderBy('name')->get()->filter(fn($u)=>$u->isActive()||($u->status==='suspended'&&$historyIds->contains($u->id)))->values();
   $names=User::internalStaff()->pluck('name','id');$owner=$v['owner']??null;
@@ -95,7 +95,7 @@ class BrandsDashboard {
  }
  private function peopleSummary(Collection $people):array {
   // Headcount is a snapshot, not an additive total across reporting weeks.
-  $latest=$people->where('week',$people->max('week'))->sortByDesc('id')->unique(fn($r)=>$r['cohort'].'|'.$r['scope_label']);
+  $latest=$people->sortBy([['week','desc'],['id','desc']])->unique(fn($r)=>$r['cohort'].'|'.$r['scope_label']);
   $total=fn($key)=>$latest->isEmpty()||$latest->contains(fn($r)=>!isset($r[$key]))?null:$latest->sum($key);
   $planned=$total('planned_count');$attrition=$total('attrition_count');
   return [['Planned',$planned,'number'],['Active',$total('active_count'),'number'],['Attrition',$attrition,'number'],['Attrition Rate',$planned>0&&$attrition!==null?round(100*$attrition/$planned,1):null,'percent'],['Leave',$total('leave_count'),'number'],['Absent',$total('absent_count'),'number']];

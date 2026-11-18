@@ -106,7 +106,7 @@ class PerformanceScoringService
         $workdays = [];
 
         for ($date = $effectiveStart->copy(); $date->lte($endDate); $date->addDay()) {
-            if ($date->isWeekend() || in_array($date->toDateString(), config('company_calendar.non_working_dates', []), true) || in_array($date->toDateString(), $approvedLeaveDates, true)) {
+            if ($date->isWeekend() || in_array($date->toDateString(), \App\Services\CompanyCalendar::nonWorkingDates(), true) || in_array($date->toDateString(), $approvedLeaveDates, true)) {
                 continue;
             }
 

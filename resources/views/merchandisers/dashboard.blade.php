@@ -241,6 +241,7 @@
                 <main id="merchandiser-dashboard-main"
                       data-silent-root
                       class="main-scrollbar-none min-h-0 flex-1 max-w-6xl w-full mx-auto overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-5 sm:px-6 sm:py-8 lg:px-10 min-w-0 space-y-6">
+@include('partials.breadcrumbs')
 
                     <!-- Welcome Banner -->
                     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-black/40 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between hover:border-brand-red/20 transition-all duration-300">

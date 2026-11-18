@@ -94,7 +94,7 @@ class LeaveWorkflowTest extends TestCase
             'comments' => 'Please review this request.',
         ]);
 
-        $response = $this->actingAs($hr)->get(route('portal.hr'));
+        $response = $this->actingAs($hr)->get(route('portal.hr',['hr_existing'=>1]));
 
         $response->assertOk();
         $response->assertSee('All Staff Leave Manager');

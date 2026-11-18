@@ -18,7 +18,12 @@ Live Creative Workflow & Evidence
 {{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}
 @endif
 </span></div>
+@if($key==='hr_admin'&&!\App\Services\HrDashboard::canRead(auth()->user()))
+<p class="mt-4 text-sm text-brand-ash">HR records are restricted. You can access your own profile and leave requests.</p><a class="dw-link" href="{{ route('portal.leaves') }}">My leaves &amp; absences</a>
+@else
+@if($key!=='hr_admin'||\App\Services\HrLiveRegisters::full(auth()->user()))
 @include('portal.partials.source-performance', ['sourcePerformance'=>$department['source_performance'] ?? null])
+@endif
 @if($key === 'creatives')
 @include('portal.partials.weekly-report-summary')
 @include('portal.creative.workspace',['embedded'=>true])
@@ -37,6 +42,7 @@ Live Creative Workflow & Evidence
 <a class="dw-link my-3 inline-block" href="{{ route('dashboard', ['weekly_department' => 'hr_admin']) }}#staff-weekly-performance">Back to HR &amp; Admin Dashboard</a>
 @endif
 @include('portal.partials.department-workspace')
+@endif
 @endif
 </div>@endforeach
 </section>

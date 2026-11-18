@@ -118,7 +118,8 @@ class DashboardInsights
         if ($viewer->hasFullHrAccess() || $viewer->canAuditHrAndFinance()) {
             $request = \Illuminate\Http\Request::create('/dashboard', 'GET', ['hr_period' => 'month', 'hr_from' => $start]);
             $request->setUserResolver(fn () => $viewer);
-            $hr = app(HrDashboard::class)->build($request);
+            $a=app(HrLiveRegisters::class)->attendance($viewer,$start,$end);
+            $hr=['stats'=>['On-time staff days'=>$a['on_time'],'Late staff days'=>$a['late'],'Fleet requests in period'=>\App\Models\FleetRequest::whereBetween('requested_date',[$start,$end])->count()]];
             foreach (['On-time staff days', 'Late staff days', 'Fleet requests in period'] as $label) {
                 if (isset($hr['stats'][$label])) {
                     $result['hr_admin']['items'][] = ['label' => $label, 'scope' => 'HR & Admin overview', 'result' => $hr['stats'][$label]];

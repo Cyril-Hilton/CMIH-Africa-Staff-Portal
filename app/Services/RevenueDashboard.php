@@ -20,7 +20,7 @@ class RevenueDashboard
         $to = match ($period) {
             'monthly' => $anchor->copy()->endOfMonth(),'yearly' => $anchor->copy()->endOfYear(),default => $anchor->copy()->endOfWeek()
         };
-        $projects = CrmPipelineProject::with(['owner', 'revenueSubmitter', 'revenueReviewer'])->where('source_period_confirmed', true)->whereBetween('week_start', [$from->toDateString(), $to->toDateString()])->get();
+        $projects = CrmPipelineProject::with(['owner', 'revenueSubmitter', 'revenueReviewer'])->where('source_period_confirmed', true)->whereDate('week_start','<=',$to->toDateString())->whereRaw('COALESCE(week_end, week_start) >= ?',[$from->toDateString()])->get();
         // These are snapshot balances, never a sum of repeated weekly declarations.
         $projects = app(ClientRelationsCentre::class)->latest($projects)->filter(fn ($p) => $p->actual_amount !== null);
         $targets = CrmAccountTarget::with(['owner', 'revenueSubmitter', 'revenueReviewer'])->where('needs_reconciliation', false)->whereDate('period_start', '<=', $to)->whereDate('period_end', '>=', $from)->whereNotNull('actual_amount')->get();

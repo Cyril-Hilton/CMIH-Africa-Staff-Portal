@@ -18,8 +18,8 @@ class ExecutiveDashboardSummary
         if (!$user->isCvoOrSuperAdmin()) return [];
         return [
             ['label'=>'Financial Reviews','count'=>PettyCashClaim::whereIn('status',['Pending','Updated','Submitted to CVO','Finance Approved'])->count()+ProjectBudget::whereIn('status',['Submitted','Submitted to CVO','Finance Approved'])->count()+SupplierInvoice::whereIn('status',['Pending','Updated','Submitted to CVO','Finance Approved'])->count(),'route'=>'portal.finance','description'=>'Claims, budgets and invoices awaiting review.'],
-            ['label'=>'Leave Approvals','count'=>LeaveApplication::whereIn('status',['pending_cvo','pending_manager_2','pending_hr_director'])->count(),'route'=>'portal.leaves','description'=>'Requests in the executive approval queue.'],
-            ['label'=>'Appraisal Reviews','count'=>Appraisal::whereIn('status',['pending_cvo','pending_hr'])->count(),'route'=>'portal.appraisals.index','description'=>'Appraisals requiring HR or executive attention.'],
+            ['label'=>'Leave Approvals','count'=>LeaveApplication::whereIn('status',['pending_cvo','pending_hr'])->where('user_id','!=',$user->id)->count(),'route'=>'portal.leaves','description'=>'Requests in the executive approval queue.'],
+            ['label'=>'Appraisal Reviews','count'=>Appraisal::where('status','manager_reviewed')->count(),'route'=>'portal.appraisals.index','description'=>'Appraisals requiring HR or executive attention.'],
             ['label'=>'Staff Approvals','count'=>User::internalStaff()->where('status','pending')->count(),'route'=>'portal.people','description'=>'Pending staff accounts and onboarding decisions.'],
         ];
     }

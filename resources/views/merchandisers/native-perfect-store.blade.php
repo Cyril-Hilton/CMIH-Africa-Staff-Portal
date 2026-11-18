@@ -27,6 +27,7 @@
     </header>
 
     <main class="mx-auto max-w-6xl px-4 py-6">
+@include('partials.breadcrumbs')
         @if ($errors->any())
             <div class="mb-5 rounded-2xl border border-brand-red/30 bg-brand-red/10 p-4 text-sm text-red-100">
                 <p class="font-bold">Please complete the highlighted required fields.</p>

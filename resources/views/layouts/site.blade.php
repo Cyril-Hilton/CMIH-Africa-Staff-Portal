@@ -49,6 +49,7 @@
             @include('partials.site-header')
 
             <main class="flex-1">
+                @include('partials.breadcrumbs')
                 @yield('content')
             </main>
 

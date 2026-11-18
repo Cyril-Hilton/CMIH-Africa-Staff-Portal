@@ -77,6 +77,7 @@
 
                 <div class="w-full">
                     <div class="rounded-2xl border border-brand-white/10 bg-brand-black/70 p-8 shadow-2xl">
+                        @include('partials.breadcrumbs')
                         {{ $slot }}
                     </div>
                 </div>

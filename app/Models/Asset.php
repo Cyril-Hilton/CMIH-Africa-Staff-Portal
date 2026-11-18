@@ -12,6 +12,7 @@ class Asset extends Model
     use HasFactory;
 
     protected $fillable = [
+        'hr_details',
         'name',
         'description',
         'type',
@@ -44,6 +45,7 @@ class Asset extends Model
     protected function casts(): array
     {
         return [
+            'hr_details' => 'array',
             'is_warehouse_tracked' => 'boolean',
             'warehouse_quantity' => 'integer',
             'asset_value' => 'decimal:2',

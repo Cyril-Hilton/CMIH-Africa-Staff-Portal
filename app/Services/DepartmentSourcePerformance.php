@@ -132,9 +132,18 @@ class DepartmentSourcePerformance
             }
         }
         $metrics = array_merge($metrics, $this->additionalMetrics($department, $records, $weekly, $from, $to));
+        if($department==='hr_admin'){
+            $live=app(HrRegisterKpis::class)->build($from,$to,$owner);$areas=$live['areas'];
+            $legacyMetrics=collect($metrics)->filter(fn($m)=>$m['target']!==null)->map(function($m){
+                $tab=str_contains($m['name'],'recruitment')?'recruitment':(str_contains($m['name'],'Appraisals')?'performance':(str_contains($m['name'],'maintenance')?'facilities':(str_contains($m['name'],'fuel')?'fleet':'people')));
+                $m['area']=config('hr_workspace.tabs.'.$tab.'.label');return $m;
+            });
+            $metrics=array_merge($live['metrics'],$legacyMetrics->all());
+            $metrics=collect($metrics)->reject(fn($m)=>$m['target']===null&&str_contains($m['name'],'on-time activity')&&collect($metrics)->contains(fn($n)=>$n['area']===$m['area']&&$n['target']!==null))->values()->all();
+        }
         $areaNames = array_column($areas, 'name');
         foreach ($metrics as &$metric) {
-            $metric['area'] = $this->areaFor($department, $metric['name'], $areaNames);
+            $metric['area'] = $metric['area'] ?? $this->areaFor($department, $metric['name'], $areaNames);
             $metric['credited'] = min(100, max(0, $metric['achievement'] ?? 0));
         }
         unset($metric);
@@ -155,7 +164,7 @@ class DepartmentSourcePerformance
             'scoring_note'=>'Equal share per required reporting area; recorded targets and actuals determine achievement. Missing reports, targets or results earn zero credit. Manager-assigned KPI weights take priority in formal scoring.',
             'attendance'=>$includeAttendance?$this->attendance($department,$from,$to,$owner):null,
             'coverage'=>count($areas)?round(100*$reported/count($areas),1):null,
-            'from'=>$from,'to'=>$to,'provisional'=>Carbon::parse($to)->endOfDay()->gte(now())];
+            'from'=>$from,'to'=>$to,'native_sources'=>$department==='hr_admin','provisional'=>Carbon::parse($to)->endOfDay()->gte(now())];
     }
 
     private function areaFor(string $department, string $name, array $areas): ?string

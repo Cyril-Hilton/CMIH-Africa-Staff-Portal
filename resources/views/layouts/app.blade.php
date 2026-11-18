@@ -88,6 +88,7 @@
                     <main id="portal-main-content"
                           data-silent-root
                           class="main-scrollbar-none min-h-0 flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
+                        @include('partials.breadcrumbs')
                         @isset($header)
                             <div class="mb-6">
                                 {{ $header }}

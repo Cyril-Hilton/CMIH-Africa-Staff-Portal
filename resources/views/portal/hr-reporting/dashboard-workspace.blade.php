@@ -1,3 +1,6 @@
+@if($modernWorkspace ?? false)
+@include('portal.hr-reporting.live-workspace')
+@else
 @php
     $filters = request()->only(['report_period','report_date']) + ['weekly_department' => 'hr_admin', 'hr_tab' => $tab, 'hr_period' => $period, 'hr_from' => $anchorDate, 'hr_to' => $to, 'hr_owner' => $owner ?: null];
     $tableFilters = ['hr_q' => $search ?: null, 'hr_category' => $category ?: null, 'hr_status' => $status ?: null, 'hr_sort' => $sort, 'hr_direction' => $direction];
@@ -165,3 +168,5 @@
         <div class="mt-4"><x-dashboard-pagination :paginator="$activities" item-label="activities" /></div>
     </section>
 </section>
+
+@endif

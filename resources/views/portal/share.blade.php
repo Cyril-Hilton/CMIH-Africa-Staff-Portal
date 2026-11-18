@@ -64,6 +64,7 @@
 
     <!-- Main Content Grid -->
     <main class="max-w-7xl mx-auto px-6 mt-12 space-y-8">
+@include('partials.breadcrumbs')
 
         <!-- Status Alerts -->
         @if (session('status'))

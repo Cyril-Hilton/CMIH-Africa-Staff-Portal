@@ -11,6 +11,7 @@ class ThirdPartyVendor extends Model
     use HasFactory;
 
     protected $fillable = [
+        'hr_details',
         'name',
         'category',
         'assigned_project_id',
@@ -18,6 +19,8 @@ class ThirdPartyVendor extends Model
         'deliverable_status',
         'performance_review_notes',
     ];
+
+    protected function casts(): array { return ['hr_details'=>'array']; }
 
     public function campaign(): BelongsTo
     {

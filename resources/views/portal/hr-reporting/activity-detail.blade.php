@@ -1,0 +1,5 @@
+<x-app-layout><x-slot name="header"><h1 class="text-2xl font-semibold">HR/Admin Activity</h1></x-slot>
+<article class="glass-panel rounded-2xl p-6 space-y-4"><h2 class="text-xl font-semibold">{{ $activity->activity }}</h2><p>{{ $activity->category }} · {{ $activity->priority }} priority · {{ $activity->status }} @if($activity->isOverdue())<strong class="text-red-300">Overdue</strong>@endif</p><p>Assigned to {{ $activity->assignee?->name }} · Opened {{ $activity->opened_on }} · Deadline {{ $activity->deadline }}</p><p class="whitespace-pre-line">{{ $activity->remarks }}</p>@if($activity->completed_at)<p>Completed {{ $activity->completed_at->format('d M Y H:i') }}</p>@endif
+@if(\App\Services\HrLiveRegisters::full(auth()->user()))<a href="{{ route('portal.hr-workspace',['hr_tab'=>$activity->tab==='operations'?'facilities':$activity->tab]) }}" class="underline">Open HR/Admin workspace</a>@endif
+@if($activity->attachment && \App\Services\HrLiveRegisters::full(auth()->user()))<a href="{{ route('portal.hr-dashboard.activities.attachment',$activity) }}" class="underline">Download attachment</a>@endif
+</article></x-app-layout>

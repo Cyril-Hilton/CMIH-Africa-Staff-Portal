@@ -37,7 +37,7 @@ class HrDashboardWorkspaceTest extends TestCase
         $url = route('dashboard', ['weekly_department' => 'hr_admin', 'hr_tab' => 'recruitment',
             'hr_period' => 'range', 'hr_from' => '2026-10-26', 'hr_to' => '2026-11-08']);
         $this->get($url.'&hr_owner='.$manager->id)->assertOk()->assertSee('Confidential recruitment follow-up')
-            ->assertSee('Show action points')->assertSee('Add HR Entry')->assertDontSee('Add Administrator Entry');
+            ->assertSee('Show action points')->assertSee('Add Activity')->assertDontSee('Add Administrator Entry');
         $this->get($url.'&hr_owner='.$administrator->id)->assertOk()->assertDontSee('Confidential recruitment follow-up');
         $this->get(route('portal.hr-dashboard.activities.attachment', $entry))->assertOk()->assertDownload('reference.txt');
         unset($data['attachment']);

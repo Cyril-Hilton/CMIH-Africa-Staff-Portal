@@ -137,6 +137,7 @@ class DepartmentController extends Controller
      */
     public function hr(Request $request)
     {
+        if(!$request->boolean('hr_existing') && (\App\Services\HrLiveRegisters::full($request->user())||$request->user()->isLineManager()))return app(\App\Http\Controllers\Portal\HrRegisterController::class)->index($request);
         $viewer = $request->user();
         $auditOnly = $viewer->canAuditHrAndFinance() && ! $viewer->hasFullHrAccess();
         if (! $auditOnly) {

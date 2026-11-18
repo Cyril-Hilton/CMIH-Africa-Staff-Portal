@@ -23,11 +23,13 @@ class HrDashboard
 
     public static function canRead(User $user): bool
     {
-        return self::canAccess($user) || $user->canAuditHrAndFinance();
+        return self::canAccess($user) || $user->canAuditHrAndFinance() || $user->isLineManager();
     }
 
     public static function showWorkspace(Request $request): bool
     {
+        if(HrLiveRegisters::full($request->user()))return !$request->boolean('hr_existing')&&!$request->has('attendance_period');
+        if($request->user()->isLineManager())return true;
         return self::canRead($request->user())
             && !$request->boolean('hr_existing')
             && !$request->has('attendance_period')
@@ -36,6 +38,7 @@ class HrDashboard
 
     public static function tabs(User $user): array
     {
+        if (HrLiveRegisters::full($user)) return ['overview'=>['Overview',[]]] + collect(config('hr_workspace.tabs'))->map(fn($t)=>[$t['label'],$t['activities']])->all() + ['operations'=>config('hr_dashboard.operations')];
         $tabs = config('hr_dashboard');
         return ($user->hasFullHrAccess() || $user->canAuditHrAndFinance()) ? $tabs : array_intersect_key($tabs, ['overview' => true, 'operations' => true]);
     }
@@ -53,6 +56,7 @@ class HrDashboard
     public function build(Request $request): array
     {
         $user = $request->user();
+        if(HrLiveRegisters::full($user)||$user->isLineManager())return app(HrWorkspace::class)->build($request);
         abort_unless(self::canRead($user), 403);
         $tabs = self::tabs($user);
         $tab = $request->query('hr_tab');

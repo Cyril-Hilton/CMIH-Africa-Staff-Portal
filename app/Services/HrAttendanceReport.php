@@ -29,7 +29,7 @@ class HrAttendanceReport
         $trackingFrom = $tracking ? Carbon::parse($tracking)->startOfDay() : today();
         $leaves = LeaveApplication::whereIn('user_id', $staff->pluck('id'))->where('status', 'approved')->whereDate('start_date', '<=', $to)->whereDate('end_date', '>=', $from)->get()->groupBy('user_id');
         $todayRows = Attendance::whereIn('user_id', $staff->pluck('id'))->whereBetween('clock_in_at', [today(), today()->endOfDay()])->orderBy('clock_in_at')->get()->unique('user_id')->keyBy('user_id');
-        $todayWorkday = ! today()->isWeekend() && ! in_array(today()->toDateString(), config('company_calendar.non_working_dates', []), true);
+        $todayWorkday = ! today()->isWeekend() && ! in_array(today()->toDateString(), \App\Services\CompanyCalendar::nonWorkingDates(), true);
         $summary = $staff->map(function ($user) use ($all, $from, $to, $trackingFrom, $leaves, $todayWorkday, $todayRows) {
             $rows = $all->get($user->id, collect());
             $days = $rows->unique(fn ($r) => $r->clock_in_at->toDateString());
@@ -44,7 +44,7 @@ class HrAttendanceReport
             // Inactive historical staff remain visible through their logs; no employment end date is guessed.
             if ($user->isActive()) {
                 for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
-                    if ($d->isWeekend() || in_array($d->toDateString(), config('company_calendar.non_working_dates', []), true) || ($d->isToday() && now()->lt(today()->setTime(9, 0))) || $leave->contains(fn ($l) => $d->betweenIncluded($l->start_date, $l->end_date))) {
+                    if ($d->isWeekend() || in_array($d->toDateString(), \App\Services\CompanyCalendar::nonWorkingDates(), true) || ($d->isToday() && now()->lt(today()->setTime(9, 0))) || $leave->contains(fn ($l) => $d->betweenIncluded($l->start_date, $l->end_date))) {
                         continue;
                     }
                     $expected[] = $d->toDateString();

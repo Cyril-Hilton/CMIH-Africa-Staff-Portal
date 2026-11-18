@@ -24,6 +24,7 @@
     </header>
 
     <main class="max-w-4xl mx-auto px-4 py-6">
+@include('partials.breadcrumbs')
         
         <form method="POST" action="{{ route('merchandisers.visit.store', $outlet) }}" enctype="multipart/form-data" class="space-y-6"
             x-data="skuAiVisitForm('{{ route('merchandisers.visit.ai-detect', $outlet) }}', '{{ old('sku_entry_mode', 'manual') }}')">

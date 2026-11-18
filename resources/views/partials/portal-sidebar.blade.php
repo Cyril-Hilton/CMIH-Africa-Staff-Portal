@@ -92,6 +92,10 @@
         ['label' => 'Surveys',             'route' => 'portal.surveys.index'],
     ];
 
+    if (($user->isLineManager() && !$user->hasFullHrAccess()) || $user->canAuditHrAndFinance()) {
+        $hrmLinks[] = ['label' => $user->canAuditHrAndFinance() ? 'HR & Admin Registers' : 'My Department HR Records', 'route' => 'portal.hr-workspace'];
+    }
+
     if ($user->canAccessOperationsPrintingRequests()) {
         $hrmLinks[] = ['label' => 'Vendor Printing Requests', 'route' => 'portal.printing-requests.index'];
     }

@@ -54,6 +54,7 @@ class ExecutiveDepartmentRecords
             'registers' => $this->registers($department, $from, $to, $staff, $private),
             default => $this->weekly($department, $from, $to, $staff),
         };
+        if($department==='hr_admin'&&$section==='registers'&&$private)$groups[]=$this->hrLiveRegisters($viewer,$staff);
         return compact('sections', 'section', 'groups');
     }
 
@@ -336,15 +337,25 @@ class ExecutiveDepartmentRecords
         ];
     }
 
+    private function hrLiveRegisters(User $viewer,?int $staff): array
+    {
+        $service=app(HrLiveRegisters::class);
+        $q=\App\Models\HrRegisterRecord::query()->when($staff,fn($q)=>$q->where(fn($q)=>$q->where('created_by',$staff)->orWhere('updated_by',$staff)))->latest('updated_at');
+        return $this->page('HR live registers · current snapshot','hr_live_registers',$q,function($r)use($viewer,$service){
+            $schema=$service->schema($r->kind);$fields=[];foreach($schema['fields']??[] as $key=>$f)$fields[$f['label']]=$service->value($r->data[$key]??null,$f,$viewer);
+            return $this->row($r->label,User::find($r->updated_by??$r->created_by)?->name,$schema['label']??$r->kind,$fields,url:route('portal.hr-workspace',['hr_tab'=>$schema['tab']??'overview','hr_record_q'=>$r->label]));
+        });
+    }
+
     private function hrActivities(string $from, string $to, ?int $staff): array
     {
         $rows = HrDashboardActivity::with(['staff:id,name', 'assignee:id,name'])
             ->whereDate('opened_on', '<=', $to)->where(fn ($q) => $q->whereDate('opened_on', '>=', $from)
                 ->orWhereDate('deadline', '>=', $from)->orWhereNotIn('status', ['Completed', 'Cancelled']))
             ->when($staff, fn ($q) => $q->where(fn ($who) => $who->where('assigned_to', $staff)->orWhere('staff_id', $staff)));
-        return [$this->page('HR & Admin activities', 'hr', $rows, fn ($r) => $this->row($r->activity, $r->assignee?->name, $r->status, [
-            'Category' => $r->category, 'Staff member' => $r->staff?->name, 'Opened' => $r->opened_on, 'Deadline' => $r->deadline, 'Remarks' => $r->remarks,
-        ]))];
+        return [$this->page('HR & Admin activities', 'hr', $rows, fn ($r) => $this->row($r->activity, $r->assignee?->name, $r->status.($r->isOverdue(min($to,today()->toDateString()))?' · Overdue':''), [
+            'Category' => $r->category, 'Staff member' => $r->staff?->name, 'Opened' => $r->opened_on, 'Deadline' => $r->deadline, 'Remarks' => $r->remarks,'Completed at'=>$r->completed_at,'Priority'=>$r->priority,
+        ],url:route('portal.hr-dashboard.activities.show',$r)))];
     }
 
     private function registers(string $department, string $from, string $to, ?int $staff, bool $private, array $kinds = []): array

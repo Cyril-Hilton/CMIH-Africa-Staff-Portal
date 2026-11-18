@@ -415,6 +415,7 @@
                   data-silent-root
                   class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-4 lg:p-8 space-y-6 min-w-0"
                   style="-webkit-overflow-scrolling: touch; touch-action: pan-y;">
+@include('partials.breadcrumbs')
 
                 <!-- Flash -->
                 @if(session('success'))
