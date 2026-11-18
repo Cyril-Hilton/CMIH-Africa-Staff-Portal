@@ -79,3 +79,9 @@ test('the weekly planner plots one shared brief in the lead and supporting staff
  assert.doesNotMatch(studio.weekPlanner(studio.week,end),/data-person-id="1"/);
  assert.match(studio.board(),/data-assignment="support"/);
 });
+
+test('showcase credits people and exposes timeline facts without requiring an image or inventing fault',()=>{
+ const s=make();s.view='report';s.root={dataset:{embedded:'true',week:'2026-11-09',reportTo:'2026-11-15'}};s.params=()=>new URLSearchParams({from:'2026-11-09',to:'2026-11-15'});
+ s.items=[brief({requester:{name:'Client Relations Person'},client_relations_contact:{name:'Account Owner'},supporting_staff:[{id:2,name:'Support Artist'}],accountability_events:[{kind:'changes_requested',feedback_type:'scope_change',actor:'Account Owner',department:'Client Relations',at:'2026-11-12T10:00:00Z',iteration:1}],on_time_submission:true,final_preview:null,next_action:'Awaiting client approval'})];
+ const html=s.exhibit();assert.match(html,/Made visible/);assert.match(html,/Account Owner/);assert.match(html,/Support Artist/);assert.match(html,/Scope change requested by/);assert.match(html,/met the recorded Creative HOD deadline/);assert.match(html,/Visual preview optional/);assert.match(html,/No effect on KPI scores/);assert.doesNotMatch(html,/<script>/);assert.equal(s.primaryView(),'report');
+});

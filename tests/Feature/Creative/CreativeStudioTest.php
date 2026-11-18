@@ -137,7 +137,7 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$neutral=$this->staff('finance');$this->actingAs($sender)->postJson(route('portal.creative.store'),['title'=>'Dove artwork request','brief'=>'Create campaign artwork with suitable print formats.','creative_type'=>'Flyer / Poster','priority'=>'High','visibility'=>'shared','requested_deadline'=>now()->addDays(5)->toIso8601String(),'requester_id'=>$neutral->id,'received_at'=>'2000-01-01'])->assertCreated();
   $r=CreativeRequest::firstOrFail();$this->assertSame($sender->id,$r->requester_id);$this->assertTrue($r->received_at->isToday());$this->assertSame('client_relations',$r->department);
   $this->actingAs($neutral)->getJson(route('portal.creative.show',$r))->assertOk()->assertJsonPath('requester.name',$sender->name)->assertJsonCount(1,'history');
-  $this->get('/portal/creative')->assertOk()->assertSee('Creative Studio')->assertSee('Reports &amp; Presentations', false);
+  $this->get('/portal/creative')->assertOk()->assertSee('Creative Studio')->assertSee('Work Flow')->assertSee('Showcase');
  }
  public function test_intake_validation_and_unregistered_users_cannot_write():void {
   $this->postJson(route('portal.creative.store'),[])->assertUnauthorized();$this->actingAs($this->staff())->postJson(route('portal.creative.store'),['title'=>'No','requested_deadline'=>now()->subDay()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors(['title','brief','requested_deadline']);$this->assertDatabaseCount('creative_requests',0);
@@ -434,4 +434,15 @@ class CreativeStudioTest extends TestCase {
   $this->assertStringContainsString('own assigned work',$r->task->fresh()->completion_review_note);
  }
 
+ public function test_showcase_uses_final_deliverables_and_exposes_accountability_without_requiring_a_screenshot(): void {
+  $requester=$this->staff();$creative=$this->staff('creatives');$r=$this->brief($requester);
+  $r->forceFill(['assignee_id'=>$creative->id,'stage'=>'completed','iteration'=>1,'internal_eta'=>now()->subDay(),'first_submitted_at'=>now()->subDays(2),'delivered_at'=>now()->subDay(),'completed_at'=>now()])->save();
+  $r->attachments()->create(['uploaded_by'=>$requester->id,'kind'=>'reference','iteration'=>0,'path'=>'reference.png','mime'=>'image/png','original_name'=>'Reference only','size'=>100]);
+  $r->updates()->create(['author_id'=>$requester->id,'kind'=>'changes_requested','body'=>'Additional scope from client','metadata'=>['feedback_type'=>'scope_change','iteration'=>1]]);
+  $before=app(\App\Services\Creative\CreativeProjection::class)->item($r->fresh(),$requester);
+  $this->assertNull($before['final_preview']);$this->assertSame($requester->name,$before['client_relations_contact']['name']);$this->assertSame('scope_change',$before['accountability_events'][0]['feedback_type']);
+  $r->attachments()->create(['uploaded_by'=>$creative->id,'kind'=>'deliverable','iteration'=>0,'path'=>'final.pdf','mime'=>'application/pdf','original_name'=>'Final client work.pdf','size'=>200]);
+  $after=app(\App\Services\Creative\CreativeProjection::class)->item($r->fresh(),$requester);
+  $this->assertSame('Final client work.pdf',$after['final_preview']['name']);$this->assertSame($before['on_time_submission'],$after['on_time_submission']);$this->assertSame($before['quality_score'],$after['quality_score']);
+ }
 }
