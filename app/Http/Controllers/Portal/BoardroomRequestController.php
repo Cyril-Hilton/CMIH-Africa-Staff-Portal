@@ -25,8 +25,8 @@ class BoardroomRequestController extends Controller
             'date' => 'nullable|date_format:Y-m-d',
             'booking' => 'nullable|integer|min:1',
         ]);
-        $bookings = BoardroomRequest::with(['reviewer:id,name', 'checkInRecorder:id,name', 'checkOutRecorder:id,name'])
-            ->when(!$canReadAll, fn ($query) => $query->where('user_id', $user->id));
+        $bookings = BoardroomRequest::with(['reviewer:id,name', 'checkInRecorder:id,name', 'checkOutRecorder:id,name', 'invitedStaff:id,name'])
+            ->when(!$canReadAll, fn ($query) => $query->where(fn($q) => $q->where('user_id', $user->id)->orWhereHas('invitedStaff',fn($q)=>$q->where('users.id',$user->id))));
         $lastUse = (clone $bookings)->whereNotNull('checked_in_at')->latest('checked_in_at')->first();
         $records = (clone $bookings)->when($filters['booking'] ?? null, fn ($query, $id) => $query->whereKey($id))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
@@ -36,7 +36,8 @@ class BoardroomRequestController extends Controller
             abort_if($records->total() === 0, 404);
         }
 
-        return response()->view('portal.boardroom-requests', compact('records', 'lastUse', 'canManage', 'canReadAll'))
+        $meetingStaff=User::internalStaff()->where('status','active')->orderBy('name')->get(['id','name','department']);
+        return response()->view('portal.boardroom-requests', compact('records', 'lastUse', 'canManage', 'canReadAll','meetingStaff'))
             ->header('Cache-Control', 'private, no-store');
     }
 
@@ -44,23 +45,16 @@ class BoardroomRequestController extends Controller
     {
         $user = $request->user();
         $this->authorizeStaff($user);
-        $data = $request->validate([
-            'date' => 'required|date_format:Y-m-d',
-            'start' => 'required|date_format:H:i',
-            'end' => 'required|date_format:H:i|after:start',
-            'purpose' => 'required|string|max:2000',
-            'attendees' => 'required|integer|min:1|max:1000',
-        ]);
-        $start = Carbon::createFromFormat('!Y-m-d H:i', $data['date'].' '.$data['start'], self::TIMEZONE);
-        $end = Carbon::createFromFormat('!Y-m-d H:i', $data['date'].' '.$data['end'], self::TIMEZONE);
-        if ($start->lte(now())) {
-            throw ValidationException::withMessages(['start' => 'Choose a future start date and time.']);
-        }
-
-        $booking = BoardroomRequest::create([
-            'user_id' => $user->id, 'requester_name' => $user->name, 'purpose' => $data['purpose'],
-            'attendees' => $data['attendees'], 'starts_at' => $start, 'ends_at' => $end, 'status' => 'pending',
-        ]);
+        [$data,$start,$end]=$this->meetingValues($request);
+        $booking=DB::transaction(function()use($data,$start,$end,$user){
+            $booking = BoardroomRequest::create([
+                'user_id' => $user->id, 'requester_name' => $user->name, 'purpose' => $data['purpose'],
+                'attendees' => $data['attendees'], 'starts_at' => $start, 'ends_at' => $end, 'status' => 'pending',
+            ]);
+            $booking->invitedStaff()->sync($data['attendee_ids']??[]);
+            return $booking;
+        });
+        $this->notifyAttendees($booking,'Meeting invitation · awaiting room approval');
         NotificationService::sendToMany(NotificationService::activeFleetApproverIds($user->id),
             'Boardroom request needs review', $user->name.' requested access to the boardroom.', $this->url($booking));
 
@@ -132,7 +126,55 @@ class BoardroomRequestController extends Controller
             NotificationService::send($record->user_id, 'Boardroom request updated', BoardroomRequest::STATUSES[$record->status], $this->url($record));
         }
 
+        if(in_array($decision['action'],['approve','reject','cancel'],true)) $this->notifyAttendees($record,match($decision['action']){'approve'=>'Meeting confirmed','reject'=>'Meeting room request declined','cancel'=>'Meeting cancelled'});
+
         return redirect()->to($this->url($record))->with('status', 'Boardroom request updated.');
+    }
+
+    public function update(Request $request, BoardroomRequest $booking)
+    {
+        $user=$request->user();$this->authorizeStaff($user);
+        abort_unless($user->canApproveFleetRequests() || (int)$booking->user_id===$user->id,403);
+        [$data,$start,$end]=$this->meetingValues($request);
+        [$booking,$removed]=DB::transaction(function()use($booking,$data,$start,$end,$user){
+            DB::table('boardroom_calendar_lock')->where('id',1)->increment('revision');
+            $row=BoardroomRequest::findOrFail($booking->id);
+            if(!in_array($row->status,['pending','approved'],true))throw ValidationException::withMessages(['booking'=>'Only pending or approved meetings can be edited.']);
+            $oldIds=$row->invitedStaff()->pluck('users.id')->all();
+            $before=$row->only(['starts_at','ends_at','purpose','attendees','status']);
+            $row->update(['starts_at'=>$start,'ends_at'=>$end,'purpose'=>$data['purpose'],'attendees'=>$data['attendees'],'status'=>'pending','reviewed_at'=>null,'reviewed_by'=>null,'review_note'=>null]);
+            $row->invitedStaff()->sync($data['attendee_ids']??[]);
+            \App\Services\PerformanceWorkflow::record('boardroom_request',$row->id,$user->id,'meeting_updated',$before,$row->only(['starts_at','ends_at','purpose','attendees','status']),'Meeting updated; HR/Admin approval required again.');
+            return [$row,array_values(array_diff($oldIds,$data['attendee_ids']??[]))];
+        });
+        NotificationService::sendToMany($removed,'Meeting invitation withdrawn',$this->meetingMessage($booking),null);
+        $this->notifyAttendees($booking,'Meeting updated · awaiting room approval');
+        NotificationService::sendToMany(NotificationService::activeFleetApproverIds($user->id),'Updated boardroom request needs review',$this->meetingMessage($booking),$this->url($booking));
+        if((int)$booking->user_id!==$user->id)NotificationService::send($booking->user_id,'Boardroom meeting updated',$this->meetingMessage($booking),$this->url($booking));
+        return redirect()->to($this->url($booking))->with('status','Meeting updated. Attendees notified; HR/Admin will review the revised booking.');
+    }
+
+    private function meetingValues(Request $request): array
+    {
+        $data=$request->validate([
+            'date'=>'required|date_format:Y-m-d','start'=>'required|date_format:H:i','end'=>'required|date_format:H:i|after:start',
+            'purpose'=>'required|string|max:2000','attendees'=>'required|integer|min:1|max:1000',
+            'attendee_ids'=>'nullable|array|max:1000','attendee_ids.*'=>['required','integer','distinct',Rule::exists('users','id')->where(fn($q)=>$q->where('status','active')->whereNotIn('access_role',[User::MERCHANDISER_ROLE,User::MERCHANDISER_SUPERVISOR_ROLE,User::BRAND_PROMOTER_ROLE]))],
+        ]);
+        $data['attendee_ids']=array_map('intval',$data['attendee_ids']??[]);
+        if(count($data['attendee_ids'])>(int)$data['attendees'])throw ValidationException::withMessages(['attendees'=>'Total attendees must include all selected staff.']);
+        $start=Carbon::createFromFormat('!Y-m-d H:i',$data['date'].' '.$data['start'],self::TIMEZONE);
+        $end=Carbon::createFromFormat('!Y-m-d H:i',$data['date'].' '.$data['end'],self::TIMEZONE);
+        if($start->lte(now()))throw ValidationException::withMessages(['start'=>'Choose a future start date and time.']);
+        return [$data,$start,$end];
+    }
+    private function meetingMessage(BoardroomRequest $booking): string
+    {
+        return 'Boardroom · '.$booking->starts_at->timezone(self::TIMEZONE)->format('D, d M Y').' · '.$booking->starts_at->timezone(self::TIMEZONE)->format('H:i').'–'.$booking->ends_at->timezone(self::TIMEZONE)->format('H:i').' GMT (Ghana time). Organizer: '.$booking->requester_name.'. Agenda: '.$booking->purpose;
+    }
+    private function notifyAttendees(BoardroomRequest $booking,string $title): void
+    {
+        NotificationService::sendToMany($booking->invitedStaff()->where('status','active')->pluck('users.id')->all(),$title,$this->meetingMessage($booking),$this->url($booking));
     }
 
     private function authorizeStaff(User $user): void

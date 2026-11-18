@@ -16,7 +16,7 @@ class CrmPipelineProject extends Model
 
     protected function casts(): array
     {
-        return ['supporting_staff_ids' => 'array', 'source_values' => 'array', 'source_period_confirmed' => 'boolean', 'source_forecast' => 'decimal:2', 'new_business' => 'boolean', 'rate_card_value' => 'decimal:2', 'execution_value' => 'decimal:2', 'week_start' => 'date', 'week_end' => 'date', 'expected_close_date' => 'date', 'proposed_amount' => 'decimal:2', 'po_amount' => 'decimal:2', 'target_amount' => 'decimal:2', 'actual_amount' => 'decimal:2', 'invoiced_amount' => 'decimal:2', 'collected_amount' => 'decimal:2'];
+        return ['team_workflow'=>'array', 'supporting_staff_ids' => 'array', 'source_values' => 'array', 'source_period_confirmed' => 'boolean', 'source_forecast' => 'decimal:2', 'new_business' => 'boolean', 'rate_card_value' => 'decimal:2', 'execution_value' => 'decimal:2', 'week_start' => 'date', 'week_end' => 'date', 'expected_close_date' => 'date', 'proposed_amount' => 'decimal:2', 'po_amount' => 'decimal:2', 'target_amount' => 'decimal:2', 'actual_amount' => 'decimal:2', 'invoiced_amount' => 'decimal:2', 'collected_amount' => 'decimal:2'];
     }
 
     public function owner()

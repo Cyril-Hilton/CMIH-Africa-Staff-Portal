@@ -12,7 +12,7 @@ class ClientRelationsCentreController extends Controller {
   abort_unless(CreativeAccess::staff($r->user()),403);
   return $r->validate(['source'=>'nullable|in:all,workbook','account_scope'=>'nullable|in:engaged,all','period'=>'nullable|in:week,month,year','date'=>'nullable|date_format:Y-m-d','q'=>'nullable|string|max:150','client'=>'nullable|string|max:255','owner'=>'nullable|integer|min:1','stage'=>['nullable',Rule::in(array_keys(config('crm_pipeline.stages')))],'from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from','sort'=>'nullable|in:client,revenue','per_page'=>'nullable|in:6,12,24,48','page'=>'nullable|integer|min:1']);
  }
- public function data(Request $r,ClientRelationsCentre $centre){$f=$this->filters($r);return response()->json($centre->build($f,$r->user()))->header('Cache-Control','private, no-store');}
+ public function data(Request $r,ClientRelationsCentre $centre){$f=$this->filters($r);$data=$centre->build($f,$r->user());$data['source_kpi_html']=view('portal.partials.source-performance',['sourcePerformance'=>app(\App\Services\DepartmentSourcePerformance::class)->forRequest('client_relations',$data['period']['from'],$data['period']['to'])])->render();return response()->json($data)->header('Cache-Control','private, no-store');}
  public function publishedRegister(Request $request)
  {
   abort_unless(CreativeAccess::staff($request->user()), 403);

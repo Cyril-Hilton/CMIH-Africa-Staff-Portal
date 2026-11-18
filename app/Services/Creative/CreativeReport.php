@@ -30,15 +30,15 @@ class CreativeReport
                 $q->orWhereHas('updates', fn($q) => $q->whereBetween('created_at', [$start, $end]));
                 CreativeReportingPeriod::includeHistory($q,$start,$end);
             });
-        $items = $query->with(['assignee','requester','reviewer','attachments','firstSubmission','updates'=>fn($q)=>$q->where('created_at','<=',$end)])->get();
+        $items = $query->with(['assignee','requester','reviewer','attachments','firstSubmission','hodDeadlineSnapshots','updates'=>fn($q)=>$q->where('created_at','<=',$end)])->get();
         $inside = fn($date) => $date && $date->betweenIncluded($start, $end);
         $submitted = $items->filter(fn($i) => $inside($i->first_submitted_at));
         $verified = $items->filter(fn($i) => $inside($i->completed_at));
-        $onTime = $submitted->filter(fn($i) => $i->firstSubmission?->metadata['requested_deadline'] ?? $i->requested_deadline);
-        $onTimeCount = $onTime->filter(function($i) {
-            $deadline = $i->firstSubmission?->metadata['requested_deadline'] ?? $i->requested_deadline;
-            return $i->first_submitted_at->lte(Carbon::parse($deadline));
-        })->count();
+        $onTime = $items->filter(function($brief) use($start,$end) {
+            $due=CreativeDeadlines::scoringDue($brief);
+            return $due && $due->betweenIncluded($start,$end) && $due->lte(now());
+        });
+        $onTimeCount=$onTime->filter(fn($brief)=>$brief->first_submitted_at && $brief->first_submitted_at->lte(CreativeDeadlines::scoringDue($brief)))->count();
         $buckets = [];
         $cursor = $start->copy();
         while ($cursor->lte($end)) {
@@ -56,12 +56,12 @@ class CreativeReport
             foreach(['received_at'=>'Brief Received','submitted_at'=>'Work Submitted','completed_at'=>'Verified','requested_deadline'=>'Deadline'] as $field=>$label) if($inside($i->$field)) $result[]=['date'=>$i->$field->toIso8601String(),'label'=>$label,'title'=>$i->title,'creative'=>$i->assignee?->name?:'Unassigned'];
             return $result;
         })->sortBy('date')->values();
-        $actions = $items->filter(fn($i)=>!in_array($i->stage,['completed','archived']))->sortBy('requested_deadline')->map(fn($i)=>['id'=>$i->id,'title'=>$i->title,'action'=>$i->blocker?:($i->stage==='in_review'?'Feedback Needed':'Continue '.config('creative.stages.'.$i->stage)),'owner'=>$i->blocker_owner?:match($i->stage){'in_review'=>$i->reviewer?->name?:'Reviewer Needed','delivered'=>'Creative HOD: Record Client Approval','brief_received','backlog'=>'Creative HOD: Planning','needs_info'=>$i->requester?->name?:'Requester',default=>$i->assignee?->name?:'Assignment Needed'},'deadline'=>$i->requested_deadline?->format('d M Y')?:'Not Recorded'])->values();
+        $actions = $items->filter(fn($i)=>!in_array($i->stage,['completed','archived']))->sortBy('requested_deadline')->map(fn($i)=>['id'=>$i->id,'title'=>$i->title,'action'=>$i->blocker?:($i->stage==='in_review'?'Feedback Needed':'Continue '.config('creative.stages.'.$i->stage)),'owner'=>$i->blocker_owner?:match($i->stage){'in_review'=>$i->reviewer?->name?:'Reviewer Needed','delivered'=>'Creative HOD: Record Client Approval','brief_received','backlog'=>'Creative HOD: Planning','needs_info'=>$i->requester?->name?:'Requester',default=>$i->assignee?->name?:'Assignment Needed'},'deadline'=>$i->internal_eta?->format('d M Y')?:'HOD deadline setup needed'])->values();
         $weekly = \App\Models\WeeklyConsolidatedItem::whereIn('department', User::departmentAliases('creatives'))->where('workflow_state','legacy')->whereBetween('week_start',[$start->toDateString(),$end->toDateString()])
             ->when($filters['assignee']??null,fn($q,$id)=>$q->where(fn($q)=>$q->where('lead_staff_id',$id)->orWhereJsonContains('supporting_staff_ids',(int)$id)))
             ->when($filters['q']??null,fn($q,$term)=>$q->where(fn($q)=>$q->where('campaign_name','like','%'.$term.'%')->orWhere('client_name','like','%'.$term.'%')->orWhere('deliverables','like','%'.$term.'%')))->get();
         $waiting = $items->filter(fn($i)=>$i->stage==='in_review');
-        return ['period'=>$period,'from'=>$start->toDateString(),'to'=>$end->toDateString(),'label'=>match($period){'yearly'=>$start->format('Y'),'quarterly'=>'Q'.$start->quarter.' '.$start->year,'monthly'=>$start->format('F Y'),default=>$start->format('d M').' – '.$end->format('d M Y')},
+        return ['on_time_credit'=>$onTime->count()?round(100*$onTimeCount/$onTime->count(),1):0.0,'on_time_expected'=>$onTime->count(),'on_time_setup_gaps'=>$items->filter(fn($brief)=>!CreativeDeadlines::scoringDue($brief))->count(),'period'=>$period,'from'=>$start->toDateString(),'to'=>$end->toDateString(),'label'=>match($period){'yearly'=>$start->format('Y'),'quarterly'=>'Q'.$start->quarter.' '.$start->year,'monthly'=>$start->format('F Y'),default=>$start->format('d M').' – '.$end->format('d M Y')},
             'weekly_snapshot'=>['entries'=>$weekly->count(),'reported_statuses'=>$weekly->countBy('status')->all()],'total'=>$items->count(),'received'=>$items->filter(fn($i)=>$inside($i->received_at))->count(),'submitted'=>$submitted->count(),'verified'=>$verified->count(),'on_time'=>$onTime->count()?round(100*$onTimeCount/$onTime->count()):null,
             'waiting'=>$waiting->count(),'review_wait_hours'=>$waiting->sum(fn($i)=>$i->submitted_at?max(0, $i->submitted_at->diffInHours(min(now(),$end),false)):0),
             'stages'=>$items->countBy('stage')->all(),'buckets'=>$buckets,'gallery'=>$gallery,'gallery_total'=>$items->filter(fn($i)=>$i->attachments->contains(fn($a)=>$a->kind==='deliverable'))->count(),

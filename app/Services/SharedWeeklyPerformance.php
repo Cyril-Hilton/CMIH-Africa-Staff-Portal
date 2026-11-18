@@ -26,7 +26,8 @@ class SharedWeeklyPerformance
                     continue;
                 }
                 $observation = $plan->observation;
-                $actual = $observation?->approved_at ? $observation->actual : null;
+                $independent=$observation?->approved_at && $observation->approved_by && (int)$observation->approved_by!==(int)$observation->owner_id && (int)$observation->approved_by!==(int)$observation->submitted_by;
+                $actual = $independent ? $observation->actual : null;
                 $achievement = $actual === null && $plan->target > 0 ? 0.0 : PerformanceMath::achievement($plan->target, $actual, $kpi->direction);
                 $money = $kpi->dimension === 'financial' || (bool) preg_match('/GHS|GHC|GH₵|₵|USD|GBP|EUR|currency|money|cedi|dollar|£|€|\$/i', $kpi->unit);
                 $displayValue = fn($value) => $plan->department==='client_relations' && preg_match('/^(GHS|GHC|GH₵|₵)$/ui', $kpi->unit) ? 'GH₵ '.number_format((float)$value,2) : $value.' '.$kpi->unit;

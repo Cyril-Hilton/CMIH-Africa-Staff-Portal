@@ -106,6 +106,15 @@ class LeaveController extends Controller
             })->latest()->paginate(5, ['*'], 'pending_leaves_page')->withQueryString();
         }
 
+        $passOutStaff = User::internalStaff()->where('status','active')->where('id','!=',$user->id)->orderBy('name')->get()->filter(fn($person) => $person->isCvoOrSuperAdmin() || (User::normalizeDepartmentKey($person->department)===User::normalizeDepartmentKey($user->department) && ($person->isLineManager() || $person->id===(int)$user->line_manager_id)));
+        $passOuts = \App\Models\PassOutRequest::with(['user','supervisor','hod','recorder'])
+            ->when(!$user->hasFullHrAccess() && !$user->canAuditHrAndFinance(), function($q)use($user){
+                $q->where(function($q)use($user){$q->where('user_id',$user->id)->orWhere('supervisor_id',$user->id)->orWhere('hod_id',$user->id);
+                    $delegated=$user->activeDelegatedManagerIds();
+                    if($delegated)$q->orWhereIn('supervisor_id',$delegated)->orWhereIn('hod_id',$delegated);
+                });
+            })->when($request->integer('passout_focus')>0,fn($q)=>$q->whereKey($request->integer('passout_focus')))
+            ->latest()->paginate(10,['*'],'passout_page')->withQueryString();
         $coverHandovers = LeaveApplication::with('user','coveringStaff')->where('covering_staff_id',$user->id)->whereNotNull('handover_notes')->latest()->paginate(5,['*'],'cover_handovers_page')->withQueryString();
         return view('portal.leaves', compact(
             'user',
@@ -113,7 +122,7 @@ class LeaveController extends Controller
             'colleagues',
             'managers',
             'pendingApprovals',
-            'leaveSummary','coverHandovers'
+            'leaveSummary','coverHandovers','passOutStaff','passOuts'
         ));
     }
 

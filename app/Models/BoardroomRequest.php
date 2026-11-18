@@ -22,6 +22,11 @@ class BoardroomRequest extends Model
         return array_fill_keys(['starts_at', 'ends_at', 'reviewed_at', 'checked_in_at', 'checked_out_at'], 'datetime');
     }
 
+    public function invitedStaff()
+    {
+        return $this->belongsToMany(User::class, 'boardroom_request_attendees')->withTimestamps();
+    }
+
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');

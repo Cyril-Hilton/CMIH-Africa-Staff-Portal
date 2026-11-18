@@ -13,7 +13,13 @@ class PerformanceHubReport
         if ($measured->isEmpty()) {
             return null;
         }
-        if ($aggregation === 'ratio' || $aggregation === 'mean') {
+        if ($aggregation === 'mean') {
+            if ($field === 'target') return $measured->pluck($field)->unique()->count()===1 ? (float)$measured->first()->{$field} : null;
+            $complete=$measured->filter(fn($r)=>isset($r->numerator,$r->denominator)&&$r->denominator>0);
+            if ($complete->count()===$measured->count()) return PerformanceMath::ratio($complete->sum('numerator'),$complete->sum('denominator'),false);
+            return $complete->isEmpty() ? (float)$measured->avg($field) : null;
+        }
+        if ($aggregation === 'ratio') {
             if ($field === 'target') {
                 return $measured->pluck($field)->unique()->count() === 1 ? (float) $measured->first()->{$field} : null;
             }
@@ -30,7 +36,7 @@ class PerformanceHubReport
 
     public function build(Collection $items, Collection $observations, Collection $registers, string $from, string $to, ?Collection $definitions = null, ?Collection $targetPlans = null): array
     {
-        $approved = $observations->whereNotNull('approved_at');
+        $approved = $observations->whereNotNull('approved_at')->filter(fn($o)=>$o->approved_by && (int)$o->approved_by!==(int)$o->owner_id && (int)$o->approved_by!==(int)$o->submitted_by);
         $historyPlans = \App\Models\PerformanceTargetPlan::whereIn('id', $approved->pluck('target_plan_id')->filter())->get()->keyBy('id');
         $qualifiedHistory = $approved->filter(fn ($o) => ! $o->target_plan_id || ($historyPlans->has($o->target_plan_id) && $historyPlans[$o->target_plan_id]->approved_at && ! $historyPlans[$o->target_plan_id]->withdrawn_at));
         $historicalScope = function (Collection $rows) use ($historyPlans): Collection {
@@ -82,10 +88,10 @@ class PerformanceHubReport
 
             return ['kpi' => $k, 'target' => $target, 'actual' => $actual, 'achievement' => $achievement, 'variance' => $target !== null && $actual !== null ? round($actual - $target, 4) : null, 'rag' => PerformanceMath::rag($achievement, $k->green_threshold, $k->amber_threshold), 'previous' => $this->aggregate($previous, $k->aggregation), 'ytd' => $this->aggregate($ytd, $k->aggregation), 'scoring_weight' => $plans->isNotEmpty() ? $scope->sum('weight') : $k->weight, 'expected_sources' => $plans->isNotEmpty() ? $scope->count() : null, 'coverage' => $rows->whereNotNull('actual')->count(), 'observations' => $rows];
         })->values();
-        $dimensions = $kpiRows->filter(fn ($r) => $r['achievement'] !== null)->groupBy(fn ($r) => $r['kpi']->dimension)->map(function ($rows) {
+        $dimensions = $kpiRows->groupBy(fn ($r) => $r['kpi']->dimension)->map(function ($rows) {
             $weight = $rows->sum(fn ($r) => $r['scoring_weight']);
 
-            return $weight > 0 ? round($rows->sum(fn ($r) => min(100, max(0, $r['achievement'])) * $r['scoring_weight']) / $weight, 1) : null;
+            return $weight > 0 ? round($rows->sum(fn ($r) => min(100, max(0, $r['achievement'] ?? 0)) * $r['scoring_weight']) / $weight, 1) : null;
         });
         $trends = $approved->groupBy(fn ($o) => $o->period_start->format('Y-m'))->map(function ($month) {
             return ['observations' => $month->count(), 'approved_measured' => $month->whereNotNull('actual')->count()];
@@ -137,9 +143,7 @@ class PerformanceHubReport
             $rows = $items->where('department', $department);
             $measures = $kpiRows->filter(fn ($r) => $r['kpi']->department === $department);
             $measured = $measures->whereNotNull('achievement');
-            $weight = $measured->sum(fn ($r) => $r['scoring_weight']);
-            $score = $weight > 0 && $measured->count() === $measures->count()
-                ? round($measured->sum(fn ($r) => min(100, max(0, $r['achievement'])) * $r['scoring_weight']) / $weight, 2) : null;
+            $score = PerformanceMath::creditedWeightedScore($measures->map(fn($r)=>['weight'=>$r['scoring_weight'],'achievement'=>$r['achievement']]));
             $verified = $rows->whereIn('workflow_state', ['verified', 'closed']);
             $dated = $verified->filter(fn ($i) => $i->completed_at && $i->dueDate());
 

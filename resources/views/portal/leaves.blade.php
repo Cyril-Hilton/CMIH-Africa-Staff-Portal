@@ -111,6 +111,8 @@
             </div>
         @endif
 
+        @include('portal.partials.pass-outs')
+
         <!-- Manager Approvals Section -->
         @if($pendingApprovals->isNotEmpty())
             <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">

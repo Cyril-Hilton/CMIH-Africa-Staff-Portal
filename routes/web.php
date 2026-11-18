@@ -328,6 +328,9 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
 
     Route::post('/share', [\App\Http\Controllers\Portal\ShareController::class, 'share'])->name('share');
 
+    Route::post('/boardroom-requests/{booking}/update', [\App\Http\Controllers\Portal\BoardroomRequestController::class, 'update'])->name('boardroom-requests.update');
+    Route::post('/pass-outs', [\App\Http\Controllers\Portal\PassOutController::class, 'store'])->name('pass-outs.store');
+    Route::post('/pass-outs/{passOut}/review', [\App\Http\Controllers\Portal\PassOutController::class, 'review'])->name('pass-outs.review');
     Route::get('/leaves', [\App\Http\Controllers\Portal\LeaveController::class, 'index'])->name('leaves');
     Route::post('/leaves', [\App\Http\Controllers\Portal\LeaveController::class, 'store'])->name('leaves.store');
     Route::get('/leaves/{leave}', [\App\Http\Controllers\Portal\LeaveController::class, 'show'])->name('leaves.show');
@@ -359,6 +362,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
 
     Route::get('/project-journey/tracker', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'tracker'])->name('project-journey.tracker');
+    Route::get('/project-journey/{project}/accountability', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'accountability'])->name('project-journey.accountability');
     Route::get('/project-journey', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'index'])->name('project-journey');
     Route::post('/project-journey/link', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'link'])->name('project-journey.link');
 

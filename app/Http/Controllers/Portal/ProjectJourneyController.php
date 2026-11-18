@@ -17,6 +17,16 @@ class ProjectJourneyController extends Controller
             ->header('Cache-Control', 'private, no-store');
     }
 
+    public function accountability(Request $request, CrmPipelineProject $project, ProjectJourney $journey)
+    {
+        abort_unless($journey->canAccess($request->user()),403);
+        abort_unless($journey->scopeVisible(CrmPipelineProject::query(),$request->user())->whereKey($project->id)->exists(),404);
+        $page=$request->validate(['history_page'=>'nullable|integer|min:1|max:10000'])['history_page']??1;
+        return response()->json(['html'=>view('portal.project-journey.accountability',[
+            'accountability'=>app(\App\Services\ConnectedProjectSummary::class)->build($project,$request->user(),$page),
+        ])->render()])->header('Cache-Control','private, no-store');
+    }
+
     public function index(Request $request, ProjectJourney $journey)
     {
         $data = $journey->build($request);

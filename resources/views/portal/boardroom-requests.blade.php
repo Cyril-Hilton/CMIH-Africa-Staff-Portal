@@ -21,18 +21,14 @@
             <p class="mt-3 text-sm text-brand-ash">HR/Admin will review your request and record access when you collect and return the key. All times are Ghana time.</p>
             <form method="POST" action="{{ route('portal.boardroom-requests.store') }}" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @csrf
-                <label class="text-sm">Date<input name="date" type="date" required min="{{ now('Africa/Accra')->toDateString() }}" value="{{ old('date') }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5"></label>
-                <label class="text-sm">Start time<input name="start" type="time" required value="{{ old('start') }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5"></label>
-                <label class="text-sm">End time<input name="end" type="time" required value="{{ old('end') }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5"></label>
-                <label class="text-sm">Number of attendees<input name="attendees" type="number" min="1" max="1000" required value="{{ old('attendees', 1) }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5"></label>
-                <label class="sm:col-span-2 lg:col-span-4 text-sm">Purpose<textarea name="purpose" rows="2" maxlength="2000" required class="mt-1 block w-full rounded-lg bg-brand-black p-2.5">{{ old('purpose') }}</textarea></label>
+                @include('portal.partials.boardroom-meeting-fields',['meeting'=>null])
                 <button class="w-fit rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white">Submit request</button>
             </form>
         </details>
 
         <section class="space-y-4">
             <div class="flex flex-wrap items-end justify-between gap-3">
-                <h2 class="text-lg font-semibold">{{ $canReadAll ? 'Bookings & Access History' : 'My Boardroom Requests' }}</h2>
+                <h2 class="text-lg font-semibold">{{ $canReadAll ? 'Bookings & Access History' : 'My Requests & Meeting Invitations' }}</h2>
                 <form method="GET" action="{{ route('portal.boardroom-requests') }}" class="flex flex-wrap items-end gap-2">
                     <label class="text-sm">Date<input name="date" type="date" value="{{ request('date') }}" class="mt-1 block rounded-lg bg-brand-black p-2"></label>
                     <label class="text-sm">Status
@@ -56,7 +52,7 @@
                         <span class="ml-2 text-sm text-brand-ash">{{ $record->requester_name }} · {{ \App\Models\BoardroomRequest::STATUSES[$record->status] }}</span>
                     </summary>
                     @include('portal.partials.executive-record-fields', ['fields' => [
-                        'Purpose' => $record->purpose, 'Attendees' => $record->attendees,
+                        'Purpose / Agenda' => $record->purpose, 'Total attendees' => $record->attendees, 'Invited staff' => $record->invitedStaff->pluck('name')->join(', ') ?: 'No staff selected',
                         'Booked duration' => (int) $start->diffInMinutes($end).' min',
                         'Reviewed by' => $record->reviewer?->name, 'Review note' => $record->review_note,
                         'Access holder' => $record->accessed_by_name, 'Checked in' => $record->checked_in_at,
@@ -66,6 +62,14 @@
                         'Room condition' => match($record->room_condition) { 'good' => 'No issue reported', 'issue_reported' => 'Issue reported', default => null },
                         'Condition notes' => $record->condition_notes,
                     ]])
+                    @if(($canManage || (int)$record->user_id===auth()->id()) && in_array($record->status,['pending','approved'],true))
+                        <details class="mt-4 rounded-xl border border-brand-white/10 p-4"><summary class="cursor-pointer text-sm font-semibold">Edit meeting & attendees</summary><p class="mt-2 text-xs text-brand-ash">Attendees receive the updated details. Revised bookings go back to HR/Admin for room approval.</p>
+                            <form method="POST" action="{{ route('portal.boardroom-requests.update',$record) }}" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">@csrf
+                                @include('portal.partials.boardroom-meeting-fields',['meeting'=>$record])
+                                <button class="w-fit rounded-lg bg-brand-red px-4 py-2 text-sm text-white">Save & notify attendees</button>
+                            </form>
+                        </details>
+                    @endif
                     @if($canManage && in_array($record->status, ['pending','approved','checked_in'],true))
                         <form method="POST" action="{{ route('portal.boardroom-requests.action', $record) }}" class="mt-4 flex flex-wrap items-end gap-3 border-t border-brand-white/10 pt-4">
                             @csrf

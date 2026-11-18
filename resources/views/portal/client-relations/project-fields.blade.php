@@ -22,3 +22,5 @@
 @foreach(['bottlenecks'=>'Private Bottleneck Notes','next_action'=>'Private Next Action','remarks'=>'Private Remarks'] as $field=>$label)@include('portal.performance.field',['name'=>$field,'options'=>null,'type'=>'textarea','value'=>$record?->{$field},'required'=>false,'label'=>$label])@endforeach
 </div></details>
 @include('portal.performance.field',['name'=>'reason','options'=>null,'type'=>'text','value'=>null,'required'=>false,'label'=>'Update / Source Notes (optional)'])
+
+@include('portal.client-relations.project-routing', ['record'=>$record,'useOld'=>$useOld])

@@ -69,14 +69,19 @@ class ExecutiveProjectTracker
                         'title'=>$related->title, 'url'=>$this->sourceUrl('operations_projects','activations',$activation->period_start,$activation->id)]);
                 }
             }
-            $creativeOwner = $journey['briefs']->first()?->assignee_id;
-            $operationsOwner = $journey['handovers']->first()?->lead_id ?: $journey['activations']->first()?->owner_id;
-            $stageOwners = ['client'=>$project->owner_id, 'creative'=>$creativeOwner, 'approval'=>$project->owner_id,
+            $creativeOwner = $journey['briefs']->first()?->assignee_id ?: ($project->team_workflow['creative_manager_id']??null);
+            $operationsOwner = $journey['handovers']->first()?->lead_id ?: $journey['activations']->first()?->owner_id ?: ($project->team_workflow['operations_manager_id']??null);
+            $stageOwners = ['client'=>$project->owner_id, 'creative'=>$creativeOwner, 'approval'=>$journey['briefs']->firstWhere('stage','in_review')?->reviewer_id ?: $project->owner_id,
                 'handover'=>$operationsOwner, 'execution'=>$operationsOwner, 'closeout'=>$operationsOwner];
-            $currentOwner = $stageOwners[$journey['stage']] ?? $project->owner_id;
+            if(($project->team_workflow['operations_required']??null)===false && $journey['handovers']->isEmpty())$stageOwners['closeout']=$project->owner_id;
+            $waitingHandover=$journey['handovers']->first(fn($h)=>!in_array($h->stage,['completed','cancelled'],true));
+            if($waitingHandover?->meeting_held_at && $waitingHandover->ops_signoff_at && !$waitingHandover->cr_signoff_at)$stageOwners['handover']=$project->owner_id;
+            if($waitingHandover?->stage==='awaiting_acceptance')$stageOwners['closeout']=$project->owner_id;
+            if($waitingHandover?->stage==='accepted')$stageOwners['closeout']=($project->team_workflow['operations_manager_id']??null)!==$waitingHandover->lead_id ? ($project->team_workflow['operations_manager_id']??null) : null;
+            $currentOwner = array_key_exists($journey['stage'],$stageOwners)?$stageOwners[$journey['stage']]:$project->owner_id;
             $packages = $journey['briefs']->flatMap(fn ($brief) => $brief->is_group && $brief->parts->isNotEmpty() ? $brief->parts : [$brief]);
             $stageDates = [
-                'client'=>$project->week_start,
+                'client'=>$project->created_at,
                 'creative'=>$packages->pluck('submitted_at')->filter()->max(),
                 'approval'=>$packages->pluck('completed_at')->filter()->max(),
                 'handover'=>$journey['handovers']->flatMap(fn($h)=>[$h->cr_signoff_at,$h->ops_signoff_at])->filter()->max(),
@@ -84,17 +89,19 @@ class ExecutiveProjectTracker
                 'closeout'=>$journey['handovers']->pluck('verified_at')->filter()->max(),
             ];
             $steps = collect(ProjectJourney::STAGES)->map(function ($definition, $key) use ($journey, $stageOwners, $stageDates) {
-                return ['label'=>$definition[0], 'team'=>$definition[1], 'state'=>$journey['done'][$key] ? 'done' : ($journey['stage']===$key ? 'current' : 'waiting'), 'detail'=>$journey['notes'][$key], 'owner_id'=>$stageOwners[$key], 'date'=>$journey['done'][$key] ? $stageDates[$key] : null];
+                return ['label'=>$definition[0], 'team'=>$definition[1], 'state'=>($journey['skipped'][$key]??false) ? 'skipped' : ($journey['done'][$key] ? 'done' : ($journey['stage']===$key ? 'current' : 'waiting')), 'detail'=>$journey['notes'][$key], 'owner_id'=>$stageOwners[$key], 'date'=>$journey['done'][$key] ? $stageDates[$key] : null];
             })->values()->all();
             $gaps = [];
-            if ($journey['briefs']->isEmpty()) $gaps[] = 'No linked Creative brief. Creative work may be unnecessary or still needs linking.';
-            if ($journey['handovers']->isEmpty()) $gaps[] = 'No recorded Operations handover.';
+            if ($journey['briefs']->isEmpty() && ($project->team_workflow['creative_required']??null)!==false) $gaps[] = 'No linked Creative brief. Creative work may be unnecessary or still needs linking.';
+            if ($journey['handovers']->isEmpty() && ($project->team_workflow['operations_required']??null)!==false) $gaps[] = 'No recorded Operations handover.';
             $current = ProjectJourney::STAGES[$journey['stage']][0] ?? ($journey['stage']==='complete' ? 'Verified complete' : 'Closed / cancelled');
             $rows->push($this->row('crm-'.$project->id, 'projects', $project->project_name, $project->client_name,
                 $teams->all(), $people->all(), $currentOwner, $current, $steps, $sources->all(),
                 $journey['date'], $journey['needs_attention'], $journey['stage']==='complete', $journey['stage']==='cancelled',
                 $project->updated_at, 'Connected project', $gaps));
         }
+
+        $rows=$rows->map(function($row){if(str_starts_with($row['key'],'crm-'))$row['accountability_url']=route('portal.project-journey.accountability',(int)substr($row['key'],4));return $row;});
 
         // A brief can originate directly in Creative, without a Client Relations project.
         $briefs = CreativeRequest::visibleTo($viewer)->whereNull('parent_request_id')->whereNotIn('id', $linkedBriefs)
@@ -103,7 +110,7 @@ class ExecutiveProjectTracker
                     ->orWhereBetween('completed_at', [$from, $to])->orWhere(fn($created)=>$created->where('legacy',false)->whereBetween('created_at',[$from,$to]))
                     ->orWhere(fn ($q) => $q->where('planned_start', '<=', $to)->where('internal_eta', '>=', $from));
                 \App\Services\Creative\CreativeReportingPeriod::includeHistory($query,$from,$to);
-            })->with(['task', 'parts.task'])->get();
+            })->with(['task','requester:id,department','parts.task'])->get();
         foreach ($briefs as $brief) {
             // Recurring system/developer assignments belong in Daily tasks, rather than project journeys.
             if ($brief->legacy && in_array($brief->task?->title, Task::LEGACY_AUTO_COMPLETED_TITLES, true)) continue;
@@ -130,7 +137,7 @@ class ExecutiveProjectTracker
                 $complete ? 'Creative complete' : ($reportedComplete ? 'Completion verification' : ($review ? 'Creative review / feedback' : ($working ? 'Design & collaboration' : 'Creative planning'))),
                 $steps, [['label'=>'Creative brief', 'title'=>$brief->reference, 'url'=>route('portal.creative', ['request'=>$brief->id])]],
                 $brief->internal_eta ?: $brief->requested_deadline, filled($brief->blocker) || ($reportedComplete && !$complete), $complete, false, $brief->updated_at,
-                'Creative-origin / unlinked brief', ['No connected end-to-end project is recorded. Operations handover and execution are not inferred.'], $brief->blocker, null, !$reportedComplete));
+                User::normalizeDepartmentKey($brief->requester?->department)==='creatives'?'Creative-origin project':'Creative-origin / unlinked brief', User::normalizeDepartmentKey($brief->requester?->department)==='creatives'?[]:['No connected end-to-end project is recorded. Confirm whether an existing client project should be linked.'], $brief->blocker, null, !$reportedComplete));
         }
 
         $private = $viewer->isCvoOrSuperAdmin() || $viewer->canAuditHrAndFinance();
@@ -234,7 +241,7 @@ class ExecutiveProjectTracker
         $overdue=$overdueEligible&&!$complete&&!$cancelled&&$due&&$due->copy()->endOfDay()->isPast();
         return ['key'=>$key,'type'=>$type,'title'=>$title,'client'=>$client,'departments'=>array_values(array_unique($departments)),
             'people_ids'=>collect($people)->filter(fn($id)=>is_numeric($id)&&(int)$id>0)->map(fn($id)=>(int)$id)->unique()->values()->all(),'owner_id'=>$owner,'current'=>$current,'steps'=>$steps,
-            'sources'=>$sources,'due'=>$due,'attention'=>!$cancelled&&($attention||$overdue),'overdue'=>$overdue,'complete'=>$complete,'cancelled'=>$cancelled,
+            'sources'=>$sources,'due'=>$due,'attention'=>!$cancelled&&($attention||$overdue||count($gaps)>0),'overdue'=>$overdue,'complete'=>$complete,'cancelled'=>$cancelled,
             'updated_at'=>$updated,'origin'=>$origin,'gaps'=>$gaps,'blocker'=>$blocker,'progress'=>is_numeric($progress) ? max(0,min(100,(float)$progress)) : null];
     }
 

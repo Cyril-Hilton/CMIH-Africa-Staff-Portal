@@ -22,7 +22,17 @@ class ProjectJourney
 
     public function canAccess(User $viewer): bool
     {
-        return $viewer->canViewExecutiveActivity() || ClientRelationsPipeline::staffMember($viewer) || CreativeAccess::lead($viewer);
+        return $viewer->canViewExecutiveActivity() || CreativeAccess::staff($viewer);
+    }
+
+    public function scopeVisible(Builder $query, User $viewer): Builder
+    {
+        if($viewer->canViewExecutiveActivity() || CreativeAccess::lead($viewer) || OperationsHandoverWorkflow::lead($viewer)
+            || (ClientRelationsPipeline::staffMember($viewer)&&$viewer->isLineManager())) return $query;
+        return $query->where(fn($q)=>$q->where('owner_id',$viewer->id)->orWhereJsonContains('supporting_staff_ids',$viewer->id)
+            ->orWhereIn('id',CreativeRequest::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('assignee_id',$viewer->id)->orWhere('reviewer_id',$viewer->id)->orWhere(fn($support)=>$support->withSupportingStaff($viewer->id))->orWhereHas('parts',fn($parts)=>$parts->withParticipant($viewer->id)))->whereNotNull('crm_project_id')->select('crm_project_id'))
+            ->orWhereIn('id',OperationsHandover::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('lead_id',$viewer->id))->select('project_id'))
+            ->orWhereIn('id',PerformanceRegister::whereIn('department',User::departmentAliases('operations_projects'))->whereNotNull('approved_at')->where('owner_id',$viewer->id)->whereNotNull('data->crm_project_id')->select('data->crm_project_id')));
     }
 
     public function canLink(User $viewer, CrmPipelineProject $project): bool
@@ -53,8 +63,7 @@ class ProjectJourney
         };
         $view = $filters['view'] ?? 'journeys';
         $focus = $filters['project'] ?? null;
-        $projects = CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed', true)
-            ->when(!$viewer->canViewExecutiveActivity() && ClientRelationsPipeline::staffMember($viewer) && !$viewer->isLineManager(), fn ($q) => $q->where('owner_id', $viewer->id))
+        $projects = $this->scopeVisible(CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed', true),$viewer)
             ->when($focus, fn ($q) => $q->whereKey($focus), fn ($q) => $this->inPeriod($q, $from, $to, $viewer))
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search
                 ->where('client_name', 'like', '%'.$term.'%')->orWhere('project_name', 'like', '%'.$term.'%')->orWhere('brand', 'like', '%'.$term.'%')))
@@ -108,6 +117,10 @@ class ProjectJourney
 
     private function project(CrmPipelineProject $project, Collection $briefs, Collection $handovers, Collection $activations, User $viewer): array
     {
+        $requirements=$project->team_workflow??[];
+        $skipCreative=($requirements['creative_required']??null)===false && $briefs->isEmpty();
+        $skipOperations=($requirements['operations_required']??null)===false && $handovers->isEmpty() && $activations->isEmpty();
+        $skipped=['client'=>false,'creative'=>$skipCreative,'approval'=>$skipCreative,'handover'=>$skipOperations,'execution'=>$skipOperations,'closeout'=>false];
         $liveHandovers = $handovers->where('stage', '!=', 'cancelled');
         $liveActivations = $activations->where('status', '!=', 'cancelled');
         $finishedHandovers = $liveHandovers->filter(fn ($h) => $h->stage === 'completed' && $h->verified_at);
@@ -121,11 +134,12 @@ class ProjectJourney
             !empty($r->data['starts_on']) ? Carbon::parse($r->data['starts_on']) : null)->filter())->sort()->values();
         $nextEvent = $date->first(fn ($dt) => $dt->gte(today())) ?? $date->last();
         $targetDate = $nextEvent ?? $project->expected_close_date;
-        $finished = $liveHandovers->isNotEmpty() && $finishedHandovers->count() === $liveHandovers->count()
+        $finished = ($skipOperations && $project->stage==='project_completed') || $liveHandovers->isNotEmpty() && $finishedHandovers->count() === $liveHandovers->count()
             && $liveActivations->every(fn ($record) => $record->status === 'completed');
         $stage = match (true) {
             in_array($project->stage, ['closed_lost', 'cancelled', 'lost'], true) => 'cancelled',
             $finished && $packages->count() === $signedBriefs->count() => 'complete',
+            $skipOperations && ($skipCreative || ($packages->isNotEmpty() && $signedBriefs->count()===$packages->count())) => 'closeout',
             $packages->isNotEmpty() && $signedBriefs->count() !== $packages->count()
                 && $reviewingBriefs->count() + $signedBriefs->count() !== $packages->count() => 'creative',
             $packages->isNotEmpty() && $signedBriefs->count() !== $packages->count() => 'approval',
@@ -145,6 +159,7 @@ class ProjectJourney
             'execution' => $liveHandovers->isNotEmpty() && $submitted->count() === $liveHandovers->count(),
             'closeout' => $stage === 'complete',
         ];
+        foreach($skipped as $key=>$skip) if($skip)$done[$key]=true;
         $notes = [
             'client' => $project->week_start?->format('d M Y').' · '.Str::headline($project->stage),
             'creative' => $packages->count().' linked work '.Str::plural('package', $packages->count()),
@@ -153,12 +168,14 @@ class ProjectJourney
             'execution' => $submitted->count().' of '.$liveHandovers->count().' delivery records submitted',
             'closeout' => $finishedHandovers->count().' of '.$liveHandovers->count().' handovers verified',
         ];
+        if($skipOperations)$notes['closeout']=$project->stage==='project_completed'?'Client Relations project completion recorded':'Client Relations final project closeout pending';
+        foreach($skipped as $key=>$skip) if($skip)$notes[$key]='Not required for this project · stage skipped';
         $needsAttention = !in_array($stage, ['complete','cancelled'], true) && (
             ($targetDate && $targetDate->lt(today())) || $packages->contains(fn ($item) => filled($item->blocker))
             || $liveActivations->contains(fn ($item) => in_array($item->status, ['blocked', 'on_hold'], true))
         );
 
-        return ['project' => $project, 'stage' => $stage, 'done' => $done, 'notes' => $notes, 'briefs' => $briefs, 'handovers' => $handovers,
+        return ['project' => $project, 'stage' => $stage, 'done' => $done, 'skipped'=>$skipped, 'notes' => $notes, 'briefs' => $briefs, 'handovers' => $handovers,
             'activations' => $activations, 'date' => $targetDate, 'date_label' => $nextEvent ? 'Execution date' : 'Expected close',
             'needs_attention' => $needsAttention, 'can_link' => $this->canLink($viewer, $project),
             'can_unlink' => fn (CreativeRequest $brief) => $this->canLink($viewer, $project)

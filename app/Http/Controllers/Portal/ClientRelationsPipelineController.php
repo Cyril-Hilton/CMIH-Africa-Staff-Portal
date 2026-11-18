@@ -89,6 +89,7 @@ class ClientRelationsPipelineController extends Controller
             $rules[$f] = 'nullable|string|max:5000';
         }
         $v = $r->validate($rules);
+        if ($r->has('delivery')) $v['delivery']=app(\App\Services\ConnectedProjectWorkflow::class)->validate($r,$project);
         $v['po_state'] = $v['po_state'] ?? 'unknown';
         $v['new_business'] = $r->boolean('new_business');
         $owner = User::findOrFail($v['owner_id']);
@@ -116,7 +117,7 @@ class ClientRelationsPipelineController extends Controller
             if ($project && ! array_key_exists('week_end', $v) && $item->week_start->toDateString() !== $v['week_start']) {
                 $item->week_end = null;
             }
-            $item->fill(collect($v)->except(['revision', 'reason', 'confirm_source_period'])->all());
+            $item->fill(collect($v)->except(['revision', 'reason', 'confirm_source_period','delivery'])->all());
             if ($project?->import_key) {
                 $item->source_reference = $before['source_reference'];
             }
@@ -131,6 +132,7 @@ class ClientRelationsPipelineController extends Controller
             if ($project && (int)$before['owner_id'] !== (int)$item->owner_id) {
                 \App\Models\CrmAccountRelationship::firstOrCreate(['client_name'=>$before['client_name'],'owner_id'=>$before['owner_id'],'relationship'=>'previous','ends_on'=>today()->toDateString()],['starts_on'=>null,'note'=>'Project ownership changed; original tenure start is not confirmed.','created_by'=>$r->user()->id]);
             }
+            app(\App\Services\ConnectedProjectWorkflow::class)->sync($item,$r->user(),$v['delivery']??[],$r->attributes->get('crm_approved_submission')?->created_at,User::find($r->attributes->get('crm_approved_submission')?->submitted_by??$r->user()->id));
             $service->publish($item);
             PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason'] ?? ($project ? 'Client Relations project updated.' : 'Client Relations project created.'));
             return $item;

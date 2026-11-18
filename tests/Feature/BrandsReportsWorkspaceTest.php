@@ -122,10 +122,10 @@ $this->approve($other,$id)->assertForbidden();
   $this->assertSame('2026-11-02',$row->fresh()->week_start->toDateString());
  }
 
- public function test_productivity_uses_real_sessions_tasks_and_unmeasured_scores():void {
+ public function test_productivity_uses_real_sessions_and_credited_scores_without_redistributing_missing_weight():void {
   $u=$this->staff();Attendance::create(['user_id'=>$u->id,'daily_objective'=>'QA retailer reporting','clock_in_at'=>'2026-11-02 09:00:00','clock_out_at'=>'2026-11-02 18:00:00','status'=>'On Time']);
   Task::create(['department'=>'brands_marketing','title'=>'A real assigned task','assigned_to'=>$u->id,'assigned_by'=>$u->id,'status'=>'Open','priority'=>'High','due_on'=>'2026-11-06']);
-  $d=app(BrandsDashboard::class)->build(['tab'=>'productivity','date'=>'2026-11-04','owner'=>$u->id],$u);$this->assertEquals(8,$d['summary'][0][1]);$this->assertSame(1,$d['summary'][1][1]);$this->assertSame(0,$d['summary'][2][1]);$this->assertNull($d['summary'][5][1]);
+  $d=app(BrandsDashboard::class)->build(['tab'=>'productivity','date'=>'2026-11-04','owner'=>$u->id],$u);$this->assertEquals(8,$d['summary'][0][1]);$this->assertSame(1,$d['summary'][1][1]);$this->assertSame(0,$d['summary'][2][1]);$this->assertNotNull($d['summary'][5][1]);$this->assertLessThanOrEqual(10,$d['summary'][5][1]);
  }
  public function test_a_week_crossing_month_end_is_not_counted_in_two_months():void {
   $u=$this->staff();WeeklyConsolidatedItem::create(['department'=>'brands_marketing','workflow_state'=>'legacy','client_name'=>'Month boundary report','campaign_name'=>'Analytics','week_start'=>'2026-10-26','week_end'=>'2026-11-01','lead_staff_id'=>$u->id,'created_by'=>$u->id,'deliverables'=>'Saved October reporting week','status'=>'Done']);

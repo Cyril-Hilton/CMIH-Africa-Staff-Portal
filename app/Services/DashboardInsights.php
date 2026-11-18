@@ -49,7 +49,7 @@ class DashboardInsights
                     'result'=>$source['coverage']===null?'No reporting areas configured':$source['coverage'].'% · '.$source['missing'].' missing'];
                 foreach ($source['metrics'] as $metric) {
                     $result[$key]['items'][] = ['label'=>$metric['name'],'scope'=>'Automatic from published department data',
-                        'result'=>$metric['achievement']===null?$metric['state']:$metric['achievement'].'% · '.$metric['state']];
+                        'result'=>$metric['credited'].'% credit · '.$metric['state']];
                 }
             }
             foreach ($published[$key]['kpis'] ?? [] as $kpi) {
@@ -62,12 +62,12 @@ class DashboardInsights
         }
 
         $creative = app(\App\Services\Creative\CreativeReport::class)->build($viewer, 'monthly', $start);
-        foreach (['verified' => 'Verified creative jobs', 'on_time' => 'On-time first submissions'] as $field => $label) {
+        foreach (['verified' => 'Verified creative jobs', 'on_time_credit' => 'On-time creative delivery credit'] as $field => $label) {
             $value = $creative[$field];
             $result['creatives']['items'][] = [
                 'label' => $label,
                 'scope' => 'Creative Studio · work visible to you',
-                'result' => $value === null ? '—' : $value.($field === 'on_time' ? '%' : ''),
+                'result' => $value === null ? '—' : $value.($field === 'on_time_credit' ? '%' : ''),
             ];
         }
 

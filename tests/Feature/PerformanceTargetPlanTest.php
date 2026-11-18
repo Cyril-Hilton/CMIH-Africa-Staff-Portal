@@ -40,7 +40,7 @@ class PerformanceTargetPlanTest extends TestCase
             foreach (['department', 'individual'] as $scope) {
                 $key = $scope.$from;
                 $plan = PerformanceTargetPlan::create(['kpi_id' => $s['kpi']->id, 'department' => 'client_relations', 'scope_type' => $scope, 'owner_id' => $s['owner']->id, 'reviewer_id' => $s['reviewer']->id, 'submitted_by' => $s['manager']->id, 'period_start' => $from, 'period_end' => $to, 'target' => 100, 'weight' => 1, 'rationale' => 'History regression', 'scope_key' => $key, 'approved_at' => now()]);
-                PerformanceObservation::create(['kpi_id' => $s['kpi']->id, 'target_plan_id' => $plan->id, 'owner_id' => $s['owner']->id, 'period_start' => $from, 'period_end' => $to, 'target' => 100, 'actual' => $actual, 'scope_key' => $key, 'source_reference' => 'Ledger regression', 'approved_at' => now()]);
+                PerformanceObservation::create(['kpi_id' => $s['kpi']->id, 'target_plan_id' => $plan->id, 'owner_id' => $s['owner']->id, 'period_start' => $from, 'period_end' => $to, 'target' => 100, 'actual' => $actual, 'scope_key' => $key, 'source_reference' => 'Ledger regression', 'approved_at' => now(), 'approved_by'=>$s['reviewer']->id, 'submitted_by'=>$s['manager']->id]);
             }
         }
         $observations = PerformanceObservation::with('kpi')->get();
@@ -138,7 +138,7 @@ class PerformanceTargetPlanTest extends TestCase
         $end = Carbon::parse('2026-10-31');
         $this->assertEquals(50, $service->user($s['owner'], $start, $end)['kpi_rate']);
         $this->assertEquals(100, $service->user($other, $start, $end)['kpi_rate']);
-        $this->assertNull($service->user($s['manager'], $start, $end)['kpi_rate']);
+        $this->assertSame(0.0,$service->user($s['manager'], $start, $end)['kpi_rate']); // Missing owned results earn zero credit.
         $report = app(PerformanceHubReport::class)->build(collect(), collect($results)->each(fn ($r) => $r->setRelation('kpi', $s['kpi'])), collect(), '2026-10-01', '2026-10-31', collect([$s['kpi']]), collect($plans));
         $this->assertEquals(60, $report['departments']['client_relations']['kpi_score']);
         $this->assertEquals(300, $report['kpis'][0]['actual']);

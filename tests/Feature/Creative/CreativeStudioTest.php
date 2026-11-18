@@ -235,8 +235,8 @@ class CreativeStudioTest extends TestCase {
  }
 
  public function test_later_deadline_change_does_not_rewrite_first_submission_timeliness():void {
-  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r->update(['requested_deadline'=>now()->subHour()]);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/late-first-version']);$r=$this->move($r,$lead,'changes_requested',['feedback_type'=>'scope_change','reason'=>'Newly requested scope needs a revised date.']);
-  $r=app(CreativeWorkflow::class)->plan($r,$lead,$r->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','priority'])+['requested_deadline'=>now()->addWeek(),'revision'=>$r->revision,'reason'=>'Deadline changed for new scope','override_reason'=>'Synthetic capacity']);
+  $sender=$this->staff();$owner=$this->staff('creatives');$lead=$this->staff('creatives','manager');$r=$this->plan($this->brief($sender),$lead,$owner,$sender);$r->update(['internal_eta'=>now()->subHour(),'requested_deadline'=>now()->addWeek()]);$r=$this->move($r,$owner,'in_progress');$r=$this->move($r,$owner,'in_review',['reference_url'=>'https://example.test/late-first-version']);$r=$this->move($r,$lead,'changes_requested',['feedback_type'=>'scope_change','reason'=>'Newly requested scope needs a revised date.']);
+  $r=app(CreativeWorkflow::class)->plan($r,$lead,array_replace($r->only(['assignee_id','reviewer_id','planned_start','internal_eta','estimated_hours','priority']),['internal_eta'=>now()->addWeek(),'requested_deadline'=>now()->addWeek(),'revision'=>$r->revision,'reason'=>'Deadline changed for new scope','override_reason'=>'Synthetic capacity']));
   $this->actingAs($sender)->getJson(route('portal.creative.show',$r))->assertOk()->assertJsonPath('on_time_submission',false);
  }
  public function test_approved_leave_and_company_holidays_reduce_working_capacity():void {

@@ -67,13 +67,14 @@
                                 <ol class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Project milestones">
                                     @foreach($stages as $key => [$label, $team])
                                         <li @class(['rounded-xl border p-3', 'border-emerald-400/30 bg-emerald-400/10' => $row['done'][$key], 'border-sky-400/50 bg-sky-400/10' => !$row['done'][$key] && $row['stage'] === $key, 'border-brand-white/15' => !$row['done'][$key] && $row['stage'] !== $key]) @if($row['stage'] === $key) aria-current="step" @endif>
-                                            <span class="block text-xs text-brand-ash">{{ $row['done'][$key] ? 'Recorded' : ($row['stage'] === $key ? 'Current stage' : 'Awaiting record') }}</span>
+                                            <span class="block text-xs text-brand-ash">{{ ($row['skipped'][$key]??false) ? 'Not required' : ($row['done'][$key] ? 'Recorded' : ($row['stage'] === $key ? 'Current stage' : 'Awaiting record')) }}</span>
                                             <strong class="mt-1 block">{{ $label }}</strong>
                                             <span class="mt-1 block text-xs text-brand-ash">{{ $team }}</span>
                                             <span class="mt-2 block text-xs">{{ $row['notes'][$key] }}</span>
                                         </li>
                                     @endforeach
                                 </ol>
+<details data-connected-project="{{ route('portal.project-journey.accountability',$project) }}"><summary class="mt-4 cursor-pointer font-semibold">Team accountability · all dates and timeline changes</summary><div data-connected-project-content></div></details>
                                 <div class="mt-4 grid gap-3 lg:grid-cols-3">
                                     <div class="space-y-2 rounded-xl border border-brand-white/15 p-3">
                                         <h3 class="font-semibold">Creative briefs</h3>

@@ -13,8 +13,9 @@ class ClientRelationsScorecard
         $active = $projects->whereNotIn('stage', ['lost', 'cancelled']);
         $opportunities = $active->whereNotIn('stage', ['project_ongoing', 'project_completed']);
         $financial = fn ($field) => ['value' => $projects->whereNotNull($field)->isEmpty() ? null : (float) $projects->whereNotNull($field)->sum($field), 'coverage' => $projects->whereNotNull($field)->count(), 'total' => $projects->count()];
-        $paired = $projects->whereNotNull('actual_amount')->whereNotNull('target_amount');
-        $target = $paired->sum('target_amount');
+        $targets = $projects->whereNotNull('target_amount')->filter(fn($p) => (float)$p->target_amount > 0);
+        $paired = $targets->whereNotNull('actual_amount');
+        $target = $targets->sum('target_amount');
         $actual = $paired->sum('actual_amount');
         $clientRevenue = $projects->groupBy(fn ($p) => mb_strtolower(trim($p->client_name)))->map(function ($group) {
             $known = $group->whereNotNull('actual_amount');
@@ -35,7 +36,7 @@ class ClientRelationsScorecard
         return [
             'total_clients' => $projects->pluck('client_name')->merge($records->pluck('client_name'))->map(fn ($s) => mb_strtolower(trim($s)))->filter()->unique()->count(),
             'revenue' => $financial('actual_amount'), 'revenue_by_client' => $clientRevenue,
-            'target' => $paired->isEmpty() ? null : (float) $target, 'actual' => $paired->isEmpty() ? null : (float) $actual, 'achievement' => PerformanceMath::ratio($paired->isEmpty() ? null : (float) $actual, $paired->isEmpty() ? null : (float) $target), 'target_coverage' => $paired->count(),
+            'target' => $targets->isEmpty() ? null : (float) $target, 'actual' => $paired->isEmpty() ? null : (float) $actual, 'achievement' => PerformanceMath::ratio($targets->isEmpty() ? null : (float) $actual, $targets->isEmpty() ? null : (float) $target), 'target_coverage' => $paired->count(), 'target_expected' => $targets->count(),
             'pipeline_count' => $opportunities->count(), 'pipeline_value' => $opportunities->whereNotNull('proposed_amount')->isEmpty() ? null : (float) $opportunities->sum('proposed_amount'),
             'weighted_pipeline' => $opportunities->whereNotNull('proposed_amount')->isEmpty() ? null : $opportunities->sum(fn ($p) => (float) $p->proposed_amount * config('crm_pipeline.stages.'.$p->stage.'.probability', 0) / 100),
             'new_business' => $opportunities->where('new_business', true)->values(), 'issues' => $issues->values(),

@@ -42,7 +42,7 @@ class StaffPerformanceScore
         $verifiedPoints = $verifiedTaskRows->sum($weightFor) + $verifiedCommitmentRows->sum($weightFor);
         $total = $tasks->count() + $commitments->count();
         $definitions = PerformanceKpi::whereIn('department', $departments)->where('owner_id', $user->id)->where(fn ($q) => $q->whereNull('effective_from')->orWhereDate('effective_from', '<=', $end))->where(fn ($q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $start))->whereHas('objective', fn ($q) => $q->whereDate('starts_on', '<=', $end)->whereDate('ends_on', '>=', $start))->get();
-        $observations = PerformanceObservation::with('kpi')->whereIn('kpi_id', $definitions->pluck('id'))->where('owner_id', $user->id)->where('approved_by', '!=', $user->id)->whereNull('target_plan_id')->whereNotNull('approved_at')->whereDate('period_start', '>=', $start)->whereDate('period_end', '<=', $end)->get();
+        $observations = PerformanceObservation::with('kpi')->whereIn('kpi_id', $definitions->pluck('id'))->where('owner_id', $user->id)->where('approved_by', '!=', $user->id)->where(fn($q)=>$q->whereNull('submitted_by')->orWhereColumn('approved_by','!=','submitted_by'))->whereNull('target_plan_id')->whereNotNull('approved_at')->whereDate('period_start', '>=', $start)->whereDate('period_end', '<=', $end)->get();
         $report = app(PerformanceHubReport::class);
         $measures = [];
         foreach ($definitions as $definition) {
@@ -56,7 +56,7 @@ class StaffPerformanceScore
         if ($plans->isNotEmpty()) {
             $measures = $plans->map(function ($plan) {
                 $observation = $plan->observation;
-                $reported = $plan->approved_at && $observation?->approved_at && (int) $observation->approved_by !== (int) $plan->owner_id && $observation->actual !== null;
+                $reported = $plan->approved_at && $observation?->approved_at && $observation->approved_by && (int) $observation->approved_by !== (int) $plan->owner_id && (int)$observation->approved_by !== (int)$observation->submitted_by && $observation->actual !== null;
                 $achievement = $reported ? PerformanceMath::achievement($plan->target, $observation->actual, $plan->kpi->direction)
                     : ($plan->approved_at && $plan->target > 0 ? 0.0 : null);
 
@@ -67,17 +67,26 @@ class StaffPerformanceScore
         if($reviewMeasure)$measures[]=$reviewMeasure;
         $expectedMeasures = count($measures);
         $measured = collect($measures)->whereNotNull('achievement');
-        $kpiWeight = $measured->sum('weight');
-        $kpi = $kpiWeight > 0 && $measured->count() === $expectedMeasures ? round($measured->sum(fn ($m) => $m['achievement'] * $m['weight']) / $kpiWeight, 2) : null;
+        $sourceBasis = null;
+        if ($expectedMeasures === 0) {
+            $sourceBasis = app(DepartmentSourcePerformance::class)->forRequest(User::normalizeDepartmentKey($user->department),$start->toDateString(),$end->toDateString(),$user->id,false);
+            $measures = $this->sourceMeasures($sourceBasis);
+            $expectedMeasures = count($measures);
+            $measured = collect($measures)->whereNotNull('achievement');
+        }
+        $kpi = PerformanceMath::creditedWeightedScore($measures);
         $punctuality = $attendance['expected_workdays'] > 0 ? $attendance['punctuality_score'] : null;
         $completion = $totalPoints > 0 ? round(100 * $verifiedPoints / $totalPoints, 2) : null;
         $result = $this->combine($punctuality, $completion, $kpi);
-        $result['complete'] = $result['complete'] && $measured->count() === $expectedMeasures;
+        $result['complete'] = $result['complete'] && collect($measures)->every(fn($m)=>($m['result_reported'] ?? false));
+        $result['credited_score'] = $result['subtotal'];
+        $result['kpi_basis'] = $sourceBasis ? 'Equal shares per required reporting area' : 'Assigned KPI weights';
+        $result['kpi_gaps'] = collect($measures)->filter(fn($m)=>!($m['result_reported']??false))->pluck('name')->values()->all();
         if (! $result['complete']) {
             $result['score'] = null;
         }
 
-        return $result + ['awaiting_creative_review'=>$awaitingCreativeReview,'task_rate' => $completion, 'punctuality' => $punctuality, 'kpi_rate' => $kpi, 'attendance_rate' => $attendance['expected_workdays'] > 0 ? $attendance['attendance_rate'] : null, 'task_weighted' => $result['components']['completion']['points'], 'punctuality_weighted' => $result['components']['punctuality']['points'], 'kpi_weighted' => $result['components']['kpi']['points'], 'attendance_weighted' => 0.0, 'expected_workdays' => $attendance['expected_workdays'], 'attendance_days' => $attendance['attendance_days'], 'punctual_days' => $attendance['punctual_days'], 'completion_points_total' => $totalPoints, 'completion_points_verified' => $verifiedPoints, 'completion_total' => $total, 'completion_verified' => $done, 'kpi_expected' => $expectedMeasures, 'kpi_measured' => collect($measures)->filter(fn($m)=>$m['result_reported'] ?? $m['achievement']!==null)->count(), 'kpis' => $measures, 'has_activity' => $total > 0 || $attendance['attendance_days'] > 0 || $observations->isNotEmpty() || $reviewMeasure !== null, 'source_tasks' => $tasks->pluck('id')->all(), 'source_commitments' => $commitments->pluck('id')->merge($linked->pluck('id'))->unique()->values()->all()];
+        return $result + ['awaiting_creative_review'=>$awaitingCreativeReview,'task_rate' => $completion, 'punctuality' => $punctuality, 'kpi_rate' => $kpi, 'attendance_rate' => $attendance['expected_workdays'] > 0 ? $attendance['attendance_rate'] : null, 'task_weighted' => $result['components']['completion']['points'], 'punctuality_weighted' => $result['components']['punctuality']['points'], 'kpi_weighted' => $result['components']['kpi']['points'], 'attendance_weighted' => 0.0, 'expected_workdays' => $attendance['expected_workdays'], 'attendance_days' => $attendance['attendance_days'], 'punctual_days' => $attendance['punctual_days'], 'completion_points_total' => $totalPoints, 'completion_points_verified' => $verifiedPoints, 'completion_total' => $total, 'completion_verified' => $done, 'kpi_expected' => $expectedMeasures, 'kpi_measured' => collect($measures)->filter(fn($m)=>$m['result_reported'] ?? $m['achievement']!==null)->count(), 'kpis' => $measures, 'has_activity' => $total > 0 || $attendance['attendance_days'] > 0 || $observations->isNotEmpty() || $reviewMeasure !== null || ($sourceBasis['reported']??0)>0, 'source_tasks' => $tasks->pluck('id')->all(), 'source_commitments' => $commitments->pluck('id')->merge($linked->pluck('id'))->unique()->values()->all()];
     }
 
     private function managerSignedOff(?User $reviewer, User $owner): bool
@@ -110,30 +119,42 @@ class StaffPerformanceScore
             }
         }
 
-        return ['score' => $coverage === 100 ? round($subtotal, 2) : null, 'subtotal' => round($subtotal, 2), 'coverage_weight' => $coverage, 'complete' => $coverage === 100, 'components' => $components, 'formula_version' => '10-65-25-v3-impact'];
+        return ['score' => $coverage === 100 ? round($subtotal, 2) : null, 'subtotal' => round($subtotal, 2), 'coverage_weight' => $coverage, 'complete' => $coverage === 100, 'components' => $components, 'formula_version' => '10-65-25-v4-source-credit'];
     }
 
-    public function team(Collection $users, Carbon $start, Carbon $end, ?string $department = null): array
+    public function team(Collection $users, Carbon $start, Carbon $end, ?string $department = null, ?Collection $memberScores = null): array
     {
         $users=$users->reject(fn($u)=>$u->isServiceAccount());
-        $members = $users->map(fn ($u) => $this->user($u, $start, $end));
+        $members = $memberScores ?? $users->map(fn ($u) => $this->user($u, $start, $end));
         $expected = $members->sum('expected_workdays');
         $punctual = $members->sum('punctual_days');
         $total = $members->sum('completion_points_total');
         $verified = $members->sum('completion_points_verified');
         $kpis = $department === null ? collect() : $this->departmentMeasures($department, $start, $end);
         if ($kpis->isEmpty()) {
-            $kpis = $members->flatMap(fn ($m) => $m['kpis']);
+            if ($members->flatMap(fn($m)=>$m['kpis'])->contains(fn($m)=>!isset($m['basis']))) {
+                $kpis = $members->flatMap(fn($m)=>$m['kpis']);
+            } elseif ($department !== null) {
+                $kpis = collect($this->sourceMeasures(app(DepartmentSourcePerformance::class)->forRequest($department,$start->toDateString(),$end->toDateString(),null,false)));
+            } else {
+                $kpis = $members->flatMap(fn ($m) => $m['kpis']);
+            }
         }
         $measured = $kpis->whereNotNull('achievement');
-        $weight = $measured->sum('weight');
-        $kpi = $weight > 0 ? $measured->sum(fn ($m) => $m['achievement'] * $m['weight']) / $weight : null;
+        $kpi = PerformanceMath::creditedWeightedScore($kpis);
         $result = $this->combine($expected > 0 ? 100 * $punctual / $expected : null, $total > 0 ? 100 * $verified / $total : null, $kpi);
-        if ($measured->count() !== $kpis->count()) {
-            $result = $this->combine($expected > 0 ? 100 * $punctual / $expected : null, $total > 0 ? 100 * $verified / $total : null, null);
-        }
+        $result['credited_score'] = $result['subtotal'];
+        $result['complete'] = $result['complete'] && $kpis->every(fn($m)=>($m['result_reported']??false));
+        if (!$result['complete']) $result['score'] = null;
 
         return $result + ['member_count' => $users->count(), 'complete_members' => $members->where('complete', true)->count(), 'expected_workdays' => $expected, 'punctual_days' => $punctual, 'completion_points_total' => $total, 'completion_points_verified' => $verified, 'completion_total' => $members->sum('completion_total'), 'completion_verified' => $members->sum('completion_verified'), 'kpi_measured' => $kpis->filter(fn($m)=>$m['result_reported'] ?? $m['achievement']!==null)->count(), 'kpi_expected' => $kpis->count()];
+    }
+
+    private function sourceMeasures(array $source): array
+    {
+        return array_map(fn($area)=>['name'=>$area['name'],'weight'=>1,'achievement'=>$area['achievement_credit'],
+            'result_reported'=>$area['reported'] && $area['result_gap']===null && $area['measured']>0,
+            'source_ids'=>[], 'basis'=>'Published dashboard targets and actuals · equal area weight'],$source['areas']);
     }
 
     private function departmentMeasures(string $department, Carbon $start, Carbon $end): Collection

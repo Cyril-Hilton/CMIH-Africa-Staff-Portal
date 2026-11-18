@@ -28,14 +28,14 @@
                     <p class="ept-sub">{{ $row['client'] ?: 'Internal work' }} · {{ collect($row['departments'])->map(fn($dept)=>\App\Models\User::departmentLabel($dept))->implode(' ↔ ') }}</p>
                     <div style="margin-top:10px"><span class="ept-badge">{{ $row['cancelled'] ? 'Closed / cancelled' : $row['current'] }}</span>@if($row['overdue'])<span class="ept-badge ept-warning">Past recorded deadline</span>@elseif($row['attention'])<span class="ept-badge ept-warning">Needs attention</span>@endif</div>
                 </div>
-                <div class="ept-owner"><span class="ept-sub">{{ $row['complete'] ? 'Responsible owner' : 'Current responsible person' }}</span><strong>{{ $tracker['names']->get($row['owner_id']) ?: 'Not assigned / not recorded' }}</strong><p class="ept-sub" style="margin-top:8px">Due {{ $row['due']?->format('d M Y') ?? 'not recorded' }}</p>@if($row['progress']!==null)<p class="ept-sub">Reported progress {{ $row['progress'] }}%</p>@endif</div>
+                <div class="ept-owner"><span class="ept-sub">{{ $row['complete'] ? 'Responsible owner' : 'Current responsible person' }}</span><strong>{{ $tracker['names']->get($row['owner_id']) ?: 'Assignment needed' }}</strong><p class="ept-sub" style="margin-top:8px">Due {{ $row['due']?->format('d M Y') ?? 'setup needed' }}</p>@if($row['progress']!==null)<p class="ept-sub">Reported progress {{ $row['progress'] }}%</p>@endif</div>
             </div>
             <ol class="ept-steps" aria-label="{{ $row['title'] }} milestones">
                 @foreach($row['steps'] as $step)
                     <li class="ept-step" data-state="{{ $row['cancelled'] && $step['state']==='current' ? 'waiting' : $step['state'] }}" @if(!$row['cancelled'] && $step['state']==='current') aria-current="step" @endif>
                         <span class="ept-stop" aria-hidden="true">{{ $step['state']==='done' ? '✓' : $loop->iteration }}</span><b>{{ $step['label'] }}</b><small>{{ $step['team'] }}</small>
-                        @if(!empty($step['owner_id']))<small>{{ $tracker['names']->get($step['owner_id']) ?: 'Owner not recorded' }}</small>@endif
-                        <em>{{ $step['state']==='done' ? 'Recorded' : (!$row['cancelled'] && $step['state']==='current' ? 'Work is here' : 'Awaiting evidence') }}</em><small>{{ $step['detail'] }}</small>@if(!empty($step['date']))<small>{{ $step['date']->format($step['label']==='Client project' ? 'd M Y' : 'd M Y · H:i') }}</small>@endif
+                        @if(!empty($step['owner_id']))<small>{{ $tracker['names']->get($step['owner_id']) ?: 'Assignment needed' }}</small>@endif
+                        <em>{{ $step['state']==='skipped' ? 'Not required' : ($step['state']==='done' ? 'Recorded' : (!$row['cancelled'] && $step['state']==='current' ? 'Work is here' : 'Awaiting evidence')) }}</em><small>{{ $step['detail'] }}</small>@if(!empty($step['date']))<small>{{ $step['date']->format('d M Y · H:i:s') }}</small>@endif
                     </li>
                 @endforeach
             </ol>
@@ -44,7 +44,8 @@
                     <span class="ept-person" data-owner="{{ $id===$row['owner_id'] ? 'true' : 'false' }}">{{ $tracker['names']->get($id) ?: 'Former / unknown staff' }}@if($id===$row['owner_id']) · Owner @endif</span>
                 @empty<span class="ept-sub">Team assignment not recorded.</span>@endforelse
             </div>
-            <details data-tracker-detail="{{ $row['key'] }}"><summary>Sources, handovers & follow-up · {{ count($row['sources']) }} linked records @if(count($row['gaps'])) · {{ count($row['gaps']) }} evidence gaps @endif</summary>
+            <details data-tracker-detail="{{ $row['key'] }}" @if(!empty($row['accountability_url'])) data-connected-project="{{ $row['accountability_url'] }}" @endif><summary>Sources, handovers & follow-up · {{ count($row['sources']) }} linked records @if(count($row['gaps'])) · {{ count($row['gaps']) }} evidence gaps @endif</summary>
+                @if(!empty($row['accountability_url']))<div data-connected-project-content></div>@endif
                 <div class="ept-detail-grid">
                     <div><h5>Open the underlying work</h5>@foreach($row['sources'] as $source)<a class="ept-source underline" href="{{ $source['url'] }}">{{ $source['title'] }} ↗<span>{{ $source['label'] }}</span></a>@endforeach</div>
                     <div><h5>Next handover / follow-up</h5>

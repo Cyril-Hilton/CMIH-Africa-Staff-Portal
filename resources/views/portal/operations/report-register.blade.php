@@ -62,6 +62,9 @@
                     <td colspan="{{ 6 + count($columns) }}">
                         <div class="br-table-heading"><strong>{{ $entry->reference }}</strong>@if($canEdit)<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_edit' => $entry->id]) }}">Edit Entry</a>@endif</div>
                         @include('portal.operations.report-fields', ['detailFields' => array_intersect_key($data, $safeFields($kind)) + $derived + ['project' => $entry->project, 'source_reference' => $data['import_source'] ?? null, 'duration_as_reported' => $data['duration_as_reported'] ?? null, 'source_serial' => $data['source_serial'] ?? null, 'evidence_link' => $modules && $member ? $entry->evidence_url : null]])
+                        @if(!empty($data['crm_project_id']) && ($connectedProject=\App\Models\CrmPipelineProject::find($data['crm_project_id'])))
+                            <details data-connected-project="{{ route('portal.project-journey.accountability',$connectedProject) }}"><summary class="cursor-pointer text-sm font-semibold">Connected project · teams, dates & accountability</summary><div data-connected-project-content></div></details>
+                        @endif
                         @if($kind === 'activation' && $member)
                             @include('portal.operations.report-linked-assets', ['linked' => $linked, 'linkedLedger' => $linkedPosm->get($campaignId, collect()), 'linkedLogs' => $checkoutLogs->get($campaignId, collect()), 'activationId' => $entry->id, 'campaignId' => null])
                         @endif

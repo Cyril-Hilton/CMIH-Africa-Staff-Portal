@@ -63,7 +63,7 @@ class StaffScoreGovernanceTest extends TestCase
         $this->assertSame(config('performance.score_weights'),StaffPerformanceScore::WEIGHTS);
         $result=app(StaffPerformanceScore::class)->combine(100,0,100);
         $this->assertSame(35.0,$result['score']);
-        $this->assertSame('10-65-25-v3-impact',$result['formula_version']);
+        $this->assertSame('10-65-25-v4-source-credit',$result['formula_version']);
     }
     public function test_dashboard_exposes_a_total_card_without_inventing_a_complete_score(): void
     {
@@ -83,8 +83,9 @@ class StaffScoreGovernanceTest extends TestCase
         $kpi=\App\Models\PerformanceKpi::create(['objective_id'=>$objective->id,'department'=>'finance','name'=>'Foreign KPI','definition'=>'Collections','formula'=>'actual / target','unit'=>'GHS','direction'=>'higher','aggregation'=>'sum','frequency'=>'monthly','source'=>'Approved source','owner_id'=>$owner->id,'reviewer_id'=>$reviewer->id,'green_threshold'=>100,'amber_threshold'=>80,'escalation_days'=>2,'required_action'=>'Review','dimension'=>'financial','weight'=>100,'evidence_required'=>false]);
         \App\Models\PerformanceObservation::create(['kpi_id'=>$kpi->id,'owner_id'=>$owner->id,'period_start'=>'2026-10-01','period_end'=>'2026-10-31','target'=>100,'actual'=>100,'approved_at'=>now(),'approved_by'=>$reviewer->id,'source_reference'=>'Reviewed source','scope_key'=>'foreign-test']);
         $result=app(StaffPerformanceScore::class)->user($owner,Carbon::parse('2026-10-01'),Carbon::parse('2026-10-31'));
-        $this->assertSame(0,$result['kpi_expected']);
-        $this->assertNull($result['kpi_rate']);
+        $this->assertSame(3,$result['kpi_expected']); // The user's own department reporting areas, never the foreign KPI.
+        $this->assertSame(0.0,$result['kpi_rate']);
+        $this->assertNotContains('Foreign KPI',array_column($result['kpis'],'name'));
         $this->assertNull($result['score']);
     }
     public function test_employee_and_department_of_month_standings_use_the_new_formula(): void
@@ -105,7 +106,7 @@ class StaffScoreGovernanceTest extends TestCase
         // 100% attendance × 10 + 50% verified tasks × 65 + 80% KPI × 25.
         $this->assertEquals(62.5,$employee['score']);
         $this->assertEquals(62.5,$department['score']);
-        $this->assertSame('10-65-25-v3-impact',$employee['formula_version']);
+        $this->assertSame('10-65-25-v4-source-credit',$employee['formula_version']);
         $this->assertSame(65,$employee['score_components']['completion']['weight']);
         $this->assertSame(25,$department['score_components']['kpi']['weight']);
         $this->assertTrue($employee['score_complete']);

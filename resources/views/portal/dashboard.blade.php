@@ -388,28 +388,8 @@
         @include('portal.partials.weekly-report-toolbar')
         @unless($isBrandsWeeklyDepartment || $isHrDashboard || $isOperationsWeeklyDepartment)
 
-        <p class="mt-4 text-xs text-brand-ash">Work status uses the latest report per linked workstream. Earlier unlinked entries remain separate.</p>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-emerald-200/70">Reported Completed</p>
-                <p class="mt-2 text-2xl font-semibold text-emerald-200">{{ $weeklyConsolidatedMetrics['completed'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-amber-200/70">In Progress</p>
-                <p class="mt-2 text-2xl font-semibold text-amber-200">{{ $weeklyConsolidatedMetrics['pending'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-sky-300/20 bg-sky-300/5 p-4"><p class="text-[10px] uppercase tracking-[0.22em] text-sky-200">Planned</p><p class="mt-2 text-2xl font-semibold text-sky-100">{{ $weeklyConsolidatedMetrics['planned']??0 }}</p></div>
-            <div class="rounded-2xl border border-brand-red/20 bg-brand-red/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-brand-red/80">Blocked / Deferred</p>
-                <p class="mt-2 text-2xl font-semibold text-brand-red">{{ $weeklyConsolidatedMetrics['blocked'] }}</p>
-            </div>
-            <div class="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4">
-                <p class="text-[10px] uppercase tracking-[0.22em] text-orange-200/70">Overdue · As of Selected Period</p>
-                <p class="mt-2 text-2xl font-semibold text-orange-200">{{ $weeklyConsolidatedMetrics['overdue'] }}</p>
-            </div>
-        </div>
-
-        <details class="mt-4 dashboard-report-settings"><summary class="cursor-pointer text-sm font-semibold">Delivery Breakdown & Reporting Gaps</summary>
+        <details class="mt-4 dashboard-report-settings"><summary class="cursor-pointer text-sm font-semibold">Weekly Workstream Review Details</summary>
+        <p class="mt-3 text-xs text-brand-ash">This breakdown covers saved weekly workstreams only. Project, brief, revenue, activation and asset totals use each department’s own dashboard summary below.</p>
         @include('portal.partials.weekly-accountability-summary')
         </details>
 
@@ -977,7 +957,7 @@
     </section>
 
     </details>
-    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Recognition &amp; Awards<span class="mt-1 block text-xs font-normal text-brand-ash">{{ count($awardStandings['measured_employees']) }} staff with measured activity · {{ count($awardStandings['incomplete_employees']) }} awaiting a full score</span></span></summary>
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Recognition &amp; Awards<span class="mt-1 block text-xs font-normal text-brand-ash">{{ count($awardStandings['measured_employees']) }} staff with measured activity · {{ count($awardStandings['incomplete_employees']) }} with evidence / setup gaps</span></span></summary>
     <!--  Performance Awards Leaderboard Section -->
     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -2366,7 +2346,7 @@
                             deptHtml += renderDeptRunnerCard(3, topDepts[2].label, topDepts[2].score, topDepts[2].member_count, topDepts[2]);
                         }
                     } else {
-                        deptHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">No complete department scores yet. Rankings await verified reporting.</div>';
+                        deptHtml = '<div class="lg:col-span-3 text-center py-6 text-brand-white/30 italic">Official award scores need complete evidence. Provisional department rankings are shown below.</div>';
                     }
                 }
                 departmentCards.innerHTML = deptHtml;
@@ -2378,7 +2358,7 @@
                     notice.innerHTML = `Official awards locked for period: <strong>${escapeAwardHtml(period)}</strong>`;
                 } else {
                     notice.className = "mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400";
-                    notice.innerHTML = 'Official awards have not been locked for this period yet. Measured task rankings are available below.';
+                    notice.innerHTML = 'Official awards have not been locked for this period yet. Provisional performance rankings with zero credit for missing results are available below.';
                 }
 
             }

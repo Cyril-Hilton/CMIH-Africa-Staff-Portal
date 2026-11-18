@@ -5,6 +5,7 @@ return [
     'tabs' => [
         'overview' => 'Overview',
         'projects' => 'Projects & Activations',
+        'handovers' => 'Connected Projects & Handovers',
         'assets' => 'Assets & POSM',
         'execution' => 'Procurement & Execution',
         'follow-up' => 'Approvals, Reports & Risks',

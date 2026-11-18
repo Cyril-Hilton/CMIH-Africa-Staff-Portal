@@ -1,3 +1,4 @@
+import './project-routing';
 import './brands-reports';
 import './action-points';
 import './weekly-report-copy';

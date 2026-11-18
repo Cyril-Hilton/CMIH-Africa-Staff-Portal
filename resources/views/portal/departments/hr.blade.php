@@ -451,7 +451,7 @@
                     <p class="mt-1 text-xs text-brand-white/50">Review every leave request, see its current lifecycle, and complete final HR approval. Saturdays and Sundays are excluded from working-day totals.</p>
                 </div>
                 <a href="{{ route('portal.leaves') }}" class="rounded-xl border border-brand-white/10 bg-brand-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-white hover:bg-brand-white/10">
-                    Open Leave Portal
+                    Leaves & Half-day Pass-outs
                 </a>
             </div>
 
