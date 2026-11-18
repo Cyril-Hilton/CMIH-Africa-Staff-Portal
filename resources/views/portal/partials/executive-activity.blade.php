@@ -5,7 +5,7 @@
             <p class="mt-1 text-sm text-brand-ash">Choose a department, then narrow its reports and tasks by staff or reporting period.</p>
         </div>
         <nav class="flex flex-wrap gap-3 text-sm" aria-label="Activity shortcuts">
-            <a href="{{ route('portal.project-journey') }}" class="underline underline-offset-4">Project Journey</a>
+            <a href="{{ route('portal.project-journey') }}" class="underline underline-offset-4">Full Project Journey</a>
             @if(auth()->user()->canAuditHrAndFinance())
                 <a href="{{ route('portal.hr') }}" class="underline underline-offset-4">HR Audit</a>
                 <a href="{{ route('portal.finance') }}" class="underline underline-offset-4">Finance Audit</a>
@@ -64,6 +64,18 @@
         <button class="rounded-lg border border-brand-white/20 px-4 py-2.5 text-sm">Filter Activity</button>
         <a href="{{ route('dashboard') }}#executive-activity" class="p-2.5 text-sm underline underline-offset-4">Clear</a>
     </form>
+    @include('portal.project-journey.tracker', ['tracker'=>$executiveActivity['tracker']])
+    <details class="my-5 rounded-xl border border-brand-white/15 p-4" open>
+        <summary class="cursor-pointer text-lg font-semibold">Department KPI Results & Reporting Gaps</summary>
+        <p class="mt-2 text-xs text-brand-ash">Automatic results from the same departmental source records. Select a department above to narrow this section.</p>
+        @foreach($sharedWeeklyPerformance as $sourceDepartment => $sourceData)
+            @continue($selectedDepartment && $selectedDepartment !== $sourceDepartment)
+            <details class="mt-3 rounded-xl border border-brand-white/10 p-3" @if($selectedDepartment) open @endif>
+                <summary class="cursor-pointer text-sm font-semibold">{{ $sourceData['label'] }} · {{ $sourceData['source_performance']['coverage'] ?? 0 }}% reporting coverage · {{ $sourceData['source_performance']['missing'] ?? 0 }} missing areas</summary>
+                @include('portal.partials.source-performance', ['sourcePerformance'=>$sourceData['source_performance'] ?? null])
+            </details>
+        @endforeach
+    </details>
     @include('portal.partials.executive-source-records')
     <details id="executive-daily-tasks" class="mt-5 rounded-xl border border-brand-white/15 p-3" @if(!$executiveActivity['records']['sections'] || request()->filled('activity_date') || request()->filled('activity_page')) open @endif>
     <summary class="mb-3 cursor-pointer text-lg font-semibold">Daily task activity <span class="ml-2 text-sm font-normal text-brand-ash">({{ $executiveActivity['rows']->total() }})</span></summary>

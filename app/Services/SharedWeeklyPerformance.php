@@ -27,7 +27,7 @@ class SharedWeeklyPerformance
                 }
                 $observation = $plan->observation;
                 $actual = $observation?->approved_at ? $observation->actual : null;
-                $achievement = PerformanceMath::achievement($plan->target, $actual, $kpi->direction);
+                $achievement = $actual === null && $plan->target > 0 ? 0.0 : PerformanceMath::achievement($plan->target, $actual, $kpi->direction);
                 $money = $kpi->dimension === 'financial' || (bool) preg_match('/GHS|GHC|GH₵|₵|USD|GBP|EUR|currency|money|cedi|dollar|£|€|\$/i', $kpi->unit);
                 $displayValue = fn($value) => $plan->department==='client_relations' && preg_match('/^(GHS|GHC|GH₵|₵)$/ui', $kpi->unit) ? 'GH₵ '.number_format((float)$value,2) : $value.' '.$kpi->unit;
                 $result[$plan->department]['kpis'][] = [
@@ -35,6 +35,7 @@ class SharedWeeklyPerformance
                     'client' => $plan->client, 'project' => $plan->project, 'period' => $plan->period_start->format('d M').'–'.$plan->period_end->format('d M Y'),
                     'target' => $money && $plan->department!=='client_relations' ? '100% of agreed target' : $displayValue($plan->target),
                     'actual' => $actual === null ? 'Not reported / not approved' : ($money && $plan->department!=='client_relations' ? ($achievement === null ? 'Not measured' : $achievement.'% of target') : $displayValue($actual)),
+                    'result_state' => $actual === null ? 'Missing approved result · 0% credited' : 'Approved result',
                     'achievement' => $achievement, 'gap' => $achievement === null ? null : round($achievement - 100, 2),
                     'rag' => PerformanceMath::rag($achievement, $kpi->green_threshold, $kpi->amber_threshold),
                     'financial' => $money,
@@ -56,6 +57,16 @@ class SharedWeeklyPerformance
             $result['hr_admin']['people_reporting'] = app(SharedPeopleReporting::class)->build($from, $to);
         }
 
+        foreach ($result as $key => &$departmentResult) {
+            $source = app(DepartmentSourcePerformance::class)->forRequest($key, $from, $to);
+            // Shared dashboards expose ratios and reporting counts, not private financial amounts.
+            if ($key !== 'client_relations') {
+                foreach ($source['metrics'] as &$metric) { unset($metric['target'], $metric['actual']); }
+                unset($metric);
+            }
+            $departmentResult['source_performance'] = $source;
+        }
+        unset($departmentResult);
         return $result;
     }
 }

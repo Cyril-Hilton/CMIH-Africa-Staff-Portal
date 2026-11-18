@@ -1688,6 +1688,14 @@
                         return;
                     }
 
+                    // Keep the executive tracker on the same period and staff filters as the reporting navigation.
+                    const currentTracker = document.getElementById('executive-project-tracker');
+                    const freshTracker = doc.getElementById('executive-project-tracker');
+                    if (currentTracker && freshTracker && (isUserNavigation || !currentTracker.contains(document.activeElement))) {
+                        currentTracker.replaceWith(freshTracker);
+                        window.initExecutiveProjectTracker?.();
+                    }
+
                     weeklyConsolidatedRegion.replaceWith(freshRegion);
                     weeklyConsolidatedRegion = freshRegion;
                     rememberWeeklyDepartment(requestedDepartment || freshDepartment);

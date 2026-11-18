@@ -64,9 +64,9 @@ class ProjectJourney
         $ids = $projects->pluck('id');
         $visibility = fn (Builder $q) => $q->visibleTo($viewer);
         $briefs = CreativeRequest::visibleTo($viewer)->whereIn('crm_project_id', $ids)->whereNull('parent_request_id')
-            ->with(['assignee:id,name', 'parts' => fn ($query) => $visibility($query->getQuery()), 'parts.assignee:id,name'])
+            ->with(['task', 'requester:id,name', 'assignee:id,name', 'parts.task', 'parts' => fn ($query) => $visibility($query->getQuery()), 'parts.assignee:id,name'])
             ->orderBy('id')->get()->groupBy('crm_project_id');
-        $handovers = OperationsHandover::whereIn('project_id', $ids)->with(['lead:id,name', 'requester:id,name'])
+        $handovers = OperationsHandover::whereIn('project_id', $ids)->with(['task', 'lead:id,name', 'requester:id,name'])
             ->orderBy('event_at')->get()->groupBy('project_id');
         $activations = OperationsReporting::activations()->whereIn('data->crm_project_id', $ids)
             ->orderBy('period_start')->get()->groupBy(fn ($row) => (int) ($row->data['crm_project_id'] ?? 0));
@@ -94,7 +94,7 @@ class ProjectJourney
             : collect();
 
         return compact('records', 'view', 'period', 'date', 'from', 'to', 'filters', 'distribution', 'attention', 'upcoming', 'schedule', 'linkOptions')
-            + ['total' => $rows->count(), 'computedAt' => now(), 'focus' => $focus];
+            + ['rows' => $rows, 'total' => $rows->count(), 'computedAt' => now(), 'focus' => $focus];
     }
 
     private function inPeriod(Builder $query, Carbon $from, Carbon $to, User $viewer): Builder

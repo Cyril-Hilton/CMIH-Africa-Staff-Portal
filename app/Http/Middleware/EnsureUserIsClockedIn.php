@@ -44,6 +44,7 @@ class EnsureUserIsClockedIn
             'portal.awards.standings',
             'portal.tasks',
             'portal.tasks.show',
+            'portal.project-journey.tracker',
             'portal.tasks.store',
             'admin.tasks',
             'admin.tasks.store',

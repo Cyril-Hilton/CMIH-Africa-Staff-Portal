@@ -18,6 +18,7 @@ Live Creative Workflow & Evidence
 {{ \Carbon\Carbon::parse(request('weekly_from'))->format('d M') }}–{{ \Carbon\Carbon::parse(request('weekly_to'))->format('d M Y') }}
 @endif
 </span></div>
+@include('portal.partials.source-performance', ['sourcePerformance'=>$department['source_performance'] ?? null])
 @if($key === 'creatives')
 @include('portal.partials.weekly-report-summary')
 @include('portal.creative.workspace',['embedded'=>true])

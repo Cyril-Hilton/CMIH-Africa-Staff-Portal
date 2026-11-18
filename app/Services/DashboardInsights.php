@@ -30,8 +30,8 @@ class DashboardInsights
         $result = [];
         foreach ($departments as $key => $label) {
             $restricted = match ($key) {
-                'hr_admin' => ! $viewer->hasFullHrAccess() && ! $viewer->canAuditHrAndFinance(),
-                'finance' => PerformanceAccess::department($viewer) !== 'finance' && ! $viewer->canAuditHrAndFinance(),
+                'hr_admin' => ! $viewer->isCvoOrSuperAdmin() && ! $viewer->hasFullHrAccess() && ! $viewer->canAuditHrAndFinance(),
+                'finance' => ! $viewer->isCvoOrSuperAdmin() && PerformanceAccess::department($viewer) !== 'finance' && ! $viewer->canAuditHrAndFinance(),
                 default => false,
             };
             $result[$key] = [
@@ -43,6 +43,15 @@ class DashboardInsights
                 continue;
             }
 
+            $source = $published[$key]['source_performance'] ?? null;
+            if ($source) {
+                $result[$key]['items'][] = ['label'=>'Reporting coverage', 'scope'=>$source['reported'].' / '.$source['expected'].' required reporting areas',
+                    'result'=>$source['coverage']===null?'No reporting areas configured':$source['coverage'].'% · '.$source['missing'].' missing'];
+                foreach ($source['metrics'] as $metric) {
+                    $result[$key]['items'][] = ['label'=>$metric['name'],'scope'=>'Automatic from published department data',
+                        'result'=>$metric['achievement']===null?$metric['state']:$metric['achievement'].'% · '.$metric['state']];
+                }
+            }
             foreach ($published[$key]['kpis'] ?? [] as $kpi) {
                 $result[$key]['items'][] = [
                     'label' => $kpi['name'],

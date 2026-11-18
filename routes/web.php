@@ -357,6 +357,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
 
+    Route::get('/project-journey/tracker', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'tracker'])->name('project-journey.tracker');
     Route::get('/project-journey', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'index'])->name('project-journey');
     Route::post('/project-journey/link', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'link'])->name('project-journey.link');
 

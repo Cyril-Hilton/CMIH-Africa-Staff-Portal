@@ -263,6 +263,7 @@ class PerformanceAwardController extends Controller
                 'attendance_weighted' => $score['attendance_weighted'],
                 'expected_workdays' => $score['expected_workdays'],
                 'attendance_days' => $score['attendance_days'],
+                'kpi_expected' => $score['kpi_expected'] ?? 0,
                 'kpi_rate' => $score['kpi_rate'] ?? null,
                 'kpi_weighted' => $score['kpi_weighted'] ?? null,
                 'score_complete' => $score['complete'] ?? true,
@@ -308,6 +309,7 @@ class PerformanceAwardController extends Controller
             $deptAttendanceRate = $memberScores->isNotEmpty() ? $memberScores->avg('attendance_rate') : 0;
             $memberCount = $deptUsers->count();
 
+            $sourceReporting = app(\App\Services\DepartmentSourcePerformance::class)->forRequest($key, $startDate->toDateString(), $endDate->toDateString());
             $deptStandings[] = [
                 'key' => $key,
                 'label' => $label,
@@ -315,6 +317,9 @@ class PerformanceAwardController extends Controller
                 'score_complete' => $teamScore['complete'] ?? true,
                 'score_components' => $teamScore['components'] ?? null,
                 'task_rate' => $teamScore ? $teamScore['components']['completion']['raw'] : round($deptTaskRate, 1),
+                'reporting_coverage' => $sourceReporting['coverage'],
+                'reporting_missing' => $sourceReporting['missing'],
+                'kpi_expected' => $teamScore['kpi_expected'] ?? 0,
                 'kpi_rate' => $teamScore['components']['kpi']['raw'] ?? null,
                 'punctuality' => $teamScore ? $teamScore['components']['punctuality']['raw'] : round($deptPunctuality, 1),
                 'attendance_rate' => round($deptAttendanceRate, 1),
@@ -374,6 +379,9 @@ class PerformanceAwardController extends Controller
                 'punctuality' => $row['punctuality'],
                 'attendance_days' => $row['attendance_days'] ?? null,
                 'expected_workdays' => $row['expected_workdays'] ?? null,
+                'kpi_expected' => $row['kpi_expected'] ?? 0,
+                'reporting_coverage' => $row['reporting_coverage'] ?? null,
+                'reporting_missing' => $row['reporting_missing'] ?? null,
                 'kpi_rate' => $row['kpi_rate'] ?? null,
                 'score' => $row['score'],
             ];

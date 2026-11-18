@@ -68,7 +68,17 @@ class PerformanceHubReport
             $previous = $historicalScope($qualifiedHistory->where('kpi_id', $k->id)->filter(fn ($o) => $o->period_start->gte($priorStart) && $o->period_end->lte($priorEnd)));
             $ytd = $historicalScope($qualifiedHistory->where('kpi_id', $k->id)->filter(fn ($o) => $o->period_start->year === $start->year && $o->period_end->toDateString() <= $to));
             $completePlans = $plans->isEmpty() || ($rows->whereNotNull('actual')->count() === $scope->count());
-            $achievement = $completePlans ? PerformanceMath::achievement($target, $actual, $k->direction) : null;
+            $achievement = PerformanceMath::achievement($target, $actual, $k->direction);
+            if ($plans->isNotEmpty() && $target !== null && $target > 0 && !$completePlans) {
+                // Missing planned results receive zero credit. For lower-is-better KPIs,
+                // calculate each source independently so an absent result cannot improve the score.
+                $weight = $scope->sum('weight');
+                $achievement = $weight > 0 ? round($scope->sum(function ($plan) use ($rows, $k) {
+                    $observation = $rows->firstWhere('target_plan_id', $plan->id);
+                    $score = $observation?->actual !== null ? PerformanceMath::achievement($plan->target, $observation->actual, $k->direction) : 0.0;
+                    return min(100, max(0, $score ?? 0)) * $plan->weight;
+                }) / $weight, 2) : 0.0;
+            }
 
             return ['kpi' => $k, 'target' => $target, 'actual' => $actual, 'achievement' => $achievement, 'variance' => $target !== null && $actual !== null ? round($actual - $target, 4) : null, 'rag' => PerformanceMath::rag($achievement, $k->green_threshold, $k->amber_threshold), 'previous' => $this->aggregate($previous, $k->aggregation), 'ytd' => $this->aggregate($ytd, $k->aggregation), 'scoring_weight' => $plans->isNotEmpty() ? $scope->sum('weight') : $k->weight, 'expected_sources' => $plans->isNotEmpty() ? $scope->count() : null, 'coverage' => $rows->whereNotNull('actual')->count(), 'observations' => $rows];
         })->values();

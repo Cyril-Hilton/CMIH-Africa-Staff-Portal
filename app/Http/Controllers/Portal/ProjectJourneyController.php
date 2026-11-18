@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectJourneyController extends Controller
 {
+    public function tracker(Request $request, \App\Services\ExecutiveProjectTracker $tracker)
+    {
+        return response()->view('portal.project-journey.tracker-results', ['tracker'=>$tracker->build($request)])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function index(Request $request, ProjectJourney $journey)
     {
         $data = $journey->build($request);

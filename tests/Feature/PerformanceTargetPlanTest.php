@@ -145,19 +145,20 @@ class PerformanceTargetPlanTest extends TestCase
         $this->assertEquals(500, $report['kpis'][0]['target']);
     }
 
-    public function test_missing_planned_result_keeps_person_and_department_scores_incomplete(): void
+    public function test_missing_result_against_approved_plan_scores_zero_without_inventing_an_actual(): void
     {
         $s = $this->setupPlan();
         $this->actingAs($s['manager'])->post(route('portal.performance.targets.store'), $this->payload($s))->assertRedirect()->assertSessionHasNoErrors();
         $plan = PerformanceTargetPlan::firstOrFail();
         $this->actingAs($s['reviewer'])->post(route('portal.performance.targets.approve', $plan), ['reason' => 'Agreed'])->assertRedirect()->assertSessionHasNoErrors();
         $score = app(StaffPerformanceScore::class)->user($s['owner'], Carbon::parse('2026-10-01'), Carbon::parse('2026-10-31'));
-        $this->assertNull($score['kpi_rate']);
+        $this->assertSame(0.0, $score['kpi_rate']);
         $this->assertSame(1, $score['kpi_expected']);
         $this->assertSame(0, $score['kpi_measured']);
         $report = app(PerformanceHubReport::class)->build(collect(), collect(), collect(), '2026-10-01', '2026-10-31', collect([$s['kpi']]), collect([$plan->fresh()]));
         $this->assertEquals(100, $report['kpis'][0]['target']);
-        $this->assertNull($report['departments']['client_relations']['kpi_score']);
+        $this->assertSame(0.0, $report['departments']['client_relations']['kpi_score']);
+        $this->assertNull($report['kpis'][0]['actual']);
         $this->actingAs($s['manager'])->post(route('portal.performance.targets.store'), $this->payload($s))->assertSessionHasErrors('period_start');
     }
 

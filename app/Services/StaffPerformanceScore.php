@@ -50,15 +50,17 @@ class StaffPerformanceScore
             $target = $report->aggregate($rows, $definition->aggregation, 'target');
             $actual = $report->aggregate($rows, $definition->aggregation);
             $achievement = PerformanceMath::achievement($target, $actual, $definition->direction);
-            $measures[] = ['id' => $definition->id, 'name' => $definition->name, 'weight' => $definition->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'source_ids' => $rows->pluck('id')->all()];
+            $measures[] = ['id' => $definition->id, 'name' => $definition->name, 'weight' => $definition->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => $achievement !== null, 'source_ids' => $rows->pluck('id')->all()];
         }
         $plans = \App\Models\PerformanceTargetPlan::with(['kpi', 'observation'])->whereNull('withdrawn_at')->where(fn ($q) => $q->whereNull('amends_plan_id')->orWhereNotNull('approved_at'))->whereHas('kpi', fn ($q) => $q->whereIn('department', $departments))->where('scope_type', 'individual')->where('owner_id', $user->id)->whereDate('period_start', '>=', $start)->whereDate('period_end', '<=', $end)->get();
         if ($plans->isNotEmpty()) {
             $measures = $plans->map(function ($plan) {
                 $observation = $plan->observation;
-                $achievement = $plan->approved_at && $observation?->approved_at && (int) $observation->approved_by !== (int) $plan->owner_id ? PerformanceMath::achievement($plan->target, $observation->actual, $plan->kpi->direction) : null;
+                $reported = $plan->approved_at && $observation?->approved_at && (int) $observation->approved_by !== (int) $plan->owner_id && $observation->actual !== null;
+                $achievement = $reported ? PerformanceMath::achievement($plan->target, $observation->actual, $plan->kpi->direction)
+                    : ($plan->approved_at && $plan->target > 0 ? 0.0 : null);
 
-                return ['id' => $plan->kpi_id, 'target_plan_id' => $plan->id, 'name' => $plan->kpi->name, 'weight' => $plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'source_ids' => $observation?->approved_at ? [$observation->id] : []];
+                return ['id' => $plan->kpi_id, 'target_plan_id' => $plan->id, 'name' => $plan->kpi->name, 'weight' => $plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => (bool) $reported, 'source_ids' => $reported ? [$observation->id] : []];
             })->all();
         }
         $reviewMeasure=\App\Services\Creative\CreativeAccountability::reviewerMeasure($user,$start,$end);
@@ -75,7 +77,7 @@ class StaffPerformanceScore
             $result['score'] = null;
         }
 
-        return $result + ['awaiting_creative_review'=>$awaitingCreativeReview,'task_rate' => $completion, 'punctuality' => $punctuality, 'kpi_rate' => $kpi, 'attendance_rate' => $attendance['expected_workdays'] > 0 ? $attendance['attendance_rate'] : null, 'task_weighted' => $result['components']['completion']['points'], 'punctuality_weighted' => $result['components']['punctuality']['points'], 'kpi_weighted' => $result['components']['kpi']['points'], 'attendance_weighted' => 0.0, 'expected_workdays' => $attendance['expected_workdays'], 'attendance_days' => $attendance['attendance_days'], 'punctual_days' => $attendance['punctual_days'], 'completion_points_total' => $totalPoints, 'completion_points_verified' => $verifiedPoints, 'completion_total' => $total, 'completion_verified' => $done, 'kpi_expected' => $expectedMeasures, 'kpi_measured' => $measured->count(), 'kpis' => $measures, 'has_activity' => $total > 0 || $attendance['attendance_days'] > 0 || $observations->isNotEmpty() || $reviewMeasure !== null, 'source_tasks' => $tasks->pluck('id')->all(), 'source_commitments' => $commitments->pluck('id')->merge($linked->pluck('id'))->unique()->values()->all()];
+        return $result + ['awaiting_creative_review'=>$awaitingCreativeReview,'task_rate' => $completion, 'punctuality' => $punctuality, 'kpi_rate' => $kpi, 'attendance_rate' => $attendance['expected_workdays'] > 0 ? $attendance['attendance_rate'] : null, 'task_weighted' => $result['components']['completion']['points'], 'punctuality_weighted' => $result['components']['punctuality']['points'], 'kpi_weighted' => $result['components']['kpi']['points'], 'attendance_weighted' => 0.0, 'expected_workdays' => $attendance['expected_workdays'], 'attendance_days' => $attendance['attendance_days'], 'punctual_days' => $attendance['punctual_days'], 'completion_points_total' => $totalPoints, 'completion_points_verified' => $verifiedPoints, 'completion_total' => $total, 'completion_verified' => $done, 'kpi_expected' => $expectedMeasures, 'kpi_measured' => collect($measures)->filter(fn($m)=>$m['result_reported'] ?? $m['achievement']!==null)->count(), 'kpis' => $measures, 'has_activity' => $total > 0 || $attendance['attendance_days'] > 0 || $observations->isNotEmpty() || $reviewMeasure !== null, 'source_tasks' => $tasks->pluck('id')->all(), 'source_commitments' => $commitments->pluck('id')->merge($linked->pluck('id'))->unique()->values()->all()];
     }
 
     private function managerSignedOff(?User $reviewer, User $owner): bool
@@ -131,7 +133,7 @@ class StaffPerformanceScore
             $result = $this->combine($expected > 0 ? 100 * $punctual / $expected : null, $total > 0 ? 100 * $verified / $total : null, null);
         }
 
-        return $result + ['member_count' => $users->count(), 'complete_members' => $members->where('complete', true)->count(), 'expected_workdays' => $expected, 'punctual_days' => $punctual, 'completion_points_total' => $total, 'completion_points_verified' => $verified, 'completion_total' => $members->sum('completion_total'), 'completion_verified' => $members->sum('completion_verified'), 'kpi_measured' => $measured->count(), 'kpi_expected' => $kpis->count()];
+        return $result + ['member_count' => $users->count(), 'complete_members' => $members->where('complete', true)->count(), 'expected_workdays' => $expected, 'punctual_days' => $punctual, 'completion_points_total' => $total, 'completion_points_verified' => $verified, 'completion_total' => $members->sum('completion_total'), 'completion_verified' => $members->sum('completion_verified'), 'kpi_measured' => $kpis->filter(fn($m)=>$m['result_reported'] ?? $m['achievement']!==null)->count(), 'kpi_expected' => $kpis->count()];
     }
 
     private function departmentMeasures(string $department, Carbon $start, Carbon $end): Collection
@@ -148,11 +150,11 @@ class StaffPerformanceScore
                 $observation = $plan->observation;
                 $independent = $observation?->approved_at && $observation->approved_by
                     && ! in_array((int) $observation->approved_by, [(int) $observation->submitted_by, (int) $plan->owner_id], true);
-                $achievement = $independent
+                $achievement = $independent && $observation->actual !== null
                     ? PerformanceMath::achievement($plan->target, $observation->actual, $plan->kpi->direction)
-                    : null;
+                    : ($plan->target > 0 ? 0.0 : null);
 
-                return ['weight' => $plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement))];
+                return ['result_reported' => (bool) ($independent && $observation->actual !== null), 'weight' => $plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement))];
             });
     }
 

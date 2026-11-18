@@ -56,6 +56,7 @@ class ExecutiveActivity
 
         return [
             'records' => $records,
+            'tracker' => app(ExecutiveProjectTracker::class)->build($request),
             'departments' => $departments,
             'staff' => User::internalStaff()->where(fn (Builder $users) => $users->where('status', 'active')
                 ->orWhereIn('id', Task::query()->realWork()->whereNotNull('assigned_to')->select('assigned_to')))
