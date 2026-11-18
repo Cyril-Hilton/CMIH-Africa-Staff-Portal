@@ -43,6 +43,7 @@ class EnsureUserIsClockedIn
             'portal.dashboard.live',
             'portal.awards.standings',
             'portal.tasks',
+            'portal.tasks.show',
             'portal.tasks.store',
             'admin.tasks',
             'admin.tasks.store',

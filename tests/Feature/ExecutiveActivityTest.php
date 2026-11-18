@@ -47,6 +47,36 @@ class ExecutiveActivityTest extends TestCase
         $this->assertFalse($traffic->isCvoOrSuperAdmin());
     }
 
+    public function test_executive_sees_real_task_names_and_can_open_details_without_granting_traffic_private_access(): void
+    {
+        $owner = User::factory()->create(['status' => 'active', 'department' => 'creatives']);
+        $cvo = User::factory()->create(['status' => 'active', 'position_title' => 'CVO']);
+        $traffic = User::factory()->create(['status' => 'active', 'department' => 'executive', 'access_role' => 'staff',
+            'permissions_matrix' => [User::EXECUTIVE_ACTIVITY_PERMISSION]]);
+        $base = ['assigned_to' => $owner->id, 'assigned_by' => $owner->id, 'status' => 'Open', 'priority' => 'Medium'];
+        $shared = Task::create($base + ['department' => 'operations_projects', 'title' => 'Retail execution', 'details' => '<p>Install display stands</p>']);
+        $private = Task::create($base + ['department' => 'finance', 'title' => 'Payroll reconciliation']);
+        $pending = Task::create($base + ['department' => 'brands_marketing', 'title' => 'Campaign review', 'completion_review_status' => 'pending']);
+        $creative = Task::create($base + ['department' => 'creatives', 'title' => 'Dove display design']);
+        \App\Models\CreativeRequest::create(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'reference' => 'CR-TEST',
+            'task_id' => $creative->id, 'title' => $creative->title, 'visibility' => 'private', 'requester_id' => $owner->id]);
+
+        $dashboard = $this->actingAs($cvo)->get(route('dashboard'))->assertOk();
+        foreach ([$shared, $private, $pending, $creative] as $task) {
+            $dashboard->assertSee($task->title)->assertSee('/portal/tasks/'.$task->id.'?return_to=', false);
+            $this->get(route('portal.tasks.show', $task))->assertOk()->assertSee($task->title);
+        }
+        $this->get(route('portal.tasks.show', $shared))->assertSee('Install display stands');
+        $this->actingAs($traffic)->get(route('portal.tasks.show', $shared))->assertOk()->assertDontSee('Edit task');
+        foreach ([$private, $pending, $creative] as $task) {
+            $this->get(route('portal.tasks.show', $task))->assertForbidden();
+        }
+        $traffic->update(['permissions_matrix' => [User::EXECUTIVE_ACTIVITY_PERMISSION, User::HR_FINANCE_AUDIT_PERMISSION]]);
+        $this->actingAs($traffic->fresh())->get(route('portal.tasks.show', $private))->assertOk()->assertDontSee('Edit task');
+        $this->get(route('portal.tasks.show', $creative))->assertForbidden();
+        $this->actingAs($owner)->get(route('portal.tasks.show', $creative))->assertOk()->assertSee('Open creative brief');
+    }
+
     public function test_executive_activity_requires_a_grant_or_existing_executive_privilege(): void
     {
         foreach ([

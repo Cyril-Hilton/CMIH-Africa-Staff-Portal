@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\CreativeRequest;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,15 +22,8 @@ class ExecutiveActivity
             'activity_section' => 'nullable|string|max:30',
             'activity_activation' => 'nullable|integer|min:1',
         ]);
-        $tasks = Task::query()->realWork()->with(['assignee:id,name,department'])
-            ->select(['id', 'department', 'assigned_to', 'status', 'completion_review_status', 'created_at', 'due_on', 'supporting_staff_ids']);
-        // Expose work titles only for ordinary shared tasks in operational departments.
-        $sharedDepartmentAliases = array_merge(...array_map([User::class, 'departmentAliases'],
-            ['brands_marketing', 'client_relations', 'operations_projects', 'creatives']));
-        $tasks->selectSub(Task::query()->from('tasks as shared_tasks')->select('shared_tasks.title')
-            ->whereColumn('shared_tasks.id', 'tasks.id')->whereIn('shared_tasks.department', $sharedDepartmentAliases)
-            ->where(fn (Builder $q) => $q->whereNull('shared_tasks.completion_review_status')->orWhere('shared_tasks.completion_review_status', 'approved'))
-            ->whereNotIn('shared_tasks.id', CreativeRequest::query()->whereNotNull('task_id')->select('task_id')), 'shared_title');
+        $tasks = Task::query()->realWork()->with(['assignee:id,name,department,line_manager_id', 'creativeRequest'])
+            ->select(['id', 'title', 'department', 'assigned_to', 'assigned_by', 'copied_manager_ids', 'status', 'completion_review_status', 'created_at', 'due_on', 'supporting_staff_ids']);
         if (! empty($filters['activity_staff'])) {
             $id = (int) $filters['activity_staff'];
             $tasks->where(fn (Builder $q) => $q->where('assigned_to', $id)
@@ -50,6 +42,12 @@ class ExecutiveActivity
 
         $rows = $tasks->latest('created_at')->orderByDesc('id')->paginate(15, ['*'], 'activity_page')
             ->withPath(route('dashboard', [], false))->withQueryString()->fragment('executive-activity');
+        foreach ($rows as $task) {
+            $task->shared_title = $task->canBeViewedBy($request->user()) ? ($task->title ?: $task->creativeRequest?->title ?: 'Untitled task') : null;
+            // Do not pass restricted titles or briefs to the dashboard view.
+            $task->offsetUnset('title');
+            $task->unsetRelation('creativeRequest');
+        }
         $supportIds = $rows->getCollection()->flatMap(fn (Task $task) => $task->supporting_staff_ids ?? [])->unique();
 
         $department = $filters['activity_department'] ?? '';

@@ -14,6 +14,14 @@ use Illuminate\View\View;
 
 class TaskController extends Controller
 {
+    public function show(Task $task, Request $request): View
+    {
+        $task->load(['assignee', 'assigner', 'creativeRequest']);
+        abort_unless($task->canBeViewedBy($request->user()), 403);
+
+        return view('portal.tasks-show', ['task' => $task]);
+    }
+
     public function index(Request $request): View
     {
         $user = $request->user();

@@ -76,8 +76,15 @@
                 @forelse($executiveActivity['rows'] as $task)
                     <tr class="border-t border-brand-white/10">
                         <th scope="row" class="px-3 py-2.5 font-semibold">
-                            @if($task->shared_title)<div>{{ $task->shared_title }}</div>@endif
-                            <div class="text-xs text-brand-ash">#{{ $task->id }}</div>
+                            @if($task->shared_title)
+                                <a href="{{ route('portal.tasks.show', ['task' => $task->id, 'return_to' => request()->getRequestUri().'#executive-daily-tasks']) }}" class="block underline underline-offset-4 hover:text-brand-red focus-visible:outline focus-visible:outline-2">
+                                    <div>{{ $task->shared_title }}</div>
+                                    <div class="text-xs text-brand-ash">#{{ $task->id }} · View details</div>
+                                </a>
+                            @else
+                                <div>Restricted task</div>
+                                <div class="text-xs text-brand-ash">#{{ $task->id }} · Additional access required</div>
+                            @endif
                         </th>
                         <td class="px-3 py-2.5">
                             {{ $task->assignee?->name ?? 'Unassigned' }}

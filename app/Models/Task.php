@@ -320,6 +320,37 @@ class Task extends Model
         return $this->hasMany(ProjectBudget::class);
     }
 
+    public function creativeRequest(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CreativeRequest::class);
+    }
+
+    public function canBeViewedBy(User $user): bool
+    {
+        if (! $user->isActive() || $user->is_service_account) {
+            return false;
+        }
+        if ($user->isCvoOrSuperAdmin()) {
+            return true;
+        }
+        if ($this->creativeRequest) {
+            $this->creativeRequest->setRelation('task', $this);
+            return \App\Services\Creative\CreativeAccess::view($user, $this->creativeRequest);
+        }
+        if ($this->canBeEditedBy($user)) {
+            return true;
+        }
+        if (! $user->canViewExecutiveActivity()) {
+            return false;
+        }
+        $department = User::normalizeDepartmentKey($this->department ?: $this->assignee?->department);
+        if (in_array($department, ['hr_admin', 'finance'], true)) {
+            return $user->canAuditHrAndFinance();
+        }
+        return in_array($department, ['brands_marketing', 'client_relations', 'operations_projects', 'creatives'], true)
+            && in_array($this->completion_review_status, [null, 'approved'], true);
+    }
+
     public function canBeEditedBy(User $user): bool
     {
         if ($user->status !== 'active' || $user->access_role === 'merchandiser') {
