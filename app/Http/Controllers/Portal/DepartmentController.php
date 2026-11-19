@@ -426,11 +426,10 @@ class DepartmentController extends Controller
     public function finance(Request $request)
     {
         $user = $request->user();
-        $isFinance = strtolower(trim($user->department ?? '')) === 'finance'
-            || $user->isCvoOrSuperAdmin();
+        $isFinance = \App\Services\FinanceDashboard::canWrite($user);
 
         $auditOnly = $user->canAuditHrAndFinance() && ! $isFinance;
-        $canReadFinance = $isFinance || $auditOnly;
+        $canReadFinance = \App\Services\FinanceDashboard::canRead($user);
         if ($canReadFinance) {
             $claims = PettyCashClaim::with('user')->latest()->paginate(5, ['*'], 'c_page')->withQueryString();
             $invoices = \App\Models\SupplierInvoice::with('submitter')->latest()->paginate(5, ['*'], 'i_page')->withQueryString();

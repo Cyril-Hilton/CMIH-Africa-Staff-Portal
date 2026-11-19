@@ -18,7 +18,7 @@ class DepartmentModuleAlignmentTest extends TestCase
             $page=$this->actingAs($admin)->get(route('portal.'.$route));
             if($route==='brands')$page->assertOk()->assertSee('Add Report Entry')->assertSee('Perfect Store')->assertSee('Copy Entire Week');
             elseif($route==='operations')$page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Update')->assertSee('Projects &amp; Activations',false)->assertSee('Copy Saved Weekly Reports');
-            else $page->assertOk()->assertSee('Weekly Presentation')->assertSee('Add Weekly Activity')->assertSee($label,false)->assertSee('Copy Entire Week');
+            else $page->assertOk()->assertSee('Every figure. A clear picture.')->assertSee('Finance data filters')->assertSee($label,false)->assertDontSee('Copy Entire Week');
         }
         $this->get(route('portal.brands'))->assertSee('No POSM stock items recorded')->assertDontSee('Promotional Flyers Bundle');
     }
@@ -51,7 +51,7 @@ class DepartmentModuleAlignmentTest extends TestCase
         $requester=$this->actor('brands_marketing','staff');
         PettyCashClaim::create(['user_id'=>$requester->id,'amount'=>125,'currency'=>'GHC','description'=>'CVO queue item','status'=>'Submitted to CVO']);
         $cvo=$this->actor('executive','cvo');$cvo->update(['position_title'=>'CVO','job_level'=>'cvo']);
-        $this->actingAs($cvo)->get(route('portal.finance'))->assertOk()->assertSee('CVO queue item')->assertSee('Confirmed Revenue');
+        $this->actingAs($cvo)->get(route('portal.finance'))->assertOk()->assertSee('Every figure. A clear picture.');$this->get(route('portal.finance',['finance_tools'=>1]))->assertOk()->assertSee('CVO queue item');$this->get(route('portal.finance',['finance_review'=>1]))->assertOk()->assertSee('Confirmed Revenue');
         $other=$this->actor('creatives','staff');
         $this->actingAs($other)->get(route('portal.finance'))->assertOk()->assertDontSee('CVO queue item')->assertDontSee('module-panel-registers');
     }

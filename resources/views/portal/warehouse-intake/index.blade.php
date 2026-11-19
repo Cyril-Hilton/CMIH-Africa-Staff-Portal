@@ -59,14 +59,14 @@
                             <legend class="mb-3 font-semibold">Inventory details</legend>
                             @foreach(['name'=>['Item name', $source['name'] ?? '', 255], 'brand'=>['Brand', $source['brand'] ?? '', 120],
                                 'type'=>['Asset type', $source['type'] ?? '', 80], 'category'=>['Category', '', 100],
-                                'asset_tag'=>['Asset tag', $source['asset_code'] ?? '', 100], 'condition'=>['Condition', '', 80],
-                                'warehouse_location'=>['Warehouse location', '', 255]] as $field => [$label, $initial, $limit])
+                                'asset_tag'=>['Asset tag', $source['asset_code'] ?? '', 100], 'condition'=>['Condition', $source['condition'] ?? '', 80],
+                                'warehouse_location'=>['Warehouse location', $source['reported_location'] ?? '', 255]] as $field => [$label, $initial, $limit])
                                 <label class="text-sm">{{ $label }}
                                     <input name="{{ $field }}" maxlength="{{ $limit }}" value="{{ $value($field, $initial) }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5">
                                 </label>
                             @endforeach
                             <label class="text-sm">Confirmed units on hand
-                                <input type="number" name="warehouse_quantity" min="0" max="9999999" step="1" value="{{ $value('warehouse_quantity') }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5">
+                                <input type="number" name="warehouse_quantity" min="0" max="9999999" step="1" value="{{ $value('warehouse_quantity', $suggestion->source_type==='staff_entry'?($source['quantity']??''):'') }}" class="mt-1 block w-full rounded-lg bg-brand-black p-2.5">
                             </label>
                         </fieldset>
                         @if($assets->isNotEmpty())

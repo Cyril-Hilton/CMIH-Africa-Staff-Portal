@@ -41,6 +41,12 @@ class OperationsReportingController extends Controller
             'status' => ['required', Rule::in(array_keys(OperationsReporting::STATUSES))],
             'evidence_url' => 'nullable|url:http,https|max:2000',
             'campaign_id' => 'nullable|integer|exists:campaigns,id',
+            'handover_id'=>'nullable|integer|exists:operations_handovers,id',
+            'warehouse_assets_present'=>'nullable|boolean',
+            'warehouse_assets'=>'nullable|array|max:500',
+            'warehouse_assets.*.selected'=>'nullable|boolean',
+            'warehouse_assets.*.asset_id'=>'required|integer|exists:assets,id',
+            'warehouse_assets.*.quantity'=>'nullable|integer|min:1|max:9999999',
             'crm_project_id' => ['nullable', 'integer', Rule::exists('crm_pipeline_projects', 'id')->where('source_period_confirmed', true)],
             'activation_id' => ['nullable', 'integer', Rule::exists('performance_registers', 'id')
                 ->where('department', OperationsReporting::DEPARTMENT)->where('kind', 'activation')->whereNotNull('approved_at')],
@@ -75,6 +81,8 @@ class OperationsReportingController extends Controller
             $data[$linkField] = ! empty($input[$linkField]) ? (int) $input[$linkField] : null;
         }
 
+        if(!empty($input['warehouse_assets_present']))$data['warehouse_assets']=app(\App\Services\OperationsAssetRequests::class)->validate($input['warehouse_assets']??[]);
+
         $entry = DB::transaction(function () use ($input, $data, $actor, $manager, $includePrivate, $moduleEntry) {
             $entry = empty($input['submission']) ? new OperationsReportSubmission : OperationsReportSubmission::lockForUpdate()->findOrFail($input['submission']);
             $managerCorrection = $entry->exists && $manager && $entry->state === 'pending';
@@ -101,6 +109,14 @@ class OperationsReportingController extends Controller
                 $data['collaborator_ids'] = $collaborators->reject(fn ($id) => $id === (int) $ownerId)->values()->all();
             } elseif ($existingCollaborators->isNotEmpty()) {
                 $data['collaborator_ids'] = $existingCollaborators->reject(fn ($id) => $id === (int) $ownerId)->values()->all();
+            }
+            $handoverId=$input['handover_id']??$entry->payload['data']['operations_handover_id']??$source?->data['operations_handover_id']??null;
+            if($handoverId){
+                $handover=\App\Models\OperationsHandover::with('project')->lockForUpdate()->findOrFail($handoverId);
+                abort_unless($manager||(int)$handover->lead_id===$actor->id,403);
+                if(!$handover->lead_id||!$handover->handover_approved_at)throw ValidationException::withMessages(['handover_id'=>'The HOD must approve the handover and assign an Operations lead first.']);
+                $ownerId=$handover->lead_id;$data['operations_handover_id']=$handover->id;$data['crm_project_id']=$handover->project_id;
+                $input['project']=$handover->project->project_name;$input['client']=$handover->project->client_name;
             }
             $week = Carbon::parse($input['week'])->startOfWeek();
             $payload = [
@@ -203,16 +219,14 @@ class OperationsReportingController extends Controller
 
     private function retainHandoverIdentity(array $payload, ?PerformanceRegister $source): array
     {
-        $handoverId=$source?->data['operations_handover_id']??null;
+        $handoverId=$payload['data']['operations_handover_id']??$source?->data['operations_handover_id']??null;
         if(!$handoverId)return $payload;
         $handover=\App\Models\OperationsHandover::with('project')->lockForUpdate()->findOrFail($handoverId);
         $payload['client']=$handover->project->client_name;
         $payload['project']=$handover->project->project_name;
         $payload['owner_id']=$handover->lead_id;
-        $payload['status']=$source->status;
         $payload['data']['crm_project_id']=$handover->project_id;
         $payload['data']['operations_handover_id']=$handover->id;
-        $payload['data']['activation_status']=$source->data['activation_status']??'Planned';
         return $payload;
     }
 
@@ -227,6 +241,7 @@ class OperationsReportingController extends Controller
         $before = $register->exists ? $register->getAttributes() : [];
         $payload=$this->retainHandoverIdentity($entry->payload,$source);
         $register->fill($payload + ['approved_by' => $actor->id, 'approved_at' => now()])->save();
+        app(\App\Services\OperationsAssetRequests::class)->sync($register,$actor);
         app(\App\Services\WarehouseAssetIntake::class)->fromOperations($register);
         $entry->update(['register_id' => $register->id, 'state' => 'published', 'reviewed_by' => $actor->id]);
         PerformanceWorkflow::record('register', $register->id, $actor->id, $source ? 'update' : 'create', $before, $register->getAttributes(), 'Published Operations report');

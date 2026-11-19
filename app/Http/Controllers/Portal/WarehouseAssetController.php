@@ -55,7 +55,7 @@ class WarehouseAssetController extends Controller
             ->orderBy('name')
             ->get();
 
-        $requestsQuery = AssetWarehouseRequest::with(['asset', 'requester', 'reviewer', 'issuer', 'closer', 'campaign:id,name', 'operationsActivation:id,title'])
+        $requestsQuery = AssetWarehouseRequest::with(['asset', 'requester', 'reviewer', 'issuer', 'closer', 'campaign:id,name', 'operationsActivation:id,title','custodian:id,name','project:id,project_name'])
             ->latest();
 
         if ($filters['request_status'] !== '') {
@@ -63,7 +63,7 @@ class WarehouseAssetController extends Controller
         }
 
         if (! $this->canExportWarehouse($request->user())) {
-            $requestsQuery->where('requested_by', $request->user()->id);
+            $requestsQuery->where(fn($q)=>$q->where('requested_by',$request->user()->id)->orWhere('custodian_id',$request->user()->id));
         }
 
         $warehouseRequests = $requestsQuery
@@ -126,6 +126,7 @@ class WarehouseAssetController extends Controller
             ->orderBy('warehouse_location')
             ->pluck('warehouse_location');
 
+        $canSubmitWarehouse=$request->user()->isActive()&&!$request->user()->isServiceAccount()&&User::normalizeDepartmentKey($request->user()->department)==='operations_projects';
         $canEditWarehouse = $this->canManageWarehouse($request->user(), 'edit');
         $canImportWarehouse = $this->canManageWarehouse($request->user(), 'import');
         $canApproveWarehouse = $this->canManageWarehouse($request->user(), 'approve');
@@ -138,7 +139,7 @@ class WarehouseAssetController extends Controller
         $campaignOptions = $canLinkActivation ? Campaign::orderBy('name')->get(['id', 'name']) : collect();
 
         return view('portal.warehouse-assets', compact(
-            'canLinkActivation',
+            'canSubmitWarehouse','canLinkActivation',
             'activationOptions',
             'campaignOptions',
             'filters',
@@ -163,7 +164,8 @@ class WarehouseAssetController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorizeWarehouseManager($request, 'edit');
+        $staffSubmission=$request->user()->isActive()&&!$request->user()->isServiceAccount()&&User::normalizeDepartmentKey($request->user()->department)==='operations_projects'&&!app(\App\Services\WarehouseAssetIntake::class)->canReview($request->user());
+        if(!$staffSubmission)$this->authorizeWarehouseManager($request, 'edit');
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -193,6 +195,8 @@ class WarehouseAssetController extends Controller
         $imagePath = $request->hasFile('image')
             ? $request->file('image')->store('assets/warehouse', 'public')
             : null;
+
+        if($staffSubmission){app(\App\Services\WarehouseAssetIntake::class)->submitStaffEntry($request->user(),$validated+['image_path'=>$imagePath]);return back()->with('status','Inventory entry submitted for HOD review. Stock is unchanged until approval.');}
 
         Asset::create([
             'name' => $validated['name'],
@@ -239,13 +243,13 @@ class WarehouseAssetController extends Controller
             'requester_notes' => ['nullable', 'string', 'max:3000'],
         ]);
 
-        if ((int) $validated['requested_quantity'] > max(1, (int) $asset->warehouse_quantity)) {
+        if ((int) $validated['requested_quantity'] > max(0, (int) $asset->warehouse_quantity)) {
             return $this->validationFailure($request, [
                 'requested_quantity' => 'Requested quantity is higher than the current warehouse quantity.',
             ]);
         }
 
-        AssetWarehouseRequest::create($this->activationLink($request) + [
+        $warehouseRequest=AssetWarehouseRequest::create($this->activationLink($request) + [
             'request_code' => $this->nextRequestCode(),
             'asset_id' => $asset->id,
             'requested_by' => $request->user()->id,
@@ -257,6 +261,8 @@ class WarehouseAssetController extends Controller
             'status' => AssetWarehouseRequest::STATUS_PENDING_CHECK,
         ]);
 
+        \App\Services\PerformanceWorkflow::record('warehouse_request',$warehouseRequest->id,$request->user()->id,'requested',[],$warehouseRequest->getAttributes(),'Warehouse requisition submitted.');
+        app(\App\Services\OperationsAssetRequests::class)->notify($warehouseRequest,$request->user(),'Warehouse asset request awaiting review');
         return back()->with('status', 'Warehouse asset request sent for approval.');
     }
 
@@ -276,7 +282,7 @@ class WarehouseAssetController extends Controller
         ]);
 
         $asset = $warehouseRequest->asset()->firstOrFail();
-        if ((int) $validated['requested_quantity'] > max(1, (int) $asset->warehouse_quantity)) {
+        if ((int) $validated['requested_quantity'] > max(0, (int) $asset->warehouse_quantity)) {
             return $this->validationFailure($request, [
                 'requested_quantity' => 'Requested quantity is higher than the current warehouse quantity.',
             ]);
@@ -298,7 +304,9 @@ class WarehouseAssetController extends Controller
     {
         $this->authorizeWarehouseManager($request, 'approve');
         $request->validate(['activation_link' => 'present|nullable|string|max:40']);
-        $warehouseRequest->update($this->activationLink($request));
+        $link=$this->activationLink($request);
+        if($warehouseRequest->issued_at&&(int)($warehouseRequest->custodian_id??$warehouseRequest->requested_by)!==(int)$link['custodian_id'])throw ValidationException::withMessages(['activation_link'=>'Actual custody cannot be changed by relinking an issued request. Record the return and next issue.']);
+        $before=$warehouseRequest->getAttributes();$warehouseRequest->update($link);\App\Services\PerformanceWorkflow::record('warehouse_request',$warehouseRequest->id,$request->user()->id,'project_link_updated',$before,$warehouseRequest->getAttributes(),'Warehouse project link updated.');
 
         return back()->with('status', 'Warehouse request link updated.');
     }
@@ -307,7 +315,7 @@ class WarehouseAssetController extends Controller
     {
         $link = $request->input('activation_link');
         if (! filled($link)) {
-            return ['operations_activation_id' => null, 'campaign_id' => null];
+            return ['operations_activation_id' => null, 'campaign_id' => null,'custodian_id'=>$request->user()->id,'crm_project_id'=>null,'operations_handover_id'=>null];
         }
         abort_unless(OperationsReporting::member($request->user()) || $this->canManageWarehouse($request->user(), 'approve'), 403);
         $parts = explode(':', $link);
@@ -318,13 +326,17 @@ class WarehouseAssetController extends Controller
         $selection = match ($parts[0]) {
             'activation' => OperationsReporting::activations()->find($id),
             'campaign' => Campaign::find($id),
+            'handover'=>\App\Models\OperationsHandover::whereNotNull('handover_approved_at')->whereNotNull('lead_id')->find($id),
             default => null,
         };
         if (! $selection) {
             throw ValidationException::withMessages(['activation_link' => 'The selected activation or campaign is unavailable.']);
         }
 
+        $custodian=match($parts[0]){'handover'=>$selection->lead_id,'activation'=>$selection->owner_id,'campaign'=>$selection->project_lead_id,default=>null};
+        if(!$custodian)$custodian=$request->user()->id;
         return [
+            'custodian_id'=>$custodian,'crm_project_id'=>$parts[0]==='handover'?$selection->project_id:($parts[0]==='activation'?($selection->data['crm_project_id']??null):null),'operations_handover_id'=>$parts[0]==='handover'?$selection->id:($parts[0]==='activation'?($selection->data['operations_handover_id']??null):null),
             'operations_activation_id' => $parts[0] === 'activation' ? $selection->id : null,
             'campaign_id' => $parts[0] === 'campaign' ? $selection->id : null,
         ];
@@ -340,6 +352,7 @@ class WarehouseAssetController extends Controller
             'note' => ['nullable', 'string', 'max:3000'],
         ]);
 
+        $before = $warehouseRequest->getAttributes();
         $path = $request->file('evidence_image')->store('assets/warehouse/evidence', 'public');
 
         if ($validated['stage'] === 'pre_use') {
@@ -363,6 +376,8 @@ class WarehouseAssetController extends Controller
             ])->save();
         }
 
+        \App\Services\PerformanceWorkflow::record('warehouse_request',$warehouseRequest->id,$request->user()->id,'evidence_'.$validated['stage'],$before,$warehouseRequest->getAttributes(),$validated['note']??'Warehouse inspection evidence uploaded');
+        app(\App\Services\OperationsAssetRequests::class)->notify($warehouseRequest,$request->user(),'Warehouse evidence uploaded · '.$validated['stage']);
         return back()->with('status', 'Warehouse evidence uploaded.');
     }
 
@@ -385,7 +400,8 @@ class WarehouseAssetController extends Controller
             $asset = $warehouseRequest->asset()->lockForUpdate()->firstOrFail();
             $note = $validated['note'] ?? null;
 
-            return match ($validated['action']) {
+            $before=$warehouseRequest->getAttributes();
+            $response=match ($validated['action']) {
                 'approve_check' => $this->approveCheck($warehouseRequest, $request->user(), $note),
                 'return_correction' => $this->returnCorrection($warehouseRequest, $request->user(), $note),
                 'reject' => $this->reject($warehouseRequest, $request->user(), $note),
@@ -394,6 +410,9 @@ class WarehouseAssetController extends Controller
                 'close' => $this->closeRequest($warehouseRequest, $asset, $request->user(), $note),
                 'send_remodel' => $this->sendToRemodel($warehouseRequest, $asset, $request->user(), $note),
             };
+            \App\Services\PerformanceWorkflow::record('warehouse_request',$warehouseRequest->id,$request->user()->id,$validated['action'],$before,$warehouseRequest->fresh()->getAttributes(),$note??'Warehouse decision recorded.');
+            app(\App\Services\OperationsAssetRequests::class)->notify($warehouseRequest->fresh(),$request->user(),'Warehouse asset · '.AssetWarehouseRequest::statusLabel($warehouseRequest->status));
+            return $response;
         });
     }
 
@@ -681,8 +700,8 @@ class WarehouseAssetController extends Controller
         $asset->fill([
             'warehouse_quantity' => (int) $asset->warehouse_quantity - $warehouseRequest->requested_quantity,
             'status' => 'In Use',
-            'assigned_to' => $warehouseRequest->requested_by,
-            'last_handled_by' => $request->user()->id,
+            'assigned_to' => $warehouseRequest->custodian_id??$warehouseRequest->requested_by,
+            'last_handled_by' => $warehouseRequest->custodian_id??$warehouseRequest->requested_by,
             'last_handled_at' => now(),
         ])->save();
 
@@ -701,11 +720,12 @@ class WarehouseAssetController extends Controller
     {
         abort_unless($warehouseRequest->status === AssetWarehouseRequest::STATUS_RETURNED_PENDING_CLOSURE, 403);
 
+        $other=AssetWarehouseRequest::where('asset_id',$asset->id)->whereKeyNot($warehouseRequest->id)->whereIn('status',[AssetWarehouseRequest::STATUS_ISSUED,AssetWarehouseRequest::STATUS_RETURNED_PENDING_CLOSURE])->latest('issued_at')->first();
         $asset->fill([
             'warehouse_quantity' => (int) $asset->warehouse_quantity + (int) $warehouseRequest->requested_quantity,
-            'status' => 'Available',
-            'assigned_to' => null,
-            'last_handled_by' => $manager->id,
+            'status' => $other?'In Use':'Available',
+            'assigned_to' => $other?->custodian_id??$other?->requested_by,
+            'last_handled_by' => $warehouseRequest->custodian_id??$warehouseRequest->requested_by,
             'last_handled_at' => now(),
         ])->save();
 
@@ -728,7 +748,7 @@ class WarehouseAssetController extends Controller
             'remodel_status' => 'Awaiting Remodel',
             'remodel_notes' => $note,
             'assigned_to' => null,
-            'last_handled_by' => $manager->id,
+            'last_handled_by' => $warehouseRequest->custodian_id??$warehouseRequest->requested_by,
             'last_handled_at' => now(),
         ])->save();
 
@@ -837,6 +857,10 @@ class WarehouseAssetController extends Controller
             'Asset Tag' => $requestItem->asset?->asset_tag,
             'Brand' => $requestItem->asset?->brand,
             'Requester' => $requestItem->requester?->name,
+            'Project Custodian' => $requestItem->custodian?->name ?? $requestItem->requester?->name,
+            'Client Relations Project' => $requestItem->project?->project_name,
+            'Operations Report ID' => $requestItem->operations_register_id,
+            'Handover ID' => $requestItem->operations_handover_id,
             'Quantity' => $requestItem->requested_quantity,
             'Destination' => $requestItem->destination_location,
             'Purpose' => Str::limit(strip_tags((string) $requestItem->purpose), 120, ''),
@@ -1130,7 +1154,7 @@ class WarehouseAssetController extends Controller
         $user = $request->user();
 
         abort_unless($user?->isActive(), 403);
-        abort_unless((int) $warehouseRequest->requested_by === (int) $user->id || $this->canManageWarehouse($user, 'approve'), 403);
+        abort_unless((int) $warehouseRequest->requested_by === (int) $user->id || (int)$warehouseRequest->custodian_id===(int)$user->id || $this->canManageWarehouse($user, 'approve'), 403);
     }
 
     private function authorizeWarehouseManager(Request $request, string $capability = 'edit'): void

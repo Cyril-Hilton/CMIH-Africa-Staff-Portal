@@ -402,6 +402,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/hr/appraisals/metrics', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAppraisalMetric'])->name('hr.appraisals.metrics.store');
     Route::delete('/hr/appraisals/metrics/{metric}', [\App\Http\Controllers\Portal\DepartmentController::class, 'destroyAppraisalMetric'])->name('hr.appraisals.metrics.destroy');
 
+    Route::post('/finance/reporting', [\App\Http\Controllers\Portal\FinanceReportingController::class, 'save'])->name('finance.reporting.save');
     Route::get('/finance', [\App\Http\Controllers\Portal\DepartmentController::class, 'finance'])->name('finance');
     Route::post('/finance/claims', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeClaim'])->name('finance.claims.store');
     Route::get('/finance/claims/{claim}/receipt', [\App\Http\Controllers\Portal\DepartmentController::class, 'downloadClaimReceipt'])->name('finance.claims.receipt');

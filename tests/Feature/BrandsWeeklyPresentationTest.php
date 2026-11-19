@@ -34,7 +34,7 @@ class BrandsWeeklyPresentationTest extends TestCase {
   foreach(['brands_marketing','operations_projects','finance','hr_admin'] as $dept){
    WeeklyConsolidatedItem::create(['department'=>$dept,'workflow_state'=>'legacy','campaign_name'=>'Preserved work '.$dept,'client_name'=>'Original activity','week_start'=>'2026-10-19','week_end'=>'2026-10-25','created_by'=>$admin->id,'deliverables'=>'Original report remains available','status'=>'In Progress']);
    $this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept]+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertSee('Current week')->assertDontSee('Original report remains available');
-   $history=$this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertSee('Historical week');if($dept==='hr_admin'){$history->assertDontSee('Earlier Saved Weekly Reports');}else{$history->assertSee('Original report remains available');}
+   $history=$this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertSee('Historical week');if(in_array($dept,['hr_admin','finance'])){$history->assertDontSee('Earlier Saved Weekly Reports');}else{$history->assertSee('Original report remains available');}
    $this->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-26','weekly_to'=>'2026-11-01']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk()->assertDontSee('Showing the latest saved week:');
   }
   $this->assertDatabaseCount('weekly_consolidated_items',4);
@@ -60,7 +60,7 @@ class BrandsWeeklyPresentationTest extends TestCase {
    $row=WeeklyConsolidatedItem::where('department',$dept)->firstOrFail();
    $this->assertSame($html,$row->deliverables);$this->assertSame($html,$row->target_breakdown);
    $page=$this->actingAs($admin)->get(route('dashboard',['weekly_department'=>$dept,'weekly_from'=>'2026-10-19','weekly_to'=>'2026-10-25']+($dept==='brands_marketing'?['brands_tab'=>'workstream']:[])))->assertOk();
-   if($dept==='creatives'){$id=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')->where('source_id',$row->id)->value('creative_request_id');$detail=$this->getJson('/portal/creative-studio/requests/'.$id)->assertOk()->json('weekly_reports_html');$this->assertStringContainsString('<table>',$detail);$this->assertStringContainsString('text-align:center',$detail);}elseif($dept==='hr_admin'){$page->assertDontSee('Earlier Saved Weekly Reports');$this->assertDatabaseHas('weekly_consolidated_items',['id'=>$row->id,'deliverables'=>$html]);}else{$page->assertSee('<table>',false)->assertSee('text-align:center',false);}
+   if($dept==='creatives'){$id=\Illuminate\Support\Facades\DB::table('creative_sources')->where('source_type','weekly')->where('source_id',$row->id)->value('creative_request_id');$detail=$this->getJson('/portal/creative-studio/requests/'.$id)->assertOk()->json('weekly_reports_html');$this->assertStringContainsString('<table>',$detail);$this->assertStringContainsString('text-align:center',$detail);}elseif(in_array($dept,['hr_admin','finance'])){$page->assertDontSee('Earlier Saved Weekly Reports');$this->assertDatabaseHas('weekly_consolidated_items',['id'=>$row->id,'deliverables'=>$html]);}else{$page->assertSee('<table>',false)->assertSee('text-align:center',false);}
   }
  }
 }

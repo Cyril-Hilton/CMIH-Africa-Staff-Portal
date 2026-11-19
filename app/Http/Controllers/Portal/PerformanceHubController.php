@@ -439,6 +439,7 @@ class PerformanceHubController extends Controller
             $before = $i->getAttributes();
             $i->update(['approved_at' => now(), 'approved_by' => $r->user()->id]);
             Workflow::record('register', $i->id, $r->user()->id, 'approve', $before, $i->getAttributes(), $v['reason']);
+            if($i->department==='finance')\App\Services\FinanceDashboard::notify($i);
         });
 
         return back()->with('status', 'Operational record approved.');

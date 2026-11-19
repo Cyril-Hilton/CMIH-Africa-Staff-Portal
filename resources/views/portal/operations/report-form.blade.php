@@ -5,6 +5,12 @@
         && (int) old('submission', 0) === (int) $submission?->id;
     $previous = fn ($key, $default) => $restore ? old($key, $default) : $default;
     $payload = $submission?->payload ?? [];
+    $sourceHandover=null;
+    if(!$submission&&!$formRecord&&request('ops_handover')){
+        $sourceHandover=\App\Models\OperationsHandover::with('project')->whereNotNull('handover_approved_at')->whereNotNull('lead_id')->when(!$manager,fn($q)=>$q->where('lead_id',auth()->id()))->find(request('ops_handover'));
+        if($sourceHandover)$payload=['title'=>$sourceHandover->project->project_name,'client'=>$sourceHandover->project->client_name,'project'=>$sourceHandover->project->project_name,'owner_id'=>$sourceHandover->lead_id,'data'=>['operations_handover_id'=>$sourceHandover->id,'crm_project_id'=>$sourceHandover->project_id,'brand'=>$sourceHandover->project->client_name,'location'=>$sourceHandover->location,'starts_on'=>$sourceHandover->event_at?->toDateString(),'ends_on'=>($sourceHandover->agreed_execution_due_at??$sourceHandover->execution_due_at)?->toDateString(),'remarks'=>$sourceHandover->plan]];
+    }
+
     $values = $payload['data'] ?? $formRecord?->data ?? [];
     $fromHandover=!empty($values['operations_handover_id']);
     $week = $payload['period_start'] ?? $formRecord?->period_start?->toDateString() ?? \Carbon\Carbon::parse($from)->startOfWeek()->toDateString();
@@ -25,7 +31,7 @@
         <input type="hidden" name="source" value="{{ $formRecord->id }}">
         <input type="hidden" name="source_version" value="{{ \App\Services\OperationsReporting::version($formRecord) }}">
     @endif
-    @if($fromHandover)<aside class="br-help">Linked handover: project, client, assigned owner and verified completion follow the signed handover. Add the operational details below; change assignment or completion through the Handover Desk.</aside>@endif
+    @if($fromHandover)<input type="hidden" name="handover_id" value="{{ $values['operations_handover_id'] }}"><aside class="br-help">Reference handover: project, client and assigned owner come from the master tracker. Prepare the reporting details and results yourself; this report is published only after HOD review.</aside>@endif
     <label>Activity title<input name="title" maxlength="255" required value="{{ $previous('title', $payload['title'] ?? $formRecord?->title) }}"></label>
     <label>Client<input @readonly($fromHandover) name="client" maxlength="255" value="{{ $previous('client', $payload['client'] ?? $formRecord?->client) }}"></label>
     <label>Project / Activation<input @readonly($fromHandover) name="project" maxlength="255" value="{{ $previous('project', $payload['project'] ?? $formRecord?->project) }}"></label>
@@ -57,8 +63,7 @@
             </div>
         </details>
     </fieldset>
-    @if($fromHandover)<input type="hidden" name="status" value="{{ $selectedStatus }}">@endif
-    <label>Status<select name="status" required @disabled($fromHandover)>@foreach($states as $id => $label)<option value="{{ $id }}" @selected($selectedStatus === $id)>{{ $label }}</option>@endforeach</select></label>
+    <label>Status<select name="status" required>@foreach($states as $id => $label)<option value="{{ $id }}" @selected($selectedStatus === $id)>{{ $label }}</option>@endforeach</select></label>
     @if($modules)<label>Evidence link <small>(optional)</small><input name="evidence_url" type="url" maxlength="2000" value="{{ $previous('evidence_url', $payload['evidence_url'] ?? $formRecord?->evidence_url) }}"></label>@endif
     @if($formKind === 'activation')
         <label>Existing Campaign <small>(optional)</small><select name="campaign_id"><option value="">No linked campaign</option>@foreach($campaignOptions as $campaign)<option value="{{ $campaign->id }}" @selected((int) $previous('campaign_id', $values['campaign_id'] ?? 0) === $campaign->id)>{{ $campaign->name }}</option>@endforeach</select></label>
@@ -82,6 +87,27 @@
             </select>
         </label>
     @endif
+    <fieldset class="ops-narrative rounded-xl border border-sky-300/30 p-4">
+        <legend class="px-2 font-semibold">Warehouse assets · checklist & quantities</legend>
+        <p class="br-help">Select the actual inventory items needed. Publishing this report queues requests for warehouse review. Stock and custody change only after issue. The report owner is the project custodian.</p>
+        <input type="hidden" name="warehouse_assets_present" value="1">
+        @php
+            $assetSelections=collect($restore?old('warehouse_assets',[]):($values['warehouse_assets']??[]))->keyBy('asset_id');
+        @endphp
+        <div class="max-h-80 space-y-2 overflow-auto">
+            @forelse(\App\Models\Asset::where('is_warehouse_tracked',true)->orderBy('name')->get(['id','name','brand','warehouse_quantity']) as $warehouseAsset)
+                @php
+                    $selection=$assetSelections->get($warehouseAsset->id);
+                @endphp
+                <div class="grid grid-cols-[auto_minmax(0,1fr)_6rem] items-center gap-3 rounded-lg border border-brand-white/10 p-2">
+                    <input type="hidden" name="warehouse_assets[{{ $warehouseAsset->id }}][asset_id]" value="{{ $warehouseAsset->id }}">
+                    <input class="!w-4 !min-h-0" type="checkbox" name="warehouse_assets[{{ $warehouseAsset->id }}][selected]" value="1" @checked($selection && (!$restore || !empty($selection['selected']))) aria-label="Select {{ $warehouseAsset->name }}">
+                    <span>{{ $warehouseAsset->name }} · {{ $warehouseAsset->brand }}<small class="block">{{ $warehouseAsset->warehouse_quantity }} currently in warehouse</small></span>
+                    <label>Quantity<input type="number" name="warehouse_assets[{{ $warehouseAsset->id }}][quantity]" value="{{ $selection['quantity']??'' }}" min="1" max="9999999" aria-label="Quantity for {{ $warehouseAsset->name }}"></label>
+                </div>
+            @empty<p class="br-help">No approved warehouse assets yet. Submit an inventory entry to the HOD first.</p>@endforelse
+        </div>
+    </fieldset>
     @foreach($safeFields($formKind) as $field => $type)
         @php
             $options = config('operations_tracker.options.'.$field);

@@ -16,10 +16,15 @@
             </div>
         </div>
     </x-slot>
-@if(isset($moduleDepartment))
-@include('portal.modules.navigation',['moduleToolTabs'=>['tools'=>'Claims & Invoices']])
-<section class="module-panel" role="tabpanel" id="module-panel-tools" aria-labelledby="module-tab-tools" x-show="moduleTab==='tools'" x-cloak>
-@endif
+@if(isset($moduleDepartment) && (request()->boolean('finance_review') || request('module_view')==='revenue'))
+<a class="mb-5 inline-block underline" href="{{ route('portal.finance',['finance_tab'=>'revenue']) }}">← Back to Finance revenue</a>
+@include('portal.client-relations.revenue-review',['key'=>'finance','revenueModule'=>true])
+@elseif(isset($moduleDepartment) && !request()->boolean('finance_tools') && request('module_view')!=='tools')
+@include('portal.finance.workspace', app(\App\Services\FinanceDashboard::class)->build(request()))
+@else
+@if(isset($moduleDepartment))<a class="mb-5 inline-block underline" href="{{ route('portal.finance') }}">← Back to Finance dashboard</a>@endif
+
+
 
 
     @if (session('status'))
@@ -40,8 +45,7 @@
 
     @php
         $user = $user ?? auth()->user();
-        $isFinanceUser = strtolower(trim($user->department ?? '')) === 'finance'
-            || ($user && $user->isCvoOrSuperAdmin());
+        $isFinanceUser = \App\Services\FinanceDashboard::canWrite($user);
     @endphp
 
     <div x-data="{ 
@@ -527,5 +531,5 @@
         </div>
     </div>
 </div>{{-- Shared dialog state scope --}}
-@if(isset($moduleDepartment))</section></div>@endif
+@endif
 </x-app-layout>

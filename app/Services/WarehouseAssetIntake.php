@@ -15,6 +15,20 @@ class WarehouseAssetIntake
             && ($user->isOperationsDepartmentLead() || $user->isActingForOperationsDepartmentLead() || $user->isCvoOrSuperAdmin());
     }
 
+    public function submitStaffEntry(User $actor,array $input):WarehouseAssetSuggestion
+    {
+        abort_unless($actor->isActive()&&!$actor->isServiceAccount()&&User::normalizeDepartmentKey($actor->department)==='operations_projects',403);
+        $input=collect($input)->except(['image','assigned_to'])->all();
+        $reported=$input+['basis'=>'Operations staff inventory entry','quantity'=>$input['warehouse_quantity'],'reported_location'=>$input['warehouse_location']??null,'asset_code'=>$input['asset_tag']??null,'details'=>$input['description']??null,'reported_date'=>today()->toDateString()];
+        $key=hash('sha256',json_encode(['staff_entry',$actor->id,collect($reported)->except('image_path')->all()],JSON_THROW_ON_ERROR));
+        $row=WarehouseAssetSuggestion::firstOrCreate(['source_key'=>$key],['source_type'=>'staff_entry','source_id'=>$actor->id,'source_reference'=>'Operations inventory submission','submitted_by'=>$actor->id,'reported'=>$reported]);
+        if($row->wasRecentlyCreated){
+            PerformanceWorkflow::record('warehouse_asset_suggestion',$row->id,$actor->id,'submitted',[],['status'=>'pending'],'Operations inventory entry awaiting HOD review.');
+            foreach(User::internalStaff()->where('status','active')->get()->filter(fn($u)=>$this->canReview($u)) as $reviewer)PerformanceWorkflow::notify($reviewer->id,'warehouse-intake:'.$row->id,'Warehouse inventory entry awaiting review',$actor->name.' submitted '.$input['name'].'. Review before adding it to inventory.',route('portal.assets.warehouse.intake'));
+        }
+        return $row;
+    }
+
     public function fromOperations(PerformanceRegister $record): int
     {
         if (User::normalizeDepartmentKey($record->department) !== 'operations_projects' || !$record->approved_at) {
@@ -104,6 +118,7 @@ class WarehouseAssetIntake
                 ? Asset::where('is_warehouse_tracked', true)->lockForUpdate()->findOrFail($input['asset_id'])
                 : $this->createAsset($row, $actor, $review);
             $row->update($meta + ['asset_id' => $asset->id, 'status' => 'approved']);
+            if($row->submitted_by)PerformanceWorkflow::notify($row->submitted_by,'warehouse-intake-reviewed:'.$row->id.':'.($row->revision),'Warehouse inventory entry approved',$asset->name.' is now linked to the warehouse inventory.',route('portal.assets.warehouse.index'));
             PerformanceWorkflow::record('warehouse_asset_suggestion', $row->id, $actor->id, $action,
                 ['status' => 'pending'], ['status' => 'approved', 'asset_id' => $asset->id], $review['notes'] ?? 'Approved warehouse source record.');
         });
@@ -128,7 +143,7 @@ class WarehouseAssetIntake
             'condition' => $review['condition'], 'warehouse_quantity' => $review['warehouse_quantity'],
             'warehouse_location' => $review['warehouse_location'], 'status' => $review['warehouse_quantity'] > 0 ? 'available' : 'out_of_stock',
             'description' => Str::limit($row->reported['details'] ?? '', 2000, ''),
-            'warehouse_notes' => $review['notes'] ?? null, 'is_warehouse_tracked' => true, 'added_by' => $actor->id,
+            'warehouse_notes' => $review['notes'] ?? null, 'image_path'=>$row->reported['image_path']??null,'serial_number'=>$row->reported['serial_number']??null, 'is_warehouse_tracked' => true, 'added_by' => $row->submitted_by??$actor->id,
         ]);
     }
 

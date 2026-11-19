@@ -208,9 +208,9 @@
         @endif
 
         <section class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-            @if($canEditWarehouse)
+            @if($canEditWarehouse || $canSubmitWarehouse)
                 <div class="glass-panel rounded-2xl p-5 sm:p-6">
-                    <h3 class="text-lg font-semibold text-brand-white">Master Asset Database</h3>
+                    <h3 class="text-lg font-semibold text-brand-white">{{ $canSubmitWarehouse && !app(\App\Services\WarehouseAssetIntake::class)->canReview(auth()->user())?'Submit Warehouse Inventory Entry':'Master Asset Database' }}</h3>
                     <p class="mt-1 text-sm text-brand-white/55">Add the CAMS source-of-truth record for warehouse assets, POSM, fixtures, staging, visibility, and equipment.</p>
 
                     <form action="{{ route('portal.assets.warehouse.store') }}" method="POST" enctype="multipart/form-data" class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -252,7 +252,7 @@
                         <textarea name="warehouse_notes" rows="2" placeholder="Warehouse notes" class="md:col-span-2 rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0"></textarea>
                         <input type="file" name="image" accept="image/*" class="md:col-span-2 text-xs text-brand-white file:mr-4 file:rounded-full file:border-0 file:bg-brand-red file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-red-dark">
                         <button class="md:col-span-2 rounded-full bg-brand-red px-5 py-2.5 text-xs font-bold uppercase tracking-[0.2em] text-white transition hover:bg-brand-red-dark">
-                            Add To Master Inventory
+                            {{ $canSubmitWarehouse && !app(\App\Services\WarehouseAssetIntake::class)->canReview(auth()->user())?'Submit for HOD Review':'Add To Master Inventory' }}
                         </button>
                     </form>
                 </div>
@@ -465,7 +465,7 @@
                                             {{ $statusLabels[$requestItem->status] ?? \App\Models\AssetWarehouseRequest::statusLabel($requestItem->status) }}
                                         </span>
                                     </div>
-                                    <p class="mt-2 text-sm text-brand-white/70">{{ $requestItem->asset?->name }} requested by {{ $requestItem->requester?->name }}.</p>
+                                    <p class="mt-2 text-sm text-brand-white/70">{{ $requestItem->asset?->name }} requested by {{ $requestItem->requester?->name }}. Custodian: {{ $requestItem->custodian?->name ?? $requestItem->requester?->name }}. @if($requestItem->project)Project: {{ $requestItem->project->project_name }}@endif</p>
                                     <p class="mt-1 text-xs text-brand-white/45">Qty {{ $requestItem->requested_quantity }} for {{ $requestItem->destination_location }} - {{ $requestItem->created_at?->format('d M Y H:i') }}</p>
                                     @if($requestItem->operationsActivation || $requestItem->campaign)
                                         <p class="mt-1 text-xs text-brand-white/65">Activation {{ $requestItem->operationsActivation?->title ?? $requestItem->campaign?->name }}</p>

@@ -72,6 +72,9 @@
                         @if(!empty($data['crm_project_id']) && ($connectedProject=\App\Models\CrmPipelineProject::find($data['crm_project_id'])))
                             <details data-connected-project="{{ route('portal.project-journey.accountability',$connectedProject) }}"><summary class="cursor-pointer text-sm font-semibold">Connected project · teams, dates & accountability</summary><div data-connected-project-content></div></details>
                         @endif
+                        @if($member && $kind!=='activation')
+                            @include('portal.operations.report-movements',['rows'=>\App\Models\AssetWarehouseRequest::with('asset','requester','custodian','project')->where('operations_register_id',$entry->id)->latest('id')->get(),'emptyMessage'=>'No warehouse requests linked to this report.'])
+                        @endif
                         @if($kind === 'activation' && $member)
                             @include('portal.operations.report-linked-assets', ['linked' => $linked, 'linkedLedger' => $linkedPosm->get($campaignId, collect()), 'linkedLogs' => $checkoutLogs->get($campaignId, collect()), 'activationId' => $entry->id, 'campaignId' => null])
                         @endif

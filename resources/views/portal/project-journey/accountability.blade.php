@@ -32,6 +32,13 @@
             <a href="{{ $work['url'] }}" class="mt-3 inline-block text-xs font-semibold text-teal-200 underline">Open {{ strtolower($work['team']) }} work and assignment ↗</a>
         </article>
     @endforeach
+    @if($accountability['asset_custody']->isNotEmpty())
+        <section aria-label="Project warehouse assets and custody" class="space-y-2"><h5 class="font-semibold">Project assets & custody</h5>
+        <p class="text-xs text-brand-ash">Requests remain planned until warehouse issue. Current and previous custody are retained per movement.</p>
+        @foreach($accountability['asset_custody'] as $movement)<article class="rounded-lg border border-brand-white/15 p-3 text-xs"><strong>{{ $movement->asset?->name }} · {{ $movement->requested_quantity }} units</strong><p>Custodian: {{ $movement->custodian?->name??$movement->requester?->name }} · {{ $movement::statusLabel($movement->status) }}</p><p>Requested: {{ $movement->created_at->format('d M Y H:i') }} · Issued: {{ $movement->issued_at?->format('d M Y H:i')??'Not issued' }} · Returned: {{ $movement->returned_at?->format('d M Y H:i')??'Return pending' }}</p><a class="underline text-teal-200" href="{{ route('portal.assets.warehouse.index',['request_status'=>$movement->status]) }}">Warehouse movement {{ $movement->request_code }}</a></article>@endforeach
+        </section>
+    @endif
+    @if($accountability['finance_work']->isNotEmpty())<section aria-label="Connected Finance processing" class="space-y-2"><h5 class="font-semibold">Finance processing & commitments</h5><p class="text-xs text-brand-ash">Shared processing status from the same Finance records. Private amounts and documents remain restricted.</p>@foreach($accountability['finance_work'] as $item)<article class="rounded-xl border border-brand-white/15 p-3 text-xs"><strong>{{ $item['kind'] }} · {{ $item['owner'] }}</strong><p>{{ $item['state'] }}</p>@if($item['due'])<p>Due: {{ $item['due'] }}</p>@endif @if($item['settled'])<p>Settlement recorded: {{ $item['settled'] }}</p>@endif<p class="text-brand-ash">Updated {{ $item['updated']->format('d M Y H:i') }}</p></article>@endforeach</section>@endif
     <section aria-label="Shared team comments and decisions" class="space-y-3">
         <h5 class="font-semibold">Team comments & decisions</h5>
         <p class="text-xs text-brand-ash">Latest 30 shared updates from Creatives and Operations. Open the linked work for its full discussion and approval history.</p>

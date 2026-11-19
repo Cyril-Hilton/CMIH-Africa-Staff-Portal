@@ -77,7 +77,7 @@ class WeeklyAccountabilityTest extends TestCase
         $this->assertSame('2026-10-20 12:00:00', $item->fresh()->completed_at->format('Y-m-d H:i:s'));
         $this->patch($url, ['status' => 'In Progress'])->assertSessionHasNoErrors();
         $this->assertNull($item->fresh()->completed_at);
-        $this->get(route('dashboard', ['weekly_department' => 'finance']))->assertOk()->assertSee('KPI Achievement & Reporting Gaps',false)->assertDontSee('Weekly Workstream Review Details');
+        $this->get(route('dashboard', ['weekly_department' => 'finance']))->assertOk()->assertSee('Period performance',false)->assertDontSee('Weekly Workstream Review Details');
     }
 
     public function test_each_department_renders_its_own_kpi_dictionary_and_period_totals(): void

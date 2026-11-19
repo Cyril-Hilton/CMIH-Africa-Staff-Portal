@@ -203,7 +203,7 @@ class OperationsReporting
                 ->whereBetween('issued_at', [$from.' 00:00:00', $to.' 23:59:59'])
                 ->orWhereBetween('returned_at', [$from.' 00:00:00', $to.' 23:59:59'])
                 ->orWhereBetween('closed_at', [$from.' 00:00:00', $to.' 23:59:59']))
-                ->when($owner, fn (Builder $q) => $q->where('requested_by', $owner))
+                ->when($owner, fn (Builder $q) => $q->where(fn($person)=>$person->where('requested_by',$owner)->orWhere('custodian_id',$owner)))
                 ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match
                     ->where('destination_location', 'like', "%$search%")->orWhereHas('asset', fn ($asset) => $asset->where('name', 'like', "%$search%"))));
             if ($sort === 'title') {
@@ -317,8 +317,8 @@ class OperationsReporting
 
     private function movements(User $user): Builder
     {
-        return AssetWarehouseRequest::with(['asset', 'requester'])
-            ->when(! $user->canExportWarehouseAssets(), fn (Builder $q) => $q->where('requested_by', $user->id));
+        return AssetWarehouseRequest::with(['asset', 'requester','custodian','project'])
+            ->when(! $user->canExportWarehouseAssets(), fn (Builder $q) => $q->where(fn($q)=>$q->where('requested_by',$user->id)->orWhere('custodian_id',$user->id)));
     }
 
     private function sort(Builder $query, string $sort, string $direction, string $title, string $owner, string $date): void

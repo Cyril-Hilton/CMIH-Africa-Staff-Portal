@@ -21,7 +21,7 @@ class AssetWarehouseRequest extends Model
     public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [
-        'request_code',
+        'request_code','custodian_id','crm_project_id','operations_handover_id','operations_register_id',
         'asset_id',
         'operations_activation_id',
         'campaign_id',
@@ -51,6 +51,7 @@ class AssetWarehouseRequest extends Model
     protected function casts(): array
     {
         return [
+            'custodian_id'=>'integer','crm_project_id'=>'integer','operations_handover_id'=>'integer','operations_register_id'=>'integer','operations_activation_id'=>'integer','campaign_id'=>'integer',
             'requested_for' => 'date',
             'approved_to_check_at' => 'datetime',
             'approved_for_use_at' => 'datetime',
@@ -61,6 +62,10 @@ class AssetWarehouseRequest extends Model
         ];
     }
 
+    public function custodian():BelongsTo{return $this->belongsTo(User::class,'custodian_id');}
+    public function project():BelongsTo{return $this->belongsTo(CrmPipelineProject::class,'crm_project_id');}
+    public function handover():BelongsTo{return $this->belongsTo(OperationsHandover::class,'operations_handover_id');}
+    public function report():BelongsTo{return $this->belongsTo(PerformanceRegister::class,'operations_register_id');}
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);

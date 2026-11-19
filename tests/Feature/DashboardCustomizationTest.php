@@ -614,7 +614,8 @@ class DashboardCustomizationTest extends TestCase
         $response->assertSee('Open weekly reports & activities',false);
         $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream','weekly_from'=>'2026-07-20','weekly_to'=>'2026-07-26']))->assertOk()->assertSee('Brands Latest Row');
         $response->assertSee('Finance');
-        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance','weekly_from'=>'2026-07-13','weekly_to'=>'2026-07-19']))->assertOk()->assertSee('Finance Earlier Row');
+        $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance','weekly_from'=>'2026-07-13','weekly_to'=>'2026-07-19']))->assertOk()->assertSee('Every figure. A clear picture.');
+        $this->assertDatabaseHas('weekly_consolidated_items',['campaign_name'=>'Finance Earlier Row']);
         $response->assertViewHas('weeklyConsolidatedItems', function ($paginator) use ($brandsRow) {
             return $paginator instanceof LengthAwarePaginator
                 && $paginator->total() === 0;
@@ -782,7 +783,7 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertSee('The Mega Table');
         $dashboard->assertSee('Shared Finance Mega Task');
         $dashboard->assertSee('Weekly Department Reports');
-        $dashboard->assertSee('Finance Weekly Visibility');
+        $dashboard->assertDontSee('Finance Weekly Visibility');
         $dashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
         $dashboard->assertDontSee('+ Add Activity');
     }

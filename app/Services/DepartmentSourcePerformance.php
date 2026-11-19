@@ -23,6 +23,7 @@ class DepartmentSourcePerformance
         $records=PerformanceRegister::whereIn('department',User::departmentAliases($department))->whereNotNull('approved_at')
             ->where('status','!=','cancelled')->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from)
             ->when($owner,fn($q)=>$q->where('owner_id',$owner))->get();
+        if($department==='finance')$records=$records->filter(fn($r)=>(empty($r->data['_finance_currency'])||($r->period_start->toDateString()>=$from&&$r->period_end->toDateString()<=$to))&&(!$r->approved_by||((int)$r->approved_by!==(int)$r->owner_id&&(int)$r->approved_by!==(int)$r->submitted_by)));
         $weekly=WeeklyConsolidatedItem::whereIn('department',User::departmentAliases($department))
             ->whereIn('workflow_state',['legacy','approved','verified','closed'])
             ->where(fn($q)=>$q->whereNull('report_status')->orWhereNotIn('report_status',['draft','submitted','returned']))
@@ -84,7 +85,7 @@ class DepartmentSourcePerformance
             $categories=match($department) {
                 'operations_projects'=>[['Projects & activations',['project','activation','weekly_update','team_allocation']],['Assets & POSM',['posm_deployment']],['Procurement & execution',['fabrication','procurement','supplier','production','milestone']],['Reports, approvals & risks',['client_approval','project_report','risk_issue','risk']]],
                 'brands_marketing'=>[['People & team coverage',['people']],['Merchandising performance',['perfect_store','campaign']],['Activations & visibility',['activation','visibility']],['Weekly workstreams',['workstream']]],
-                'finance'=>[['Revenue & profitability',['revenue','profitability']],['Receivables & payables',['invoice','payable']],['Cash & expenses',['cash','expense']]],
+                'finance'=>[['Revenue & profitability',['revenue','profitability']],['Receivables & payables',['invoice','payable']],['Cash & expenses',['cash','expense','receipt','payment']],['Commercial risk management',['commercial_risk']],['Payroll',['payroll']],['Taxes & statutory obligations',['tax']]],
                 'hr_admin'=>[['Workforce & attendance',['workforce']],['Recruitment',['vacancy']],['Employee reviews & cases',['employee_case','improvement_plan']],['Fleet & facilities',['vehicle','fuel','maintenance','trip','asset','facility_request']]],
                 default=>[],
             };
@@ -97,6 +98,7 @@ class DepartmentSourcePerformance
             }
             foreach($categories as [$name,$kinds]) {
                 $n=$count($kinds);
+                if($department==='finance'&&$name==='Revenue & profitability')$n+=app(ClientRelationsCentre::class)->latest(CrmPipelineProject::where('source_period_confirmed',true)->whereDate('week_start','>=',$from)->whereDate('week_start','<=',$to)->get())->filter(fn($p)=>(!$owner||(int)$p->revenue_finance_by===(int)$owner)&&$p->confirmedRevenue()!==null)->count();
                 if($department==='hr_admin') $n+=match($name) {
                     'Workforce & attendance'=>$hrSections->get('metrics',0)+$hrSections->get('attendance_leave',0)+$hrSections->get('employee_admin',0),
                     'Recruitment'=>$hrSections->get('recruitment',0),
@@ -185,7 +187,7 @@ class DepartmentSourcePerformance
                 default=>'Projects & activations',
             },
             'hr_admin'=>str_contains($name,'recruitment')?'Recruitment':(str_contains($name,'Appraisals')?'Employee reviews & cases':((str_contains($name,'maintenance')||str_contains($name,'fuel'))?'Fleet & facilities':'Workforce & attendance')),
-            'finance'=>str_contains($name,'collection')?'Receivables & payables':(str_contains($name,'expense')?'Cash & expenses':'Revenue & profitability'),
+            'finance'=>match(true){str_contains($name,'collection')=>'Receivables & payables',str_contains($name,'expense')||str_contains($name,'cash payment')=>'Cash & expenses',str_contains($name,'Payroll')=>'Payroll',str_contains($name,'Statutory')=>'Taxes & statutory obligations',str_contains($name,'commercial risk')=>'Commercial risk management',default=>'Revenue & profitability'},
             default=>$areas[0]??null,
         };
     }
@@ -231,6 +233,12 @@ class DepartmentSourcePerformance
             $ratio('Due risk resolution',$due($records->whereIn('kind',['risk_issue','risk']),'due_on'),fn($r)=>!empty($r->data['resolved_on']) && $r->data['resolved_on']<=$r->data['due_on'],'Issues resolved by deadline / dated issues due.');
         }
         if($department==='finance') {
+            foreach(['payroll'=>'Payroll on-time settlement','tax'=>'Statutory on-time settlement','payment'=>'On-time cash payment'] as $kind=>$label){
+                $rows=$due($records->where('kind',$kind),'due_on');
+                if($kind==='payment')$rows=$due($records->where('kind',$kind),'expected_on');
+                $ratio($label,$rows,fn($r)=>isset($r->data['value'],$r->data['paid_amount'])&&$r->data['value']>0&&$r->data['paid_amount']>=$r->data['value']&&!empty($r->data['paid_on'])&&$r->data['paid_on']<=($r->data[$kind==='payment'?'expected_on':'due_on']??''),'Fully settled by the recorded due date / all obligations due. Missing results earn zero credit.');
+            }
+            $ratio('On-time commercial risk resolution',$due($records->where('kind','commercial_risk'),'due_on'),fn($r)=>in_array($r->status,['resolved','completed'],true)&&!empty($r->data['resolved_on'])&&$r->data['resolved_on']<=$r->data['due_on'],'Risks resolved by their recorded resolution deadline / risks due.');
             $rows=$due($records->where('kind','invoice'),'due_on')->filter(fn($r)=>isset($r->data['value'])&&$r->data['value']>0);
             if($rows->isNotEmpty()) {
                 $known=$rows->filter(fn($r)=>isset($r->data['paid_amount']));

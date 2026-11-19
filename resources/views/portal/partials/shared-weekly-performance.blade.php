@@ -21,7 +21,7 @@ Live Creative Workflow & Evidence
 @if($key==='hr_admin'&&!\App\Services\HrDashboard::canRead(auth()->user()))
 <p class="mt-4 text-sm text-brand-ash">HR records are restricted. You can access your own profile and leave requests.</p><a class="dw-link" href="{{ route('portal.leaves') }}">My leaves &amp; absences</a>
 @else
-@if($key!=='hr_admin'||\App\Services\HrLiveRegisters::full(auth()->user()))
+@if($key!=='finance'&&($key!=='hr_admin'||\App\Services\HrLiveRegisters::full(auth()->user())))
 @include('portal.partials.source-performance', ['sourcePerformance'=>$department['source_performance'] ?? null])
 @endif
 @if($key === 'creatives')
@@ -31,6 +31,16 @@ Live Creative Workflow & Evidence
 @include('portal.partials.weekly-report-summary')
 @include('portal.client-relations.public-weekly')
 @include('portal.client-relations.kpi-scorecards')
+@elseif($key === 'finance')
+@if(\App\Services\FinanceDashboard::canRead(auth()->user()))
+@if(request()->boolean('revenue_view'))
+@include('portal.client-relations.revenue-review',['key'=>'finance'])
+@else
+@include('portal.finance.workspace', app(\App\Services\FinanceDashboard::class)->build(request()))
+@endif
+@else
+<p class="mt-4 text-sm text-brand-ash">Financial records are restricted to Finance and authorised reviewers.</p>
+@endif
 @elseif($key === 'brands_marketing')
 @include('portal.brands.workspace')
 @elseif($key === 'operations_projects')
