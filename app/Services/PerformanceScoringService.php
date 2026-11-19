@@ -25,8 +25,8 @@ class PerformanceScoringService
                 'expected_workdays' => 0,
                 'attendance_days' => 0,
                 'punctual_days' => 0,
-                'attendance_rate' => 100.0,
-                'punctuality_score' => 100.0,
+                'attendance_rate' => 0.0,
+                'punctuality_score' => 0.0,
             ];
         }
 
@@ -53,10 +53,10 @@ class PerformanceScoringService
 
         $punctualityScore = $expectedWorkdays > 0
             ? min(100, ($punctualDays / $expectedWorkdays) * 100)
-            : 100;
+            : 0;
         $attendanceRate = $expectedWorkdays > 0
             ? min(100, ($attendanceDays / $expectedWorkdays) * 100)
-            : 100;
+            : 0;
 
         return [
             'expected_workdays' => $expectedWorkdays,
@@ -76,7 +76,9 @@ class PerformanceScoringService
 
     private static function effectiveEndDate(Carbon $startDate, Carbon $endDate): ?Carbon
     {
-        $today = Carbon::today();
+        $clock = Carbon::now('Africa/Accra');
+        $today = $clock->copy()->startOfDay();
+        if($clock->lt($today->copy()->setTimeFromTimeString(config('company_calendar.clock_in_cutoff','09:00:00'))))$today->subDay();
         $effectiveEnd = $endDate->copy()->endOfDay();
 
         if ($effectiveEnd->gt($today->copy()->endOfDay())) {

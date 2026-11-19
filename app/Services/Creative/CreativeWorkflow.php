@@ -134,7 +134,10 @@ class CreativeWorkflow {
  public function event(CreativeRequest $r,User $actor,string $action,array $before,string $reason):void {PerformanceWorkflow::record('creative_request',$r->id,$actor->id,$action,$before,$r->getAttributes(),$reason);}
  public function leads():array{return User::humanAccounts()->where('status','active')->get()->filter(fn($u)=>CreativeAccess::lead($u))->pluck('id')->all();}
  public function notify(CreativeRequest $r,array $ids,string $title,string $message,?string $key=null):void {
-  foreach(array_unique(array_filter($ids)) as $id){
+  $root=$r->parentRequest??$r;$project=$root->crmProject;
+  $ids=array_merge($ids,[$r->requester_id,$r->assignee_id,$r->reviewer_id,$project?->owner_id,$project?->team_workflow['operations_manager_id']??null],$r->supportingStaffIds());
+  $recipients=User::whereIn('id',array_unique(array_filter($ids)))->where('status','active')->get()->filter(fn($person)=>CreativeAccess::view($person,$r))->pluck('id');
+  foreach($recipients as $id){
    $dedupe=$key??'creative:'.$r->id.':'.$r->revision.':'.$title;
    PerformanceWorkflow::notify((int)$id,$dedupe,$title,$message,route('portal.creative',['request'=>$r->id]));
    $outbox=\App\Models\PerformanceOutbox::where('dedupe_key',hash('sha256',$dedupe.':'.$id))->lockForUpdate()->firstOrFail();

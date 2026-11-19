@@ -71,7 +71,7 @@ for (const [file, className, parameters, backgroundParameters] of [
    window: {},
 
   });
-  vm.runInContext(readFileSync(new URL('../../resources/js/' + file, import.meta.url), 'utf8'), sandbox);
+  vm.runInContext(readFileSync(new URL('../../resources/js/' + file, import.meta.url), 'utf8').replace(/^import .*;$/gm, ''), sandbox);
   const load = vm.runInContext(className + '.prototype.load', sandbox);
   const content = {innerHTML: '<table>Previously loaded results</table>', setAttribute() {}};
   const messages = [];

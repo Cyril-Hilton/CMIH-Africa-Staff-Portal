@@ -220,7 +220,7 @@ class SalaryAdvanceTest extends TestCase
             'status' => 'pending_hr',
         ]);
 
-        $response = $this->actingAs($hrManager)->get(route('portal.hr'));
+        $response = $this->actingAs($hrManager)->get(route('portal.hr',['hr_existing'=>1]));
 
         $response->assertOk();
         $response->assertSee('Salary Advance Installment Terms');

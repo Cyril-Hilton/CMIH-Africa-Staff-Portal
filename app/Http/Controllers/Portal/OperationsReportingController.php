@@ -114,6 +114,7 @@ class OperationsReportingController extends Controller
                 'evidence_url' => $moduleEntry ? ($input['evidence_url'] ?? null) : ($entry->payload['evidence_url'] ?? $source?->evidence_url),
                 'data' => $data + array_diff_key(($entry->payload['data'] ?? []) + ($source?->data ?? []), OperationsReporting::fields($input['kind'], $includePrivate), ['campaign_id' => true]),
             ];
+            $payload=$this->retainHandoverIdentity($payload,$source);
             if (! empty($input['owner_id'])) {
                 unset($payload['data']['import_no_owner']);
             }
@@ -200,6 +201,21 @@ class OperationsReportingController extends Controller
             : ($input['decision'] === 'approve' ? 'Report published.' : 'Report returned with correction notes.'));
     }
 
+    private function retainHandoverIdentity(array $payload, ?PerformanceRegister $source): array
+    {
+        $handoverId=$source?->data['operations_handover_id']??null;
+        if(!$handoverId)return $payload;
+        $handover=\App\Models\OperationsHandover::with('project')->lockForUpdate()->findOrFail($handoverId);
+        $payload['client']=$handover->project->client_name;
+        $payload['project']=$handover->project->project_name;
+        $payload['owner_id']=$handover->lead_id;
+        $payload['status']=$source->status;
+        $payload['data']['crm_project_id']=$handover->project_id;
+        $payload['data']['operations_handover_id']=$handover->id;
+        $payload['data']['activation_status']=$source->data['activation_status']??'Planned';
+        return $payload;
+    }
+
     private function publish(OperationsReportSubmission $entry, ?PerformanceRegister $source, User $actor): void
     {
         $register = $source ?? new PerformanceRegister([
@@ -209,7 +225,8 @@ class OperationsReportingController extends Controller
             'submitted_by' => $entry->submitted_by,
         ]);
         $before = $register->exists ? $register->getAttributes() : [];
-        $register->fill($entry->payload + ['approved_by' => $actor->id, 'approved_at' => now()])->save();
+        $payload=$this->retainHandoverIdentity($entry->payload,$source);
+        $register->fill($payload + ['approved_by' => $actor->id, 'approved_at' => now()])->save();
         app(\App\Services\WarehouseAssetIntake::class)->fromOperations($register);
         $entry->update(['register_id' => $register->id, 'state' => 'published', 'reviewed_by' => $actor->id]);
         PerformanceWorkflow::record('register', $register->id, $actor->id, $source ? 'update' : 'create', $before, $register->getAttributes(), 'Published Operations report');

@@ -5,6 +5,7 @@ class CreativeRequest extends Model {
  protected $guarded=['id'];
  protected $attributes=['revision'=>1,'iteration'=>0,'stage'=>'brief_received','legacy'=>false,'priority'=>'Medium','visibility'=>'shared'];
  protected function casts():array {return array_merge(['is_group'=>'boolean','supporting_staff_ids'=>'array','requester_snapshot'=>'array','assignee_snapshot'=>'array','legacy'=>'boolean','revision'=>'integer','iteration'=>'integer','estimated_hours'=>'float','quality_score'=>'float'],array_fill_keys(['received_at','acknowledged_at','reported_external_at','source_recorded_at','requested_deadline','planned_start','internal_eta','first_submitted_at','submitted_at','review_due_at','reviewed_at','delivered_at','completed_at','archived_at'],'datetime'));}
+ public function deadlineHistory(){return $this->hasMany(PerformanceEvent::class,'entity_id')->where('entity_type','creative_request')->whereIn('action',['submitted','plan_changed','project_request_changed','client_relations_deadline_recorded'])->with('actor')->orderBy('id');}
  public function planChanges(){return $this->hasMany(PerformanceEvent::class,'entity_id')->where('entity_type','creative_request')->where('action','plan_changed')->orderBy('id');}
  public function crmProject(){return $this->belongsTo(CrmPipelineProject::class,'crm_project_id');}
  public function parentRequest(){return $this->belongsTo(self::class,'parent_request_id');} public function parts(){return $this->hasMany(self::class,'parent_request_id');}

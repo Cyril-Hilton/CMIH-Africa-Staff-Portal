@@ -30,6 +30,34 @@ class ConnectedProjectWorkflowTest extends TestCase
         return compact('owner','creative','operations','payload');
     }
 
+    public function test_reported_client_receipt_is_separate_from_portal_creation_and_creative_routing_and_is_audited(): void
+    {
+        $s=$this->setupProject();$s['payload']['delivery']['client_brief_received_at']='2026-11-10T09:00';
+        $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');
+        $p=CrmPipelineProject::findOrFail($id);$brief=CreativeRequest::firstOrFail();
+        $this->assertSame('2026-11-10T09:00:00+00:00',$p->team_workflow['client_brief_received_at']);
+        $this->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('timeline_provenance.client_brief_received_at','2026-11-10T09:00:00+00:00')->assertJsonPath('timeline_provenance.creative_created_at','2026-11-18T12:00:00+00:00')->assertJsonPath('timeline_provenance.client_brief_received_recorded_by',$s['owner']->name);
+        $s['payload']['delivery']['client_brief_received_at']='2026-11-11T09:00';
+        $this->postJson(route('portal.crm.update',$p),$s['payload']+['revision'=>$p->revision])->assertOk();
+        $this->assertTrue(PerformanceEvent::where('entity_type','crm_project')->where('entity_id',$id)->where('before->client_brief_received_at','2026-11-10T09:00:00+00:00')->where('after->client_brief_received_at','2026-11-11T09:00:00+00:00')->exists());
+        $this->assertTrue(\App\Models\PerformanceOutbox::where('user_id',$s['creative']->id)->whereNotNull('dashboard_at')->exists());
+        $this->assertTrue(\App\Models\PerformanceOutbox::where('user_id',$s['owner']->id)->whereNotNull('dashboard_at')->exists());
+        $s['payload']['delivery']['client_brief_received_at']='2027-01-01T09:00';
+        $this->postJson(route('portal.crm.update',$p),$s['payload']+['revision'=>$p->fresh()->revision])->assertUnprocessable();
+    }
+    public function test_creative_and_operations_requirements_are_independent_and_can_be_decided_later(): void
+    {
+        foreach([[true,false],[false,true],[false,false],[null,null]] as $index=>[$creative,$operations]){
+            $s=$this->setupProject();$s['payload']['project_name']='Optional teams '.$index;
+            $s['payload']['delivery']['creative_required']=$creative;$s['payload']['delivery']['operations_required']=$operations;
+            if(!$creative){unset($s['payload']['delivery']['creative'],$s['payload']['delivery']['creative_manager_id']);}
+            if(!$operations){unset($s['payload']['delivery']['operations'],$s['payload']['delivery']['operations_manager_id']);}
+            $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');
+            $this->assertSame($creative===true,CreativeRequest::where('crm_project_id',$id)->exists());
+            $this->assertSame($operations===true,OperationsHandover::where('project_id',$id)->exists());
+            $this->assertFalse(\App\Models\PerformanceRegister::where('data->crm_project_id',$id)->exists());
+        }
+    }
     public function test_one_entry_routes_to_both_hods_and_preserves_author_and_submission_time(): void
     {
         $s=$this->setupProject('staff');

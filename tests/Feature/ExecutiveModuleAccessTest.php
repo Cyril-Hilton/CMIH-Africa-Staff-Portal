@@ -36,7 +36,8 @@ class ExecutiveModuleAccessTest extends TestCase
     public function test_hr_tools_are_semantic_collapsed_panels_with_existing_actions(): void
     {
         $user = User::factory()->create(['department' => 'hr_admin', 'access_role' => 'super_admin', 'status' => 'active']);
-        $response = $this->actingAs($user)->get(route('portal.hr'))->assertOk();
+        $this->actingAs($user)->get(route('portal.hr'))->assertOk()->assertSee('HR Tools')->assertDontSee('hr-module-summary');
+        $response = $this->get(route('portal.hr',['hr_existing'=>1]))->assertOk();
         $html = $response->getContent();
         $dom = new \DOMDocument;
         @$dom->loadHTML($html);

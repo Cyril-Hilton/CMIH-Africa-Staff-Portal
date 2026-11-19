@@ -24,7 +24,7 @@ class CreativeReport
         abort_if($start->gt($end)||$start->diffInDays($end)>731,422,'Choose a reporting range of no more than two years.');
         $query = CreativeRequest::studioWork()->visibleTo($actor)->where('is_group',false)
             ->when($filters['assignee'] ?? null, fn($q, $v) => $q->withParticipant((int) $v))
-            ->when($filters['q'] ?? null, fn($q, $v) => $q->where(fn($q) => $q->where('title', 'like', '%'.$v.'%')->orWhere('client', 'like', '%'.$v.'%')->orWhere('reference', 'like', '%'.$v.'%')->orWhere('brief','like','%'.$v.'%')->orWhereHas('requester',fn($person)=>$person->where('name','like','%'.$v.'%'))))
+            ->when($filters['q'] ?? null, fn($q, $v) => $q->where(fn($q) => $q->where('title', 'like', '%'.$v.'%')->orWhere('client', 'like', '%'.$v.'%')->orWhere('reference', 'like', '%'.$v.'%')->orWhere('brief','like','%'.$v.'%')->orWhereHas('requester',fn($person)=>$person->where('name','like','%'.$v.'%'))->orWhereHas('crmProject',fn($p)=>$p->where('project_name','like','%'.$v.'%'))->orWhereHas('parentRequest.crmProject',fn($p)=>$p->where('project_name','like','%'.$v.'%'))))
             ->when($filters['department']??null,fn($q,$v)=>$q->where('department',$v))->when($filters['priority']??null,fn($q,$v)=>$q->where('priority',$v))->when($filters['stage']??null,fn($q,$v)=>$q->where('stage',$v),fn($q)=>$q->where('stage','!=','archived'))
             ->where(function ($q) use ($start, $end) {
                 foreach (['received_at','requested_deadline','internal_eta','first_submitted_at','submitted_at','reviewed_at','completed_at','delivered_at'] as $field) {

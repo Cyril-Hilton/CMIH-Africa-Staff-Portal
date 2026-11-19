@@ -6,6 +6,7 @@
     $previous = fn ($key, $default) => $restore ? old($key, $default) : $default;
     $payload = $submission?->payload ?? [];
     $values = $payload['data'] ?? $formRecord?->data ?? [];
+    $fromHandover=!empty($values['operations_handover_id']);
     $week = $payload['period_start'] ?? $formRecord?->period_start?->toDateString() ?? \Carbon\Carbon::parse($from)->startOfWeek()->toDateString();
     $selectedOwner = (int) $previous('owner_id', $payload['owner_id'] ?? $formRecord?->owner_id ?? auth()->id());
     $selectedStatus = $previous('status', $payload['status'] ?? $formRecord?->status ?? 'planned');
@@ -24,12 +25,14 @@
         <input type="hidden" name="source" value="{{ $formRecord->id }}">
         <input type="hidden" name="source_version" value="{{ \App\Services\OperationsReporting::version($formRecord) }}">
     @endif
+    @if($fromHandover)<aside class="br-help">Linked handover: project, client, assigned owner and verified completion follow the signed handover. Add the operational details below; change assignment or completion through the Handover Desk.</aside>@endif
     <label>Activity title<input name="title" maxlength="255" required value="{{ $previous('title', $payload['title'] ?? $formRecord?->title) }}"></label>
-    <label>Client<input name="client" maxlength="255" value="{{ $previous('client', $payload['client'] ?? $formRecord?->client) }}"></label>
-    <label>Project / Activation<input name="project" maxlength="255" value="{{ $previous('project', $payload['project'] ?? $formRecord?->project) }}"></label>
+    <label>Client<input @readonly($fromHandover) name="client" maxlength="255" value="{{ $previous('client', $payload['client'] ?? $formRecord?->client) }}"></label>
+    <label>Project / Activation<input @readonly($fromHandover) name="project" maxlength="255" value="{{ $previous('project', $payload['project'] ?? $formRecord?->project) }}"></label>
     <label>Reporting week<input type="date" name="week" required value="{{ $previous('week', $week) }}" @readonly($formRecord || $submission)></label>
     @if($manager)
-        <label>Owner<select name="owner_id">
+        @if($fromHandover)<input type="hidden" name="owner_id" value="{{ $selectedOwner }}">@endif
+        <label>Owner<select name="owner_id" @disabled($fromHandover)>
             <option value="" @selected(! $teamStaff->where('status', 'active')->contains('id', $selectedOwner))>{{ $formRecord || $submission ? 'Keep current owner' : 'Myself' }}</option>
             @foreach($teamStaff->where('status', 'active') as $person)
                 <option value="{{ $person->id }}" @selected($selectedOwner === $person->id)>{{ $person->name }}</option>
@@ -54,14 +57,15 @@
             </div>
         </details>
     </fieldset>
-    <label>Status<select name="status" required>@foreach($states as $id => $label)<option value="{{ $id }}" @selected($selectedStatus === $id)>{{ $label }}</option>@endforeach</select></label>
+    @if($fromHandover)<input type="hidden" name="status" value="{{ $selectedStatus }}">@endif
+    <label>Status<select name="status" required @disabled($fromHandover)>@foreach($states as $id => $label)<option value="{{ $id }}" @selected($selectedStatus === $id)>{{ $label }}</option>@endforeach</select></label>
     @if($modules)<label>Evidence link <small>(optional)</small><input name="evidence_url" type="url" maxlength="2000" value="{{ $previous('evidence_url', $payload['evidence_url'] ?? $formRecord?->evidence_url) }}"></label>@endif
     @if($formKind === 'activation')
         <label>Existing Campaign <small>(optional)</small><select name="campaign_id"><option value="">No linked campaign</option>@foreach($campaignOptions as $campaign)<option value="{{ $campaign->id }}" @selected((int) $previous('campaign_id', $values['campaign_id'] ?? 0) === $campaign->id)>{{ $campaign->name }}</option>@endforeach</select></label>
     @endif
     @if($formKind === 'activation')
         <label>Client Relations project <small>(optional)</small>
-            <select name="crm_project_id">
+            <select name="crm_project_id" @disabled($fromHandover)>
                 <option value="">No linked project</option>
                 @foreach(\App\Models\CrmPipelineProject::where('source_period_confirmed', true)->with('owner:id,name')->latest('week_start')->get(['id','project_name','client_name','week_start','owner_id']) as $project)
                     <option value="{{ $project->id }}" @selected((int) $previous('crm_project_id', $values['crm_project_id'] ?? 0) === $project->id)>{{ $project->client_name }} · {{ $project->project_name }} · {{ $project->owner?->name }} · {{ $project->week_start?->format('d M Y') }}</option>

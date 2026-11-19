@@ -35,6 +35,7 @@
             @forelse($entries as $entry)
                 @php
                     $data = $entry->data ?? [];
+                    $canonicalProject=!empty($data['crm_project_id'])?\App\Models\CrmPipelineProject::find($data['crm_project_id']):null;
                     $derived = $tracker->derived($kind, $data);
                     $campaignId = (int) ($data['campaign_id'] ?? 0);
                     $linked = $kind === 'activation' ? $linkedMovements->filter(fn ($movement) => $movement->operations_activation_id === $entry->id || ($campaignId && $movement->campaign_id === $campaignId && ! $movement->operations_activation_id)) : collect();
@@ -43,8 +44,8 @@
                 @endphp
                 <tbody x-data="{ expanded: false }">
                 <tr>
-                    <td class="ops-title"><button type="button" class="ops-expand" @click="expanded = !expanded" :aria-expanded="expanded.toString()" aria-controls="ops-register-{{ $entry->id }}"><span aria-hidden="true" x-text="expanded ? '−' : '+'">+</span> {{ $entry->title }}</button></td>
-                    <td>{{ $entry->client ?: '—' }}</td>
+                    <td class="ops-title"><button type="button" class="ops-expand" @click="expanded = !expanded" :aria-expanded="expanded.toString()" aria-controls="ops-register-{{ $entry->id }}"><span aria-hidden="true" x-text="expanded ? '−' : '+'">+</span> {{ $canonicalProject?->project_name ?? $entry->title }}</button>@if($canonicalProject && $entry->title!==$canonicalProject->project_name)<small>Activation / work: {{ $entry->title }}</small>@endif</td>
+                    <td>{{ $canonicalProject?->client_name ?? ($entry->client ?: '—') }}</td>
                     <td>@include('portal.operations.collaborator-badges', ['people' => $staff->whereIn('id', $data['collaborator_ids'] ?? [])])</td>
                     <td>{{ $data['project_in_charge'] ?? $data['source_project_lead'] ?? (empty($data['import_no_owner']) ? $staff->firstWhere('id', $entry->owner_id)?->name : null) ?? '—' }}</td>
                     @foreach($columns as $column)
@@ -61,6 +62,12 @@
                 <tr id="ops-register-{{ $entry->id }}" class="ops-detail-row" x-show="expanded" style="display:none">
                     <td colspan="{{ 6 + count($columns) }}">
                         <div class="br-table-heading"><strong>{{ $entry->reference }}</strong>@if($canEdit)<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_edit' => $entry->id]) }}">Edit Entry</a>@endif</div>
+                        @if(!empty($data['operations_handover_id']))
+                            @php($linkedHandover=\App\Models\OperationsHandover::find($data['operations_handover_id']))
+                            @if($linkedHandover)
+                                <aside class="my-3 rounded-xl border border-orange-300/30 p-3 text-sm"><strong>From approved handover · OPS-{{ $linkedHandover->id }}</strong><p>Handover meeting: {{ $linkedHandover->meeting_held_at?->format('d M Y H:i') ?? 'Awaiting recorded date' }} · HOD approved: {{ $linkedHandover->handover_approved_at?->format('d M Y H:i') ?? 'Review required' }}</p><p>Client Relations setup deadline: {{ $linkedHandover->setup_due_at?->format('d M Y H:i') }} · Operations HOD setup commitment: {{ $linkedHandover->agreed_setup_due_at?->format('d M Y H:i') ?? 'Needs agreement' }}</p><p>Execution completion requested: {{ $linkedHandover->execution_due_at?->format('d M Y H:i') ?? 'Needs recording' }} · Operations HOD commitment: {{ $linkedHandover->agreed_execution_due_at?->format('d M Y H:i') ?? 'Needs agreement' }}</p>@if($data['handover_review_required']??false)<p class="text-amber-200">Handover revised · both teams and HOD must reconfirm.</p>@endif<a class="ops-button" href="{{ route('portal.operations.handovers.index',['handover'=>$linkedHandover->id]) }}">Open signed handover & timeline</a></aside>
+                            @endif
+                        @endif
                         @include('portal.operations.report-fields', ['detailFields' => array_intersect_key($data, $safeFields($kind)) + $derived + ['project' => $entry->project, 'source_reference' => $data['import_source'] ?? null, 'duration_as_reported' => $data['duration_as_reported'] ?? null, 'source_serial' => $data['source_serial'] ?? null, 'evidence_link' => $modules && $member ? $entry->evidence_url : null]])
                         @if(!empty($data['crm_project_id']) && ($connectedProject=\App\Models\CrmPipelineProject::find($data['crm_project_id'])))
                             <details data-connected-project="{{ route('portal.project-journey.accountability',$connectedProject) }}"><summary class="cursor-pointer text-sm font-semibold">Connected project · teams, dates & accountability</summary><div data-connected-project-content></div></details>

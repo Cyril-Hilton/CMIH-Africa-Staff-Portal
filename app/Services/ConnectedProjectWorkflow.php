@@ -15,9 +15,10 @@ class ConnectedProjectWorkflow
     {
         if (!$request->has('delivery')) return [];
         $data=$request->validate([
-            'delivery'=>'array:creative_required,operations_required,creative_manager_id,operations_manager_id,creative,operations,change_note',
+            'delivery'=>'array:creative_required,operations_required,creative_manager_id,operations_manager_id,creative,operations,change_note,client_brief_received_at',
+            'delivery.client_brief_received_at'=>'nullable|date|before_or_equal:now',
             'delivery.creative'=>'nullable|array:brief,creative_type,requested_deadline,reference_url',
-            'delivery.operations'=>'nullable|array:plan,acceptance_criteria,event_at,setup_due_at,location',
+            'delivery.operations'=>'nullable|array:plan,acceptance_criteria,event_at,setup_due_at,execution_due_at,location',
             'delivery.creative_required'=>'nullable|boolean',
             'delivery.operations_required'=>'nullable|boolean',
             'delivery.creative_manager_id'=>'nullable|integer|exists:users,id',
@@ -29,6 +30,7 @@ class ConnectedProjectWorkflow
             'delivery.operations.plan'=>'nullable|string|min:20|max:12000',
             'delivery.operations.acceptance_criteria'=>'nullable|string|min:10|max:8000',
             'delivery.operations.event_at'=>'nullable|date',
+            'delivery.operations.execution_due_at'=>'nullable|date|after_or_equal:delivery.operations.event_at',
             'delivery.operations.setup_due_at'=>'nullable|date|before_or_equal:delivery.operations.event_at',
             'delivery.operations.location'=>'nullable|string|max:255',
             'delivery.change_note'=>'nullable|string|max:2000',
@@ -69,6 +71,16 @@ class ConnectedProjectWorkflow
             if(array_key_exists($key,$delivery))$state[$key]=$delivery[$key];
         }
         $originator=$requester??$actor;
+        if(array_key_exists('client_brief_received_at',$delivery)){
+            $received=filled($delivery['client_brief_received_at'])?Carbon::parse($delivery['client_brief_received_at'],config('creative.timezone'))->toIso8601String():null;
+            if(($before['client_brief_received_at']??null)!==$received){
+                $state['client_brief_received_at']=$received;
+                $state['client_brief_received_entered_by_id']=$originator->id;
+                $state['client_brief_received_entered_at']=($submittedAt??now())->toIso8601String();
+                $state['client_brief_received_published_by_id']=$actor->id;
+                $state['client_brief_received_published_at']=now()->toIso8601String();
+            }
+        }
         if($state['creative_required']??false) {
             $brief=CreativeRequest::where('crm_project_id',$project->id)->whereNull('parent_request_id')
                 ->when($state['creative_request_id']??null,fn($q,$id)=>$q->whereKey($id))->first();
@@ -91,6 +103,7 @@ class ConnectedProjectWorkflow
                         $brief->revision++;$brief->save();
                         PerformanceWorkflow::record('creative_request',$brief->id,$actor->id,'project_request_changed',$prior,$brief->getAttributes(),$delivery['change_note']??'Client Relations updated the requested brief. The Creative HOD schedule remains separately recorded.');
                         $brief->updates()->create(['author_id'=>$actor->id,'kind'=>'project_request_changed','body'=>$delivery['change_note']??'Client Relations updated the requested brief. Review the changed request and agreed timeline.','metadata'=>['crm_project_id'=>$project->id,'requested_deadline'=>$brief->requested_deadline?->toIso8601String()]]);
+                        app(CreativeWorkflow::class)->notify($brief,[$originator->id,$state['creative_manager_id']],'Client Relations brief or deadline changed',$project->project_name.' has a changed request. Compare the Client Relations deadline with the Creative HOD commitment.');
                     }
                 }
             }
@@ -100,7 +113,7 @@ class ConnectedProjectWorkflow
         if($state['operations_required']??false) {
             $handover=OperationsHandover::where('project_id',$project->id)
                 ->when($state['operations_handover_id']??null,fn($q,$id)=>$q->whereKey($id))->where('stage','!=','cancelled')->first();
-            $input=collect($delivery['operations']??[])->only(['plan','acceptance_criteria','event_at','setup_due_at','location'])->all();
+            $input=collect($delivery['operations']??[])->only(['plan','acceptance_criteria','event_at','setup_due_at','execution_due_at','location'])->all();
             if(!$handover) {
                 $handover=OperationsHandover::create($input+['project_id'=>$project->id,'requester_id'=>$originator->id,'title'=>$project->project_name,'priority'=>'Medium','stage'=>'submitted','resources'=>[]]);
                 $state['operations_handover_id']=$handover->id;
@@ -111,20 +124,31 @@ class ConnectedProjectWorkflow
                 $state['operations_original_execution']=$handover->event_at?->toIso8601String();
                 PerformanceWorkflow::record('operations_handover',$handover->id,$actor->id,'submitted',[],$handover->getAttributes()+['original_request_at'=>$state['operations_requested_at'],'manager_id'=>$state['operations_manager_id']],'Routed from the published Client Relations weekly entry.');
             } elseif($input) {
-                $prior=$handover->getAttributes();$handover->fill(collect($input)->only(['plan','acceptance_criteria','event_at','setup_due_at','location'])->filter(fn($v)=>$v!==null)->all());
+                $prior=$handover->getAttributes();$handover->fill(collect($input)->only(['plan','acceptance_criteria','event_at','setup_due_at','execution_due_at','location'])->filter(fn($v)=>$v!==null)->all());
                 if($handover->isDirty()) {
                     if(in_array($handover->stage,['completed','cancelled'],true))throw ValidationException::withMessages(['delivery.operations'=>'This handover is closed. Start a new handover for additional work.']);
-                    $handover->cr_signoff_at=null;$handover->ops_signoff_at=null;$handover->submitted_at=null;$handover->accepted_at=null;$handover->stage=$handover->meeting_held_at?'handover_meeting':($handover->acknowledged_at?'acknowledged':'submitted');$handover->revision++;$handover->save();
+                    $handover->cr_signoff_at=null;$handover->ops_signoff_at=null;$handover->handover_approved_at=null;$handover->handover_approved_by=null;$handover->submitted_at=null;$handover->accepted_at=null;$handover->stage=$handover->meeting_held_at?'handover_meeting':($handover->acknowledged_at?'acknowledged':'submitted');$handover->revision++;$handover->save();
                     PerformanceWorkflow::record('operations_handover',$handover->id,$actor->id,'project_request_changed',$prior,$handover->getAttributes(),$delivery['change_note']??'Client Relations changed the execution request; both teams must reconfirm handover sign-off.');
                     if($handover->task_id)$handover->task->update(['details'=>$handover->plan,'due_on'=>$handover->setup_due_at->toDateString()]);
                 }
             }
             $state['operations_handover_id']=$handover->id;
+            app(OperationsHandoverPublication::class)->sync($handover,$actor);
             app(OperationsHandoverWorkflow::class)->notify($handover,'Project handover · '.$project->project_name);
             PerformanceWorkflow::notify($state['operations_manager_id'],'project-operations:'.$project->id.':'.$project->revision,'Project handover · '.$project->project_name,'Client Relations: '.$originator->name.'. Review the plan, assign the lead and agree the handover.',route('portal.operations.handovers.index',['handover'=>$handover->id]));
         }
         $project->team_workflow=$state;$project->save();
+        if($before!==$state){foreach(OperationsHandover::where('project_id',$project->id)->where('stage','!=','cancelled')->get() as $linked)app(OperationsHandoverWorkflow::class)->notify($linked,'Connected project timeline updated','project-operations-timeline:'.$project->id.':'.$project->revision.':'.hash('sha256',json_encode($state)));}
+        if($before!==$state){foreach(CreativeRequest::where('crm_project_id',$project->id)->whereNull('parent_request_id')->get() as $linked)app(CreativeWorkflow::class)->notify($linked,[$project->owner_id,...app(CreativeWorkflow::class)->leads()],'Connected project timeline updated',$project->project_name.' has updated routing, receipt dates or deadlines. Open the brief to review the recorded timeline.','project-timeline:'.$project->id.':'.$project->revision.':'.hash('sha256',json_encode($state)));}
         if($before!==$state)PerformanceWorkflow::record('crm_project',$project->id,$actor->id,'team_requirements_updated',$before,$state,$delivery['change_note']??'Project department requirements and routing updated.');
+    }
+
+    public function syncProjectIdentity(CrmPipelineProject $project, User $actor): void
+    {
+        foreach(\App\Models\PerformanceRegister::whereIn('department',User::departmentAliases('operations_projects'))->where('data->crm_project_id',$project->id)->lockForUpdate()->get() as $record){
+            $before=$record->only(['project','client']);$record->fill(['project'=>$project->project_name,'client'=>$project->client_name]);
+            if($record->isDirty()){$record->save();PerformanceWorkflow::record('register',$record->id,$actor->id,'project_identity_updated',$before,$record->only(['project','client']),'Connected Client Relations project name or client updated. Operational detail retained.');}
+        }
     }
 
     public function formValues(?CrmPipelineProject $project): array
@@ -137,7 +161,7 @@ class ConnectedProjectWorkflow
         if($handover){$state['operations_required']=true;if(empty($state['operations_manager_id'])&&$handover->lead&&OperationsHandoverWorkflow::lead($handover->lead))$state['operations_manager_id']=$handover->lead_id;}
         if($brief)$state['creative']=collect($brief->toArray())->only(['brief','creative_type','requested_deadline'])->all()+['requested_deadline'=>$brief->requested_deadline?->format('Y-m-d\\TH:i')];
         if($brief)$state['creative']['requested_deadline']=$brief->requested_deadline?->format('Y-m-d\\TH:i');
-        if($handover)$state['operations']=collect($handover->toArray())->only(['plan','acceptance_criteria','location'])->all()+['event_at'=>$handover->event_at?->format('Y-m-d\\TH:i'),'setup_due_at'=>$handover->setup_due_at?->format('Y-m-d\\TH:i')];
+        if($handover)$state['operations']=collect($handover->toArray())->only(['plan','acceptance_criteria','location'])->all()+['event_at'=>$handover->event_at?->format('Y-m-d\\TH:i'),'setup_due_at'=>$handover->setup_due_at?->format('Y-m-d\\TH:i'),'execution_due_at'=>$handover->execution_due_at?->format('Y-m-d\\TH:i')];
         return $state;
     }
 }

@@ -18,6 +18,8 @@ class ConnectedProjectSummary
         $supportIds=$briefs->flatMap(fn($b)=>collect([$b])->merge($b->parts)->flatMap(fn($p)=>$p->supportingStaffIds()))->merge($handovers->flatMap(fn($h)=>$h->task?->supporting_staff_ids??[]))->unique();
         $supportNames=User::whereIn('id',$supportIds)->pluck('name','id');
         $dates=[['label'=>'Project entered in portal','at'=>$project->created_at,'owner'=>$names[$project->owner_id]??'Account owner']];
+        if(!empty($state['client_brief_received_at']))$dates[]=['label'=>'Client brief received · staff-reported','at'=>Carbon::parse($state['client_brief_received_at']),'owner'=>User::find($state['client_brief_received_entered_by_id']??$project->owner_id)?->name??'Account owner'];
+        if(!empty($state['client_brief_received_entered_at']))$dates[]=['label'=>'Reported client receipt entered in portal','at'=>Carbon::parse($state['client_brief_received_entered_at']),'owner'=>User::find($state['client_brief_received_entered_by_id']??$project->owner_id)?->name??'Account owner'];
         $lanes=[];
         foreach(['creative'=>'Creative','operations'=>'Operations'] as $key=>$label) {
             $required=$state[$key.'_required']??null;
@@ -57,10 +59,10 @@ class ConnectedProjectSummary
             $work[]=['team'=>'Operations','title'=>$h->title,'owner'=>$h->lead?->name??$lanes['operations']['manager']??'Operations HOD · assignment needed',
                 'support'=>collect($h->task?->supporting_staff_ids??[])->map(fn($id)=>$supportNames[$id]??'Retained staff history')->values()->all(),
                 'from'=>$h->requester?->name??$names[$project->owner_id]??'Client Relations','manager'=>$lanes['operations']['manager'],
-                'requested'=>$h->setup_due_at,'agreed'=>$h->event_at,'start'=>$h->meeting_held_at,'delivered'=>$h->submitted_at,
+                'requested'=>$h->setup_due_at,'agreed'=>$h->agreed_setup_due_at,'start'=>$h->meeting_held_at,'delivered'=>$h->submitted_at,
                 'state'=>ucwords(str_replace('_',' ',$h->stage)),'late'=>$h->setup_due_at&&($h->submitted_at?$h->submitted_at->gt($h->setup_due_at):($h->setup_due_at->isPast()&&!in_array($h->stage,['completed','cancelled'],true))),
                 'conflict'=>false,'waiting'=>$waiting,'url'=>route('portal.operations.handovers.index',['handover'=>$h->id])];
-            foreach(['created_at'=>'Execution plan routed','acknowledged_at'=>'Operations acknowledged','meeting_held_at'=>'Handover meeting held','cr_signoff_at'=>'Client Relations signed handover','ops_signoff_at'=>'Operations signed handover','submitted_at'=>'Execution delivery submitted','accepted_at'=>'Client Relations accepted execution','verified_at'=>'Operations completion verified'] as $field=>$label) if($h->$field)$dates[]=['label'=>$label,'at'=>$h->$field,'owner'=>str_starts_with($field,'cr_')||$field==='accepted_at'?($names[$project->owner_id]??'Client Relations'):($h->lead?->name??$lanes['operations']['manager']??'Operations HOD')];
+            foreach(['created_at'=>'Execution plan routed','acknowledged_at'=>'Operations acknowledged','meeting_held_at'=>'Handover meeting held','cr_signoff_at'=>'Client Relations signed handover','ops_signoff_at'=>'Operations signed handover','submitted_at'=>'Execution delivery submitted','accepted_at'=>'Client Relations accepted execution','execution_due_at'=>'Requested execution completion deadline','agreed_setup_due_at'=>'Operations HOD setup commitment','agreed_execution_due_at'=>'Operations HOD execution commitment','execution_completed_at'=>'Actual execution completed · staff-reported','handover_approved_at'=>'Operations HOD approved handover','verified_at'=>'Operations completion verified'] as $field=>$label) if($h->$field)$dates[]=['label'=>$label,'at'=>$h->$field,'owner'=>str_starts_with($field,'cr_')||$field==='accepted_at'?($names[$project->owner_id]??'Client Relations'):($h->lead?->name??$lanes['operations']['manager']??'Operations HOD')];
         }
         $historyPageRecords=PerformanceEvent::with('actor:id,name')->where(fn($q)=>$q->where(fn($q)=>$q->where('entity_type','crm_project')->where('entity_id',$project->id))
             ->orWhere(fn($q)=>$q->where('entity_type','creative_request')->whereIn('entity_id',$briefs->pluck('id')->merge($briefs->flatMap(fn($b)=>$b->parts->pluck('id')))))
@@ -68,7 +70,7 @@ class ConnectedProjectSummary
             ->orderByDesc('id')->paginate(30,['*'],'history_page',$historyPage);
         $history=$historyPageRecords->getCollection()->map(function($event) use($viewer) {
                 $changes=[];
-                foreach(['requested_deadline','planned_start','internal_eta','setup_due_at','event_at','assignee_id','lead_id','reviewer_id','stage'] as $field) {
+                foreach(['requested_deadline','planned_start','internal_eta','setup_due_at','event_at','execution_due_at','agreed_setup_due_at','agreed_execution_due_at','execution_completed_at','client_relations_deadline','client_brief_received_at','client_brief_received_entered_at','client_brief_received_entered_by_id','handover_approved_at','handover_approved_by','assignee_id','lead_id','reviewer_id','stage'] as $field) {
                     if(($event->before[$field]??null)!==($event->after[$field]??null))$changes[]=['field'=>ucwords(str_replace('_',' ',$field)),'before'=>$event->before[$field]??null,'after'=>$event->after[$field]??null];
                 }
                 return ['action'=>ucwords(str_replace('_',' ',$event->action)),'actor'=>$event->actor?->name??'System','at'=>$event->created_at,'reason'=>$event->entity_type==='crm_project' && $event->action!=='team_requirements_updated' && !ClientRelationsPipeline::member($viewer) && !$viewer->canViewExecutiveActivity() ? 'Project record updated; commercial details remain in the authorised Client Relations workspace.' : $event->reason,'changes'=>$changes];

@@ -1,6 +1,18 @@
 <section class="ops-entry" id="operations-reviews" aria-label="Operations submissions and reviews">
     <header class="br-table-heading"><h4>{{ $manager ? 'Team Entries & Reviews' : 'My Entries & Reviews' }}</h4><a class="ops-button" href="{{ $workspaceUrl() }}">Close</a></header>
     <p class="br-help">Pending entries await HOD review. Approved entries appear on the shared dashboard in their reporting period.</p>
+    @if($manager)
+        @php
+        $handoverReviews=\App\Models\OperationsHandover::with(['project.owner','requester','lead'])->whereNotIn('stage',['completed','cancelled'])->whereNotNull('cr_signoff_at')->whereNotNull('ops_signoff_at')->where(function($q){$q->whereNull('handover_approved_at')->orWhereNull('lead_id')->orWhereNull('operations_register_id');})->orderBy('created_at')->get();
+        @endphp
+        <section class="my-4 rounded-xl border border-orange-300/40 p-4" aria-label="Signed handovers awaiting HOD assignment">
+            <h4 class="font-semibold">Signed handovers · review & assign · {{ $handoverReviews->count() }}</h4>
+            <p class="br-help">Review both teams’ sign-offs, approve the handover and assign the Operations owner. The activation then appears automatically; add only the operational details still needed.</p>
+            @forelse($handoverReviews as $handover)
+                <article class="ops-review p-3"><strong>{{ $handover->project?->project_name }} · {{ $handover->title }}</strong><p>Client Relations: {{ $handover->project?->owner?->name }} · Signed {{ $handover->cr_signoff_at?->format('d M Y H:i') }}<br>Operations signed: {{ $handover->ops_signoff_at?->format('d M Y H:i') }} · HOD approval: {{ $handover->handover_approved_at?->format('d M Y H:i') ?? 'Awaiting HOD approval' }}</p><a class="ops-button ops-primary" href="{{ route('portal.operations.handovers.index',['handover'=>$handover->id]) }}">Review handover & assign owner</a></article>
+            @empty<p class="br-help">No signed handovers awaiting HOD action.</p>@endforelse
+        </section>
+    @endif
     <nav class="br-actions my-3" aria-label="Filter submission reviews">
         @foreach(['pending'=>'Pending Review','returned'=>'Returned for Correction','published'=>'Published','all'=>'All Entries'] as $state=>$label)
             <a class="ops-button" href="{{ $workspaceUrl(['ops_review'=>0,'ops_review_state'=>$state]) }}" @if($reviewState === $state) aria-current="page" @endif>

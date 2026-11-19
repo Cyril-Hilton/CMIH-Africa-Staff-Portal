@@ -5,6 +5,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 class CrossDepartmentStatisticsAuditTest extends TestCase {
  use RefreshDatabase;
+ public function test_unelapsed_clock_in_deadline_does_not_reduce_scores_and_empty_periods_earn_no_credit(): void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-19 08:30:00','Africa/Accra'));
+  $user=User::factory()->create(['status'=>'active','department'=>'creatives','start_date'=>'2026-11-16']);
+  foreach(['2026-11-16','2026-11-17','2026-11-18'] as $day)Attendance::create(['user_id'=>$user->id,'clock_in_at'=>$day.' 08:50:00','status'=>'On Time','daily_objective'=>'Real work']);
+  $summary=\App\Services\PerformanceScoringService::attendanceSummary($user,\Illuminate\Support\Carbon::parse('2026-11-16'),\Illuminate\Support\Carbon::parse('2026-11-22'));
+  $this->assertSame(3,$summary['expected_workdays']);$this->assertSame(100.0,$summary['punctuality_score']);
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-19 09:00:01','Africa/Accra'));
+  $summary=\App\Services\PerformanceScoringService::attendanceSummary($user,\Illuminate\Support\Carbon::parse('2026-11-16'),\Illuminate\Support\Carbon::parse('2026-11-22'));
+  $this->assertSame(4,$summary['expected_workdays']);$this->assertSame(75.0,$summary['punctuality_score']);
+  $future=\App\Services\PerformanceScoringService::attendanceSummary($user,\Illuminate\Support\Carbon::parse('2027-01-04'),\Illuminate\Support\Carbon::parse('2027-01-08'));
+  $this->assertSame(0,$future['expected_workdays']);$this->assertSame(0.0,$future['punctuality_score']);$this->assertSame(0.0,$future['attendance_rate']);
+ }
  public function test_each_department_attendance_uses_native_days_even_without_department_reports(): void {
   $this->travelTo(now()->setDate(2026,11,18)->setTime(18,0));
   foreach(['brands_marketing','client_relations','operations_projects','creatives','finance','hr_admin'] as $dept){

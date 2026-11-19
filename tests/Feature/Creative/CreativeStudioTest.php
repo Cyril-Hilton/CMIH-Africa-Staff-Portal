@@ -42,6 +42,22 @@ class CreativeStudioTest extends TestCase {
   $this->getJson(route('portal.creative.show',$part))->assertOk()->assertJsonPath('can_link_project',false)->assertJsonPath('connected_project.id',$project->id)->assertJsonPath('client_relations_contact.id',$owner->id);
   $this->postJson(route('portal.creative.project',$part),['revision'=>$part->revision,'crm_project_id'=>$project->id])->assertUnprocessable();
  }
+ public function test_linking_does_not_attribute_a_hod_requester_deadline_to_client_relations_and_records_both_sources(): void
+ {
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);
+  $lead=$this->staff('creatives','manager');$contact=$this->staff();$brief=$this->brief($lead);
+  $project=\App\Models\CrmPipelineProject::create(['client_name'=>'Lush Hair','project_name'=>'Campus Mirror & Christmas','stage'=>'won','week_start'=>now()->startOfWeek(),'source_period_confirmed'=>true,'owner_id'=>$contact->id,'created_by'=>$contact->id,'updated_by'=>$contact->id]);
+  $this->actingAs($lead)->postJson(route('portal.creative.project',$brief),['revision'=>$brief->revision,'crm_project_id'=>$project->id])->assertOk();
+  $this->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('timeline_provenance.client_relations_deadline',null)->assertJsonPath('timeline_provenance.original_recorded_by',$lead->name);
+  $original=$brief->fresh()->requested_deadline->toIso8601String();$target=now()->addDays(2)->setTime(12,30)->toIso8601String();
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->fresh()->revision,'crm_project_id'=>$project->id,'client_relations_deadline'=>$target])->assertOk();
+  $this->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('connected_project.title','Campus Mirror & Christmas')->assertJsonPath('timeline_provenance.client_relations_deadline',$target)->assertJsonPath('timeline_provenance.client_relations_recorded_by',$lead->name)->assertJsonPath('client_relations_contact.name',$contact->name);
+  $this->assertSame($original,$brief->fresh()->requested_deadline->toIso8601String());
+  $this->assertDatabaseHas('performance_events',['entity_type'=>'creative_request','entity_id'=>$brief->id,'action'=>'client_relations_deadline_recorded','actor_id'=>$lead->id]);
+  $part=$this->brief($lead);$part->forceFill(['parent_request_id'=>$brief->id,'crm_project_id'=>$project->id])->save();
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->fresh()->revision,'crm_project_id'=>null])->assertOk();
+  $this->getJson(route('portal.creative.show',$part))->assertOk()->assertJsonPath('connected_project',null)->assertJsonPath('timeline_provenance.client_relations_deadline',null);
+ }
  public function test_short_request_and_self_assignment_can_be_saved_without_a_written_reason(): void
  {
   $requester = $this->staff();
@@ -259,7 +275,7 @@ class CreativeStudioTest extends TestCase {
 
  public function test_creative_email_retries_without_repeating_delivered_in_app_alerts():void {
   config(['performance.email_enabled'=>false,'creative.email_enabled'=>true]);$sender=$this->staff();$lead=$this->staff('creatives','manager');$this->brief($sender);$outbox=PerformanceOutbox::firstOrFail();$this->assertNotNull($outbox->dashboard_at);$calls=0;
-  Mail::shouldReceive('raw')->twice()->andReturnUsing(function()use(&$calls){if(++$calls===1)throw new \RuntimeException('Synthetic mail provider outage');});
+  Mail::shouldReceive('raw')->times(3)->andReturnUsing(function()use(&$calls){if(++$calls===1)throw new \RuntimeException('Synthetic mail provider outage');});
   $service=app(\App\Services\PerformanceAutomation::class);$service->deliver();$this->assertSame(1,$outbox->fresh()->attempts);$this->assertNull($outbox->fresh()->emailed_at);$dashboard=$outbox->fresh()->dashboard_at;
   $service->deliver();$this->assertNotNull($outbox->fresh()->emailed_at);$this->assertTrue($outbox->fresh()->dashboard_at->eq($dashboard));$this->assertSame(0,$service->deliver());
  }

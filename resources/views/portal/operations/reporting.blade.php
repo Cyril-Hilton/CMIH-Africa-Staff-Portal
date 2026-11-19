@@ -26,6 +26,10 @@
                         · {{ $reviewCounts['pending'] }} Pending
                     @endif
                 </a>
+                @if($manager)
+                    @php($signedHandoverCount=\App\Models\OperationsHandover::whereNotIn('stage',['completed','cancelled'])->whereNotNull('cr_signoff_at')->whereNotNull('ops_signoff_at')->whereNull('operations_register_id')->count())
+                    @if($signedHandoverCount)<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_review'=>0]) }}">{{ $signedHandoverCount }} signed handovers to assign</a>@endif
+                @endif
                 @if($modules)
                     <a class="ops-button" href="{{ route('dashboard', request()->only([...$queryKeys, 'report_period', 'report_date']) + ['weekly_department' => 'operations_projects']) }}#staff-weekly-performance">Weekly Presentation</a>
                 @else

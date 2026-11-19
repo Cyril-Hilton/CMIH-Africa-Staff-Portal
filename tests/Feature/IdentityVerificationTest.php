@@ -242,14 +242,14 @@ class IdentityVerificationTest extends TestCase
         ]);
 
         $this->actingAs($hrManager)
-            ->get(route('portal.hr'))
+            ->get(route('portal.hr',['hr_existing'=>1]))
             ->assertOk()
             ->assertSee('Identity Verification Register')
             ->assertSee($target->name)
             ->assertDontSee($merchandiser->name);
 
         $this->actingAs($hrAssistant)
-            ->get(route('portal.hr'))
+            ->get(route('portal.hr',['hr_existing'=>1]))
             ->assertOk()
             ->assertDontSee('Identity Verification Register');
 
@@ -257,7 +257,7 @@ class IdentityVerificationTest extends TestCase
             ->get(route('portal.cvo'))
             ->assertRedirect(route('dashboard',['weekly_department'=>'all']));
 
-        $this->actingAs($cvo)->get(route('portal.hr'))
+        $this->actingAs($cvo)->get(route('portal.hr',['hr_existing'=>1]))
             ->assertOk()
             ->assertSee('Identity Verification Register')
             ->assertSee($target->name)

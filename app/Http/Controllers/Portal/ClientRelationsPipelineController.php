@@ -133,6 +133,7 @@ class ClientRelationsPipelineController extends Controller
                 \App\Models\CrmAccountRelationship::firstOrCreate(['client_name'=>$before['client_name'],'owner_id'=>$before['owner_id'],'relationship'=>'previous','ends_on'=>today()->toDateString()],['starts_on'=>null,'note'=>'Project ownership changed; original tenure start is not confirmed.','created_by'=>$r->user()->id]);
             }
             app(\App\Services\ConnectedProjectWorkflow::class)->sync($item,$r->user(),$v['delivery']??[],$r->attributes->get('crm_approved_submission')?->created_at,User::find($r->attributes->get('crm_approved_submission')?->submitted_by??$r->user()->id));
+            app(\App\Services\ConnectedProjectWorkflow::class)->syncProjectIdentity($item,$r->user());
             $service->publish($item);
             PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason'] ?? ($project ? 'Client Relations project updated.' : 'Client Relations project created.'));
             return $item;
