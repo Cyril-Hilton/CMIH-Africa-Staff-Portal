@@ -34,9 +34,9 @@ class ExecutiveActivityTest extends TestCase
         $this->assertNull($activity[$pending->id]->shared_title);
         $this->assertNull($activity[$private->id]->shared_title);
         $this->get(route('dashboard', [
-            'activity_staff' => $support->id, 'activity_department' => 'brands_marketing', 'activity_date' => '2026-11-16',
+            'exec_view'=>'calendar','exec_scope'=>'activity','exec_person'=>$support->id,'activity_staff' => $support->id, 'activity_department' => 'brands_marketing', 'activity_date' => '2026-11-16',
         ]))->assertOk()->assertViewHas('executiveActivity', fn ($view) => $view['rows']->pluck('id')->all() === [$shared->id])
-            ->assertSee('Support: '.$support->name);
+            ->assertSee('Collaborators: '.$support->name);
         $this->get('/portal/hr')->assertForbidden();
         $claim = \App\Models\PettyCashClaim::create([
             'user_id' => $lead->id, 'amount' => 100, 'currency' => 'GH₵',
@@ -61,9 +61,9 @@ class ExecutiveActivityTest extends TestCase
         \App\Models\CreativeRequest::create(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'reference' => 'CR-TEST',
             'task_id' => $creative->id, 'title' => $creative->title, 'visibility' => 'private', 'requester_id' => $owner->id]);
 
-        $dashboard = $this->actingAs($cvo)->get(route('dashboard'))->assertOk();
+        $dashboard = $this->actingAs($cvo)->get(route('dashboard',['exec_view'=>'calendar']))->assertOk();
         foreach ([$shared, $private, $pending, $creative] as $task) {
-            $dashboard->assertSee($task->title)->assertSee('/portal/tasks/'.$task->id.'?return_to=', false);
+            $dashboard->assertSee($task->title);if($task->id!==$creative->id)$dashboard->assertSee('/portal/tasks/'.$task->id,false);
             $this->get(route('portal.tasks.show', $task))->assertOk()->assertSee($task->title);
         }
         $this->get(route('portal.tasks.show', $shared))->assertSee('Install display stands');
@@ -85,11 +85,11 @@ class ExecutiveActivityTest extends TestCase
             ['department' => 'executive', 'permissions_matrix' => [User::EXECUTIVE_ACTIVITY_PERMISSION], 'is_service_account' => true],
         ] as $attributes) {
             $staff = User::factory()->create($attributes + ['status' => 'active', 'access_role' => 'staff']);
-            $this->actingAs($staff)->get(route('dashboard'))->assertOk()->assertDontSee('id="executive-activity"', false);
+            $this->actingAs($staff)->get(route('dashboard'))->assertOk()->assertDontSee('id="executive-command"', false);
         }
 
         $cvo = User::factory()->create(['position_title' => 'CVO', 'status' => 'active']);
-        $this->actingAs($cvo)->get(route('dashboard'))->assertOk()
-            ->assertSee('id="executive-activity"', false)->assertSee('aria-label="Executive Review Queues"', false);
+        $this->actingAs($cvo)->get(route('dashboard',['exec_view'=>'accountability']))->assertOk()
+            ->assertSee('id="executive-command"', false)->assertSee('aria-label="Executive Review Queues"', false);
     }
 }

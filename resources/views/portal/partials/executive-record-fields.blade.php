@@ -7,7 +7,7 @@
                 is_bool($value) => $value ? 'Yes' : 'No',
                 is_array($value) => collect($value)->flatten()->filter(fn ($item) => is_scalar($item))->implode(' · '),
                 filled($value) => html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />', '</li>'], "\n", (string) $value)), ENT_QUOTES, 'UTF-8'),
-                default => '—',
+                default => 'Setup needed',
             } }}</dd>
         </div>
     @endforeach

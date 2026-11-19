@@ -1,0 +1,1 @@
+<label>{{ $label??'Responsible person' }}<select name="{{ $field }}"><option value="">Owner setup needed</option>@foreach($staff->where('status','active') as $member)<option value="{{ $member->id }}" @selected((int)($value??0)===$member->id)>{{ $member->name }} · {{ \App\Models\User::departmentLabel($member->department) }}</option>@endforeach</select></label>

@@ -7,6 +7,7 @@ class PortalBreadcrumbs {
   $name=$request->route()?->getName()??'';$path=trim($request->path(),'/');
   $home=auth()->check()?route('dashboard'):url('/');$items=[['label'=>auth()->check()?'Staff Dashboard':'Home','url'=>$home]];
   if($path===''||$name==='dashboard'){
+   if($request->filled('exec_view')&&config('executive_tracker.tabs.'.$request->query('exec_view'))){$items[]=['label'=>'Executive command centre','url'=>route('dashboard')];$items[]=['label'=>config('executive_tracker.tabs.'.$request->query('exec_view')),'url'=>null];return $items;}
    if($request->query('weekly_department')&&$request->query('weekly_department')!=='all')$items[]=['label'=>\App\Models\User::departmentLabel($request->query('weekly_department')),'url'=>null];
    else $items[0]['url']=null;
    return $items;

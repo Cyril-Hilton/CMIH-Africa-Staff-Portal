@@ -93,7 +93,7 @@ class ExecutiveProjectTrackerTest extends TestCase
         $this->assertSame(1,$t['counts']['weekly']);
         foreach (['month','year'] as $period) $this->tracker(['report_period'=>$period,'tracker_type'=>'weekly'])->assertOk()->assertSee('Previous week work');
         $this->tracker(['report_date'=>'2026-11-09','tracker_type'=>'weekly'])->assertOk()->assertSee('Previous week work')->assertDontSee('Published workstream');
-        $this->get(route('dashboard'))->assertOk()->assertSee('Live Project & Team Tracker',false)->assertSee('aria-label="Tracker work types"',false);
+        $this->get(route('dashboard'))->assertOk()->assertSee('Every project. Connected.',false)->assertSee('/portal/project-journey',false);
     }
 
     public function test_recurring_assignments_stay_in_daily_tasks_and_legacy_completion_is_not_mislabeled_as_review(): void

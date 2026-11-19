@@ -14,10 +14,10 @@ class ExecutiveDashboardConsolidationTest extends TestCase
     {
         foreach ([['access_role'=>'super_admin'],['access_role'=>'staff','position_title'=>'CVO','job_level'=>'CVO']] as $role) {
             $executive=User::factory()->create($role+['status'=>'active']);
-            $this->actingAs($executive)->get(route('portal.cvo'))->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+            $this->actingAs($executive)->get(route('portal.cvo'))->assertRedirect(route('dashboard'));
         }
         $admin=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
-        $this->actingAs($admin)->get(route('admin.dashboard'))->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+        $this->actingAs($admin)->get(route('admin.dashboard'))->assertRedirect(route('dashboard'));
         $this->assertCount(4,app(ExecutiveDashboardSummary::class)->build($admin));
     }
 

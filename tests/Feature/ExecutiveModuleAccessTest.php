@@ -28,7 +28,7 @@ class ExecutiveModuleAccessTest extends TestCase
             foreach (['portal.crm.index', 'portal.hr-reporting.index', 'portal.admin-weekly.index', 'portal.printing-requests.index', 'portal.printing-requests.create', 'portal.hr', 'portal.finance', 'portal.operations', 'portal.brands', 'portal.creative', 'portal.assets.warehouse.index', 'admin.users', 'admin.content', 'admin.tasks', 'admin.announcements', 'admin.events', 'admin.brands', 'admin.portfolio', 'admin.portfolio-payments', 'admin.settings'] as $route) {
                 $this->get(route($route))->assertOk();
             }
-            $this->get(route('admin.dashboard'))->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+            $this->get(route('admin.dashboard'))->assertRedirect(route('dashboard'));
             $this->get(route('portal.performance.index'))->assertSee('Executive Business Summary')->assertSee('Cash Position')->assertSee('Vendor Printing Requests')->assertSee('Client Relations')->assertSee('HR &amp; Admin Module', false);
         }
     }

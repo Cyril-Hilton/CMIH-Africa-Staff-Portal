@@ -32,6 +32,8 @@ class ProjectJourney
         return $query->where(fn($q)=>$q->where('owner_id',$viewer->id)->orWhereJsonContains('supporting_staff_ids',$viewer->id)
             ->orWhereIn('id',CreativeRequest::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('assignee_id',$viewer->id)->orWhere('reviewer_id',$viewer->id)->orWhere(fn($support)=>$support->withSupportingStaff($viewer->id))->orWhereHas('parts',fn($parts)=>$parts->withParticipant($viewer->id)))->whereNotNull('crm_project_id')->select('crm_project_id'))
             ->orWhereIn('id',OperationsHandover::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('lead_id',$viewer->id))->select('project_id'))
+            ->orWhereIn('id',\App\Models\ProjectExecutionControl::whereJsonContains('data->participant_ids',$viewer->id)->select('crm_project_id'))
+            ->orWhereIn('id',PerformanceRegister::where('department','finance')->where('owner_id',$viewer->id)->whereNotNull('data->_crm_project_id')->select('data->_crm_project_id'))
             ->orWhereIn('id',PerformanceRegister::whereIn('department',User::departmentAliases('operations_projects'))->whereNotNull('approved_at')->where('owner_id',$viewer->id)->whereNotNull('data->crm_project_id')->select('data->crm_project_id')));
     }
 

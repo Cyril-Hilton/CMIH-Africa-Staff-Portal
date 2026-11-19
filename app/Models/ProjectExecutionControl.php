@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class ProjectExecutionControl extends Model
+{
+    protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return ['data' => 'array', 'revision' => 'integer'];
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(CrmPipelineProject::class, 'crm_project_id');
+    }
+
+    public function recorder()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+}

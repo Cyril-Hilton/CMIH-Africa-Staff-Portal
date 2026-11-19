@@ -12,6 +12,6 @@ class CVOController extends Controller
     {
         abort_unless($request->user()->isCvoOrSuperAdmin(), 403);
 
-        return redirect()->route('dashboard', ['weekly_department' => 'all']);
+        return redirect()->route('dashboard');
     }
 }

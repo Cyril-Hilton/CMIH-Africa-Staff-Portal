@@ -321,7 +321,7 @@ class AttendanceTest extends TestCase
     public function test_legacy_admin_attendance_dashboard_redirects_to_main_dashboard(): void
     {
         $admin=User::factory()->create(['status'=>'active','access_role'=>'super_admin']);
-        $this->actingAs($admin)->get('/admin')->assertRedirect(route('dashboard',['weekly_department'=>'all']));
+        $this->actingAs($admin)->get('/admin')->assertRedirect(route('dashboard'));
         // Attendance tools retain their own permissions after the overview is consolidated.
         $this->actingAs($admin)->get(route('portal.hr-reporting.index'))->assertOk();
     }

@@ -375,6 +375,9 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
 
+    Route::post('/executive/team', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'team'])->name('executive.team');
+    Route::post('/executive/reminders/settings', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'reminders'])->name('executive.reminders.settings');
+    Route::post('/executive/projects/{project}/controls', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'save'])->name('executive.controls.save');
     Route::get('/project-journey/tracker', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'tracker'])->name('project-journey.tracker');
     Route::get('/project-journey/{project}/accountability', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'accountability'])->name('project-journey.accountability');
     Route::get('/project-journey', [\App\Http\Controllers\Portal\ProjectJourneyController::class, 'index'])->name('project-journey');
