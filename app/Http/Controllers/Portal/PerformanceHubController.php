@@ -431,7 +431,8 @@ class PerformanceHubController extends Controller
     {
         $this->manager($r, $register->department);
         abort_if((int) $register->submitted_by === $r->user()->id, 403, 'A different reviewer must approve the submitted record.');
-        abort_if((int) $register->owner_id === $r->user()->id, 403);
+        if($register->department==='finance')abort_unless(\App\Services\FinanceDashboard::canReview($r->user(),$register),403,'Finance entries require Precious’s review.');
+        else abort_if((int) $register->owner_id === $r->user()->id, 403);
         $v = $r->validate(['reason' => 'required|string|max:2000']);
         DB::transaction(function () use ($register, $r, $v) {
             $i = PerformanceRegister::whereKey($register->id)->lockForUpdate()->firstOrFail();

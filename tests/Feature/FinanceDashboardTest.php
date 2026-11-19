@@ -9,7 +9,7 @@ use Tests\TestCase;
 class FinanceDashboardTest extends TestCase
 {
  use RefreshDatabase;
- private function person(bool $manager=false):User{return User::factory()->create(['department'=>'finance','status'=>'active','job_title'=>$manager?'Finance HOD':'Accountant','access_role'=>$manager?'manager':'staff']);}
+ private function person(bool $manager=false):User{$u=User::factory()->create(['department'=>'finance','status'=>'active','job_title'=>$manager?'Finance HOD':'Accountant','access_role'=>$manager?'manager':'staff']);if($manager)config(['finance_reporting.manager_user_id'=>$u->id]);return $u;}
  private function row(User $owner,User $reviewer,string $kind,array $data,array $extra=[]):PerformanceRegister{return PerformanceRegister::create($extra+['department'=>'finance','kind'=>$kind,'reference'=>fake()->uuid(),'title'=>'Finance source '.$kind,'owner_id'=>$owner->id,'submitted_by'=>$owner->id,'approved_by'=>$reviewer->id,'approved_at'=>now(),'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'in_progress','data'=>$data]);}
  private function projection(User $u,array $v=[]):array{$r=Request::create('/portal/finance','GET',$v+['finance_date'=>'2026-11-19']);$r->setUserResolver(fn()=>$u);return app(FinanceDashboard::class)->build($r)['finance'];}
  public function test_reviewed_totals_do_not_mix_revenue_cash_or_invoice_balances_and_filters_apply():void{
@@ -29,7 +29,7 @@ class FinanceDashboardTest extends TestCase
   $this->actingAs($outside)->get(route('dashboard',['weekly_department'=>'finance']))->assertOk()->assertDontSee('Every figure. A clear picture.');
  }
  public function test_entries_require_independent_review_and_updates_do_not_duplicate_sources():void{
-  $owner=$this->person();$hod=$this->person(true);$payload=['kind'=>'revenue','reference'=>'NOV-2026','title'=>'November revenue','owner_id'=>$owner->id,'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'in_progress','data'=>['target'=>1000,'actual'=>900],'reason'=>'Monthly source verified by submitter','actions'=>[['task'=>'Collect outstanding invoices','owner'=>'Finance','due'=>'2026-11-30','status'=>'planned']]];
+  $owner=$this->person();$hod=$this->person(true);$payload=['kind'=>'revenue','reference'=>'NOV-2026','title'=>'November revenue','owner_id'=>$owner->id,'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'in_progress','data'=>['target'=>1000,'actual'=>900,'revenue_type'=>'monthly_total'],'reason'=>'Monthly source verified by submitter','actions'=>[['task'=>'Collect outstanding invoices','owner'=>'Finance','due'=>'2026-11-30','status'=>'planned']]];
   $this->actingAs($owner)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasNoErrors();$row=PerformanceRegister::sole();$this->assertNull($row->approved_at);$this->assertEquals(0,$this->projection($owner,['finance_basis'=>'ledger'])['summary']['revenue']);
   $this->actingAs($owner)->post(route('portal.performance.approveRegister',$row),['reason'=>'Self review'])->assertForbidden();
   $this->actingAs($hod)->post(route('portal.performance.approveRegister',$row),['reason'=>'Source independently reviewed'])->assertSessionHasNoErrors();$this->assertEquals(900,$this->projection($owner)['summary']['revenue']);
@@ -57,6 +57,25 @@ class FinanceDashboardTest extends TestCase
   $finance=$this->person();$reviewer=$this->person(true);$cr=User::factory()->create(['department'=>'client_relations','status'=>'active']);
   foreach(['2026-11-02'=>100,'2026-11-16'=>150] as $week=>$value){$p=new CrmPipelineProject(['owner_id'=>$cr->id,'created_by'=>$cr->id,'updated_by'=>$cr->id,'client_name'=>'Dove','project_name'=>'Same project','stage'=>'project_ongoing','source_period_confirmed'=>true,'week_start'=>$week,'week_end'=>\Carbon\Carbon::parse($week)->endOfWeek(),'actual_amount'=>$value,'revenue_state'=>'confirmed','revenue_submitted_by'=>$cr->id,'revenue_finance_by'=>$finance->id,'revenue_confirmed_at'=>now()]);$p->saveQuietly();}
   $s=$this->projection($finance)['summary'];$this->assertEquals(150,$s['revenue']);$this->assertEquals(150,$this->projection($finance,['finance_owner'=>$finance->id,'finance_basis'=>'crm'])['summary']['revenue']);$this->row($finance,$reviewer,'revenue',['actual'=>200,'target'=>300]);$this->assertEquals(200,$this->projection($finance)['summary']['revenue']);$this->assertEquals(150,$this->projection($finance,['finance_basis'=>'crm'])['summary']['revenue']);
+ }
+
+ public function test_original_crm_po_tracker_is_shared_without_becoming_income_or_inventing_a_month():void{
+  $u=$this->person();$cr=User::factory()->create(['department'=>'client_relations','status'=>'active']);
+  \App\Models\CrmFinancialRegister::create(['import_key'=>'existing-source','client_name'=>'Shared client','project_name'=>'Existing PO project','owner_id'=>$cr->id,'po_amount'=>1000,'po_balance'=>600,'invoiced_amount'=>400,'po_status'=>'Received','invoice_status'=>'Partially invoiced','source_sheet'=>'PO tracker','source_row'=>3,'source_year'=>2026,'as_of'=>null,'source_values'=>[],'source_checksum'=>str_repeat('a',64)]);
+  $month=$this->projection($u);$this->assertCount(0,$month['poRows']);$this->assertSame(1,$month['yearOnlyCount']);
+  $year=$this->projection($u,['finance_period'=>'year']);$this->assertCount(1,$year['poRows']);$this->assertEquals(400,$year['poRows']->first()->invoiced_amount);$this->assertEquals(0,$year['summary']['revenue']);$this->assertEquals(0,$year['summary']['receipts']);$this->assertDatabaseCount('performance_registers',0);
+  $this->actingAs($u)->get(route('portal.finance',['finance_tab'=>'invoices','finance_period'=>'year','finance_date'=>'2026-11-19']))->assertOk()->assertSee('Existing PO project')->assertSee('year-only source')->assertSee('GH&#8373; 400.00',false)->assertSee($cr->name);
+ }
+
+ public function test_precious_publishes_directly_benedicta_waits_for_her_review_and_personal_salaries_stay_private():void{
+  $b=$this->person();$b->update(['name'=>'Benedicta','salary'=>478123.45]);$p=$this->person(true);$p->update(['name'=>'Precious','salary'=>876321.54]);
+  $payload=['kind'=>'revenue','reference'=>'DIRECT-1','title'=>'Finance direct income','owner_id'=>$b->id,'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'completed','outside_crm'=>1,'data'=>['actual'=>100,'source'=>'Direct income','earned_on'=>'2026-11-18','revenue_type'=>'direct'],'reason'=>'Additional revenue outside CRM'];
+  $this->actingAs($b)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasNoErrors();$row=PerformanceRegister::sole();$this->assertNull($row->approved_at);$this->assertEquals(0,$this->projection($b)['summary']['revenue']);
+  $other=User::factory()->create(['department'=>'finance','status'=>'active','access_role'=>'manager']);$this->actingAs($other)->post(route('portal.performance.approveRegister',$row),['reason'=>'Not the assigned reviewer'])->assertForbidden();
+  $this->actingAs($p)->post(route('portal.performance.approveRegister',$row),['reason'=>'Precious reviewed the source'])->assertSessionHasNoErrors();$this->assertEquals(100,$this->projection($p)['summary']['revenue']);
+  $payload['reference']='DIRECT-2';$payload['owner_id']=$p->id;$payload['data']['actual']=50;$this->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasNoErrors();$own=PerformanceRegister::where('reference','DIRECT-2')->firstOrFail();$this->assertNotNull($own->approved_at);$this->assertSame($p->id,(int)$own->approved_by);$this->assertEquals(150,$this->projection($p)['summary']['revenue']);
+  $target=['kind'=>'revenue_target','reference'=>'NOV-TARGET','title'=>'Monthly revenue target','owner_id'=>$p->id,'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'in_progress','data'=>['target'=>200],'reason'=>'Monthly target'];$this->post(route('portal.finance.reporting.save'),$target)->assertSessionHasNoErrors();$this->assertEquals(75,$this->projection($p)['summary']['achievement']);$this->assertSame(7,$this->projection($p)['sourcePerformance']['expected']);
+  $this->actingAs($b)->get(route('portal.finance',['finance_tab'=>'payroll']))->assertOk()->assertDontSee('478123')->assertDontSee('876321')->assertDontSee('payslips ↗')->assertSee('Individual salaries, bank details and payslips are not displayed');
  }
 
 }

@@ -159,6 +159,7 @@ class PerformanceHubTest extends TestCase
         $this->assertNull($observation->fresh()->approved_at);
         $register = \App\Models\PerformanceRegister::create(['department' => 'finance', 'kind' => 'invoice', 'reference' => 'INV-SELF', 'title' => 'Invoice', 'owner_id' => $s['owner']->id, 'submitted_by' => $s['manager']->id, 'period_start' => '2026-10-01', 'period_end' => '2026-10-31', 'status' => 'submitted', 'data' => ['value' => 100], 'evidence_url' => 'https://example.com/invoice']);
         $this->actingAs($s['manager'])->post(route('portal.performance.approveRegister', $register), ['reason' => 'Self-submitted source'])->assertForbidden();
+        config(['finance_reporting.manager_user_id'=>$s['reviewer']->id]);
         $this->actingAs($s['reviewer'])->post(route('portal.performance.approveRegister', $register), ['reason' => 'Independent source check'])->assertSessionHasNoErrors();
         $this->assertNotNull($register->fresh()->approved_at);
     }

@@ -407,3 +407,5 @@
 .cs-activity-point{outline:none}.cs-activity-point:hover circle:last-of-type,.cs-activity-point:focus circle:last-of-type{stroke-width:4;filter:drop-shadow(0 0 5px #d8edff77)}
 .cs-activity-panel .cs-chart-note,.cs-activity-panel>.cs-muted{font-size:12px;line-height:1.7;margin-bottom:0}
 @media(min-width:1000px){.cs-overview-summary .cs-activity-chart svg{min-height:360px}}
+
+.cs-studio .cs-calendar-open{appearance:none;border:0;background:transparent;color:inherit;font:inherit;padding:0;text-align:left;width:100%;cursor:pointer}.cs-studio .cs-calendar-open:hover{text-decoration:underline;text-underline-offset:3px}.cs-studio .cs-calendar-open:focus-visible{outline:2px solid #c7e5ff;outline-offset:3px;border-radius:4px}.cs-calendar-timeline{margin-top:4px;width:100%;font-size:10px}.cs-calendar-timeline>summary{cursor:pointer;font-weight:700;color:#d4e6f5;padding:6px 0}.cs-calendar-timeline[open]>summary{margin-bottom:4px}.cs-calendar-timeline .cs-linked-timeline{margin:0}.cs-planner-work .cs-calendar-alert{margin-top:6px}

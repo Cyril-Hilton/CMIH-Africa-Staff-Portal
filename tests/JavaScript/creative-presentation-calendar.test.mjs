@@ -68,7 +68,7 @@ test('external supporting staff stay on project badges without member tabs or ca
   supporting_staff:[{id:4,name:'Operations Colleague'},{id:1,name:'Creative One'}]})];
  const end = new Date('2026-11-15T00:00:00Z');
  const week = studio.weekPlanner(studio.week, end);
- assert.match(week,/data-person-id="1"[\s\S]*?data-assignment="lead" data-cs-open="1"/);
+ assert.match(week,/data-person-id="1"[\s\S]*?data-assignment="lead"[\s\S]*?data-cs-open="1"/);
  assert.doesNotMatch(week,/data-person-id="4"/);assert.equal(studio.participantRoster().length,1);
  assert.match(week,/Operations Colleague/);
  assert.equal([...week.matchAll(/data-cs-open="1"/g)].length,1);

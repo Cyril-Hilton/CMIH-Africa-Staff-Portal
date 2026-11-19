@@ -17,7 +17,8 @@ return [
     ]),
     'finance' => [
         'profitability' => ['revenue'=>'money','direct_cost'=>'money','variable_cost'=>'money','gross_profit_target'=>'money'],
-        'revenue' => ['target'=>'money','actual'=>'money','client'=>'text','function'=>'text'],
+        'revenue' => ['target'=>'money','actual'=>'money','earned_on'=>'date','source'=>'text','client'=>'text','function'=>'text','revenue_type'=>'text'],
+        'revenue_target' => ['target'=>'money'],
         'invoice' => ['value'=>'money','event_date'=>'date','account_lead'=>'text','processing_state'=>'text','raised_on'=>'date','submitted_on'=>'date','approved_on'=>'date','due_on'=>'date','paid_on'=>'date','paid_amount'=>'money','credited_amount'=>'money'],
         'payable' => ['value'=>'money','due_on'=>'date','paid_on'=>'date','paid_amount'=>'money','credited_amount'=>'money','supplier'=>'text'],
         'receipt' => ['value'=>'money','paid_amount'=>'money','expected_on'=>'date','paid_on'=>'date','account_ref'=>'text','counterparty'=>'text'],
