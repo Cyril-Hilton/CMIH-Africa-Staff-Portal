@@ -142,3 +142,12 @@ test('calendar preserves a visible full brief title above a large supporting tea
  const css=readFileSync(new URL('../../resources/css/creative-studio.css',import.meta.url),'utf8');
  assert.match(css,/\.cs-studio \.cs-planner-work> \*\{flex-shrink:0\}/);assert.match(css,/\.cs-planner-work-title\{[^}]*flex:none[^}]*white-space:normal[^}]*overflow-wrap:anywhere/);
 });
+
+
+test('executive embedded calendar and staff calendar share the same planner and local date window',()=>{
+ const staff=make(),executive=make();for(const s of [staff,executive]){s.view='calendar';s.page=1;s.reportPeriod='monthly';s.items=[brief()];}
+ staff.root={dataset:{embedded:'false'}};executive.root={dataset:{embedded:'true',week:'2026-11-01',reportTo:'2026-11-30',reportPeriod:'month'}};
+ assert.equal(executive.calendar(),staff.calendar());
+ for(const s of [staff,executive]){assert.equal(s.params().get('from'),'2026-11-09');assert.equal(s.params().get('to'),'2026-11-15');s.calendarMode='year';assert.equal(s.params().get('from'),'2026-01-01');assert.equal(s.params().get('to'),'2026-12-31');}
+ executive.view='overview';assert.equal(executive.params().get('from'),'2026-11-01');assert.equal(executive.params().get('to'),'2026-11-30');
+});

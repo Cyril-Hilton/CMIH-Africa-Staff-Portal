@@ -7,13 +7,18 @@ use Illuminate\Support\Facades\DB;
 
 class CreativeProjectConnection
 {
+    public static function canUpdate(User $actor, CreativeRequest $brief): bool
+    {
+        return !$brief->parent_request_id && CreativeAccess::view($actor,$brief) && (CreativeAccess::lead($actor) || ($brief->requester_id===$actor->id && in_array(User::normalizeDepartmentKey($actor->department),['client_relations','creatives'],true)));
+    }
+
     public function update(CreativeRequest $request, User $actor, int $revision, ?int $projectId, ?string $deadline=null): void
     {
         DB::transaction(function () use ($request, $actor, $revision, $projectId, $deadline) {
             $brief = CreativeRequest::lockForUpdate()->findOrFail($request->id);
             abort_unless(CreativeAccess::view($actor, $brief), 404);
-            abort_unless(CreativeAccess::lead($actor) || ($brief->requester_id === $actor->id && User::normalizeDepartmentKey($actor->department) === 'client_relations'), 403);
             abort_if($brief->parent_request_id, 422, 'Connect the parent brief; its work packages inherit that project.');
+            abort_unless(self::canUpdate($actor,$brief),403);
             abort_if($brief->revision !== $revision, 409, 'This brief changed. Refresh before connecting its project.');
             $journey = app(ProjectJourney::class);
             foreach (array_unique(array_filter([$brief->crm_project_id, $projectId])) as $id) {

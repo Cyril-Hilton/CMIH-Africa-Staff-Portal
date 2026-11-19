@@ -535,4 +535,32 @@ class CreativeStudioTest extends TestCase {
   WeeklyConsolidatedItem::create(['department'=>'creatives','week_start'=>now()->startOfWeek(),'week_end'=>now()->endOfWeek(),'created_by'=>$u->id,'lead_staff_id'=>$u->id,'source_task_id'=>$t->id,'campaign_name'=>'Explicit weekly work','deliverables'=>'Reported weekly creative deliverable','status'=>'Planned']);
   app(CreativeLegacyImport::class)->run();$this->assertSame(2,CreativeRequest::studioWork()->count());
  }
+
+ public function test_project_picker_is_fresh_for_creative_staff_cvo_and_superadmin_and_only_returns_project_identity(): void
+ {
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);
+  $owner=$this->staff();$project=\App\Models\CrmPipelineProject::create(['client_name'=>'Dove','project_name'=>'Shared client launch','owner_id'=>$owner->id,'week_start'=>today()->startOfWeek(),'stage'=>'project_ongoing','created_by'=>$owner->id,'updated_by'=>$owner->id,'contact_info'=>'Private client phone','actual_amount'=>99999]);
+  $unconfirmed=$project->replicate();$unconfirmed->project_name='Unconfirmed project';$unconfirmed->source_period_confirmed=false;$unconfirmed->save();
+  foreach([$this->staff('creatives'),$this->staff('executive','super_admin'),$this->staff('executive','cvo')] as $viewer){
+   if($viewer->access_role==='cvo')$viewer->update(['position_title'=>'CVO']);
+   $response=$this->actingAs($viewer)->getJson(route('portal.creative.projects'))->assertOk()->assertJsonCount(1,'projects')->assertJsonPath('projects.0.id',$project->id);
+   $this->assertEqualsCanonicalizing(['id','title','client','owner'],array_keys($response->json('projects.0')));$response->assertDontSee('Private client phone')->assertDontSee('99999');
+   $this->getJson(route('portal.creative.data'))->assertOk()->assertJsonPath('connected_projects.0.id',$project->id);
+   $this->postJson(route('portal.creative.store'),['title'=>'Creative linked brief','brief'=>'Prepare the campaign artwork','creative_type'=>config('creative.types')[0],'requested_deadline'=>now()->addWeek()->toIso8601String(),'crm_project_id'=>$project->id])->assertCreated();
+   $this->get(route('dashboard',['weekly_department'=>'creatives','creative_view'=>'calendar']))->assertOk()->assertSee('data-calendar-mode="week"',false)->assertSee('data-creative-studio',false);
+  }
+  $this->actingAs($this->staff('hr_admin'))->getJson(route('portal.creative.projects'))->assertOk()->assertJsonCount(0,'projects');
+  $other=$this->staff();$this->actingAs($other)->getJson(route('portal.creative.projects'))->assertOk()->assertJsonCount(0,'projects');
+  $this->postJson(route('portal.creative.store'),['title'=>'Unauthorized linked brief','brief'=>'Do not link another account','creative_type'=>config('creative.types')[0],'requested_deadline'=>now()->addWeek()->toIso8601String(),'crm_project_id'=>$project->id])->assertForbidden();
+ }
+ public function test_regular_creative_can_connect_own_existing_brief_but_cannot_relink_another_creatives_brief(): void
+ {
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);$creator=$this->staff('creatives');$other=$this->staff('creatives');$owner=$this->staff();
+  $project=\App\Models\CrmPipelineProject::create(['client_name'=>'Dove','project_name'=>'Shared launch','owner_id'=>$owner->id,'week_start'=>today()->startOfWeek(),'stage'=>'project_ongoing','created_by'=>$owner->id,'updated_by'=>$owner->id]);$brief=$this->brief($creator);
+  $this->actingAs($creator)->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('can_link_project',true);
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->revision,'crm_project_id'=>$project->id])->assertOk();
+  $this->actingAs($other)->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('can_link_project',false);
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->fresh()->revision,'crm_project_id'=>null])->assertForbidden();
+  $this->assertSame($project->id,$brief->fresh()->crm_project_id);
+ }
 }

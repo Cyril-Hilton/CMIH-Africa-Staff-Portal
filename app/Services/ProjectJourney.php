@@ -35,9 +35,23 @@ class ProjectJourney
             ->orWhereIn('id',PerformanceRegister::whereIn('department',User::departmentAliases('operations_projects'))->whereNotNull('approved_at')->where('owner_id',$viewer->id)->whereNotNull('data->crm_project_id')->select('data->crm_project_id')));
     }
 
+    public function canLinkAnyProject(User $viewer): bool
+    {
+        return CreativeAccess::lead($viewer) || (CreativeAccess::staff($viewer) && User::normalizeDepartmentKey($viewer->department)==='creatives');
+    }
+
+    /** Project identity only; commercial/private fields are never returned by the picker. */
+    public function linkableProjects(User $viewer): Builder
+    {
+        return CrmPipelineProject::where('source_period_confirmed',true)->when(!$this->canLinkAnyProject($viewer),function($q)use($viewer){
+            if(ClientRelationsPipeline::staffMember($viewer))$q->when(!$viewer->isLineManager(),fn($q)=>$q->where('owner_id',$viewer->id));
+            else $q->whereRaw('1 = 0');
+        });
+    }
+
     public function canLink(User $viewer, CrmPipelineProject $project): bool
     {
-        return CreativeAccess::lead($viewer) || (ClientRelationsPipeline::staffMember($viewer)
+        return $this->canLinkAnyProject($viewer) || (ClientRelationsPipeline::staffMember($viewer)
             && ($viewer->isLineManager() || $viewer->id === (int) $project->owner_id));
     }
 

@@ -435,6 +435,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::prefix('creative-studio')->name('creative.')->group(function () {
         Route::get('/activity', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'activity'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('activity');
         Route::get('/reports/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'presentationReport'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format',['data','pdf'])->name('reports');
+        Route::get('/projects', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'projects'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('projects');
         Route::get('/data', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'data'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('data');
         Route::post('/requests', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'store'])->middleware('throttle:30,1')->name('store');
         Route::get('/requests/{creative}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'show'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('show');
