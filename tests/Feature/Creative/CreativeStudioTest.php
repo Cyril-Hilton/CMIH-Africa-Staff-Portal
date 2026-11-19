@@ -12,6 +12,36 @@ class CreativeStudioTest extends TestCase {
  private function brief(User $requester, array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->create($requester,array_replace(['title'=>'Dove creative campaign','brief'=>'Create approved artwork for the campus campaign.','creative_type'=>'Flyer / Poster','priority'=>'High','client'=>'Dove','visibility'=>'shared','requested_deadline'=>now()->addWeek()],$extra));}
  private function plan(CreativeRequest $r,User $lead,User $owner,User $reviewer):CreativeRequest{return app(CreativeWorkflow::class)->plan($r,$lead,['revision'=>$r->revision,'assignee_id'=>$owner->id,'reviewer_id'=>($owner->id===$lead->id ? $this->staff('creatives','manager')->id : $lead->id),'planned_start'=>now()->startOfWeek()->addDay()->setHour(9),'internal_eta'=>now()->startOfWeek()->addDays(3)->setHour(16),'estimated_hours'=>8,'requested_deadline'=>now()->addWeek(),'priority'=>'High','reason'=>'Assigned against the creative brief','override_reason'=>'Capacity will be confirmed in this local test']);}
  private function move(CreativeRequest $r,User $u,string $stage,array $extra=[]):CreativeRequest{return app(CreativeWorkflow::class)->transition($r,$u,array_replace(['revision'=>$r->revision,'stage'=>$stage,'reason'=>'Recorded workflow action','quality_score'=>null,'client_approved'=>$stage==='completed'], $extra));}
+ public function test_existing_brief_can_connect_later_with_owner_and_audited_revision_without_replanning(): void
+ {
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);
+  $lead=$this->staff('creatives','manager');$owner=$this->staff();$brief=$this->brief($lead);$brief->forceFill(['stage'=>'in_progress'])->save();
+  $project=\App\Models\CrmPipelineProject::create(['client_name'=>'Lush Hair','project_name'=>'Campus Christmas Concept','stage'=>'won','week_start'=>now()->startOfWeek(),'source_period_confirmed'=>true,'owner_id'=>$owner->id,'created_by'=>$owner->id,'updated_by'=>$owner->id]);
+  $original=$brief->only(['stage','received_at','requested_deadline','assignee_id']);
+  $this->actingAs($lead)->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('can_link_project',true)->assertJsonPath('connected_project',null);
+  $revision=$brief->revision;
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$revision,'crm_project_id'=>$project->id])->assertOk();
+  $this->assertEquals($original,$brief->fresh()->only(array_keys($original)));
+  $this->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('connected_project.id',$project->id)->assertJsonPath('client_relations_contact.id',$owner->id)->assertJsonPath('history.0.action','project_linked');
+  $this->assertDatabaseHas('performance_events',['entity_type'=>'creative_request','entity_id'=>$brief->id,'actor_id'=>$lead->id,'action'=>'project_linked']);
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$revision,'crm_project_id'=>null])->assertConflict();
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->fresh()->revision,'crm_project_id'=>null])->assertOk();
+  $this->assertNull($brief->fresh()->crm_project_id);
+  $this->actingAs($this->staff('creatives'))->postJson(route('portal.creative.project',$brief),['revision'=>$brief->fresh()->revision,'crm_project_id'=>$project->id])->assertForbidden();
+  $this->actingAs($lead)->getJson(route('portal.project-journey',['project'=>$project->id]))->assertOk();
+ }
+ public function test_client_requester_can_only_connect_owned_projects_and_work_packages_inherit_parent(): void
+ {
+  $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class);
+  $owner=$this->staff();$other=$this->staff();$brief=$this->brief($owner);
+  $project=\App\Models\CrmPipelineProject::create(['client_name'=>'Dove','project_name'=>'Campus Project','stage'=>'won','week_start'=>now()->startOfWeek(),'source_period_confirmed'=>true,'owner_id'=>$other->id,'created_by'=>$other->id,'updated_by'=>$other->id]);
+  $this->actingAs($owner)->postJson(route('portal.creative.project',$brief),['revision'=>$brief->revision,'crm_project_id'=>$project->id])->assertForbidden();
+  $project->update(['owner_id'=>$owner->id]);
+  $this->postJson(route('portal.creative.project',$brief),['revision'=>$brief->revision,'crm_project_id'=>$project->id])->assertOk();
+  $part=$this->brief($owner);$part->forceFill(['parent_request_id'=>$brief->id])->save();
+  $this->getJson(route('portal.creative.show',$part))->assertOk()->assertJsonPath('can_link_project',false)->assertJsonPath('connected_project.id',$project->id)->assertJsonPath('client_relations_contact.id',$owner->id);
+  $this->postJson(route('portal.creative.project',$part),['revision'=>$part->revision,'crm_project_id'=>$project->id])->assertUnprocessable();
+ }
  public function test_short_request_and_self_assignment_can_be_saved_without_a_written_reason(): void
  {
   $requester = $this->staff();

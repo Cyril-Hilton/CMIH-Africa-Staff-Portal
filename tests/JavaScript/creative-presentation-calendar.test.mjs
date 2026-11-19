@@ -110,3 +110,11 @@ test('overview date selection clears stale ranges and applies week, month, year 
 test('activity graph plots all three dated milestones and retains a true zero baseline',()=>{
  const s=make();const html=s.activityChart([{label:'16 Nov',received:10,submitted:2,verified:0},{label:'17 Nov',received:3,submitted:0,verified:0}]);assert.equal([...html.matchAll(/<polyline /g)].length,3);assert.match(html,/16 Nov · Briefs received: 10/);assert.match(html,/First submissions: 2/);assert.match(html,/green series remains on the zero baseline/);assert.match(html,/cy="200"/);
 });
+
+test('existing brief exposes editable project connection with selected project and owner while readers retain facts',()=>{
+ const s=make();s.data.connected_projects=[{id:7,title:'Christmas Concept',client:'Lush Hair',owner:'Client Relations Owner'}];
+ const d={id:1,revision:4,can_link_project:true,connected_project:{id:7,title:'Christmas Concept',client:'Lush Hair'},client_relations_contact:{name:'Client Relations Owner'}};
+ const html=s.projectConnection(d);assert.match(html,/data-cs-form="project"/);assert.match(html,/value="7" selected/);assert.match(html,/Client Relations Owner/);assert.match(html,/name="revision" value="4"/);assert.match(html,/Save Project Connection/);
+ const read=s.projectConnection({...d,can_link_project:false});assert.match(read,/Christmas Concept/);assert.doesNotMatch(read,/<form/);
+ assert.match(s.projectConnection({...d,connected_project:null}),/Direct brief/);
+});
