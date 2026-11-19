@@ -48,6 +48,7 @@ class ClientBusinessCentre {
   if(b.hasAttribute('data-cr-page')&&!this.loading){this.page=Number(b.dataset.crPage);this.focus=null;this.load();}
   if(b.hasAttribute('data-cr-refresh'))this.load().then(()=>this.refreshPublishedRegister());
   if(b.hasAttribute('data-cr-owner')){this.form.elements.owner.value=b.dataset.crOwner;this.filter=this.formFilters();this.page=1;this.focus=null;this.load();}
+  if(b.hasAttribute('data-cr-connection-retry'))this.loadConnectedTeams();
   if(b.hasAttribute('data-cr-new-entry'))this.entryForm();
   if(b.hasAttribute('data-cr-entries'))this.entries();
   if(b.hasAttribute('data-cr-submission'))this.submission(Number(b.dataset.crSubmission));
@@ -86,7 +87,7 @@ class ClientBusinessCentre {
  render(selection){if(!this.data)return;const d=this.data;if(d.source_kpi_html){const source=document.querySelector('#performance-panel-client_relations [data-source-department=client_relations]');if(source){source.outerHTML=d.source_kpi_html;window.initTableEnhancers?.();}}this.root.querySelectorAll('[data-cr-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.crView===this.view)));const client=this.form.elements.client;client.innerHTML='<option value="">All Clients</option>'+d.client_options.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');client.value=this.filter.client??'';const owner=this.form.elements.owner;owner.innerHTML='<option value="">All Owners</option>'+d.staff.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('');owner.value=this.filter.owner??'';this.root.querySelector('[data-cr-owner-tabs]').innerHTML=[{id:'',name:'All Client Relations Staff'},...d.staff].map(u=>`<button type="button" data-cr-owner="${u.id}" aria-pressed="${String(this.filter.owner??'')===String(u.id)}">${u.photo_url?`<img src="${esc(u.photo_url)}" alt="" width="28" height="28" loading="lazy" decoding="async">`:""}<span>${esc(u.name)}${u.active===false?'<small>Past staff</small>':''}</span></button>`).join('');
  this.root.querySelector('[data-cr-pulse]').innerHTML=[['Engaged Accounts',d.summary.engaged_clients],['Active Project Records',d.summary.projects],[d.source==='workbook'?'Workbook Invoiced':'Finance Confirmed Revenue',cash(d.source==='workbook'?d.ledger_summary.totals.invoiced_amount.value:(d.totals.actual_amount.value??0))],[d.source==='workbook'?'PO Raised':'Target Achievement Credit',d.source==='workbook'?cash(d.ledger_summary.totals.po_amount.value):pct(d.summary.achievement??0)]].map(([name,value])=>`<div><small>${esc(name)}</small><strong>${esc(value)}</strong></div>`).join('');
  const scrolls=new Map([...this.content.querySelectorAll('[data-cr-account-list]')].map(list=>[list.dataset.crAccountList,list.scrollTop]));
- const methods={web:()=>this.web(),radar:()=>this.radar(),growth:()=>this.growth(),funnel:()=>this.funnel(),actions:()=>this.actions(),review:()=>this.review()};this.content.innerHTML=methods[this.view]();
+ const methods={web:()=>this.web(),radar:()=>this.radar(),growth:()=>this.growth(),funnel:()=>this.funnel(),actions:()=>this.actions(),review:()=>this.review()};this.content.innerHTML=methods[this.view]();this.loadConnectedTeams();
  this.content.querySelectorAll('[data-cr-account-list]').forEach(list=>{list.scrollTop=scrolls.get(list.dataset.crAccountList)??0;});
  if(selection?.restoreFocus){
   [...this.content.querySelectorAll('[data-cr-focus]')].find(button=>button.dataset.crFocus===selection.key&&button.dataset.crAccountGroup===selection.group)?.focus({preventScroll:true});
@@ -118,7 +119,7 @@ class ClientBusinessCentre {
   this.webProjectId=id;
   const picker=panel.querySelector('[data-cr-project-picker]');
   if(picker)picker.value=String(id);
-  panel.querySelector('[data-cr-project-overview]').innerHTML=this.projectOverview(project);
+  panel.querySelector('[data-cr-project-overview]').innerHTML=this.projectOverview(project);this.loadConnectedTeams();
   this.content.querySelectorAll('[data-cr-node^="project:"]').forEach(node=>{
    node.setAttribute('aria-pressed',String(node.dataset.crNode===`project:${id}`));
   });
@@ -136,7 +137,16 @@ class ClientBusinessCentre {
    <dl class="cr-project-facts">${details.filter(([,value])=>value).map(([label,value])=>`<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>
    ${description?`<section><h5>Project Brief</h5><div class="weekly-rich-content">${description}</div></section>`:'<p class="cr-muted">No project brief recorded.</p>'}
    ${followUps.filter(([,value])=>value).map(([label,value])=>`<section><h5>${label}</h5><div class="weekly-rich-content">${value}</div></section>`).join('')}
+   ${p.connected_url?`<section class="cr-connected-return"><h5>Connected teams · commitments & updates</h5><div data-cr-connected-return="${esc(p.connected_url)}" aria-live="polite"><p class="cr-muted">Loading the shared Creative and Operations timeline…</p></div></section>`:''}
    <button type="button" class="cr-project-full" data-cr-project="${p.id}">Open Full Project</button>`;
+ }
+ async loadConnectedTeams(){
+  for(const element of this.content.querySelectorAll('[data-cr-connected-return]')){
+   if(element.dataset.loading==='true')continue; element.dataset.loading='true';
+   try{const data=await this.api(element.dataset.crConnectedReturn);if(element.isConnected)element.innerHTML=data.html;}
+   catch{if(element.isConnected)element.innerHTML='<p class="cr-muted">Shared team details could not load.</p><button type="button" data-cr-connection-retry>Retry team updates</button>';}
+   finally{element.dataset.loading='false';}
+  }
  }
  projectPanel(c,project){
   return `<section class="cr-panel cr-web-project" data-cr-project-panel aria-label="Project details">

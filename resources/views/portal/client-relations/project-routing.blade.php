@@ -4,7 +4,7 @@
     $routingManagers=\App\Models\User::internalStaff()->where('status','active')->whereIn('department',array_merge(\App\Models\User::departmentAliases('creatives'),\App\Models\User::departmentAliases('operations_projects')))->get();
 @endphp
 <section data-project-routing class="rounded-xl border border-teal-300/30 bg-teal-300/5 p-4 space-y-4">
-    <div><h4 class="font-semibold text-teal-100">Connected Teams & Deadlines</h4><p class="mt-1 text-xs text-brand-ash">Send the project brief and execution plan from this entry. Each HOD assigns their team, including themselves. Requests route after publication; every change keeps its date, time and author.</p></div>
+    <div><h4 class="font-semibold text-teal-100">Connected Teams & Deadlines</h4><p class="mt-1 text-xs text-brand-ash">Enter the client receipt date, your requested deadlines and the team requirements here. Each HOD assigns their team, including themselves. The portal records your submission time and publication / routing time automatically; these cannot be backdated. Every change keeps its date, time and author.</p></div>
     <label class="block text-sm">When did the client brief arrive? · reported date / time, Accra
         <input type="datetime-local" name="delivery[client_brief_received_at]" value="{{ !empty($delivery['client_brief_received_at'])?\Illuminate\Support\Carbon::parse($delivery['client_brief_received_at'])->timezone('Africa/Accra')->format('Y-m-d\TH:i'):'' }}" class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2">
         <span class="mt-1 block text-xs text-brand-ash">Enter the actual date the client sent the brief, when known. The portal separately records project creation, creative submission and when this reported date was entered or changed.</span>
@@ -37,6 +37,7 @@
                     <div class="grid gap-3 sm:grid-cols-2"><label class="text-sm">Setup deadline · Accra<input type="datetime-local" name="delivery[operations][setup_due_at]" value="{{ $delivery['operations']['setup_due_at']??'' }}" required class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2"></label>
                     <label class="text-sm">Execution date / time · Accra<input type="datetime-local" name="delivery[operations][event_at]" value="{{ $delivery['operations']['event_at']??'' }}" required class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2"></label></div>
                     <label class="block text-sm">Execution completion deadline · Accra<input type="datetime-local" name="delivery[operations][execution_due_at]" value="{{ $delivery['operations']['execution_due_at']??'' }}" class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2"><small class="block text-brand-ash">Completion target is separate from the activation start and setup deadline.</small></label>
+                    <label class="block text-sm">Execution plan / presentation link · optional<input type="url" name="delivery[operations][plan_url]" value="{{ $delivery['operations']['plan_url']??'' }}" class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2" placeholder="https://…"></label>
                     <label class="block text-sm">Execution location<input name="delivery[operations][location]" maxlength="255" value="{{ $delivery['operations']['location']??'' }}" required class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2"></label>
                     <p class="text-xs text-brand-ash">Operations assigns the lead, arranges the handover and records both teams’ sign-off before execution.</p>
                 @endif
@@ -44,4 +45,12 @@
         </div>
     @endforeach
     <label class="block text-sm">Timeline / scope change note · optional<input name="delivery[change_note]" maxlength="2000" class="mt-1 w-full rounded-lg border border-brand-white/15 bg-brand-black px-3 py-2" placeholder="Explain a changed request or deadline so the team has context"></label>
+    <aside class="rounded-lg border border-brand-white/15 p-3 text-xs text-brand-ash">Your fields: client brief receipt, creative brief and reference, requested Creative deadline, execution plan, acceptance criteria, setup deadline, activation time, execution completion deadline and location. Creative and Operations HODs enter their own assignments and agreed deadlines; each team records its own sign-off. Their returned dates are visible below and in the linked work.</aside>
+    @if($record)
+        <details data-connected-project="{{ route('portal.project-journey.accountability',$record) }}" class="rounded-xl border border-teal-300/30 p-3">
+            <summary class="cursor-pointer font-semibold text-teal-100">Current team commitments, request dates & handover actions</summary>
+            <p class="mt-2 text-xs text-brand-ash">Read-only return from both teams. Compare your requested deadlines with the HOD commitments. Open the linked brief or handover to record your permitted feedback, meeting details, sign-off or acceptance.</p>
+            <div data-connected-project-content></div>
+        </details>
+    @endif
 </section>

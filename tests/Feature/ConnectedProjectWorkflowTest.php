@@ -184,4 +184,92 @@ class ConnectedProjectWorkflowTest extends TestCase
         $h->refresh();$this->assertNull($h->cr_signoff_at);$this->assertNull($h->ops_signoff_at);$this->assertSame('handover_meeting',$h->stage);
         $this->assertTrue(PerformanceEvent::where('entity_type','operations_handover')->where('action','project_request_changed')->exists());
     }
+
+    public function test_weekly_modal_and_edit_form_offer_all_request_fields_and_explain_automatic_timestamps(): void
+    {
+        $s=$this->setupProject();$id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');
+        foreach([route('dashboard',['weekly_department'=>'client_relations']),route('portal.crm.index')] as $url){
+            $page=$this->get($url)->assertOk();
+            foreach(['delivery[client_brief_received_at]','delivery[creative][brief]','delivery[creative][requested_deadline]','delivery[creative][reference_url]','delivery[operations][plan]','delivery[operations][acceptance_criteria]','delivery[operations][setup_due_at]','delivery[operations][event_at]','delivery[operations][execution_due_at]','delivery[operations][plan_url]','delivery[operations][location]'] as $name)$page->assertSee('name="'.$name.'"',false);
+            $page->assertSee('cannot be backdated');
+        }
+        $this->get(route('portal.crm.index'))->assertSee('Current team commitments, request dates')->assertSee(route('portal.project-journey.accountability',$id),false);
+    }
+
+    public function test_direct_linked_creative_deadline_is_not_mislabelled_as_a_client_relations_request_in_edit_form(): void
+    {
+        $s=$this->setupProject();$payload=$s['payload'];unset($payload['delivery']);
+        $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$payload)->assertCreated()->json('id');$project=CrmPipelineProject::findOrFail($id);
+        $brief=app(CreativeWorkflow::class)->create($s['creative'],['title'=>'Direct artwork brief','brief'=>'Design the client artwork','creative_type'=>config('creative.types')[0],'priority'=>'Medium','requested_deadline'=>'2026-11-24T16:00']);
+        app(\App\Services\Creative\CreativeProjectConnection::class)->update($brief,$s['creative'],$brief->revision,$id);
+        $service=app(\App\Services\ConnectedProjectWorkflow::class);
+        $this->assertNull($service->formValues($project)['creative']['requested_deadline']);
+        app(\App\Services\Creative\CreativeProjectConnection::class)->update($brief->fresh(),$s['creative'],$brief->fresh()->revision,$id,'2026-11-23T12:00');
+        $this->assertSame('2026-11-23T12:00',$service->formValues($project)['creative']['requested_deadline']);
+        $summary=app(\App\Services\ConnectedProjectSummary::class)->build($project,$s['owner']);
+        $this->assertSame('2026-11-23 12:00',$summary['work'][0]['requested']->format('Y-m-d H:i'));
+    }
+
+    public function test_updated_reference_links_and_hod_tag_round_trip_without_changing_creative_schedule(): void
+    {
+        $s=$this->setupProject();$s['payload']['delivery']['creative']['reference_url']='https://example.com/original';$s['payload']['delivery']['operations']['plan_url']='https://example.com/plan';
+        $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');$p=CrmPipelineProject::findOrFail($id);$brief=CreativeRequest::firstOrFail();
+        $brief=app(CreativeWorkflow::class)->plan($brief,$s['creative'],['revision'=>$brief->revision,'assignee_id'=>$s['creative']->id,'planned_start'=>'2026-11-19T09:00','internal_eta'=>'2026-11-21T10:00','estimated_hours'=>8,'acknowledge_warnings'=>true]);
+        $newHod=$this->staff('creatives','manager');$payload=$s['payload'];$payload['delivery']['creative']['reference_url']='https://example.com/revised';$payload['delivery']['creative_manager_id']=$newHod->id;$payload['delivery']['operations']['plan_url']='https://example.com/revised-plan';
+        $this->postJson(route('portal.crm.update',$p),$payload+['revision'=>$p->revision])->assertOk();
+        $brief->refresh();$this->assertSame($newHod->id,$brief->reviewer_id);$this->assertSame($s['creative']->id,$brief->assignee_id);$this->assertSame('2026-11-21 10:00',$brief->internal_eta->format('Y-m-d H:i'));
+        $values=app(\App\Services\ConnectedProjectWorkflow::class)->formValues($p->fresh());$this->assertSame('https://example.com/revised',$values['creative']['reference_url']);$this->assertSame('https://example.com/revised-plan',$values['operations']['plan_url']);
+        $this->assertDatabaseHas('performance_outbox',['user_id'=>$newHod->id,'title'=>'Creative brief reference updated']);
+        $this->assertDatabaseHas('performance_events',['entity_type'=>'creative_request','action'=>'project_manager_changed','entity_id'=>$brief->id]);
+        $payload['delivery']['creative']['reference_url']=null;$p->refresh();$this->postJson(route('portal.crm.update',$p),$payload+['revision'=>$p->revision])->assertOk();$this->assertNull(app(\App\Services\ConnectedProjectWorkflow::class)->formValues($p->fresh())['creative']['reference_url']);
+    }
+
+    public function test_approval_delay_is_visible_separately_from_original_request_in_both_departments(): void
+    {
+        $s=$this->setupProject('staff');$id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertStatus(202)->json('submission_id');$sent=now()->toIso8601String();$this->travelTo(now()->addHour());$published=now()->toIso8601String();
+        $this->actingAs($this->staff('client_relations','manager'))->postJson(route('portal.crm.submissions.review',$id),['revision'=>1,'decision'=>'approve'])->assertOk();
+        $brief=CreativeRequest::firstOrFail();$this->actingAs($s['owner'])->getJson(route('portal.creative.show',$brief))->assertOk()->assertJsonPath('timeline_provenance.creative_requested_at',$sent)->assertJsonPath('timeline_provenance.creative_routed_at',$published)->assertJsonPath('timeline_provenance.creative_requested_by',$s['owner']->name);
+        $this->getJson(route('portal.operations.handovers.data'))->assertOk()->assertJsonPath('items.0.request_submitted_at',$sent)->assertJsonPath('items.0.routed_at',$published);
+    }
+
+    public function test_operations_summary_separates_setup_activation_and_execution_and_does_not_treat_setup_as_completion_deadline(): void
+    {
+        $s=$this->setupProject();$s['payload']['delivery']['operations']['execution_due_at']='2026-11-28T18:00';
+        $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');$h=OperationsHandover::firstOrFail();
+        $this->actingAs($s['operations'])->postJson(route('portal.operations.handovers.action',$h),['revision'=>$h->revision,'action'=>'assign','lead_id'=>$s['operations']->id,'agreed_setup_due_at'=>'2026-11-25T16:00','agreed_execution_due_at'=>'2026-11-28T16:00','reason'=>'HOD records both commitments'])->assertOk();
+        $this->travelTo(Carbon::parse('2026-11-27T12:00'));$summary=app(\App\Services\ConnectedProjectSummary::class)->build(CrmPipelineProject::find($id),$s['owner']);$work=collect($summary['work'])->firstWhere('team','Operations');
+        $this->assertFalse((bool)$work['late']);$this->assertSame('2026-11-25 16:00',$work['agreed']->format('Y-m-d H:i'));$this->assertSame('2026-11-28 16:00',$work['agreed_execution']->format('Y-m-d H:i'));$this->assertSame('2026-11-27 10:00',$work['activation']->format('Y-m-d H:i'));
+        $event=collect($summary['timeline'])->firstWhere('label','Operations HOD execution commitment');$this->assertSame($s['operations']->name,$event['owner']);
+        $this->actingAs($s['owner'])->getJson(route('portal.project-journey.accountability',$id))->assertOk()->assertSee('Operations HOD setup commitment')->assertSee('Operations HOD execution commitment');
+    }
+
+    public function test_revised_execution_request_clears_old_completion_evidence_but_preserves_hod_commitment_and_audit(): void
+    {
+        $s=$this->setupProject();$id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');$h=OperationsHandover::firstOrFail();
+        $h->update(['stage'=>'awaiting_acceptance','meeting_held_at'=>now(),'cr_signoff_at'=>now(),'ops_signoff_at'=>now(),'handover_approved_at'=>now(),'submitted_at'=>now(),'execution_completed_at'=>now(),'submission_evidence'=>'https://example.com/old-completion','agreed_execution_due_at'=>'2026-11-28T16:00']);
+        $p=CrmPipelineProject::find($id);$payload=$s['payload'];$payload['delivery']['operations']['location']='Updated venue';$this->postJson(route('portal.crm.update',$id),$payload+['revision'=>$p->revision])->assertOk();$h->refresh();
+        $this->assertNull($h->submitted_at);$this->assertNull($h->execution_completed_at);$this->assertNull($h->submission_evidence);$this->assertNull($h->handover_approved_at);$this->assertSame('2026-11-28 16:00',$h->agreed_execution_due_at->format('Y-m-d H:i'));
+        $this->assertTrue(PerformanceEvent::where('entity_type','operations_handover')->where('action','project_request_changed')->where('before->submission_evidence','https://example.com/old-completion')->exists());
+    }
+
+    public function test_both_dashboard_returns_show_hod_comments_commitments_and_client_feedback_on_the_same_project(): void
+    {
+        $s=$this->setupProject();$id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');$brief=CreativeRequest::firstOrFail();$h=OperationsHandover::firstOrFail();
+        $brief=app(CreativeWorkflow::class)->plan($brief,$s['creative'],['revision'=>$brief->revision,'assignee_id'=>$s['creative']->id,'planned_start'=>'2026-11-19T09:00','internal_eta'=>'2026-11-21T10:00','estimated_hours'=>8,'acknowledge_warnings'=>true,'update'=>'Creative HOD: final files will follow approved dimensions.']);
+        $this->actingAs($s['operations'])->postJson(route('portal.operations.handovers.action',$h),['revision'=>$h->revision,'action'=>'assign','lead_id'=>$s['operations']->id,'agreed_setup_due_at'=>'2026-11-25T16:00','agreed_execution_due_at'=>'2026-11-28T16:00','reason'=>'Operations HOD: venue access confirmed for installation.'])->assertOk();
+        $brief->updates()->create(['author_id'=>$s['owner']->id,'kind'=>'comment','body'=>'Client Relations: client approved the revised dimensions.']);
+        $url=route('portal.project-journey.accountability',$id);
+        foreach([$s['owner'],$s['creative'],$s['operations']] as $viewer){
+            $this->actingAs($viewer)->getJson($url)->assertOk()->assertSee('Creative HOD: final files')->assertSee('Operations HOD: venue access')->assertSee('Client Relations: client approved')->assertSee('21 Nov 2026')->assertSee('28 Nov 2026');
+        }
+        $this->actingAs($s['owner'])->getJson(route('portal.crm.centre.data',['from'=>'2026-11-16','to'=>'2026-11-22']))->assertOk()->assertJsonPath('clients.0.projects.0.connected_url',$url);
+        $outsider=$this->staff('client_relations');$brief->update(['visibility'=>'restricted']);$this->actingAs($outsider)->getJson($url)->assertNotFound();
+    }
+
+    public function test_unchanged_client_manager_tag_does_not_undo_a_hod_review_assignment(): void
+    {
+        $s=$this->setupProject();$id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');$p=CrmPipelineProject::find($id);$brief=CreativeRequest::firstOrFail();$reviewer=$this->staff('creatives','manager');
+        $brief=app(CreativeWorkflow::class)->plan($brief,$s['creative'],['revision'=>$brief->revision,'assignee_id'=>$s['creative']->id,'reviewer_id'=>$reviewer->id,'planned_start'=>'2026-11-19T09:00','internal_eta'=>'2026-11-21T10:00','estimated_hours'=>8,'acknowledge_warnings'=>true]);
+        $this->postJson(route('portal.crm.update',$id),$s['payload']+['revision'=>$p->revision])->assertOk();$this->assertSame($reviewer->id,$brief->fresh()->reviewer_id);
+    }
 }

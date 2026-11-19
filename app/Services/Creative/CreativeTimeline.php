@@ -38,7 +38,7 @@ class CreativeTimeline
         $handed=$state['creative_routed_at']??$root->received_at?->toIso8601String();
         $gap=$received&&$handed?round(Carbon::parse($received)->diffInHours(Carbon::parse($handed),false),1):null;
         return ['client_brief_received_at'=>$received,'client_brief_received_recorded_by'=>$enteredBy?->name,'client_brief_received_recorded_at'=>$state['client_brief_received_entered_at']??null,
-            'project_created_at'=>$project?->created_at?->toIso8601String(),'creative_created_at'=>$root->created_at?->toIso8601String(),'creative_submitted_at'=>$root->received_at?->toIso8601String(),'creative_routed_at'=>$handed,'receipt_to_creative_hours'=>$gap,
+            'project_created_at'=>$project?->created_at?->toIso8601String(),'creative_created_at'=>$root->created_at?->toIso8601String(),'creative_submitted_at'=>$root->received_at?->toIso8601String(),'creative_requested_at'=>$state['creative_requested_at']??null,'creative_requested_by'=>!empty($state['creative_requested_by_id'])?User::find($state['creative_requested_by_id'])?->name:null,'creative_routed_at'=>$handed,'receipt_to_creative_hours'=>$gap,
             'client_relations_deadline'=>$crDate?Carbon::parse($crDate,config('creative.timezone'))->toIso8601String():null,
             'client_relations_recorded_by'=>$crActor?->name,'client_relations_recorded_at'=>$stamp($cr),
             'client_relations_source'=>$cr?->action==='client_relations_deadline_recorded'?'Reported deadline entered in portal':($crDate?'Recorded Client Relations brief':'Client Relations deadline needs recording'),

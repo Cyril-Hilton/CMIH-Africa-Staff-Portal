@@ -15,16 +15,37 @@
             <p class="mt-2 text-sm"><strong>{{ $work['owner'] }}</strong> · requested / handed over by {{ $work['from'] }}</p>
             @if(count($work['support']))<div class="mt-3 flex flex-wrap items-center gap-2 text-xs"><span class="text-brand-ash">Supporting team</span>@foreach($work['support'] as $support)<span class="rounded-lg border border-violet-300/40 bg-violet-300/10 px-2 py-1">{{ $support }}</span>@endforeach</div>@endif
             <dl class="mt-3 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
-                @foreach(['requested'=>$work['team']==='Creative'?'Requester deadline':'Requested setup deadline','agreed'=>$work['team']==='Creative'?'Creative HOD delivery commitment':'Execution date / time','start'=>$work['team']==='Creative'?'Planned work start':'Handover meeting held','delivered'=>'First delivery submitted'] as $key=>$label)
+                @foreach(['requested'=>$work['team']==='Creative'?'Requester deadline':'Requested setup deadline','agreed'=>$work['team']==='Creative'?'Creative HOD delivery commitment':'Operations HOD setup commitment','start'=>$work['team']==='Creative'?'Planned work start':'Handover meeting held','delivered'=>'First delivery submitted'] as $key=>$label)
                     <div><dt class="text-brand-ash">{{ $label }}</dt><dd class="mt-1 font-semibold">{{ $work[$key]?->timezone('Africa/Accra')->format('d M Y · H:i') ?? ($key==='delivered'?'Delivery pending':'Setup needed') }}</dd></div>
                 @endforeach
             </dl>
+            @if($work['team']==='Operations')
+                <dl class="mt-3 grid gap-3 text-xs sm:grid-cols-3">
+                    @foreach(['activation'=>'Activation starts','requested_execution'=>'Client Relations execution completion deadline','agreed_execution'=>'Operations HOD execution commitment'] as $key=>$label)
+                        <div><dt class="text-brand-ash">{{ $label }}</dt><dd class="mt-1 font-semibold">{{ $work[$key]?->timezone('Africa/Accra')->format('d M Y · H:i') ?? 'Setup needed' }}</dd></div>
+                    @endforeach
+                </dl>
+            @endif
             @if($work['waiting'])<p class="mt-3 text-xs text-amber-200">{{ $work['waiting'] }}</p>@endif
-            @if($work['conflict'])<p class="mt-2 text-xs text-amber-200">Timeline conflict: the client’s requested deadline is earlier than the Creative HOD’s commitment. Reconcile the dates; this alone does not establish who caused a delay.</p>@endif
+            @if($work['conflict'])<p class="mt-2 text-xs text-amber-200">Timeline conflict: the requested deadline is earlier than the department HOD’s commitment. Reconcile the dates; this alone does not establish who caused a delay.</p>@endif
             @if($work['late'])<p class="mt-2 text-xs text-amber-200">Past a recorded deadline · review the handover, dependency and deadline history before attributing responsibility.</p>@endif
             <a href="{{ $work['url'] }}" class="mt-3 inline-block text-xs font-semibold text-teal-200 underline">Open {{ strtolower($work['team']) }} work and assignment ↗</a>
         </article>
     @endforeach
+    <section aria-label="Shared team comments and decisions" class="space-y-3">
+        <h5 class="font-semibold">Team comments & decisions</h5>
+        <p class="text-xs text-brand-ash">Latest 30 shared updates from Creatives and Operations. Open the linked work for its full discussion and approval history.</p>
+        @forelse($accountability['shared_updates'] as $update)
+            <article class="rounded-xl border border-brand-white/15 p-3 text-xs">
+                <strong>{{ $update['team'] }} · {{ $update['kind'] }}</strong>
+                <p class="mt-1 text-brand-ash">{{ $update['actor'] }} · {{ $update['at']->timezone('Africa/Accra')->format('d M Y · H:i:s') }}</p>
+                <p class="mt-2 whitespace-pre-wrap break-words">{{ $update['body'] }}</p>
+                <a href="{{ $update['url'] }}" class="mt-2 inline-block text-teal-200 underline">Open shared work / reply ↗</a>
+            </article>
+        @empty
+            <p class="text-xs text-brand-ash">No shared team comments recorded yet.</p>
+        @endforelse
+    </section>
     <details class="rounded-xl border border-brand-white/15 p-3"><summary class="cursor-pointer font-semibold">Dates, handovers & change history</summary>
         <p class="mt-2 text-xs text-brand-ash">Times are recorded in Accra time. Portal timestamps are distinct from the reporting week and any earlier date supplied by staff. Earlier deadlines remain in the change history.</p>
         <ol class="mt-3 space-y-3 border-l border-teal-300/30 pl-4">

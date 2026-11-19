@@ -35,7 +35,7 @@ class OperationsHandoverWorkflow {
       $h->meeting_held_at=$d['meeting_held_at'];$h->meeting_minutes=$d['meeting_minutes'];$h->attendees=$people->map(fn($u)=>['id'=>$u->id,'name'=>$u->name,'department'=>User::normalizeDepartmentKey($u->department)])->all();
      }else{$h->meeting_held_at=null;$h->meeting_minutes=null;$h->attendees=User::whereIn('id',$d['attendees']??[])->where('status','active')->get()->map(fn($u)=>['id'=>$u->id,'name'=>$u->name,'department'=>User::normalizeDepartmentKey($u->department)])->all();}
      // Revised meeting decisions require both sides to acknowledge again.
-     $h->cr_signoff_at=null;$h->ops_signoff_at=null;$h->handover_approved_at=null;$h->handover_approved_by=null;break;
+     $h->cr_signoff_at=null;$h->ops_signoff_at=null;$h->handover_approved_at=null;$h->handover_approved_by=null;$h->submitted_at=null;$h->accepted_at=null;$h->execution_completed_at=null;$h->submission_evidence=null;break;
     case 'signoff_cr':$h->cr_signoff_at=now();if($h->ops_signoff_at)$h->stage='planning';break;
     case 'approve_handover':$h->handover_approved_at=now();$h->handover_approved_by=$actor->id;break;
     case 'signoff_ops':$h->ops_signoff_at=now();if(self::lead($actor)){$h->handover_approved_at=now();$h->handover_approved_by=$actor->id;}if($h->cr_signoff_at)$h->stage='planning';break;
