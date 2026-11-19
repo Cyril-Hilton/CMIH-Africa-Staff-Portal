@@ -46,7 +46,7 @@ test('collaborators display on calendar cards and can be selected, saved or clea
  const studio = make();
  studio.data.collaborators = [{id: 3, name: 'Research & Insights', department: 'brands_marketing'}, {id: 4, name: 'Operations Staff'}];
  studio.items = [brief({supporting_staff: studio.data.collaborators})];
- assert.match(studio.calendar(), /With Research &amp; Insights, Operations Staff/);
+ assert.match(studio.calendar(), /COLLABORATORS \/ SUPPORT/);assert.match(studio.calendar(), /Research &amp; Insights/);assert.match(studio.calendar(), /Operations Staff/);
  const picker = studio.supportingStaffPicker(studio.data.collaborators.slice(0, 1));
  assert.match(picker, /value="3" checked/);
  assert.doesNotMatch(picker, /value="4" checked/);
@@ -76,7 +76,7 @@ test('external supporting staff stay on project badges without member tabs or ca
  assert.equal([...board.matchAll(/data-cs-card="1"/g)].length,1);
  assert.match(board,/cs-support-chip">Operations Colleague/);
  studio.filter.assignee='4';
- assert.doesNotMatch(studio.weekPlanner(studio.week,end),/data-person-id="1"/);
+ assert.match(studio.weekPlanner(studio.week,end),/data-person-id="1"/);assert.doesNotMatch(studio.weekPlanner(studio.week,end),/data-person-id="4"/);
  assert.match(studio.board(),/data-assignment="support"/);
 });
 
@@ -124,4 +124,11 @@ test('calendar and showcase share the linked CRM project, full deadlines and rec
  const item=brief({requester:{name:'Brief Creator'},client_relations_contact:{name:'Account Owner'},connected_project:{id:9,title:'Campus Mirror & Christmas Tree',client:'Lush Hair'},timeline_provenance:{client_relations_deadline:'2026-11-18T12:30:00Z',client_relations_recorded_by:'Brief Creator',client_relations_recorded_at:'2026-11-10T10:00:00Z',hod_recorded_by:'Creative HOD',hod_recorded_at:'2026-11-11T09:00:00Z',history:[]}});s.items=[item];
  for(const html of [s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z')),s.exhibit(),s.calendarAccountability()]){assert.match(html,/Campus Mirror &amp; Christmas Tree/);assert.match(html,/Client Relations deadline/);assert.match(html,/18 Nov 2026, 12:30/);assert.match(html,/Creative HOD deadline/);assert.match(html,/16 Nov 2026, 15:00/);}
  const details=s.timelineSummary(item)+s.timelineHistory(item);assert.match(details,/Recorded by Brief Creator/);assert.match(details,/Recorded by Creative HOD/);assert.match(details,/10 Nov 2026, 10:00/);
+});
+
+test('a shared brief is plotted once in its lead lane with prominent collaborator names and supporter filtering retains the lead lane',()=>{
+ const s=make();s.data.staff.push({id:2,name:'Support Creative'},{id:3,name:'Other Support Creative'});s.items=[brief({supporting_staff:[{id:1,name:'Creative One'},{id:2,name:'Support Creative'},{id:3,name:'Other Support Creative'}]})];
+ const end=new Date('2026-11-15T00:00:00Z');let html=s.weekPlanner(s.week,end);
+ assert.equal([...html.matchAll(/data-cs-open="1"/g)].length,1);assert.doesNotMatch(html,/data-assignment="support"/);assert.match(html,/COLLABORATORS \/ SUPPORT/);assert.match(html,/cs-calendar-collaborator"><span[^>]+>SC<\/span><strong>Support Creative/);assert.match(html,/Lead: Creative One/);
+ s.filter.assignee='2';html=s.weekPlanner(s.week,end);assert.match(html,/data-person-id="1"/);assert.doesNotMatch(html,/data-person-id="2"/);assert.doesNotMatch(html,/data-person-id="3"/);assert.equal([...html.matchAll(/data-cs-open="1"/g)].length,1);
 });
