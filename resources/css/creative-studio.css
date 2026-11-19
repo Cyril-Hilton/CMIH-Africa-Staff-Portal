@@ -188,7 +188,8 @@
 .cs-planner-stage{font-size:8px;font-weight:750;letter-spacing:.025em;color:var(--lane);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cs-planner-priority{font-size:8px;font-weight:750;flex:none;color:#ffd3a0}
 .cs-planner-priority[data-priority=urgent]{color:#ffb2be}
-.cs-planner-work-title{font-size:12px;font-weight:750;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-wrap:pretty;color:#f1f6fb;letter-spacing:-.01em}
+.cs-studio .cs-planner-work> *{flex-shrink:0}
+.cs-planner-work-title{display:block;flex:none;font-size:12px;font-weight:750;line-height:1.45;white-space:normal;overflow-wrap:anywhere;text-wrap:pretty;color:#f1f6fb;letter-spacing:-.01em}
 .cs-planner-work-meta{display:flex;justify-content:space-between;gap:10px;font-size:9px;color:#bdcedd;line-height:1.5}
 .cs-planner-work-meta>span{font-size:8px;color:#9fb6c9;white-space:nowrap}
 .cs-planner-dates{display:flex;gap:10px;font-size:8px;color:#abbdce;line-height:1.5;margin-top:auto}

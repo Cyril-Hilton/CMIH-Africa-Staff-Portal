@@ -132,3 +132,13 @@ test('a shared brief is plotted once in its lead lane with prominent collaborato
  assert.equal([...html.matchAll(/data-cs-open="1"/g)].length,1);assert.doesNotMatch(html,/data-assignment="support"/);assert.match(html,/COLLABORATORS \/ SUPPORT/);assert.match(html,/cs-calendar-collaborator"><span[^>]+>SC<\/span><strong>Support Creative/);assert.match(html,/Lead: Creative One/);
  s.filter.assignee='2';html=s.weekPlanner(s.week,end);assert.match(html,/data-person-id="1"/);assert.doesNotMatch(html,/data-person-id="2"/);assert.doesNotMatch(html,/data-person-id="3"/);assert.equal([...html.matchAll(/data-cs-open="1"/g)].length,1);
 });
+
+
+test('calendar preserves a visible full brief title above a large supporting team',()=>{
+ const s=make();const item=brief({title:'Complete studio interface and brand experience',supporting_staff:Array.from({length:5},(_,i)=>({id:i+2,name:'Supporting Colleague '+i}))});
+ const html=s.calendarWorkBar(item,0,3,0,s.week,new Date('2026-11-15T00:00:00Z'));
+ assert.match(html,/<strong class="cs-planner-work-title">Complete studio interface and brand experience<\/strong>/);
+ assert.ok(html.indexOf('cs-planner-work-title')<html.indexOf('Lead:'));assert.ok(html.indexOf('cs-planner-work-title')<html.indexOf('COLLABORATORS / SUPPORT'));
+ const css=readFileSync(new URL('../../resources/css/creative-studio.css',import.meta.url),'utf8');
+ assert.match(css,/\.cs-studio \.cs-planner-work> \*\{flex-shrink:0\}/);assert.match(css,/\.cs-planner-work-title\{[^}]*flex:none[^}]*white-space:normal[^}]*overflow-wrap:anywhere/);
+});
