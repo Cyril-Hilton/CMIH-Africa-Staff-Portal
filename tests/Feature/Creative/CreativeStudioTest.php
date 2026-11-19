@@ -66,7 +66,7 @@ class CreativeStudioTest extends TestCase {
   $list = route('portal.creative.data');
   $this->getJson($list)->assertOk()->assertJsonPath('items.0.id', $id);
   $this->getJson(route('portal.creative.data',['assignee'=>$support->id,'view'=>'board']))
-   ->assertOk()->assertJsonPath('items.0.id',$id)->assertJsonPath('support_roster.0.id',$support->id);
+   ->assertOk()->assertJsonPath('items.0.id',$id)->assertJsonCount(0,'support_roster');
 
   $plan = ['revision'=>$brief->revision, 'assignee_id'=>$assignee->id, 'planned_start'=>$start->toIso8601String(),
    'internal_eta'=>$start->copy()->addDay()->toIso8601String(), 'estimated_hours'=>5, 'acknowledge_warnings'=>true];
@@ -475,5 +475,17 @@ class CreativeStudioTest extends TestCase {
   $sender=$this->staff();$r=$this->brief($sender);$r->forceFill(['iteration'=>5])->save();
   foreach(['correction','scope_change','clarification'] as $type)$r->updates()->create(['author_id'=>$sender->id,'kind'=>'changes_requested','body'=>'Recorded feedback','metadata'=>['feedback_type'=>$type]]);
   $stats=app(\App\Services\Creative\CreativeDeliveryStats::class)->build(collect([$r]));$this->assertSame(1,$stats['correction_rounds']);$this->assertSame(1,$stats['scope_changes']);$this->assertSame(1,$stats['clarifications']);
+ }
+ public function test_daily_task_imports_stay_out_of_creative_weekly_views_without_deleting_tasks(): void {
+  $u=$this->staff('creatives');$t=Task::create(['title'=>'IRM daily task','department'=>'creatives','assigned_to'=>$u->id,'assigned_by'=>$u->id,'status'=>'Open','due_on'=>today(),'created_at'=>now()]);
+  $old=CreativeRequest::create(['uuid'=>(string)\Illuminate\Support\Str::uuid(),'reference'=>'CR-T'.$t->id,'title'=>$t->title,'task_id'=>$t->id,'assignee_id'=>$u->id,'requester_id'=>$u->id,'legacy'=>true,'requested_deadline'=>now(),'visibility'=>'shared']);
+  $native=$this->brief($u,['title'=>'Actual weekly brief']);
+  $this->actingAs($u)->getJson(route('portal.creative.data'))->assertOk()->assertJsonPath('pagination.total',1)->assertJsonPath('items.0.id',$native->id);
+  $this->assertSame(1,app(\App\Services\Creative\CreativeReport::class)->build($u,'weekly',today()->toDateString())['total']);
+  $this->assertDatabaseHas('tasks',['id'=>$t->id,'title'=>'IRM daily task']);$this->assertDatabaseHas('creative_requests',['id'=>$old->id]);
+  $other=Task::create(['title'=>'Another daily task','department'=>'creatives','assigned_to'=>$u->id,'assigned_by'=>$u->id,'status'=>'Open']);
+  app(CreativeLegacyImport::class)->run();$this->assertDatabaseMissing('creative_requests',['task_id'=>$other->id]);
+  WeeklyConsolidatedItem::create(['department'=>'creatives','week_start'=>now()->startOfWeek(),'week_end'=>now()->endOfWeek(),'created_by'=>$u->id,'lead_staff_id'=>$u->id,'source_task_id'=>$t->id,'campaign_name'=>'Explicit weekly work','deliverables'=>'Reported weekly creative deliverable','status'=>'Planned']);
+  app(CreativeLegacyImport::class)->run();$this->assertSame(2,CreativeRequest::studioWork()->count());
  }
 }

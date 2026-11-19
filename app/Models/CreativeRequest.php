@@ -34,5 +34,8 @@ class CreativeRequest extends Model {
    ->orWhere(fn ($support) => $support->withSupportingStaff($userId)));
  }
 
+ // Native briefs, weekly sources and explicitly HOD-planned legacy briefs belong in Studio.
+ // Task-only imports remain in the daily tracker without deleting their history.
+ public function scopeStudioWork($query){return $query->where(fn($q)=>$q->where('legacy',false)->orWhereNull('task_id')->orWhereNotNull('planned_by')->orWhereExists(fn($sources)=>$sources->selectRaw('1')->from('creative_sources')->whereColumn('creative_sources.creative_request_id','creative_requests.id')->where('source_type','weekly')));}
  public function scopeVisibleTo($query,User $user){if(\App\Services\Creative\CreativeAccess::lead($user))return $query;if($user->canAuditHrAndFinance())return $query->where(fn($q)=>$q->whereIn('visibility',['shared','restricted'])->orWhere('requester_id',$user->id)->orWhere('reviewer_id',$user->id)->orWhere('assignee_id',$user->id));return $query->where(fn($q)=>$q->where('visibility','shared')->orWhere('requester_id',$user->id)->orWhere('reviewer_id',$user->id)->orWhere('assignee_id',$user->id)->orWhere(fn($briefs)=>$briefs->withSupportingStaff($user->id))->orWhereHas('parts',fn($parts)=>$parts->where(fn($p)=>$p->where('assignee_id',$user->id)->orWhere('reviewer_id',$user->id))));}
 }

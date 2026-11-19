@@ -388,33 +388,6 @@
         @include('portal.partials.weekly-report-toolbar')
         @unless($isBrandsWeeklyDepartment || $isHrDashboard || $isOperationsWeeklyDepartment)
 
-        <details class="mt-4 dashboard-report-settings"><summary class="cursor-pointer text-sm font-semibold">Weekly Workstream Review Details</summary>
-        <p class="mt-3 text-xs text-brand-ash">This breakdown covers saved weekly workstreams only. Project, brief, revenue, activation and asset totals use each department’s own dashboard summary below.</p>
-        @include('portal.partials.weekly-accountability-summary')
-        </details>
-
-        <details class="dashboard-report-settings mt-4"><summary class="cursor-pointer text-sm">Advanced Search & Date Range</summary>
-        <form method="GET" action="{{ route('dashboard', [], false) }}" class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" data-no-ajax>
-            @foreach(request()->except(['weekly_department', 'weekly_page', 'search_weekly']) as $queryKey => $queryValue)
-                @if(is_scalar($queryValue))
-                    <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
-                @endif
-            @endforeach
-            <input type="hidden" name="weekly_department" value="{{ $weeklyDepartmentFilter }}">
-            <label class="min-w-0 flex-1">
-                <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest text-brand-ash">Search weekly rows</span>
-                <input type="search" name="search_weekly" value="{{ request('search_weekly') }}" placeholder="Search client, campaign, staff, deliverables or status..."
-                       class="w-full rounded-xl border border-brand-white/10 bg-brand-black/70 px-3 py-2.5 text-xs text-brand-white placeholder-brand-white/30">
-            </label>
-            <button type="submit" class="rounded-xl bg-brand-red px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white">Apply filters</button>
-            @if(request()->filled('search_weekly'))
-                <a href="{{ route('dashboard', array_merge(request()->except(['weekly_page', 'search_weekly']), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
-                   class="rounded-xl border border-brand-white/10 px-4 py-2.5 text-center text-xs font-bold uppercase tracking-wider text-brand-white/70 hover:bg-brand-white/10">
-                    Clear
-                </a>
-            @endif
-        </form>        </details>
-
         @if($canManageActiveWeeklyDepartment)
             <div id="weekly-column-manager" class="hidden mt-5 rounded-2xl border border-brand-white/10 bg-brand-black/45 p-4">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-start">

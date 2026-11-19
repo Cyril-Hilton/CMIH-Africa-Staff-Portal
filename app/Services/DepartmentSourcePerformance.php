@@ -62,7 +62,7 @@ class DepartmentSourcePerformance
             $metrics[]=$this->metric('Due project delivery',$dueProjects->count()?:null,$dueProjects->isEmpty()?null:$dueProjects->where('stage','project_completed')->count(),'projects',$dueProjects->count(),$dueProjects->count(),'Completed projects / projects with recorded delivery dates due in this period.');
             $metrics[]=$this->metric('Deal conversion',$decided?:null,$decided?$wins:null,'deals',$decided,$decided,'Won projects / decided projects. No decisions means no conversion rate yet.');
         } elseif ($department==='creatives') {
-            $briefs=CreativeRequest::with(['firstSubmission','hodDeadlineSnapshots'])->whereNull('parent_request_id')->where(function($q) use($from,$to) { $q->whereBetween('received_at',[$from.' 00:00:00',$to.' 23:59:59'])
+            $briefs=CreativeRequest::studioWork()->with(['firstSubmission','hodDeadlineSnapshots'])->whereNull('parent_request_id')->where(function($q) use($from,$to) { $q->whereBetween('received_at',[$from.' 00:00:00',$to.' 23:59:59'])
                 ->orWhereBetween('requested_deadline',[$from.' 00:00:00',$to.' 23:59:59'])
                 ->orWhereBetween('internal_eta',[$from.' 00:00:00',$to.' 23:59:59'])
                 ->orWhereBetween('completed_at',[$from.' 00:00:00',$to.' 23:59:59']);

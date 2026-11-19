@@ -11,7 +11,7 @@ const Studio=vm.runInNewContext(source+';CreativeStudio',{URLSearchParams,Intl,D
 const make=()=>{const s=Object.create(Studio.prototype);Object.assign(s,{week:new Date('2026-11-09T00:00:00Z'),calendarMode:'week',filter:{},items:[],data:{staff:[{id:1,name:'Creative One',title:'Motion Designer'}],stages:{scheduled:'Scheduled',in_progress:'In Progress',in_review:'Awaiting Review',delivered:'Approved for Delivery',completed:'Verified & Completed'},capacity:[],pagination:{total:0}}});return s;};
 const brief=(extra={})=>({id:1,title:'Packaging <script>alert(1)</script>',client:'Client & Brand',reference:'CR-001',assignee:{id:1,name:'Creative One'},stage:'in_progress',priority:'High',estimated_hours:18,dates:{planned_start:'2026-11-06T09:00:00Z',internal_eta:'2026-11-16T15:00:00Z',requested_deadline:'2026-11-18T16:00:00Z'},...extra});
 test('weekly planner clips work to the week and distinguishes internal ETA from requester deadline',()=>{const s=make();s.items=[brief()];const html=s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z'));assert.match(html,/grid-column:2\/9;grid-row:1/);assert.match(html,/Starts before this week/);assert.match(html,/Continues next week/);assert.match(html,/ETA 16 Nov/);assert.match(html,/Client 18 Nov/);assert.match(html,/Awaiting Review/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/data-cs-open="1"/);});
-test('historical creatives retain a lane and parent work packages are not counted twice',()=>{const s=make();s.items=[brief({id:2,assignee:{id:8,name:'Former Creative'}}),brief({id:3,is_group:true})];const html=s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z'));assert.match(html,/Former Creative/);assert.match(html,/Retained staff history/);assert.match(html,/No planned work in this selection/);assert.doesNotMatch(html,/data-cs-open="3"/);s.filter.assignee='8';assert.doesNotMatch(s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z')),/Creative One/);});
+test('only current creative members have lanes and parent packages are not counted twice',()=>{const s=make();s.items=[brief({id:2,assignee:{id:8,name:'Former Creative'}}),brief({id:3,is_group:true})];const html=s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z'));assert.doesNotMatch(html,/data-person-id="8"/);assert.doesNotMatch(html,/Former Creative/);assert.match(html,/No planned work in this selection/);assert.doesNotMatch(html,/data-cs-open="3"/);s.filter.assignee='8';assert.doesNotMatch(s.weekPlanner(s.week,new Date('2026-11-15T00:00:00Z')),/Creative One/);});
 test('workload labels distinguish remaining production from planned hours and flag overload',()=>{const s=make();s.data.capacity=[{id:1,remaining:20,planned:36,available:16,overload:4}];const html=s.calendarAvailability(1);assert.match(html,/20h remaining \/ 16h capacity/);assert.match(html,/36h planned/);assert.match(html,/4h above available capacity/);assert.match(html,/width:100%/);s.data.capacity[0].available=null;assert.match(s.calendarAvailability(1),/Capacity not set/);});
 test('presentation calendar discloses pagination and preserves period modes and planning follow-ups',()=>{const s=make();s.items=[brief({assignee:{id:null,name:'Unassigned'},dates:{requested_deadline:'2026-11-13T16:00:00Z'}})];s.data.pagination.total=120;const html=s.calendar();assert.match(html,/Showing 1 of 120/);assert.match(html,/Presentation View/);assert.match(html,/Full Screen/);for(const mode of ['week','month','year','agenda'])assert.match(html,new RegExp('data-cs-cal-mode="'+mode+'"'));assert.match(html,/Needs a Plan/);assert.match(html,/Decisions &amp; Deadline Risks|Decisions & Deadline Risks/);assert.match(html,/data-cs-open="1"/);});
 
@@ -61,7 +61,7 @@ test('collaborators display on calendar cards and can be selected, saved or clea
  assert.equal(JSON.stringify(saved.supporting_staff_ids), '[]');
 });
 
-test('the weekly planner plots one shared brief in the lead and supporting staff lanes', () => {
+test('external supporting staff stay on project badges without member tabs or calendar lanes', () => {
  const studio = make();
  studio.data.support_roster = [{id: 4, name:'Operations Colleague', department:'operations_projects'}];
  studio.items = [brief({allowed:[],requester:{name:'Requester'},department:'creatives',
@@ -69,9 +69,9 @@ test('the weekly planner plots one shared brief in the lead and supporting staff
  const end = new Date('2026-11-15T00:00:00Z');
  const week = studio.weekPlanner(studio.week, end);
  assert.match(week,/data-person-id="1"[\s\S]*?data-assignment="lead" data-cs-open="1"/);
- assert.match(week,/data-person-id="4"[\s\S]*?data-assignment="support" data-cs-open="1"/);
- assert.match(week,/Lead: Creative One/);
- assert.equal([...week.matchAll(/data-cs-open="1"/g)].length,2);
+ assert.doesNotMatch(week,/data-person-id="4"/);assert.equal(studio.participantRoster().length,1);
+ assert.match(week,/Operations Colleague/);
+ assert.equal([...week.matchAll(/data-cs-open="1"/g)].length,1);
  const board = studio.board();
  assert.equal([...board.matchAll(/data-cs-card="1"/g)].length,1);
  assert.match(board,/cs-support-chip">Operations Colleague/);
@@ -83,7 +83,7 @@ test('the weekly planner plots one shared brief in the lead and supporting staff
 test('showcase credits people and exposes timeline facts without requiring an image or inventing fault',()=>{
  const s=make();s.view='report';s.root={dataset:{embedded:'true',week:'2026-11-09',reportTo:'2026-11-15'}};s.params=()=>new URLSearchParams({from:'2026-11-09',to:'2026-11-15'});
  s.items=[brief({requester:{name:'Client Relations Person'},client_relations_contact:{name:'Account Owner'},supporting_staff:[{id:2,name:'Support Artist'}],accountability_events:[{kind:'changes_requested',feedback_type:'scope_change',actor:'Account Owner',department:'Client Relations',at:'2026-11-12T10:00:00Z',iteration:1}],on_time_submission:true,final_preview:null,next_action:'Awaiting client approval'})];
- const html=s.exhibit();assert.match(html,/Made visible/);assert.match(html,/Account Owner/);assert.match(html,/Support Artist/);assert.match(html,/Scope change requested by/);assert.match(html,/met the recorded Creative HOD deadline/);assert.match(html,/Visual preview optional/);assert.match(html,/No effect on KPI scores/);assert.doesNotMatch(html,/<script>/);assert.equal(s.primaryView(),'report');
+ const html=s.exhibit();assert.match(html,/Concepts Visualised/);assert.match(html,/Account Owner/);assert.match(html,/Support Artist/);assert.match(html,/Scope change requested by/);assert.match(html,/met the recorded Creative HOD deadline/);assert.match(html,/Visual preview optional/);assert.match(html,/No effect on KPI scores/);assert.doesNotMatch(html,/<script>/);assert.equal(s.primaryView(),'report');
 });
 
 test('showcase slider cycles images in both directions and pauses after manual input',()=>{
@@ -94,4 +94,9 @@ test('showcase slider cycles images in both directions and pauses after manual i
 test('calendar and showcase use the same recorded responsibility findings',()=>{
  const s=make();const item=brief({requester:{name:'Request Owner'},client_relations_contact:{name:'Account Lead'},supporting_staff:[{id:2,name:'Support Artist'}],on_time_submission:false,next_action:'Assigned creative',accountability_events:[]});s.items=[item];
  const html=s.calendarAccountability();assert.match(html,/Account Lead/);assert.match(html,/Support Artist/);assert.match(html,/after the recorded Creative HOD deadline/);assert.match(html,/Review due/);assert.match(html,/data-cs-open="1"/);
+});
+
+test('overview combines period statistics and progress charts without duplicate presentation tabs',()=>{
+ const s=make();s.report={period:'weekly',label:'9–15 Nov 2026',total:4,received:3,submitted:2,verified:1,waiting:1,stages:{in_progress:3,completed:1},buckets:[{label:'9 Nov',verified:0},{label:'10 Nov',verified:1}]};
+ const html=s.presentation();assert.match(html,/Week at a Glance/);assert.match(html,/Work Progress/);assert.match(html,/Verified Deliveries by Date/);assert.match(html,/width:100%/);assert.match(html,/height:0px/);assert.equal([...html.matchAll(/<small>Verified Deliveries<\/small>/g)].length,1);assert.doesNotMatch(html,/data-cs-slide|cs-presentation-section-tabs|Work Showcase|Performance Snapshot|Saved Weekly Reports/);
 });

@@ -54,5 +54,4 @@
   </section>
  @endif
  @include('portal.hr-reporting.live-activities')
- @if($full)@include('portal.hr-reporting.saved-weekly-reports')@endif
 </section>

@@ -24,7 +24,7 @@ class CreativeCapacity {
  }
  public function summary(User $actor,Carbon $from,Carbon $to):array {
   $staff=User::humanAccounts()->whereIn('department',User::departmentAliases('creatives'))->where('status','active')->get();
-  $requests=CreativeRequest::whereNotNull('assignee_id')->whereDate('planned_start','<=',$to)->whereDate('internal_eta','>=',$from)->get();
+  $requests=CreativeRequest::studioWork()->whereNotNull('assignee_id')->whereDate('planned_start','<=',$to)->whereDate('internal_eta','>=',$from)->get();
   $capacities=DB::table('creative_capacities')->pluck('weekly_hours','user_id');$nominal=count($this->workingDates($from,$to));
   return $staff->map(function($u)use($requests,$capacities,$from,$to,$nominal,$actor){$own=$requests->where('assignee_id',$u->id);$capacity=$capacities->get($u->id);$available=$this->available($u->id,$from,$to);$remainingFrom=$from->copy()->max(today());$remainingAvailable=$remainingFrom->gt($to)?0:$this->available($u->id,$remainingFrom,$to);$planned=$own->sum(fn($r)=>$this->hours($r,$from,$to)??0);$remaining=$own->sum(fn($r)=>$this->hours($r,$from,$to,true)??0);return ['id'=>$u->id,'name'=>$u->name,'weekly_capacity'=>$capacity===null?null:(float)$capacity,'available'=>$available,'remaining_available'=>$remainingAvailable,'planned'=>round($planned,2),'remaining'=>round($remaining,2),'overload'=>$remainingAvailable===null?null:max(0,round($remaining-$remainingAvailable,2)),'exceptions'=>DB::table('creative_capacity_exceptions')->where('user_id',$u->id)->where('ends_on','>=',$from->toDateString())->orderBy('starts_on')->get(['starts_on','ends_on','weekly_hours'])->all(),'restricted_assignments'=>$own->filter(fn($r)=>!CreativeAccess::view($actor,$r))->count()];})->all();
  }
@@ -34,7 +34,7 @@ class CreativeCapacity {
   if(!$r->assignee_id||!$r->planned_start||!$r->internal_eta)return $warnings;
   $proposed=clone $r;if(in_array($proposed->stage,['backlog','brief_received','needs_info']))$proposed->stage='scheduled';
 
-  for($week=$r->planned_start->copy()->startOfWeek();$week->lte($r->internal_eta);$week->addWeek()){$end=$week->copy()->endOfWeek();$available=$this->available($r->assignee_id,$week,$end);if($available===null){$warnings[]=$week->format('d M').' week: capacity has not been recorded for this creative.';continue;}$others=CreativeRequest::where('assignee_id',$r->assignee_id)->whereKeyNot($r->id)->whereDate('planned_start','<=',$end)->whereDate('internal_eta','>=',$week)->get();$load=$others->sum(fn($o)=>$this->hours($o,$week,$end,true)??0)+($this->hours($proposed,$week,$end,true)??0);if($load>$available)$warnings[]=$week->format('d M').' week: '.round($load,1).'h remaining against '.round($available,1).'h available.';}
+  for($week=$r->planned_start->copy()->startOfWeek();$week->lte($r->internal_eta);$week->addWeek()){$end=$week->copy()->endOfWeek();$available=$this->available($r->assignee_id,$week,$end);if($available===null){$warnings[]=$week->format('d M').' week: capacity has not been recorded for this creative.';continue;}$others=CreativeRequest::studioWork()->where('assignee_id',$r->assignee_id)->whereKeyNot($r->id)->whereDate('planned_start','<=',$end)->whereDate('internal_eta','>=',$week)->get();$load=$others->sum(fn($o)=>$this->hours($o,$week,$end,true)??0)+($this->hours($proposed,$week,$end,true)??0);if($load>$available)$warnings[]=$week->format('d M').' week: '.round($load,1).'h remaining against '.round($available,1).'h available.';}
   return $warnings;
  }
 }
