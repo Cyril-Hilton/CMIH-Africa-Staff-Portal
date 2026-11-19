@@ -98,7 +98,7 @@ test('calendar and showcase use the same recorded responsibility findings',()=>{
 
 test('overview combines period statistics and progress charts without duplicate presentation tabs',()=>{
  const s=make();s.report={period:'weekly',label:'9–15 Nov 2026',total:4,received:3,submitted:2,verified:1,waiting:1,stages:{in_progress:3,completed:1},buckets:[{label:'9 Nov',verified:0},{label:'10 Nov',verified:1}]};
- const html=s.presentation();assert.match(html,/Week at a Glance/);assert.match(html,/Work Progress/);assert.match(html,/Briefs, Submissions & Deliveries/);assert.match(html,/width:100%/);assert.match(html,/cy="200"/);assert.match(html,/<svg[^>]+role="img"/);assert.match(html,/data-cs-overview-filter/);for(const name of ['period','anchor','from','to'])assert.match(html,new RegExp('name="'+name+'"'));assert.equal([...html.matchAll(/<small>Verified Deliveries<\/small>/g)].length,1);assert.doesNotMatch(html,/data-cs-slide|cs-presentation-section-tabs|Work Showcase|Performance Snapshot|Saved Weekly Reports/);
+ const html=s.presentation();assert.match(html,/Week at a Glance/);assert.match(html,/Work Progress/);assert.match(html,/Briefs, Submissions & Deliveries/);assert.match(html,/width:100%/);assert.match(html,/cy="340"/);assert.match(html,/<svg[^>]+role="img"/);assert.match(html,/data-cs-overview-filter/);for(const name of ['period','anchor','from','to'])assert.match(html,new RegExp('name="'+name+'"'));assert.equal([...html.matchAll(/<small>Verified Deliveries<\/small>/g)].length,1);assert.doesNotMatch(html,/data-cs-slide|cs-presentation-section-tabs|Work Showcase|Performance Snapshot|Saved Weekly Reports/);
 });
 
 test('overview date selection clears stale ranges and applies week, month, year and custom dates',()=>{
@@ -108,7 +108,7 @@ test('overview date selection clears stale ranges and applies week, month, year 
  s.applyOverviewDates(form('custom','2026-11-04','2026-11-18'));assert.equal(s.params().get('from'),'2026-11-04');assert.equal(s.reportParams().get('to'),'2026-11-18');
 });
 test('activity graph plots all three dated milestones and retains a true zero baseline',()=>{
- const s=make();const html=s.activityChart([{label:'16 Nov',received:10,submitted:2,verified:0},{label:'17 Nov',received:3,submitted:0,verified:0}]);assert.equal([...html.matchAll(/<polyline /g)].length,3);assert.match(html,/16 Nov · Briefs received: 10/);assert.match(html,/First submissions: 2/);assert.match(html,/green series remains on the zero baseline/);assert.match(html,/cy="200"/);
+ const s=make();const html=s.activityChart([{label:'16 Nov',received:10,submitted:2,verified:0},{label:'17 Nov',received:3,submitted:0,verified:0}]);assert.equal([...html.matchAll(/<polyline /g)].length,3);assert.match(html,/16 Nov · Briefs received: 10/);assert.match(html,/First submissions: 2/);assert.match(html,/green series remains on the zero baseline/);assert.match(html,/cy="340"/);
 });
 
 test('existing brief exposes editable project connection with selected project and owner while readers retain facts',()=>{

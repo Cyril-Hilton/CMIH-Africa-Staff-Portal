@@ -393,3 +393,17 @@
 /* Calendar cards size to their own content, including wrapped collaboration panels. */
 .cs-studio .cs-cal-bar.cs-planner-work{align-self:start;height:auto;overflow:visible}
 .cs-studio .cs-planner-work>.cs-calendar-alert{position:static;align-self:flex-end;margin-top:4px;white-space:normal}
+
+/* Give the activity trend its own full-width exhibition panel. */
+.cs-overview-summary .cs-activity-panel{grid-column:1/-1;min-width:0;padding:clamp(18px,2.2vw,32px);border:1px solid #c3d0dc88;border-radius:20px;background:radial-gradient(ellipse at 15% 0%,#67b5ff12,transparent 65%),linear-gradient(135deg,#27313b,#1b222a);box-shadow:inset 0 1px 0 #eff7ff44,0 12px 32px #0002}
+.cs-overview-summary .cs-activity-panel h4{font-size:clamp(20px,2vw,28px);letter-spacing:-.025em}
+.cs-activity-panel .cs-chart-legend{gap:24px;margin:20px 0 24px;flex-wrap:wrap}
+.cs-activity-panel .cs-activity-chart{width:100%;overflow-x:auto;border:1px solid #afc2d92b;border-radius:16px;padding:18px 12px 4px;background:linear-gradient(180deg,#141c2640,#10182018)}
+.cs-activity-panel .cs-activity-chart svg{display:block;width:100%;min-width:720px;height:auto;max-height:none;aspect-ratio:1120/400;color:#c3cfdb}
+.cs-activity-gridline{stroke:#b8c9da;stroke-opacity:.13;stroke-dasharray:4 6}
+.cs-activity-axis{fill:#c2ceda;font-size:14px;font-weight:500}
+.cs-activity-unit{fill:#91a7bc;font-size:10px;font-weight:700;letter-spacing:2px}
+.cs-activity-value{font-size:15px;font-weight:750;paint-order:stroke;stroke:#202b36;stroke-width:5px;stroke-linejoin:round}
+.cs-activity-point{outline:none}.cs-activity-point:hover circle:last-of-type,.cs-activity-point:focus circle:last-of-type{stroke-width:4;filter:drop-shadow(0 0 5px #d8edff77)}
+.cs-activity-panel .cs-chart-note,.cs-activity-panel>.cs-muted{font-size:12px;line-height:1.7;margin-bottom:0}
+@media(min-width:1000px){.cs-overview-summary .cs-activity-chart svg{min-height:360px}}
