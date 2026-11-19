@@ -11,12 +11,17 @@
         if($sourceHandover)$payload=['title'=>$sourceHandover->project->project_name,'client'=>$sourceHandover->project->client_name,'project'=>$sourceHandover->project->project_name,'owner_id'=>$sourceHandover->lead_id,'data'=>['operations_handover_id'=>$sourceHandover->id,'crm_project_id'=>$sourceHandover->project_id,'brand'=>$sourceHandover->project->client_name,'location'=>$sourceHandover->location,'starts_on'=>$sourceHandover->event_at?->toDateString(),'ends_on'=>($sourceHandover->agreed_execution_due_at??$sourceHandover->execution_due_at)?->toDateString(),'remarks'=>$sourceHandover->plan]];
     }
 
+    $selectedMaster=(!$submission&&!$formRecord&&$formKind==='activation'&&!$sourceHandover)?\App\Models\CrmPipelineProject::where('source_period_confirmed',true)->find(request()->integer('ops_project')):null;
+    if($selectedMaster)$payload=['title'=>$selectedMaster->project_name,'client'=>$selectedMaster->client_name,'project'=>$selectedMaster->project_name,'owner_id'=>auth()->id(),'data'=>['crm_project_id'=>$selectedMaster->id]];
     $values = $payload['data'] ?? $formRecord?->data ?? [];
     $fromHandover=!empty($values['operations_handover_id']);
     $week = $payload['period_start'] ?? $formRecord?->period_start?->toDateString() ?? \Carbon\Carbon::parse($from)->startOfWeek()->toDateString();
     $selectedOwner = (int) $previous('owner_id', $payload['owner_id'] ?? $formRecord?->owner_id ?? auth()->id());
     $selectedStatus = $previous('status', $payload['status'] ?? $formRecord?->status ?? 'planned');
 @endphp
+@if(!$submission&&!$formRecord&&$formKind==='activation'&&!$fromHandover)
+<form method="get" class="ops-form mb-4" action="{{ url()->current() }}#operations-entry">@foreach(request()->except('ops_project') as $key=>$value)@if(is_scalar($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif @endforeach<label>Start with an existing Client Relations project · optional<select name="ops_project"><option value="">Direct Operations activation</option>@foreach(app(\App\Services\ClientRelationsCentre::class)->latest(\App\Models\CrmPipelineProject::where('source_period_confirmed',true)->with('owner:id,name')->get()) as $master)<option value="{{ $master->id }}" @selected($selectedMaster?->id===$master->id)>{{ $master->client_name }} · {{ $master->project_name }}</option>@endforeach</select></label><button class="ops-button" type="submit">Load project & current execution plan</button><p class="br-help">Choose this before filling the entry. Project identity and current commitments are loaded once.</p></form>
+@endif
 <form method="post" class="ops-form" action="{{ route('portal.operations.reporting.save') }}" data-no-ajax data-no-silent>
     @csrf
     <input type="hidden" name="module_entry" value="{{ $modules ? 1 : 0 }}">
@@ -66,11 +71,15 @@
     <label>Status<select name="status" required>@foreach($states as $id => $label)<option value="{{ $id }}" @selected($selectedStatus === $id)>{{ $label }}</option>@endforeach</select></label>
     @if($modules)<label>Evidence link <small>(optional)</small><input name="evidence_url" type="url" maxlength="2000" value="{{ $previous('evidence_url', $payload['evidence_url'] ?? $formRecord?->evidence_url) }}"></label>@endif
     @if($formKind === 'activation')
+        @include('portal.operations.execution-fields')
+    @endif
+    @if($formKind === 'activation')
         <label>Existing Campaign <small>(optional)</small><select name="campaign_id"><option value="">No linked campaign</option>@foreach($campaignOptions as $campaign)<option value="{{ $campaign->id }}" @selected((int) $previous('campaign_id', $values['campaign_id'] ?? 0) === $campaign->id)>{{ $campaign->name }}</option>@endforeach</select></label>
     @endif
     @if($formKind === 'activation')
+        @if($selectedMaster)<input type="hidden" name="crm_project_id" value="{{ $selectedMaster->id }}">@endif
         <label>Client Relations project <small>(optional)</small>
-            <select name="crm_project_id" @disabled($fromHandover)>
+            <select name="crm_project_id" @disabled($fromHandover||$selectedMaster)>
                 <option value="">No linked project</option>
                 @foreach(\App\Models\CrmPipelineProject::where('source_period_confirmed', true)->with('owner:id,name')->latest('week_start')->get(['id','project_name','client_name','week_start','owner_id']) as $project)
                     <option value="{{ $project->id }}" @selected((int) $previous('crm_project_id', $values['crm_project_id'] ?? 0) === $project->id)>{{ $project->client_name }} · {{ $project->project_name }} · {{ $project->owner?->name }} · {{ $project->week_start?->format('d M Y') }}</option>
@@ -87,6 +96,7 @@
             </select>
         </label>
     @endif
+    @if(in_array($formKind,['activation','project','team_allocation']))
     <fieldset class="ops-narrative rounded-xl border border-sky-300/30 p-4">
         <legend class="px-2 font-semibold">Warehouse assets · checklist & quantities</legend>
         <p class="br-help">Select the actual inventory items needed. Publishing this report queues requests for warehouse review. Stock and custody change only after issue. The report owner is the project custodian.</p>
@@ -108,7 +118,10 @@
             @empty<p class="br-help">No approved warehouse assets yet. Submit an inventory entry to the HOD first.</p>@endforelse
         </div>
     </fieldset>
+    @endif
     @foreach($safeFields($formKind) as $field => $type)
+        @continue($formKind==='activation'&&in_array($field,['starts_on','ends_on','location','brand','activation_status','planned_assets']))
+        @continue(in_array($formKind,['project','team_allocation'])&&$field==='planned_assets')
         @php
             $options = config('operations_tracker.options.'.$field);
             $value = $previous('data.'.$field, $values[$field] ?? '');

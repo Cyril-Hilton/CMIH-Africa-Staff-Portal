@@ -144,6 +144,33 @@ class ExecutiveCommandCentreTest extends TestCase
         $u = $this->executive();
         $p = $this->project($u);
         $staff = User::factory()->create(['department' => 'operations', 'access_role' => 'staff', 'status' => 'active']);
-        $this->actingAs($staff)->post(route('portal.executive.controls.save',$p),['section' => 'schedule', 'revision' => 0, 'reason' => 'No executive authority', 'data' => ['staff_required' => 1]])->assertForbidden();
+        $this->actingAs($staff)->post(route('portal.executive.controls.save', $p), ['section' => 'schedule', 'revision' => 0, 'reason' => 'No executive authority', 'data' => ['staff_required' => 1]])->assertForbidden();
+    }
+
+    public function test_standalone_activation_has_controls_and_consistent_deadline_counts_without_creating_a_crm_project(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 19)->setTime(12, 0));
+        $u = $this->executive();
+        $owner = User::factory()->create(['department' => 'operations_projects', 'status' => 'active']);
+        $a = \App\Models\PerformanceRegister::create(['department' => 'operations_projects', 'kind' => 'activation', 'reference' => 'NATIVE-EXEC-1', 'title' => 'Independent execution', 'client' => 'Direct client', 'owner_id' => $owner->id, 'submitted_by' => $owner->id, 'approved_by' => $u->id, 'approved_at' => now(), 'status' => 'in_progress', 'period_start' => '2026-11-16', 'period_end' => '2026-11-22', 'data' => ['starts_on' => '2026-11-17', 'ends_on' => '2026-11-18']]);
+        $d = $this->data($u);
+        $this->assertSame(1, $d['summary']['projects']);
+        $this->assertSame(1, $d['summary']['due']);
+        $this->assertSame(1, $d['summary']['overdue']);
+        $this->assertSame(1, $d['summary']['staff_setup']);
+        $this->assertSame(1, $d['summary']['compliance_pending']);
+        $this->assertSame(1, $d['events']->where('kind', 'activation')->count());
+        $this->actingAs($u)->get(route('dashboard', ['exec_view' => 'projects', 'exec_activation' => $a->id, 'exec_date' => '2026-11-19']))->assertOk()->assertSee('Independent execution')->assertSee('Compliance checklist &amp; evidence', false);
+        $this->post(route('portal.executive.activations.save', $a), ['section' => 'schedule', 'revision' => 0, 'reason' => 'Confirm direct operational ownership', 'data' => ['starts_at' => '2026-11-20 10:00', 'ends_at' => '2026-11-21 18:00', 'staff_required' => 10, 'staff_confirmed' => 9, 'operations_owner_id' => $owner->id]])->assertSessionHasNoErrors();
+        $control = ProjectExecutionControl::sole();
+        $this->assertNull($control->crm_project_id);
+        $this->assertSame($a->id, $control->operations_activation_id);
+        $this->assertDatabaseCount('crm_pipeline_projects', 0);
+        $this->actingAs($owner)->get(route('portal.executive.controls.show', $control))->assertOk()->assertSee('Independent execution');
+        $other = User::factory()->create(['department' => 'operations_projects', 'status' => 'active', 'access_role' => 'staff']);
+        $this->actingAs($other)->get(route('portal.executive.controls.show', $control))->assertForbidden();
+        $d = $this->data($u, ['exec_activation' => $a->id]);
+        $this->assertSame(1, $d['summary']['staff_gaps']);
+        $this->assertSame(0,$d['summary']['overdue']);
     }
 }

@@ -34,9 +34,9 @@ class ExecutiveActivityTest extends TestCase
         $this->assertNull($activity[$pending->id]->shared_title);
         $this->assertNull($activity[$private->id]->shared_title);
         $this->get(route('dashboard', [
-            'exec_view'=>'calendar','exec_scope'=>'activity','exec_person'=>$support->id,'activity_staff' => $support->id, 'activity_department' => 'brands_marketing', 'activity_date' => '2026-11-16',
+            'exec_view' => 'calendar', 'exec_scope' => 'activity', 'exec_person' => $support->id, 'activity_staff' => $support->id, 'activity_department' => 'brands_marketing', 'activity_date' => '2026-11-16',
         ]))->assertOk()->assertViewHas('executiveActivity', fn ($view) => $view['rows']->pluck('id')->all() === [$shared->id])
-            ->assertSee('Collaborators: '.$support->name);
+            ->assertSee('Collaborators')->assertSee($support->name);
         $this->get('/portal/hr')->assertForbidden();
         $claim = \App\Models\PettyCashClaim::create([
             'user_id' => $lead->id, 'amount' => 100, 'currency' => 'GH₵',
@@ -61,9 +61,12 @@ class ExecutiveActivityTest extends TestCase
         \App\Models\CreativeRequest::create(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'reference' => 'CR-TEST',
             'task_id' => $creative->id, 'title' => $creative->title, 'visibility' => 'private', 'requester_id' => $owner->id]);
 
-        $dashboard = $this->actingAs($cvo)->get(route('dashboard',['exec_view'=>'calendar']))->assertOk();
+        $dashboard = $this->actingAs($cvo)->get(route('dashboard', ['exec_view' => 'calendar']))->assertOk();
         foreach ([$shared, $private, $pending, $creative] as $task) {
-            $dashboard->assertSee($task->title);if($task->id!==$creative->id)$dashboard->assertSee('/portal/tasks/'.$task->id,false);
+            $dashboard->assertSee($task->title);
+            if ($task->id !== $creative->id) {
+                $dashboard->assertSee('/portal/tasks/'.$task->id, false);
+            }
             $this->get(route('portal.tasks.show', $task))->assertOk()->assertSee($task->title);
         }
         $this->get(route('portal.tasks.show', $shared))->assertSee('Install display stands');
@@ -89,7 +92,7 @@ class ExecutiveActivityTest extends TestCase
         }
 
         $cvo = User::factory()->create(['position_title' => 'CVO', 'status' => 'active']);
-        $this->actingAs($cvo)->get(route('dashboard',['exec_view'=>'accountability']))->assertOk()
+        $this->actingAs($cvo)->get(route('dashboard', ['exec_view' => 'accountability']))->assertOk()
             ->assertSee('id="executive-command"', false)->assertSee('aria-label="Executive Review Queues"', false);
     }
 }

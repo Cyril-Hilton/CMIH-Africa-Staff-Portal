@@ -34,8 +34,8 @@ class ExecutiveReminders
                 $e['end'] = $e['start']->copy();
             }
 
-return $e;
-        })->unique('key')->reject(fn ($e) => $e['done'] || in_array($e['kind'], ['creative', 'requested', 'activity']) || in_array($e['project']?->stage, ['project_completed', 'cancelled', 'lost'], true))->map(function ($e) use ($settings) {
+            return $e;
+        })->unique('key')->reject(fn ($e) => $e['done'] || ($e['leave_deadline'] ?? false) || ($e['dependency_blocked'] ?? false) || in_array($e['kind'], ['creative', 'requested', 'activity']) || in_array($e['project']?->stage, ['project_completed', 'cancelled', 'lost'], true))->map(function ($e) use ($settings) {
             $rule = $e['kind'] === 'process' ? last(explode(':', $e['key'])) : $e['kind'];
             if (! in_array($rule, $settings['rules']) || ($e['kind'] === 'activation' && $e['state'] === 'live')) {
                 $e['window'] = null;
@@ -76,7 +76,7 @@ return $e;
                 $digest = hash('sha256', $fresh->pluck('reminder_key')->sort()->implode('|'));
                 $key = 'executive-digest:'.$id.':'.$digest;
                 $message = $fresh->count()." recorded commitments need attention.\n".$fresh->take(30)->map(fn ($e) => $e['title'].' · due '.$e['end']->format('d M Y H:i').' · '.$e['window'])->implode("\n");
-                $url = route('portal.project-journey');
+                $url = $fresh->first()['url'] ?? route('portal.project-journey');
                 PerformanceWorkflow::notify((int) $id, $key, $settings['subject_prefix'].' · deadline digest', $message."\n".($settings['signature'] ?? ''), $url);
                 $outbox = PerformanceOutbox::where('dedupe_key', hash('sha256', $key.':'.$id))->firstOrFail();
                 DB::table('executive_reminder_logs')->whereIn('reminder_key', $fresh->pluck('reminder_key'))->update(['outbox_id' => $outbox->id]);
@@ -84,12 +84,12 @@ return $e;
                 if ($settings['escalation_enabled'] && $fresh->contains('window', 'overdue')) {
                     $manager = $settings['escalation_user_id'] ?? $fresh->first()['person']?->line_manager_id;
                     if ($manager && User::where('status', 'active')->whereKey($manager)->exists()) {
-                        PerformanceWorkflow::notify((int) $manager, 'executive-escalation:'.$id.':'.$digest, 'Overdue project commitments · escalation', $message, route('dashboard',['exec_view' => 'accountability', 'exec_person' => $id]));
+                        PerformanceWorkflow::notify((int) $manager, 'executive-escalation:'.$id.':'.$digest, 'Overdue project commitments · escalation', $message, route('dashboard', ['exec_view' => 'accountability', 'exec_person' => $id]));
                     }
                 }
             });
         }
 
-return $count;
+        return $count;
     }
 }

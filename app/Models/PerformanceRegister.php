@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceRegister extends Model
 {
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
     protected $guarded = ['id'];
 
     protected function casts(): array

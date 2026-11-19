@@ -18,6 +18,11 @@ class ProjectExecutionControl extends Model
         return $this->belongsTo(CrmPipelineProject::class, 'crm_project_id');
     }
 
+    public function activation()
+    {
+        return $this->belongsTo(PerformanceRegister::class, 'operations_activation_id');
+    }
+
     public function recorder()
     {
         return $this->belongsTo(User::class, 'updated_by');

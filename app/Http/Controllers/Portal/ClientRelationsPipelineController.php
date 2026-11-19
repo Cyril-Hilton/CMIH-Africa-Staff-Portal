@@ -29,7 +29,7 @@ class ClientRelationsPipelineController extends Controller
         $projects = $q->orderByDesc('week_start')->orderByDesc('source_row')->paginate(15)->withQueryString();
         $clientRecords = \App\Models\CrmClientRecord::with('owner')->when($r->filled('q'), fn ($q) => $q->where('client_name', 'like', '%'.$filters['q'].'%'))->when($r->filled('owner'), fn ($q) => $q->where('owner_id', $filters['owner']))->latest()->get();
         $scorecard = app(\App\Services\ClientRelationsScorecard::class)->build($scorecardProjects, $clientRecords);
-        $staff = User::humanAccounts()->where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->where('name','not like','Import custodian%')->orderBy('name')->get();
+        $staff = User::humanAccounts()->where('status', 'active')->whereIn('department', User::departmentAliases('client_relations'))->where('name', 'not like', 'Import custodian%')->orderBy('name')->get();
         $clientNames = CrmPipelineProject::query()->select('client_name')->distinct()->orderBy('client_name')->pluck('client_name')->merge(\App\Models\CrmFinancialRegister::pluck('client_name'))->merge(\App\Models\CrmAccountAllocation::pluck('client_name'))->unique()->sort()->values();
         $targets = CrmAccountTarget::orderByDesc('period_start')->get();
 
@@ -38,7 +38,7 @@ class ClientRelationsPipelineController extends Controller
             ->merge($clientRecords->flatMap(fn ($record) => $record->supporting_staff_ids ?? []))->unique();
         $supportingStaff = $supportingStaff->concat(User::internalStaff()->whereKey($savedSupport->diff($supportingStaff->pluck('id'))->values()->all())->get(['id', 'name', 'status']));
 
-        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects','clientNames','supportingStaff'));
+        return view('portal.client-relations.pipeline', compact('projects', 'staff', 'targets', 'service', 'scorecard', 'clientRecords', 'scorecardProjects', 'clientNames', 'supportingStaff'));
     }
 
     public function history(Request $r)
@@ -89,7 +89,15 @@ class ClientRelationsPipelineController extends Controller
             $rules[$f] = 'nullable|string|max:5000';
         }
         $v = $r->validate($rules);
-        if ($r->has('delivery')) $v['delivery']=app(\App\Services\ConnectedProjectWorkflow::class)->validate($r,$project);
+        if ($r->has('delivery')) {
+            $v['delivery'] = app(\App\Services\ConnectedProjectWorkflow::class)->validate($r, $project);
+        }
+        if ($r->boolean('execution_process_present')) {
+            $r->validate(['execution_revision' => 'required|integer|min:0', 'execution.process' => 'required|array']);
+            $v['execution'] = ['process' => app(\App\Services\ExecutionPlan::class)->validate('process', $r->input('execution.process', []), $r->user())];
+            $v['execution_revision'] = $r->integer('execution_revision');
+            $v['execution_process_present'] = 1;
+        }
         $v['po_state'] = $v['po_state'] ?? 'unknown';
         $v['new_business'] = $r->boolean('new_business');
         $owner = User::findOrFail($v['owner_id']);
@@ -106,8 +114,11 @@ class ClientRelationsPipelineController extends Controller
             $r->validate(['week_start' => 'required|date|after_or_equal:2000-01-01']);
         }
         if (\App\Services\ClientRelationsSubmissions::needed($r)) {
-            if ($project) abort_if((int)($v['revision']??0)!==(int)$project->fresh()->revision,409,'Pipeline changed. Refresh before submitting.');
-            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r,'project',$project?->id,$v);
+            if ($project) {
+                abort_if((int) ($v['revision'] ?? 0) !== (int) $project->fresh()->revision, 409, 'Pipeline changed. Refresh before submitting.');
+            }
+
+            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r, 'project', $project?->id, $v);
         }
         $saved = DB::transaction(function () use ($v, $r, $project, $service) {
             $item = $project ? CrmPipelineProject::whereKey($project->id)->lockForUpdate()->firstOrFail() : new CrmPipelineProject;
@@ -117,7 +128,7 @@ class ClientRelationsPipelineController extends Controller
             if ($project && ! array_key_exists('week_end', $v) && $item->week_start->toDateString() !== $v['week_start']) {
                 $item->week_end = null;
             }
-            $item->fill(collect($v)->except(['revision', 'reason', 'confirm_source_period','delivery'])->all());
+            $item->fill(collect($v)->except(['revision', 'reason', 'confirm_source_period', 'delivery', 'execution', 'execution_revision', 'execution_process_present'])->all());
             if ($project?->import_key) {
                 $item->source_reference = $before['source_reference'];
             }
@@ -129,18 +140,30 @@ class ClientRelationsPipelineController extends Controller
             }$item->updated_by = $r->user()->id;
             $item->revision = ($project ? $item->revision + 1 : 1);
             $item->save();
-            if ($project && (int)$before['owner_id'] !== (int)$item->owner_id) {
-                \App\Models\CrmAccountRelationship::firstOrCreate(['client_name'=>$before['client_name'],'owner_id'=>$before['owner_id'],'relationship'=>'previous','ends_on'=>today()->toDateString()],['starts_on'=>null,'note'=>'Project ownership changed; original tenure start is not confirmed.','created_by'=>$r->user()->id]);
+            if ($project && (int) $before['owner_id'] !== (int) $item->owner_id) {
+                \App\Models\CrmAccountRelationship::firstOrCreate(['client_name' => $before['client_name'], 'owner_id' => $before['owner_id'], 'relationship' => 'previous', 'ends_on' => today()->toDateString()], ['starts_on' => null, 'note' => 'Project ownership changed; original tenure start is not confirmed.', 'created_by' => $r->user()->id]);
             }
-            app(\App\Services\ConnectedProjectWorkflow::class)->sync($item,$r->user(),$v['delivery']??[],$r->attributes->get('crm_approved_submission')?->created_at,User::find($r->attributes->get('crm_approved_submission')?->submitted_by??$r->user()->id));
-            app(\App\Services\ConnectedProjectWorkflow::class)->syncProjectIdentity($item,$r->user());
+            app(\App\Services\ConnectedProjectWorkflow::class)->sync($item, $r->user(), $v['delivery'] ?? [], $r->attributes->get('crm_approved_submission')?->created_at, User::find($r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id));
+            app(\App\Services\ConnectedProjectWorkflow::class)->syncProjectIdentity($item, $r->user());
             $service->publish($item);
+            if (! empty($v['execution'])) {
+                $sections = $v['execution'];
+                if (! empty($item->team_workflow['client_brief_received_at'])) {
+                    $sections['process']['brief']['received_at'] = $item->team_workflow['client_brief_received_at'];
+                }app(\App\Services\ExecutionPlan::class)->apply($r->user(), $item, null, $sections, (int) $v['execution_revision'], 'Client Relations published the reviewed process commitments.', ['type' => 'client_relations_entry', 'id' => $item->id, 'entered_by' => $r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id, 'entered_at' => $r->attributes->get('crm_approved_submission')?->created_at?->toIso8601String() ?? now()->toIso8601String(), 'published_by' => $r->user()->id, 'published_at' => now()->toIso8601String()]);
+            }
             PerformanceWorkflow::record('crm_project', $item->id, $r->user()->id, $project ? 'update' : 'create', $before, $item->getAttributes(), $v['reason'] ?? ($project ? 'Client Relations project updated.' : 'Client Relations project created.'));
+
             return $item;
         });
 
-        if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
-        if ($r->expectsJson()) return response()->json(['id'=>$saved->id,'status'=>'published','message'=>'Report published on the weekly dashboard. Finance confirms revenue separately.'], $project ? 200 : 201);
+        if ($r->attributes->get('crm_approved_submission')) {
+            return response()->json(['id' => $saved->id]);
+        }
+        if ($r->expectsJson()) {
+            return response()->json(['id' => $saved->id, 'status' => 'published', 'message' => 'Report published on the weekly dashboard. Finance confirms revenue separately.'], $project ? 200 : 201);
+        }
+
         return back()->with('status', 'Pipeline saved. The shared weekly table has been updated.');
     }
 
@@ -152,10 +175,12 @@ class ClientRelationsPipelineController extends Controller
     public function record(Request $r, ?\App\Models\CrmClientRecord $record = null)
     {
         $this->authorizeMember($r);
-        if ($record) abort_unless($r->user()->isLineManager() || (int)$record->owner_id === $r->user()->id, 403);
-        $change = $record ? $r->validate(['revision'=>'required|integer|min:1','reason'=>'required|string|min:5|max:2000']) : [];
+        if ($record) {
+            abort_unless($r->user()->isLineManager() || (int) $record->owner_id === $r->user()->id, 403);
+        }
+        $change = $record ? $r->validate(['revision' => 'required|integer|min:1', 'reason' => 'required|string|min:5|max:2000']) : [];
         $v = $r->validate(['kind' => ['required', Rule::in(array_keys(config('crm_scorecard')))], 'reference' => 'required|string|max:255', 'client_name' => 'required|string|max:255', 'project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'owner_id' => 'required|integer|exists:users,id', 'status' => 'required|string', 'notes' => 'nullable|string|max:5000', 'data' => 'required|array']);
-        abort_unless(($record && (int)$record->owner_id === (int)$v['owner_id']) || Pipeline::staffMember(User::findOrFail($v['owner_id'])), 422);
+        abort_unless(($record && (int) $record->owner_id === (int) $v['owner_id']) || Pipeline::staffMember(User::findOrFail($v['owner_id'])), 422);
         if (! $r->user()->isLineManager()) {
             abort_unless((int) $v['owner_id'] === $r->user()->id, 403);
         }
@@ -166,7 +191,9 @@ class ClientRelationsPipelineController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['client_name' => 'Client must match the linked project.']);
             }
         }
-        if ($record) abort_unless($v['kind'] === $record->kind, 422, 'The record type cannot be changed.');
+        if ($record) {
+            abort_unless($v['kind'] === $record->kind, 422, 'The record type cannot be changed.');
+        }
         $schema = config('crm_scorecard.'.$v['kind']);
         $rules = ['status' => ['required', Rule::in($schema['statuses'])]];
         foreach ($schema['fields'] as $field => $type) {
@@ -187,28 +214,40 @@ class ClientRelationsPipelineController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages(['data.'.$b => 'End date cannot precede the start date.']);
             }
         }
-        if (\App\Models\CrmClientRecord::where('kind', $v['kind'])->where('reference', $v['reference'])->when($record, fn($q)=>$q->whereKeyNot($record->id))->exists()) {
+        if (\App\Models\CrmClientRecord::where('kind', $v['kind'])->where('reference', $v['reference'])->when($record, fn ($q) => $q->whereKeyNot($record->id))->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['reference' => 'This source reference already exists.']);
         }
         if (\App\Services\ClientRelationsSubmissions::needed($r)) {
-            if ($record) abort_if((int)$change['revision']!==(int)$record->fresh()->revision,409,'This activity changed. Refresh before submitting.');
-            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r,'record',$record?->id,$v+$change);
+            if ($record) {
+                abort_if((int) $change['revision'] !== (int) $record->fresh()->revision, 409, 'This activity changed. Refresh before submitting.');
+            }
+
+            return app(\App\Services\ClientRelationsSubmissions::class)->submit($r, 'record', $record?->id, $v + $change);
         }
         $saved = DB::transaction(function () use ($v, $r, $record, $change) {
             if ($record) {
                 $i = \App\Models\CrmClientRecord::lockForUpdate()->findOrFail($record->id);
-                abort_unless($r->user()->isLineManager() || (int)$i->owner_id === $r->user()->id, 403);
-                abort_if((int)$i->revision !== (int)$change['revision'],409,'This activity changed. Refresh before saving.');
-                $before=$i->getAttributes();
-                $i->fill($v + ['updated_by'=>$r->user()->id]);$i->revision++;$i->save();
+                abort_unless($r->user()->isLineManager() || (int) $i->owner_id === $r->user()->id, 403);
+                abort_if((int) $i->revision !== (int) $change['revision'], 409, 'This activity changed. Refresh before saving.');
+                $before = $i->getAttributes();
+                $i->fill($v + ['updated_by' => $r->user()->id]);
+                $i->revision++;
+                $i->save();
             } else {
-                $before=[];$i=\App\Models\CrmClientRecord::create($v + ['created_by'=>$r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id,'updated_by'=>$r->user()->id]);
+                $before = [];
+                $i = \App\Models\CrmClientRecord::create($v + ['created_by' => $r->attributes->get('crm_approved_submission')?->submitted_by ?? $r->user()->id, 'updated_by' => $r->user()->id]);
             }
-            PerformanceWorkflow::record('crm_record',$i->id,$r->user()->id,$record?'update':'create',$before,$i->getAttributes(),$change['reason']??'Client scorecard source recorded');
+            PerformanceWorkflow::record('crm_record', $i->id, $r->user()->id, $record ? 'update' : 'create', $before, $i->getAttributes(), $change['reason'] ?? 'Client scorecard source recorded');
+
             return $i;
         });
-        if ($r->attributes->get('crm_approved_submission')) return response()->json(['id'=>$saved->id]);
-        if ($r->expectsJson()) return response()->json(['id'=>$saved->id,'status'=>'published','message'=>'Client activity published on the dashboard.'], $record ? 200 : 201);
+        if ($r->attributes->get('crm_approved_submission')) {
+            return response()->json(['id' => $saved->id]);
+        }
+        if ($r->expectsJson()) {
+            return response()->json(['id' => $saved->id, 'status' => 'published', 'message' => 'Client activity published on the dashboard.'], $record ? 200 : 201);
+        }
+
         return back()->with('status', $record ? 'Client activity updated. The shared view will show its latest status.' : 'Client scorecard source recorded.');
     }
 

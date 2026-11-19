@@ -241,7 +241,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/notifications/{notification}/read', [AnnouncementController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [AnnouncementController::class, 'markAllAsRead'])->name('notifications.readAll');
 
-    Route::get('/people/{section?}', [\App\Http\Controllers\Portal\PeopleController::class, 'index'])->whereIn('section',['directory','records','accounts'])->name('people');
+    Route::get('/people/{section?}', [\App\Http\Controllers\Portal\PeopleController::class, 'index'])->whereIn('section', ['directory', 'records', 'accounts'])->name('people');
     Route::get('/directory', [DirectoryController::class, 'index'])->name('directory');
     Route::post('/directory/{user}/privileges', [DirectoryController::class, 'updatePrivileges'])->name('directory.privileges');
 
@@ -375,6 +375,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
     Route::get('/notifications/poll', [\App\Http\Controllers\Portal\NotificationController::class, 'poll'])->name('notifications.poll');
 
+    Route::get('/execution-controls/{control}', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'show'])->name('executive.controls.show');
+    Route::post('/executive/activations/{activation}/controls', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'activation'])->name('executive.activations.save');
     Route::post('/executive/team', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'team'])->name('executive.team');
     Route::post('/executive/reminders/settings', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'reminders'])->name('executive.reminders.settings');
     Route::post('/executive/projects/{project}/controls', [\App\Http\Controllers\Portal\ExecutiveControlController::class, 'save'])->name('executive.controls.save');
@@ -438,7 +440,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/creative', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'index'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('creative');
     Route::prefix('creative-studio')->name('creative.')->group(function () {
         Route::get('/activity', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'activity'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('activity');
-        Route::get('/reports/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'presentationReport'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format',['data','pdf'])->name('reports');
+        Route::get('/reports/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'presentationReport'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format', ['data', 'pdf'])->name('reports');
         Route::get('/projects', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'projects'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('projects');
         Route::get('/data', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'data'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('data');
         Route::post('/requests', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'store'])->middleware('throttle:30,1')->name('store');
@@ -453,7 +455,7 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
         Route::post('/requests/{creative}/attachments', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'upload'])->middleware('throttle:30,1')->name('upload');
         Route::get('/attachments/{attachment}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'attachment'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('attachment');
         Route::post('/capacity', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'capacity'])->name('capacity');
-        Route::get('/export/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'export'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format',['xlsx','pdf'])->name('export');
+        Route::get('/export/{format}', [\App\Http\Controllers\Portal\CreativeStudioController::class, 'export'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->whereIn('format', ['xlsx', 'pdf'])->name('export');
     });
     Route::post('/creative/briefs', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeBrief'])->name('creative.briefs.store');
     Route::post('/creative/files', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeDesignFile'])->name('creative.files.store');
@@ -484,8 +486,6 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::delete('/dashboard/weekly-consolidated/columns/{column}', [\App\Http\Controllers\Portal\DashboardController::class, 'destroyWeeklyConsolidatedColumn'])->name('dashboard.weekly-consolidated.columns.destroy');
     Route::patch('/dashboard/weekly-consolidated/{item}', [\App\Http\Controllers\Portal\DashboardController::class, 'updateWeeklyConsolidated'])->name('dashboard.weekly-consolidated.update');
     Route::delete('/dashboard/weekly-consolidated/{item}', [\App\Http\Controllers\Portal\DashboardController::class, 'destroyWeeklyConsolidated'])->name('dashboard.weekly-consolidated.destroy');
-
-
 
     // ── Phase 3: Appraisal Pipeline (1-10 Scale) ──────────────────────────────
     Route::get('/appraisals', [\App\Http\Controllers\Portal\AppraisalController::class, 'index'])->name('appraisals.index');
@@ -756,9 +756,9 @@ Route::get('/api/location-fallback', function (\Illuminate\Http\Request $request
 // Shared public event catalogue; only explicitly published fields leave the portal.
 Route::get('/api/public/events', [\App\Http\Controllers\PublicEventFeedController::class, 'index'])->middleware('throttle:120,1')->name('public.events.index');
 Route::get('/api/public/events/{event}/flyer', [\App\Http\Controllers\PublicEventFeedController::class, 'flyer'])->middleware('throttle:240,1')->name('public.events.flyer');
-Route::middleware(['auth','active'])->prefix('portal/events')->name('portal.events.')->group(function () {
- Route::get('/', [\App\Http\Controllers\Portal\EventPublicationController::class,'index'])->name('index');
- Route::post('/', [\App\Http\Controllers\Portal\EventPublicationController::class,'store'])->name('store');
- Route::get('/{event}/flyer', [\App\Http\Controllers\Portal\EventPublicationController::class,'flyer'])->name('flyer');
- Route::patch('/{event}', [\App\Http\Controllers\Portal\EventPublicationController::class,'update'])->name('update');
+Route::middleware(['auth', 'active'])->prefix('portal/events')->name('portal.events.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Portal\EventPublicationController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\Portal\EventPublicationController::class, 'store'])->name('store');
+    Route::get('/{event}/flyer', [\App\Http\Controllers\Portal\EventPublicationController::class, 'flyer'])->name('flyer');
+    Route::patch('/{event}', [\App\Http\Controllers\Portal\EventPublicationController::class, 'update'])->name('update');
 });

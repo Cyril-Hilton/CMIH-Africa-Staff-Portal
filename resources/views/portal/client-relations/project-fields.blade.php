@@ -24,3 +24,5 @@
 @include('portal.performance.field',['name'=>'reason','options'=>null,'type'=>'text','value'=>null,'required'=>false,'label'=>'Update / Source Notes (optional)'])
 
 @include('portal.client-relations.project-routing', ['record'=>$record,'useOld'=>$useOld])
+
+@include('portal.client-relations.execution-fields')
