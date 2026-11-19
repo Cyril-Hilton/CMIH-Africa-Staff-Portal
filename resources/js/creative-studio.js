@@ -210,13 +210,12 @@ if(this.root.dataset.embedded==='true'&&(b.matches('[data-cs-week],[data-cs-repo
    const avatar = person.photo
     ? `<img src="${E(person.photo)}" alt="" loading="lazy">`
     : `<span class="cs-lane-avatar" aria-hidden="true">${E(initials)}</span>`;
-   const rowHeight = (assignments.some(item=>item.connected_project)?420:370)+(assignments.some(item=>this.supportingPeople(item).length)?90:0);
    const bars = assignments.map((item, row) => {
     const left = Math.max(0, Math.floor((new Date(day(item.dates.planned_start) + 'T00:00:00Z') - start) / 86400000));
     const right = Math.min(6, Math.floor((new Date(day(item.dates.internal_eta) + 'T00:00:00Z') - start) / 86400000));
     return this.calendarWorkBar(item, left, right, row, from, through, false);
    }).join('');
-   return `<div class="cs-week-row cs-person-lane" data-person-id="${person.id}" style="grid-template-rows:repeat(${Math.max(1, assignments.length)},${rowHeight}px)">
+   return `<div class="cs-week-row cs-person-lane" data-person-id="${person.id}" style="grid-template-rows:repeat(${Math.max(1, assignments.length)},minmax(90px,max-content))">
     <div class="cs-week-label"><div class="cs-lane-person">${avatar}<div><strong>${E(name)}</strong><small>${E(person.title || (person.historical ? 'Retained staff history' : this.data.departments?.[person.department] ?? (person.supportOnly ? 'Supporting staff' : 'Creative team')))}</small></div></div>
     <span class="cs-lane-assignment-count">${owned} led ${owned===1?'brief':'briefs'}</span>${person.supportOnly?'':this.calendarAvailability(person.id)}</div>
     ${grid}${bars || '<p class="cs-lane-empty" style="grid-column:2/-1;grid-row:1">No planned work in this selection</p>'}
