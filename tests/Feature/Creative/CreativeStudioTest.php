@@ -259,7 +259,8 @@ class CreativeStudioTest extends TestCase {
   for($n=0;$n<51;$n++)$this->brief($sender);
   $private=$this->brief($sender,['visibility'=>'restricted','title'=>'Private secret campaign']);
   foreach(['weekly'=>['2026-10-19','2026-10-25',7],'monthly'=>['2026-10-01','2026-10-31',5],'quarterly'=>['2026-10-01','2026-12-31',3],'yearly'=>['2026-01-01','2026-12-31',12]] as $period=>[$from,$to,$buckets]){
-   $this->actingAs($neutral)->getJson(route('portal.creative.reports',['format'=>'data','period'=>$period,'anchor'=>'2026-10-22']))->assertOk()->assertJsonPath('total',51)->assertJsonPath('from',$from)->assertJsonPath('to',$to)->assertJsonCount($buckets,'buckets')->assertDontSee('Private secret campaign');
+   $result=$this->actingAs($neutral)->getJson(route('portal.creative.reports',['format'=>'data','period'=>$period,'anchor'=>'2026-10-22']))->assertOk()->assertJsonPath('total',51)->assertJsonPath('from',$from)->assertJsonPath('to',$to)->assertJsonCount($buckets,'buckets')->assertDontSee('Private secret campaign');
+   foreach(['received','submitted','verified'] as $milestone)$this->assertSame($result->json($milestone),array_sum(array_column($result->json('buckets'),$milestone)));
   }
   $this->getJson(route('portal.creative.reports',['format'=>'data','period'=>'decade','anchor'=>'2026-10-22']))->assertUnprocessable();
   $this->getJson(route('portal.creative.reports',['format'=>'data','period'=>'yearly','anchor'=>'2026-10-22','assignee'=>999999]))->assertOk()->assertJsonPath('total',0);

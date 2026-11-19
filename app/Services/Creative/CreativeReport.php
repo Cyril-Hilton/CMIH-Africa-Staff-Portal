@@ -48,7 +48,7 @@ class CreativeReport
         while ($cursor->lte($end)) {
             $bucketEnd = match($period) {'yearly' => $cursor->copy()->endOfMonth(), 'quarterly' => $cursor->copy()->endOfMonth(), 'monthly' => $cursor->copy()->endOfWeek(), default => $cursor->copy()->endOfDay()};
             if($bucketEnd->gt($end)) $bucketEnd = $end->copy();
-            $buckets[] = ['label'=>$cursor->format(in_array($period,['quarterly','yearly'])?'M':'d M'), 'submitted'=>$submitted->filter(fn($i)=>$i->first_submitted_at->betweenIncluded($cursor,$bucketEnd))->count(), 'verified'=>$verified->filter(fn($i)=>$i->completed_at->betweenIncluded($cursor,$bucketEnd))->count()];
+            $buckets[] = ['label'=>$cursor->format(in_array($period,['quarterly','yearly'])?'M':'d M'), 'received'=>$items->filter(fn($i)=>$inside($i->received_at) && $i->received_at->betweenIncluded($cursor,$bucketEnd))->count(), 'submitted'=>$submitted->filter(fn($i)=>$i->first_submitted_at->betweenIncluded($cursor,$bucketEnd))->count(), 'verified'=>$verified->filter(fn($i)=>$i->completed_at->betweenIncluded($cursor,$bucketEnd))->count()];
             $cursor = $bucketEnd->copy()->addSecond();
         }
         $gallery = $items->filter(fn($i)=>$i->attachments->contains(fn($a)=>$a->kind==='deliverable'))->sortByDesc('submitted_at')->take($period==='yearly'?12:6)->values()->map(function($i) use ($images) {
