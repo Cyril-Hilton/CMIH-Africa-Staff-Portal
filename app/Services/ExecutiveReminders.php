@@ -58,11 +58,16 @@ class ExecutiveReminders
         }$settings = $this->settings();
         if (! $settings['enabled'] || $settings['mode'] !== 'live') {
             return 0;
-        }$viewer = User::internalStaff()->where('status', 'active')->get()->first(fn ($u) => $u->canViewExecutiveActivity());
+        }$viewer = User::internalStaff()->where('status', 'active')->get()->filter(fn ($u) => $u->canViewExecutiveActivity())->sortByDesc(fn ($u) => $u->isCvoOrSuperAdmin() ? 2 : ($u->canAuditHrAndFinance() ? 1 : 0))->first();
         if (! $viewer) {
             return 0;
         }$count = 0;
         foreach ($this->preview($viewer)->groupBy('owner') as $id => $items) {
+            $recipient = User::find($id);
+            $items = $items->filter(fn ($item) => $this->canReceive($recipient, $item));
+            if ($items->isEmpty()) {
+                continue;
+            }
             DB::transaction(function () use ($id, $items, &$count, $settings) {
                 $fresh = collect();
                 foreach ($items as $item) {
@@ -75,7 +80,7 @@ class ExecutiveReminders
                 }
                 $digest = hash('sha256', $fresh->pluck('reminder_key')->sort()->implode('|'));
                 $key = 'executive-digest:'.$id.':'.$digest;
-                $message = $fresh->count()." recorded commitments need attention.\n".$fresh->take(30)->map(fn ($e) => $e['title'].' · due '.$e['end']->format('d M Y H:i').' · '.$e['window'])->implode("\n");
+                $message = $this->message($fresh);
                 $url = $fresh->first()['url'] ?? route('portal.project-journey');
                 PerformanceWorkflow::notify((int) $id, $key, $settings['subject_prefix'].' · deadline digest', $message."\n".($settings['signature'] ?? ''), $url);
                 $outbox = PerformanceOutbox::where('dedupe_key', hash('sha256', $key.':'.$id))->firstOrFail();
@@ -83,13 +88,46 @@ class ExecutiveReminders
                 $count += $fresh->count();
                 if ($settings['escalation_enabled'] && $fresh->contains('window', 'overdue')) {
                     $manager = $settings['escalation_user_id'] ?? $fresh->first()['person']?->line_manager_id;
-                    if ($manager && User::where('status', 'active')->whereKey($manager)->exists()) {
-                        PerformanceWorkflow::notify((int) $manager, 'executive-escalation:'.$id.':'.$digest, 'Overdue project commitments · escalation', $message, route('dashboard', ['exec_view' => 'accountability', 'exec_person' => $id]));
+                    $manager = $manager ? User::internalStaff()->where('status', 'active')->find($manager) : null;
+                    $overdue = $manager && $manager->id !== (int) $id ? $fresh->where('window', 'overdue')->filter(fn ($item) => $this->canReceive($manager, $item)) : collect();
+                    if ($overdue->isNotEmpty()) {
+                        PerformanceWorkflow::notify($manager->id, 'executive-escalation:'.$id.':'.$digest, 'Overdue project commitments · escalation', $this->message($overdue), route('dashboard', ['exec_view' => 'accountability', 'exec_person' => $id]));
                     }
                 }
             });
         }
 
         return $count;
+    }
+
+    private function message(Collection $items): string
+    {
+        return $items->count()." recorded commitments need attention.\n".$items->take(30)->map(fn ($e) => $e['title'].' · due '.$e['end']->format('d M Y H:i').' · '.$e['window'])->implode("\n");
+    }
+
+    private function canReceive(?User $recipient, array $event): bool
+    {
+        if (! $recipient?->isActive()) {
+            return false;
+        }
+        $source = explode(':', $event['key']);
+        if (in_array($source[0], ['hrregister', 'hractivity'], true)) {
+            return HrLiveRegisters::full($recipient);
+        }
+        if ($source[0] === 'finance') {
+            return FinanceDashboard::canRead($recipient);
+        }
+        if ($source[0] === 'register') {
+            $record = \App\Models\PerformanceRegister::find($source[1] ?? null);
+            $department = User::normalizeDepartmentKey($record?->department);
+            if ($department === 'hr_admin') {
+                return HrLiveRegisters::full($recipient);
+            }
+            if ($department === 'finance') {
+                return FinanceDashboard::canRead($recipient);
+            }
+        }
+
+        return true;
     }
 }

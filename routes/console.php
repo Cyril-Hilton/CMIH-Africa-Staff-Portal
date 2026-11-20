@@ -341,5 +341,8 @@ Artisan::command('creative:reminders', function () { $this->info('Creative alert
 })->purpose('Open separate reporting drafts for ongoing projects');
 \Illuminate\Support\Facades\Schedule::command('weekly:carry-forward')->dailyAt('06:00');
 
-Artisan::command('executive:reminders', function () { $this->info('Executive commitments queued: '.app(\App\Services\ExecutiveReminders::class)->run()); });
+Artisan::command('executive:reminders', function () {
+    $this->info('Executive commitments queued: '.app(\App\Services\ExecutiveReminders::class)->run());
+    $this->info('Notification records processed: '.app(\App\Services\PerformanceAutomation::class)->deliver());
+});
 \Illuminate\Support\Facades\Schedule::command('executive:reminders')->hourly()->timezone('Africa/Accra')->withoutOverlapping();

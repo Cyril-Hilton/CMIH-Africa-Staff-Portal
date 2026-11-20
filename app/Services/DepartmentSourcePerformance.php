@@ -27,6 +27,11 @@ class DepartmentSourcePerformance
 
     public function build(string $department, string $from, string $to, ?int $owner = null, bool $includeAttendance = true): array
     {
+        $reset = PerformanceScoringService::resetStartsOn();
+        $resetPending = $reset && $to < $reset->toDateString();
+        if ($reset && ! $resetPending && $from < $reset->toDateString()) {
+            $from = $reset->toDateString();
+        }
         $department = User::normalizeDepartmentKey($department);
         $records = PerformanceRegister::whereIn('department', User::departmentAliases($department))->whereNotNull('approved_at')
             ->where('status', '!=', 'cancelled')->whereDate('period_start', '<=', $to)->whereDate('period_end', '>=', $from)
@@ -199,6 +204,10 @@ class DepartmentSourcePerformance
         $areaNames = array_column($areas, 'name');
         foreach ($metrics as &$metric) {
             $metric['area'] = $metric['area'] ?? $this->areaFor($department, $metric['name'], $areaNames);
+            if ($resetPending) {
+                $metric['achievement'] = null;
+                $metric['state'] = 'New performance cycle starts '.$reset->format('d M Y').' · no prior-cycle credit';
+            }
             $metric['credited'] = min(100, max(0, $metric['achievement'] ?? 0));
         }
         unset($metric);
@@ -210,6 +219,13 @@ class DepartmentSourcePerformance
             $reportArea['results_expected'] = $measures->count();
             $reportArea['result_gap'] = ! $reportArea['reported'] ? 'Required report missing · 0 achievement credit'
                 : ($measures->isEmpty() || $measures->contains(fn ($m) => $m['target'] === null || $m['reported'] < $m['expected']) ? 'Target or measurable result needs setup · 0 credit for each missing measure' : null);
+        }
+        unset($reportArea);
+        if ($resetPending) {
+            foreach ($areas as &$reportArea) {
+                $reportArea['achievement_credit'] = 0.0;
+                $reportArea['result_gap'] = 'New performance cycle starts '.$reset->format('d M Y').' · no prior-cycle credit';
+            }
         }
         unset($reportArea);
         $reported = collect($areas)->where('reported', true)->count();
@@ -327,20 +343,20 @@ class DepartmentSourcePerformance
             $actualField = $kind === 'project' ? 'actual_cost' : ($kind === 'fuel' ? 'cost' : 'actual');
             $known = $rows->filter(fn ($r) => isset($r->data[$actualField]) && is_numeric($r->data[$actualField]));
             $target = $rows->sum(fn ($r) => (float) $r->data['budget']);
-            $metric = $this->metric($label,$target,$known->isEmpty() ? null : $known->sum(fn ($r) => (float) $r->data[$actualField]),'GHS',$rows->count(),$known->count(),'Budget-weighted lower-is-better score per source. An unreported cost earns zero credit; it is never treated as an underspend.');
-            $metric['achievement'] = round($rows->sum(fn ($r) => isset($r->data[$actualField]) && is_numeric($r->data[$actualField]) ? min(100,max(0,PerformanceMath::achievement((float) $r->data['budget'],(float) $r->data[$actualField],'lower'))) * $r->data['budget'] : 0) / $target,2);
+            $metric = $this->metric($label, $target, $known->isEmpty() ? null : $known->sum(fn ($r) => (float) $r->data[$actualField]), 'GHS', $rows->count(), $known->count(), 'Budget-weighted lower-is-better score per source. An unreported cost earns zero credit; it is never treated as an underspend.');
+            $metric['achievement'] = round($rows->sum(fn ($r) => isset($r->data[$actualField]) && is_numeric($r->data[$actualField]) ? min(100, max(0, PerformanceMath::achievement((float) $r->data['budget'], (float) $r->data[$actualField], 'lower'))) * $r->data['budget'] : 0) / $target, 2);
             $metrics[] = $metric;
         }
 
         return $metrics;
     }
 
-    private function metric(string $name,?float $target,?float $actual,string $unit,int $expected,int $reported,string $note): array
+    private function metric(string $name, ?float $target, ?float $actual, string $unit, int $expected, int $reported, string $note): array
     {
         // Score missing results as a gap against known targets; keep the actual amount unknown.
-        $achievement = $target !== null && $target > 0 ? round(100 * ($actual ?? 0) / $target,2) : null;
+        $achievement = $target !== null && $target > 0 ? round(100 * ($actual ?? 0) / $target, 2) : null;
 
-        return compact('name','target','actual','unit','expected','reported','note','achievement') +
+        return compact('name', 'target', 'actual', 'unit', 'expected', 'reported', 'note', 'achievement') +
             ['state' => $target === null ? 'Target setup needed · 0 credit' : ($reported === 0 ? 'Missing result · 0% credited' : ($reported < $expected ? 'Partial reporting' : 'Reported'))];
     }
 }

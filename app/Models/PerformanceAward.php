@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PerformanceAward extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use HasFactory;
 
     protected $fillable = [

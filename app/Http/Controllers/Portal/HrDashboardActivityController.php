@@ -40,7 +40,7 @@ class HrDashboardActivityController extends Controller
             'assigned_to' => 'required|integer',
             'status' => ['required', Rule::in(HrDashboardActivity::STATUSES)],
             'priority'=>'nullable|in:High,Medium,Low',
-            'linked_record'=>'nullable|string|regex:/^[a-z_]+:[0-9]+$/',
+            'linked_record'=>'nullable|string|regex:/^[a-z_]+:-?[0-9]+$/',
             'supporting_staff_ids'=>'nullable|array|max:100',
             'supporting_staff_ids.*'=>['integer','distinct',Rule::in(User::internalStaff()->where('status','active')->pluck('id')->all())],
             'remarks' => 'nullable|string|max:6000',
@@ -87,10 +87,13 @@ class HrDashboardActivityController extends Controller
                 }
                 $saved = HrDashboardActivity::query()->lockForUpdate()->findOrFail($activity->id);
                 abort_if((int) $saved->revision !== (int) $revision, 409, 'This activity changed. Refresh it before editing.');
+                if ($saved->status === 'Pending Approval' && in_array($data['status'], ['In Progress', 'Completed'], true)) {
+                    throw ValidationException::withMessages(['status' => 'This activity is awaiting CVO approval. Use the approval action before proceeding or completing it.']);
+                }
                 $oldPath = $saved->attachment['path'] ?? null;
                 $before=$saved->getAttributes();
                 $completed=$data['status']==='Completed'?($saved->status==='Completed'?$saved->completed_at:now()):null;
-                $saved->update($data + ['revision' => $saved->revision + 1,'completed_at'=>$completed,'approved_at'=>null,'approved_by'=>null]);
+                $saved->update($data + ['revision' => $saved->revision + 1,'completed_at'=>$completed,'approved_at'=>$data['status']==='Pending Approval'?null:$saved->approved_at,'approved_by'=>$data['status']==='Pending Approval'?null:$saved->approved_by]);
                 PerformanceWorkflow::record('hr_activity',$saved->id,$user->id,'update',$before,$saved->getAttributes(),'HR activity updated');
                 $this->notify($saved);
                 return $oldPath;

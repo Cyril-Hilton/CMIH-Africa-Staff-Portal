@@ -11,13 +11,29 @@ class ReportingReset
 {
     public function tables(): array
     {
-        return collect(config('reporting_archive.models'))->mapWithKeys(fn ($class) => [(new $class)->getTable() => $class])->filter(fn ($class, $table) => Schema::hasTable($table))->all();
+        return collect(array_merge(config('reporting_archive.models'), config('reporting_archive.performance_models', [])))->mapWithKeys(fn ($class) => [(new $class)->getTable() => $class])->filter(fn ($class, $table) => Schema::hasTable($table))->all();
     }
 
-    public function protectedState(): array
+    private function selectedTables(?array $selection): array
+    {
+        $all = $this->tables();
+        $selection ??= array_map(fn ($class) => (new $class)->getTable(), config('reporting_archive.models'));
+        abort_unless($selection && ! array_diff($selection, array_keys($all)), 422, 'Choose only supported archive record groups.');
+
+        return array_intersect_key($all, array_flip($selection));
+    }
+
+    private function selectedQuery(string $table)
+    {
+        $q = DB::table($table)->whereNull('reporting_archive_batch_id');
+
+        return $q;
+    }
+
+    public function protectedState(?array $selection = null): array
     {
         $result = [];
-        $excluded = array_merge(array_diff(array_keys($this->tables()), ['performance_report_packs']), ['performance_outbox', 'reporting_archive_batches', 'reporting_archive_records', 'crm_account_directory']);
+        $excluded = array_merge(array_diff(array_keys($this->selectedTables($selection)), ['performance_report_packs']), ['performance_outbox', 'reporting_archive_batches', 'reporting_archive_records', 'crm_account_directory']);
         $tables = collect(Schema::getTables())->pluck('name')->reject(fn ($name) => in_array($name, $excluded, true) || str_starts_with($name, 'sqlite_'));
         foreach ($tables as $table) {
             if (! Schema::hasTable($table)) {
@@ -35,14 +51,14 @@ class ReportingReset
         return $result;
     }
 
-    public function plan(): array
+    public function plan(?array $selection = null): array
     {
         $tables = [];
-        foreach ($this->tables() as $table => $class) {
-            $tables[$table] = $class::count();
+        foreach ($this->selectedTables($selection) as $table => $class) {
+            $tables[$table] = $table === 'performance_report_packs' ? $class::count() : $this->selectedQuery($table)->count();
         }
 
-        return ['tables' => $tables, 'protected' => $this->protectedState(), 'accounts' => $this->accounts()->count()];
+        return ['tables' => $tables, 'protected' => $this->protectedState($selection), 'accounts' => $this->accounts()->count()];
     }
 
     public function accounts(bool $includeDirectory = true, ?string $archiveBatch = null): \Illuminate\Support\Collection
@@ -65,19 +81,19 @@ class ReportingReset
         return $names->filter(fn ($name) => trim((string) $name) !== '')->unique(ClientRelationsCentre::key(...))->values();
     }
 
-    public function archive(User $actor, string $label, ?string $backupPath = null): array
+    public function archive(User $actor, string $label, ?string $backupPath = null, ?array $selection = null): array
     {
         abort_unless($actor->isCvoOrSuperAdmin(), 403);
 
-        return DB::transaction(function () use ($actor, $label, $backupPath) {
-            $before = $this->protectedState();
-            $accounts = $this->accounts();
+        return DB::transaction(function () use ($actor, $label, $backupPath, $selection) {
+            $before = $this->protectedState($selection);
+            $accounts = $selection ? collect() : $this->accounts();
             $batch = (string) Str::uuid();
             $counts = [];
             foreach ($accounts as $name) {
                 DB::table('crm_account_directory')->insertOrIgnore(['client_name' => $name, 'name_key' => ClientRelationsCentre::key($name), 'created_at' => now(), 'updated_at' => now()]);
             }
-            foreach ($this->tables() as $table => $class) {
+            foreach ($this->selectedTables($selection) as $table => $class) {
                 if ($table === 'performance_report_packs') {
                     $ids = $class::pluck('id');
                     foreach ($ids as $id) {
@@ -87,20 +103,28 @@ class ReportingReset
 
                     continue;
                 }
-                $counts[$table] = DB::table($table)->whereNull('reporting_archive_batch_id')->update(['reporting_archive_batch_id' => $batch]);
+                $counts[$table] = $this->selectedQuery($table)->update(['reporting_archive_batch_id' => $batch]);
             }
             // Preserve operational notifications (warehouse, leave, payroll etc.) while stopping obsolete report alerts.
-            $pending = DB::table('performance_outbox')->whereNull('reporting_archive_batch_id')->where(function ($q) {
-                foreach (['/portal/tasks/', '/portal/creative?request=', '/portal/operations/handovers', 'weekly_department=', 'exec_view=', '/portal/performance', '/portal/client-relations', '/portal/finance?finance_tab=', '/portal/operations?ops_review='] as $part) {
+            $pending = DB::table('performance_outbox')->whereNull('reporting_archive_batch_id')->where(function ($q) use ($selection) {
+                $patterns = $selection ? ['/portal/performance', '/portal/attendance'] : ['/portal/tasks/', '/portal/creative?request=', '/portal/operations/handovers', 'weekly_department=', 'exec_view=', '/portal/performance', '/portal/client-relations', '/portal/finance?finance_tab=', '/portal/operations?ops_review='];
+                foreach ($patterns as $part) {
                     $q->orWhere('url', 'like', '%'.$part.'%');
                 }
             });
             $counts['performance_outbox'] = $pending->update(['reporting_archive_batch_id' => $batch]);
-            $after = $this->protectedState();
+            $after = $this->protectedState($selection);
             if ($before !== $after) {
                 throw new \RuntimeException('Protected operational records changed; the archive was rolled back.');
             }
             $manifest = ['tables' => $counts, 'accounts_preserved' => DB::table('crm_account_directory')->count(), 'protected' => $after, 'source' => 'User-authorized departmental reporting reset', 'reversible' => true];
+            if (isset($counts['attendance'])) {
+                $starts = today()->addDay();
+                while ($starts->isWeekend() || in_array($starts->toDateString(), CompanyCalendar::nonWorkingDates(), true)) {
+                    $starts->addDay();
+                }
+                $manifest['performance_tracking_starts_on'] = $starts->toDateString();
+            }
             DB::table('reporting_archive_batches')->insert(['id' => $batch, 'label' => $label, 'actor_id' => $actor->id, 'manifest' => json_encode($manifest, JSON_UNESCAPED_UNICODE), 'backup_path' => $backupPath, 'created_at' => now()]);
 
             return ['id' => $batch] + $manifest;
@@ -113,8 +137,9 @@ class ReportingReset
         DB::transaction(function () use ($batch) {
             $row = DB::table('reporting_archive_batches')->find($batch);
             abort_unless($row, 404);
+            $manifest = json_decode($row->manifest, true);
             DB::table('reporting_archive_records')->where('batch_id', $batch)->delete();
-            foreach (array_merge(array_diff(array_keys($this->tables()), ['performance_report_packs']), ['performance_outbox']) as $table) {
+            foreach (array_diff(array_keys($manifest['tables']), ['performance_report_packs']) as $table) {
                 DB::table($table)->where('reporting_archive_batch_id', $batch)->update(['reporting_archive_batch_id' => null]);
             }
             $manifest = json_decode($row->manifest, true);

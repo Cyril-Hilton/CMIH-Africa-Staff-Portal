@@ -17,6 +17,7 @@ return [
         App\Models\AdminWeeklyReportLine::class, App\Models\PerformanceReportPack::class,
         App\Models\PerformanceDependency::class, App\Models\PerformanceDependencyRequest::class,
     ],
+    'performance_models' => [App\Models\Attendance::class, App\Models\PerformanceTargetPlan::class, App\Models\PerformanceKpi::class, App\Models\PerformanceAward::class, App\Models\PerformanceCase::class],
     'account_models' => [App\Models\CrmPipelineProject::class, App\Models\CrmClientRecord::class, App\Models\CrmAccountAllocation::class, App\Models\CrmAccountRelationship::class, App\Models\CrmFinancialRegister::class],
     'protected_tables' => ['users', 'assets', 'asset_logs', 'asset_warehouse_requests', 'warehouse_asset_suggestions', 'posm_ledgers', 'third_party_vendors', 'phone_directory', 'leave_applications', 'pass_out_requests', 'fleet_requests', 'boardroom_requests', 'attendance', 'salary_advances', 'supplier_invoices', 'petty_cash_claims', 'project_budgets', 'campaigns', 'hr_register_records', 'payroll_runs', 'payroll_entries', 'payslips', 'performance_kpis', 'performance_objectives', 'performance_target_plans', 'performance_policies'],
 ];

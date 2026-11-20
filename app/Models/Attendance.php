@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Attendance extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use HasFactory;
 
     protected $table = 'attendance';

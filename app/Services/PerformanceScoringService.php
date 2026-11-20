@@ -18,7 +18,7 @@ class PerformanceScoringService
         $rangeEnd = self::effectiveEndDate($startDate, $endDate);
 
         if ($user->isServiceAccount()) {
-            return ['expected_workdays'=>0,'attendance_days'=>0,'punctual_days'=>0,'attendance_rate'=>0.0,'punctuality_score'=>0.0,'excluded'=>true];
+            return ['expected_workdays' => 0, 'attendance_days' => 0, 'punctual_days' => 0, 'attendance_rate' => 0.0, 'punctuality_score' => 0.0, 'excluded' => true];
         }
         if (! $rangeEnd) {
             return [
@@ -67,18 +67,35 @@ class PerformanceScoringService
         ];
     }
 
+    public static function resetStartsOn(): ?Carbon
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('reporting_archive_batches')) {
+            return null;
+        }
+        foreach (\Illuminate\Support\Facades\DB::table('reporting_archive_batches')->orderByDesc('created_at')->pluck('manifest') as $json) {
+            $data = json_decode($json, true);
+            if (empty($data['restored_at']) && ! empty($data['performance_tracking_starts_on'])) {
+                return Carbon::parse($data['performance_tracking_starts_on'])->startOfDay();
+            }
+        }
+
+        return null;
+    }
+
     public static function trackingStartedAt(): ?Carbon
     {
-        $firstClockIn = Attendance::whereHas('user',fn($q)=>$q->humanAccounts())->whereNotNull('clock_in_at')->min('clock_in_at');
+        $firstClockIn = Attendance::whereHas('user', fn ($q) => $q->humanAccounts())->whereNotNull('clock_in_at')->min('clock_in_at');
 
-        return $firstClockIn ? Carbon::parse($firstClockIn)->startOfDay() : null;
+        return $firstClockIn ? Carbon::parse($firstClockIn)->startOfDay() : self::resetStartsOn();
     }
 
     private static function effectiveEndDate(Carbon $startDate, Carbon $endDate): ?Carbon
     {
         $clock = Carbon::now('Africa/Accra');
         $today = $clock->copy()->startOfDay();
-        if($clock->lt($today->copy()->setTimeFromTimeString(config('company_calendar.clock_in_cutoff','09:00:00'))))$today->subDay();
+        if ($clock->lt($today->copy()->setTimeFromTimeString(config('company_calendar.clock_in_cutoff', '09:00:00')))) {
+            $today->subDay();
+        }
         $effectiveEnd = $endDate->copy()->endOfDay();
 
         if ($effectiveEnd->gt($today->copy()->endOfDay())) {
@@ -95,6 +112,10 @@ class PerformanceScoringService
     private static function expectedWorkdayDates(User $user, Carbon $startDate, Carbon $endDate): array
     {
         $effectiveStart = $startDate->copy()->startOfDay();
+        $reset = self::resetStartsOn();
+        if ($reset && $reset->gt($effectiveStart)) {
+            $effectiveStart = $reset;
+        }
 
         if ($user->start_date && $user->start_date->gt($effectiveStart)) {
             $effectiveStart = $user->start_date->copy()->startOfDay();

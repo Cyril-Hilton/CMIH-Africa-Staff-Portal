@@ -41,3 +41,7 @@ No additional unimplemented feature was identified in the retained audit coverag
 - Live visual verification on 20 November supersedes the earlier 19 November browser limitation for the executive layouts and project journey. Reset and archive browser checks confirm the new empty reporting state and retained account directory.
 
 Supporting audits: `2026-11-19-executive-tracker-coverage.md`, `2026-11-19-request-closure-report.md`, `2026-11-20-department-input-to-tracker-audit.md`, `2026-11-20-executive-project-flow-and-navigation.md`, `2026-11-20-executive-tab-charts.md`, `2026-11-20-reporting-reset-and-exports.md`.
+
+## Subsequent completion and revised archive scope
+
+Peggy supplied the original document again; it is now retained under docs/requirements and was compared fully against the implementation. The vendor, ID-document, damaged-facility, completed-activity/filter and approval-flow gaps found in that audit were fixed. Executive reminders are Live with a verified dedicated hourly portal schedule and same-run notification processing. The user then explicitly extended the archive to attendance and KPI performance history: all 1,292 clock-ins were retained in a separate archive and excluded from scoring. New-cycle eligibility starts on 23 November 2026. This supersedes the earlier statement that attendance remained active. Staff still provide real new business entries; no results were invented. See 2026-11-20-peggy-requirements-completion.md.

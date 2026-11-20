@@ -40,9 +40,12 @@ class HrDashboardWorkspaceTest extends TestCase
             ->assertSee('Show action points')->assertSee('Add Activity')->assertDontSee('Add Administrator Entry');
         $this->get($url.'&hr_owner='.$administrator->id)->assertOk()->assertDontSee('Confidential recruitment follow-up');
         $this->get(route('portal.hr-dashboard.activities.attachment', $entry))->assertOk()->assertDownload('reference.txt');
+        $cvo = User::factory()->create(['status' => 'active', 'position_title' => 'CVO', 'job_level' => 'CVO', 'access_role' => 'staff']);
+        $this->actingAs($cvo)->post(route('portal.hr-dashboard.activities.approve', $entry), ['revision' => 1])->assertSessionHasNoErrors();
+        $this->actingAs($manager);
         unset($data['attachment']);
         $this->patch(route('portal.hr-dashboard.activities.update', $entry), array_replace($data, [
-            'revision' => 1, 'status' => 'Completed',
+            'revision' => 2, 'status' => 'Completed',
         ]))->assertRedirect();
         $this->assertSame('Completed', $entry->fresh()->status);
         $this->actingAs($administrator)->get($url)->assertOk()->assertDontSee('Confidential recruitment follow-up');
@@ -73,7 +76,6 @@ class HrDashboardWorkspaceTest extends TestCase
             ->assertOk()->assertSeeInOrder(['Inspect the office door', 'Order office supplies']);
         $this->get(route('dashboard', $operations + ['hr_sort' => 'assignee', 'hr_status' => 'Completed', 'hr_q' => 'door']))
             ->assertOk()->assertSee('Inspect the office door')->assertDontSee('Order office supplies');
-
 
     }
 }

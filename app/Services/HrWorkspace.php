@@ -19,16 +19,16 @@ class HrWorkspace {
   [$from,$to]=match($period){'month'=>[$anchor->copy()->startOfMonth(),$anchor->copy()->endOfMonth()],'year'=>[$anchor->copy()->startOfYear(),$anchor->copy()->endOfYear()],'range'=>[$anchor,Carbon::parse($v['hr_to']??$request->query('weekly_to')??$anchor)],'fortnight'=>[$anchor->copy()->subWeek()->startOfWeek(),$anchor->copy()->endOfWeek()],default=>[$anchor->copy()->startOfWeek(),$anchor->copy()->endOfWeek()]};
   abort_if($from->diffInDays($to)>731,422,'Choose a date range of no more than two years.');$from=$from->toDateString();$to=$to->toDateString();
   $owner=(int)($v['hr_owner']??0);$team=HrDashboard::team()->get();if($owner&&!$team->contains('id',$owner))$owner=0;
-  $query=HrDashboardActivity::with(['staff:id,name','assignee:id,name'])->whereDate('opened_on','<=',$to)->where(fn($q)=>$q->whereDate('opened_on','>=',$from)->orWhereDate('deadline','>=',$from)->orWhereNotIn('status',['Completed','Cancelled']));
+  $query=HrDashboardActivity::with(['staff:id,name','assignee:id,name'])->whereDate('opened_on','<=',$to)->where(fn($q)=>$q->whereDate('opened_on','>=',$from)->orWhereDate('deadline','>=',$from)->orWhereBetween('completed_at',[$from.' 00:00:00',$to.' 23:59:59'])->orWhereNotIn('status',['Completed','Cancelled']));
   if(!$full)$query->whereIn('staff_id',$registers->staff($u)->pluck('id'))->whereIn('tab',array_keys($tabs));
   if($owner)$query->where(fn($q)=>$q->where('assigned_to',$owner)->orWhere('staff_id',$owner));
   if($tab!=='overview')$query->whereIn('tab',$tab==='facilities'?['facilities','operations']:[$tab]);
-  $allActivities=(clone $query)->get();
-  $summary=['Open activities'=>$allActivities->whereNotIn('status',['Completed','Cancelled'])->count(),'Completed in period'=>$allActivities->where('status','Completed')->filter(fn($a)=>$a->completed_at&&$a->completed_at->toDateString()>=$from&&$a->completed_at->toDateString()<=$to)->count(),'Overdue'=>$allActivities->filter(fn($a)=>$a->isOverdue(min($to,today()->toDateString())))->count()];
   if(!empty($v['hr_q'])){$n='%'.str_replace(['!','%','_'],['!!','!%','!_'],mb_strtolower($v['hr_q'])).'%';$query->where(fn($q)=>$q->whereRaw("LOWER(activity) LIKE ? ESCAPE '!'",[$n])->orWhereRaw("LOWER(remarks) LIKE ? ESCAPE '!'",[$n]));}
   if(($v['hr_status']??'')==='Overdue')$query->whereDate('deadline','<',min($to,today()->toDateString()))->whereNotIn('status',['Completed','Cancelled']);elseif(!empty($v['hr_status']))$query->where('status',$v['hr_status']);
   foreach(['priority'=>'hr_priority','department'=>'hr_department'] as $col=>$key)if(!empty($v[$key]))$query->where($col,$v[$key]);
   if(!empty($v['hr_deadline_from']))$query->whereDate('deadline','>=',$v['hr_deadline_from']);if(!empty($v['hr_deadline_to']))$query->whereDate('deadline','<=',$v['hr_deadline_to']);
+  $allActivities=(clone $query)->get();
+  $summary=['Open activities'=>$allActivities->whereNotIn('status',['Completed','Cancelled'])->count(),'Completed in period'=>$allActivities->where('status','Completed')->filter(fn($a)=>$a->completed_at&&$a->completed_at->toDateString()>=$from&&$a->completed_at->toDateString()<=$to)->count(),'Overdue'=>$allActivities->filter(fn($a)=>$a->isOverdue(min($to,today()->toDateString())))->count()];
   $query->orderBy($v['hr_sort']??'deadline',$v['hr_direction']??'asc')->orderBy('id');
   $activities=$query->paginate(15,['*'],'hr_page')->withQueryString();
   $allExportActivities=(clone $query)->reorder()->orderBy('deadline')->get();

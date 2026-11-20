@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceKpi extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'performance_kpis';
 
     protected $guarded = ['id'];
