@@ -140,6 +140,7 @@ class PerformanceAwardTest extends TestCase
         $this->assertFalse($data['calculated']['incomplete_employees'][0]['score_complete']);
         $this->assertSame($employee->name, $data['calculated']['measured_employees'][0]['label']);
         $this->assertNull($data['calculated']['measured_employees'][0]['score']);
+        $this->assertSame($data['calculated']['incomplete_employees'][0]['task_rate'], $data['calculated']['measured_employees'][0]['task_rate']);
         $this->assertStringContainsString('Performance Rankings', $data['measured_html']);
         $this->getJson('/portal/awards/standings?period=2026-13')->assertUnprocessable();
     }

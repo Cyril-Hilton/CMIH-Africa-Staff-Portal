@@ -234,6 +234,10 @@ class PerformanceAwardController extends Controller
             }
         }
 
+        $cycle = PerformanceScoringService::resetStartsOn();
+        if ($cycle && (today()->lt($cycle) || $endDate->lt($cycle))) {
+            return ['measured_employees'=>[], 'measured_departments'=>[], 'employees'=>[], 'departments'=>[], 'incomplete_employees'=>[], 'incomplete_departments'=>[], 'cycle_starts_on'=>$cycle->toDateString()];
+        }
         // 1. Employees calculations
         $users = User::internalStaff()->where('status', 'active')->get();
         $employeeStandings = [];
@@ -381,7 +385,7 @@ class PerformanceAwardController extends Controller
                 'rank' => $rate === null ? null : $position,
                 'label' => $row['name'] ?? $row['label'],
                 'department' => $row['department'] ?? null,
-                'task_rate' => $rate,
+                'task_rate' => $row['task_rate'],
                 'punctuality' => $row['punctuality'],
                 'attendance_days' => $row['attendance_days'] ?? null,
                 'expected_workdays' => $row['expected_workdays'] ?? null,

@@ -34,6 +34,7 @@
     @endif
 
     @include('portal.partials.dashboard-ux-styles')
+    @if(!$user->canViewExecutiveActivity()&&!$user->isServiceAccount())@include('portal.partials.ranking-attention',['rankingPerson'=>$user->id])@endif
     <div data-dashboard-today>
     @if($executiveActivity !== null)
         @include('portal.executive.workspace')

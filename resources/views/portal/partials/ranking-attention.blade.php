@@ -1,0 +1,12 @@
+@php
+ $rankingFrom=$rankingFrom??now()->startOfMonth();$rankingTo=$rankingTo??now()->endOfMonth();
+ $rankingFlags=app(\App\Services\RankingAttention::class)->forRequest(auth()->user(),$rankingFrom,$rankingTo,$rankingPerson??null,$rankingDepartment??null);
+@endphp
+<section data-ranking-attention-panel id="ranking-attention" class="my-5 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5" aria-label="Ranking attention flags" role="status">
+<h3 class="text-lg font-semibold">{{ auth()->user()->canViewExecutiveActivity()?'Staff ranking attention':'Your ranking attention' }}</h3>
+<p class="mt-2 text-sm text-brand-ash">Live checks · {{ $rankingFrom->format('d M Y') }}–{{ $rankingTo->format('d M Y') }}. These flags cannot be dismissed; they clear when the source records are corrected or completed. Recorded lateness remains an outcome unless the original record is corrected. Approved leave and non-working days are excluded from missing clock-ins.</p>
+@if($cycle=\App\Services\PerformanceScoringService::resetStartsOn())<p class="mt-2 text-sm">Fresh performance cycle: {{ $cycle->format('d M Y') }}. Earlier history is archived; cleared days do not create absence penalties.</p>@endif
+@forelse($rankingFlags as $row)<article class="mt-4 border-t border-amber-400/20 pt-3"><h4 class="font-semibold">{{ $row['person']->name }} · {{ \App\Models\User::departmentLabel($row['person']->department) }} <span class="text-sm text-amber-300">{{ $row['preparing']?'Setup needed before cycle starts':'Provisional · attention needed' }}</span></h4><ul class="mt-2 space-y-2 text-sm">@foreach($row['issues'] as $issue)<li data-ranking-issue="{{ $issue['code'] }}">{{ $issue['message'] }}<span class="block text-xs text-brand-ash">Responsible: {{ $issue['responsible'] }}</span></li>@endforeach</ul></article>@empty<p class="mt-3 text-sm">No ranking issues found in this selection. Future dates, approved absence and periods without eligible workdays do not create missing-attendance flags.</p>@endforelse
+</section>
+
+@include('portal.partials.ranking-attention-refresh')

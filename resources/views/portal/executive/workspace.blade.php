@@ -23,6 +23,8 @@
  <label>Source<select name="exec_scope">@foreach(['all'=>'All sources','work'=>'Work & deadlines','activity'=>'Reported activity','meetings'=>'Meetings & transport','availability'=>'Availability','attendance'=>'Recorded attendance'] as $key=>$label)<option value="{{ $key }}" @selected(($f['exec_scope']??'all')===$key)>{{ $label }}</option>@endforeach</select></label><button class="primary">Apply filters</button><a class="button" href="{{ $execUrl(['exec_activation'=>null,'exec_brief'=>null,'exec_project'=>null,'exec_person'=>null,'exec_department'=>null,'exec_q'=>null,'exec_scope'=>'all']) }}">Clear selection</a>
  </form>
  <p class="report-note">{{ $from->format('d M Y') }} – {{ $to->format('d M Y') }} · Live source records. Missing plans receive no readiness credit; reported progress and independently verified delivery remain distinct.</p>
+ @php($rankingAttention=app(\App\Services\RankingAttention::class)->forRequest(auth()->user(),$from,$to,!empty($f['exec_person'])?(int)$f['exec_person']:null,$f['exec_department']??null))
+ <div data-ranking-attention-indicator>@if($rankingAttention->isNotEmpty())<a class="report-note" role="status" href="{{ preg_replace('/#.*$/','',$execUrl(['exec_view'=>'accountability'])) }}#ranking-attention">Ranking attention · {{ $rankingAttention->count() }} staff member(s) with unresolved setup, review or outcome flags →</a>@endif</div>
  @if($view!=='reports')
  @include('portal.executive.tab-chart',['chartSpec'=>app(\App\Services\ExecutiveTabCharts::class)->forTab($command)])
  @endif
@@ -32,3 +34,5 @@
  @include('portal.executive.'.$view)
  @endif
 </section>
+
+@include('portal.partials.ranking-attention-refresh')

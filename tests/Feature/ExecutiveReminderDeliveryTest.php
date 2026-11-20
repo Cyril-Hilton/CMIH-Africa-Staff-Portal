@@ -26,9 +26,9 @@ class ExecutiveReminderDeliveryTest extends TestCase
         $this->assertSame(1, $service->run());
         $this->assertSame(0, $service->run());
         $this->assertSame(0, PerformanceOutbox::where('user_id', $outsider->id)->count());
-        $this->assertStringContainsString('Confidential case marker', PerformanceOutbox::where('user_id', $hr->id)->sole()->message);
+        $this->assertStringContainsString('Confidential case marker', PerformanceOutbox::where('user_id', $hr->id)->where('title','like','%deadline digest')->sole()->message);
         $this->artisan('executive:reminders')->assertExitCode(0);
-        $this->assertNotNull(PerformanceOutbox::where('user_id', $hr->id)->sole()->fresh()->dashboard_at);
+        $this->assertNotNull(PerformanceOutbox::where('user_id', $hr->id)->where('title','like','%deadline digest')->sole()->fresh()->dashboard_at);
         $this->assertDatabaseCount('executive_reminder_logs', 1);
     }
 

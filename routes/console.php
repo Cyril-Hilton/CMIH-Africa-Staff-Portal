@@ -343,6 +343,7 @@ Artisan::command('creative:reminders', function () { $this->info('Creative alert
 
 Artisan::command('executive:reminders', function () {
     $this->info('Executive commitments queued: '.app(\App\Services\ExecutiveReminders::class)->run());
+    $this->info('Ranking attention checked: '.app(\App\Services\RankingAttention::class)->notify());
     $this->info('Notification records processed: '.app(\App\Services\PerformanceAutomation::class)->deliver());
 });
 \Illuminate\Support\Facades\Schedule::command('executive:reminders')->hourly()->timezone('Africa/Accra')->withoutOverlapping();
