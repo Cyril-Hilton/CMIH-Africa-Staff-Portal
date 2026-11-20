@@ -8,7 +8,7 @@
 @include('portal.executive.styles')
 @include('portal.executive.chart-styles')
 <section id="executive-command" class="exec" data-no-silent aria-label="Executive command centre">
- <div class="top"><div><p class="eyebrow">CMIH Africa / Executive command centre</p><h2>Every project. Connected.</h2><p class="muted">Ownership, commitments and delivery across the organisation.</p></div><a class="button" href="{{ route('portal.project-journey') }}">Open relationship tracker ↗</a></div>
+ <div class="top"><div><p class="eyebrow">CMIH Africa / Executive command centre</p><h2>Every project. Connected.</h2><p class="muted">Ownership, commitments and delivery across the organisation.</p></div><div><a class="button" href="{{ route('portal.executive.export',array_merge($f,['exec_view'=>$view,'exec_period'=>$period,'exec_date'=>$anchor->toDateString(),'activity_section'=>request('activity_section')])) }}">Export Excel / PDF ↗</a> <a class="button" href="{{ route('portal.project-journey') }}">Open relationship tracker ↗</a></div></div>
  <nav aria-label="Executive dashboard views">@foreach(config('executive_tracker.tabs') as $key=>$label)<a href="{{ $execUrl(['exec_view'=>$key]) }}" @if($view===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
  <form method="get" action="{{ route('dashboard') }}#executive-command" class="filters">
  @if(!empty($f['exec_activation']))<input type="hidden" name="exec_activation" value="{{ $f['exec_activation'] }}">@endif

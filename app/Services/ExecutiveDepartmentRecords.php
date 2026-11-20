@@ -2,13 +2,39 @@
 
 namespace App\Services;
 
-use App\Models\{Asset, AssetLog, AssetWarehouseRequest, Campaign, CreativeRequest, CrmAccountAllocation, CrmAccountRelationship, CrmAccountTarget, CrmClientRecord, CrmFinancialRegister, CrmPipelineProject, FleetRequest, HrDashboardActivity, LeaveApplication, OperationsHandover, PerformanceRegister, PettyCashClaim, PosmLedger, SalaryAdvance, SupplierInvoice, User, WarehouseAssetSuggestion, WeeklyConsolidatedItem};
+use App\Models\Asset;
+use App\Models\AssetLog;
+use App\Models\AssetWarehouseRequest;
+use App\Models\Campaign;
+use App\Models\CreativeRequest;
+use App\Models\CrmAccountAllocation;
+use App\Models\CrmAccountRelationship;
+use App\Models\CrmAccountTarget;
+use App\Models\CrmClientRecord;
+use App\Models\CrmFinancialRegister;
+use App\Models\CrmPipelineProject;
+use App\Models\FleetRequest;
+use App\Models\HrDashboardActivity;
+use App\Models\LeaveApplication;
+use App\Models\OperationsHandover;
+use App\Models\PerformanceRegister;
+use App\Models\PettyCashClaim;
+use App\Models\PosmLedger;
+use App\Models\SalaryAdvance;
+use App\Models\SupplierInvoice;
+use App\Models\User;
+use App\Models\WarehouseAssetSuggestion;
+use App\Models\WeeklyConsolidatedItem;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ExecutiveDepartmentRecords
 {
+    private bool $exporting = false;
+
+    private array $exportSources = [];
+
     public const SECTIONS = [
         'operations_projects' => ['activations' => 'Activations', 'projects' => 'Projects & Handovers', 'assets' => 'Assets & POSM', 'follow_up' => 'Vendors, Risks & Follow-up', 'weekly' => 'Weekly Reports'],
         'client_relations' => ['pipeline' => 'Projects & Pipeline', 'accounts' => 'Accounts', 'revenue' => 'Revenue & Gaps', 'follow_up' => 'Client Follow-up', 'weekly' => 'Weekly Reports'],
@@ -19,19 +45,21 @@ class ExecutiveDepartmentRecords
         'executive' => ['weekly' => 'Weekly Reports'],
     ];
 
-    public function build(Request $request, string $department, ?int $staff, ?string $section): array
+    public function build(Request $request, string $department, ?int $staff, ?string $section, bool $exporting = false): array
     {
+        $this->exporting = $exporting;
+        $this->exportSources = [];
         $viewer = $request->user();
         abort_unless($viewer->canViewExecutiveActivity(), 403);
         $private = $viewer->isCvoOrSuperAdmin() || $viewer->canAuditHrAndFinance();
         $sections = self::SECTIONS[$department] ?? [];
-        if (!$private && in_array($department, ['finance', 'hr_admin'], true)) {
+        if (! $private && in_array($department, ['finance', 'hr_admin'], true)) {
             $sections = [];
         }
-        if (!$private && $department === 'client_relations') {
+        if (! $private && $department === 'client_relations') {
             unset($sections['accounts'], $sections['revenue'], $sections['follow_up']);
         }
-        if (!$sections) {
+        if (! $sections) {
             return ['sections' => [], 'section' => null, 'groups' => []];
         }
 
@@ -54,7 +82,20 @@ class ExecutiveDepartmentRecords
             'registers' => $this->registers($department, $from, $to, $staff, $private),
             default => $this->weekly($department, $from, $to, $staff),
         };
-        if($department==='hr_admin'&&$section==='registers'&&$private)$groups[]=$this->hrLiveRegisters($viewer,$staff);
+        if ($department === 'hr_admin' && $section === 'registers' && $private) {
+            $groups[] = $this->hrLiveRegisters($viewer, $staff);
+            if (! $staff) {
+                $groups[] = $this->vendorRecords($viewer);
+            }
+        }
+        if ($exporting) {
+            foreach ($groups as &$group) {
+                $sources = $this->exportSources[spl_object_id($group['rows'])] ?? [];
+                $group['rows']->through(fn ($row, $index) => $row + ['_source' => $sources[$index] ?? []]);
+            }
+        }
+        unset($group);
+
         return compact('sections', 'section', 'groups');
     }
 
@@ -67,6 +108,20 @@ class ExecutiveDepartmentRecords
 
     private function paginate(string $key, Builder $query)
     {
+        if ($this->exporting) {
+            $models = $query->orderByDesc($query->getModel()->qualifyColumn('id'))->get();
+            $page = new \Illuminate\Pagination\LengthAwarePaginator($models, $models->count(), max(1, $models->count()));
+            $this->exportSources[spl_object_id($page)] = $models->map(function ($model) {
+                $data = $model->data ?? [];
+                $activation = ! empty($data['activation_id']) ? PerformanceRegister::find((int) $data['activation_id']) : null;
+                $activationProject = $activation?->data['crm_project_id'] ?? $activation?->data['_crm_project_id'] ?? null;
+
+                return ['key' => $model->getTable().':'.$model->getKey(), 'people' => array_values(array_filter(array_merge([$model->owner_id, $model->user_id, $model->assigned_to, $model->staff_id, $model->lead_staff_id, $model->assignee_id, $model->requester_id, $model->created_by, $model->updated_by, $model->submitted_by], $data['collaborator_ids'] ?? [], $model->supporting_staff_ids ?? []))), 'projects' => array_values(array_filter([$model instanceof CrmPipelineProject ? (int) $model->id : null, $model->crm_project_id, $model instanceof OperationsHandover ? $model->project_id : null, $data['crm_project_id'] ?? $data['_crm_project_id'] ?? null, $activationProject, $model instanceof CreativeRequest && $model->parent_request_id ? -1000000000 - (int) $model->parent_request_id : null, $model instanceof PerformanceRegister && $model->kind === 'activation' ? -(int) $model->id : null, $model instanceof CreativeRequest ? -1000000000 - (int) $model->id : null, ! empty($data['activation_id']) ? -(int) $data['activation_id'] : null]))];
+            })->values()->all();
+
+            return $page;
+        }
+
         return $query->orderByDesc($query->getModel()->qualifyColumn('id'))
             ->paginate(8, ['*'], 'exec_'.$key.'_page')
             ->withPath(route('dashboard', [], false))->withQueryString()->fragment('executive-source-reports');
@@ -126,7 +181,7 @@ class ExecutiveDepartmentRecords
             $date = $data['starts_on'] ?? $record->period_start->toDateString();
             $keys = array_filter([self::nameKey($data['brand'] ?? ''), self::nameKey($record->client)]);
             $relationshipOwners = $relationships->filter(fn ($r) => in_array(self::nameKey($r->client_name), $keys, true)
-                && (!$r->starts_on || $r->starts_on->toDateString() <= $date) && (!$r->ends_on || $r->ends_on->toDateString() >= $date))
+                && (! $r->starts_on || $r->starts_on->toDateString() <= $date) && (! $r->ends_on || $r->ends_on->toDateString() >= $date))
                 ->map(fn ($r) => $r->owner?->name)->filter()->unique()->values();
             $matchingProjects = $accountProjects->filter(fn ($p) => $p->week_start?->toDateString() <= $date
                 && (in_array(self::nameKey($p->brand), $keys, true) || in_array(self::nameKey($p->client_name), $keys, true)));
@@ -136,7 +191,7 @@ class ExecutiveDepartmentRecords
                     ->map(fn ($p) => $p->owner?->name)->filter()->unique()->values();
             }
             $linked = $movements->filter(fn ($m) => (int) $m->operations_activation_id === $record->id
-                || ($campaignId && !$m->operations_activation_id && (int) $m->campaign_id === $campaignId))
+                || ($campaignId && ! $m->operations_activation_id && (int) $m->campaign_id === $campaignId))
                 ->map(fn ($m) => $this->movement($m))->values()->all();
             foreach ($approvedAssets->get($record->id, collect()) as $suggestion) {
                 if ($suggestion->asset) {
@@ -154,17 +209,18 @@ class ExecutiveDepartmentRecords
             }
             foreach ($related as $item) {
                 $activationId = (int) ($item->data['activation_id'] ?? 0);
-                if ($activationId === $record->id || ($campaignId && !$activationId && (int) ($item->data['campaign_id'] ?? 0) === $campaignId)) {
+                if ($activationId === $record->id || ($campaignId && ! $activationId && (int) ($item->data['campaign_id'] ?? 0) === $campaignId)) {
                     $linked[] = $this->row($item->title, null, Str::headline($item->kind),
                         $this->labelFields(array_intersect_key($item->data ?? [], OperationsReporting::fields($item->kind, $private))));
                 }
             }
+
             return $this->row($record->title, empty($data['import_no_owner']) ? $people->get($record->owner_id) : ($data['source_project_lead'] ?? null), Str::headline($record->status), [
                 'Client' => $record->client, 'Project' => $record->project, 'Brand' => $data['brand'] ?? null,
                 'Supporting staff' => collect($data['collaborator_ids'] ?? [])->map(fn ($id) => $people->get($id))->filter()->implode(', '),
                 'Client Relations project' => $crmProject?->project_name,
                 'Client Relations owner' => $crmProject?->owner?->name ?? $data['client_service'] ?? ($relationshipOwners->count() === 1 ? $relationshipOwners->first() : null),
-                'Possible account owners' => (!$crmProject && empty($data['client_service']) && $relationshipOwners->count() > 1) ? $relationshipOwners->implode(', ') : null,
+                'Possible account owners' => (! $crmProject && empty($data['client_service']) && $relationshipOwners->count() > 1) ? $relationshipOwners->implode(', ') : null,
                 'Location' => $data['location'] ?? null, 'Outlet' => $data['outlet'] ?? null,
                 'Starts' => $data['starts_on'] ?? null, 'Ends' => $data['ends_on'] ?? null,
                 'Target' => $planned, 'Actual' => $actual, 'Measure' => $data['target_measure'] ?? null,
@@ -202,6 +258,7 @@ class ExecutiveDepartmentRecords
                 ->orWhereBetween('issued_at', [$from.' 00:00:00', $to.' 23:59:59'])->orWhereBetween('returned_at', [$from.' 00:00:00', $to.' 23:59:59']))->when($staff, fn ($q) => $q->where('requested_by', $staff));
         $inventory = Asset::with('assignee:id,name')->where('is_warehouse_tracked', true)
             ->when($staff, fn ($q) => $q->where('assigned_to', $staff));
+
         return [
             $this->page('Warehouse inventory · current snapshot', 'inventory', $inventory, fn ($a) => $this->row($a->name, $a->assignee?->name, $a->status, [
                 'Asset tag' => $a->asset_tag, 'Warehouse' => $a->warehouse_location, 'Available units' => $a->warehouse_quantity, 'Procured units' => $a->quantity_procured,
@@ -250,6 +307,7 @@ class ExecutiveDepartmentRecords
             return [$projectRows];
         }
         $targets = $owned(CrmAccountTarget::query())->whereDate('period_start', '<=', $to)->whereDate('period_end', '>=', $from);
+
         return [
             $this->page('Account targets and progress', 'targets', $targets, fn ($r) => $this->row($r->client_name, $r->owner?->name, $r->needs_reconciliation ? 'Needs reconciliation' : Str::headline($r->revenue_state), ['From' => $r->period_start, 'To' => $r->period_end] + $this->revenue($r))),
             $projectRows,
@@ -260,6 +318,7 @@ class ExecutiveDepartmentRecords
     private function revenue(CrmPipelineProject|CrmAccountTarget $row): array
     {
         $confirmed = $row->confirmedRevenue();
+
         return [
             'Target (GH₵)' => $row->target_amount, 'Reported (GH₵)' => $row->actual_amount,
             'Confirmed (GH₵)' => $confirmed, 'Revenue status' => Str::headline($row->revenue_state ?? 'Unrecorded'),
@@ -274,6 +333,7 @@ class ExecutiveDepartmentRecords
                 ->orWhere(fn ($work) => $work->whereDate('planned_start', '<=', $to)->whereDate('internal_eta', '>=', $from)))
             ->when($staff, fn ($q) => $q->where(fn ($who) => $who->where('assignee_id', $staff)->orWhere('requester_id', $staff)
                 ->orWhere(fn ($support) => $support->withSupportingStaff($staff))));
+
         return [$this->page('Creative briefs', 'briefs', $briefs, fn ($r) => $this->row($r->title, $r->assignee?->name, Str::headline($r->stage), [
             'Requested by' => $r->requester?->name, 'Planned start' => $r->planned_start, 'Internal ETA' => $r->internal_eta,
             'Requested deadline' => $r->requested_deadline, 'Completed' => $r->completed_at,
@@ -290,6 +350,7 @@ class ExecutiveDepartmentRecords
             ->when($staff, fn ($q) => $q->where('created_by', $staff));
         $advances = SalaryAdvance::with('user:id,name')->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)
             ->when($staff, fn ($q) => $q->where('user_id', $staff));
+
         return [
             $this->page('Expense claims', 'claims', $claims, fn ($r) => $this->row($r->description ?: 'Expense claim', $r->user?->name, $r->status, [
                 'Amount' => $r->currency.' '.$r->amount, 'Submitted' => $r->created_at,
@@ -312,6 +373,7 @@ class ExecutiveDepartmentRecords
             ->when($staff, fn ($q) => $q->where('user_id', $staff));
         $appraisals = \App\Models\Appraisal::with('employee:id,name')->whereDate('created_at', '<=', $to)->whereDate('created_at', '>=', $from)
             ->when($staff, fn ($q) => $q->where('user_id', $staff));
+
         return [
             $this->page('Leave requests', 'leaves', $leaves, fn ($r) => $this->row(Str::headline($r->leave_type).' leave', $r->user?->name, Str::headline($r->status), [
                 'Starts' => $r->start_date, 'Ends' => $r->end_date,
@@ -327,6 +389,7 @@ class ExecutiveDepartmentRecords
         $fleet = FleetRequest::with('user:id,name')->whereBetween('requested_date', [$from, $to])->when($staff, fn ($q) => $q->where('user_id', $staff));
         $assets = Asset::with('assignee:id,name')->where(fn ($q) => $q->where('is_warehouse_tracked', false)->orWhereNull('is_warehouse_tracked'))
             ->when($staff, fn ($q) => $q->where('assigned_to', $staff));
+
         return [
             $this->page('Fleet requests', 'fleet', $fleet, fn ($r) => $this->row($r->optionLabel(), $r->user?->name, Str::headline($r->status), [
                 'Requested date' => $r->requested_date, 'Destination' => $r->destination, 'Purpose' => $r->purpose,
@@ -337,42 +400,69 @@ class ExecutiveDepartmentRecords
         ];
     }
 
-    private function hrLiveRegisters(User $viewer,?int $staff): array
+    private function hrLiveRegisters(User $viewer, ?int $staff): array
     {
-        $service=app(HrLiveRegisters::class);
-        $q=\App\Models\HrRegisterRecord::query()->when($staff,fn($q)=>$q->where(fn($q)=>$q->where('created_by',$staff)->orWhere('updated_by',$staff)))->latest('updated_at');
-        return $this->page('HR live registers · current snapshot','hr_live_registers',$q,function($r)use($viewer,$service){
-            $schema=$service->schema($r->kind);$fields=[];foreach($schema['fields']??[] as $key=>$f)$fields[$f['label']]=$service->value($r->data[$key]??null,$f,$viewer);
-            return $this->row($r->label,User::find($r->updated_by??$r->created_by)?->name,$schema['label']??$r->kind,$fields,url:route('portal.hr-workspace',['hr_tab'=>$schema['tab']??'overview','hr_record_q'=>$r->label]));
+        $service = app(HrLiveRegisters::class);
+        $q = \App\Models\HrRegisterRecord::query()->when($staff, fn ($q) => $q->where(fn ($q) => $q->where('created_by', $staff)->orWhere('updated_by', $staff)))->latest('updated_at');
+
+        return $this->page('HR live registers · current snapshot', 'hr_live_registers', $q, function ($r) use ($viewer, $service) {
+            $schema = $service->schema($r->kind);
+            $fields = [];
+            foreach ($schema['fields'] ?? [] as $key => $f) {
+                $fields[$f['label']] = $service->value($r->data[$key] ?? null, $f, $viewer);
+            }
+
+            return $this->row($r->label, User::find($r->updated_by ?? $r->created_by)?->name, $schema['label'] ?? $r->kind, $fields, url: route('portal.hr-workspace', ['hr_tab' => $schema['tab'] ?? 'overview', 'hr_record_q' => $r->label]));
         });
+    }
+
+    private function vendorRecords(User $viewer): array
+    {
+        $service = app(HrLiveRegisters::class);
+        $schema = $service->schema('vendor');
+        $rows = $service->records('vendor', $viewer)->map(function ($row) use ($schema, $service, $viewer) {
+            $fields = [];
+            foreach ($schema['fields'] as $key => $field) {
+                $fields[$field['label']] = $service->value($row['data'][$key] ?? null, $field, $viewer);
+            }
+
+            return $this->row($row['label'], null, $row['data']['state'] ?? 'Status setup needed', $fields + ['Source' => $row['source'] ?? 'Shared vendor register']) + ['_source' => ['key' => 'vendor:'.$row['id'], 'people' => [], 'projects' => []]];
+        });
+        $page = $this->exporting ? 1 : max(1, request()->integer('exec_vendors_page', 1));
+        $size = $this->exporting ? max(1, $rows->count()) : 8;
+
+        return ['label' => 'Shared vendor register · current snapshot', 'rows' => new \Illuminate\Pagination\LengthAwarePaginator($rows->forPage($page, $size)->values(), $rows->count(), $size, $page, ['path' => route('dashboard'), 'pageName' => 'exec_vendors_page', 'query' => request()->query()])];
     }
 
     private function hrActivities(string $from, string $to, ?int $staff): array
     {
         $rows = HrDashboardActivity::with(['staff:id,name', 'assignee:id,name'])
             ->whereDate('opened_on', '<=', $to)->where(fn ($q) => $q->whereDate('opened_on', '>=', $from)
-                ->orWhereDate('deadline', '>=', $from)->orWhereNotIn('status', ['Completed', 'Cancelled']))
+            ->orWhereDate('deadline', '>=', $from)->orWhereNotIn('status', ['Completed', 'Cancelled']))
             ->when($staff, fn ($q) => $q->where(fn ($who) => $who->where('assigned_to', $staff)->orWhere('staff_id', $staff)));
-        return [$this->page('HR & Admin activities', 'hr', $rows, fn ($r) => $this->row($r->activity, $r->assignee?->name, $r->status.($r->isOverdue(min($to,today()->toDateString()))?' · Overdue':''), [
-            'Category' => $r->category, 'Staff member' => $r->staff?->name, 'Opened' => $r->opened_on, 'Deadline' => $r->deadline, 'Remarks' => $r->remarks,'Completed at'=>$r->completed_at,'Priority'=>$r->priority,
-        ],url:route('portal.hr-dashboard.activities.show',$r)))];
+
+        return [$this->page('HR & Admin activities', 'hr', $rows, fn ($r) => $this->row($r->activity, $r->assignee?->name, $r->status.($r->isOverdue(min($to, today()->toDateString())) ? ' · Overdue' : ''), [
+            'Category' => $r->category, 'Staff member' => $r->staff?->name, 'Opened' => $r->opened_on, 'Deadline' => $r->deadline, 'Remarks' => $r->remarks, 'Completed at' => $r->completed_at, 'Priority' => $r->priority,
+        ], url: route('portal.hr-dashboard.activities.show', $r)))];
     }
 
     private function registers(string $department, string $from, string $to, ?int $staff, bool $private, array $kinds = []): array
     {
-        $query = $this->reportQuery($department, $from, $to, $staff, !$private || in_array($department, ['operations_projects', 'brands_marketing'], true))
+        $query = $this->reportQuery($department, $from, $to, $staff, ! $private || in_array($department, ['operations_projects', 'brands_marketing'], true))
             ->when($kinds, fn ($q) => $q->whereIn('kind', $kinds))->latest('period_start');
         if ($department === 'hr_admin') {
-            $query->orWhere(fn ($q) => $q->whereIn('id', $this->reportQuery('admin_drivers', $from, $to, $staff, !$private)->select('id')));
+            $query->orWhere(fn ($q) => $q->whereIn('id', $this->reportQuery('admin_drivers', $from, $to, $staff, ! $private)->select('id')));
         }
         $rows = $this->paginate('registers', $query);
         $people = User::whereIn('id', $rows->pluck('owner_id'))->pluck('name', 'id');
+
         return [['label' => 'Department source records', 'rows' => $rows->through(function ($r) use ($people, $private, $department) {
             $fields = $department === 'operations_projects' ? OperationsReporting::fields($r->kind, $private) : config('department_reporting.'.$r->department.'.'.$r->kind, []);
             if ($department === 'brands_marketing') {
                 $fields += config('brands_dashboard.schemas.'.$r->kind, []);
                 unset($fields['collaborators']);
             }
+
             return $this->row($r->title, empty($r->data['import_no_owner']) ? $people->get($r->owner_id) : ($r->data['source_project_lead'] ?? null), Str::headline($r->status),
                 ['Category' => Str::headline($r->kind), 'Client' => $r->client, 'Project' => $r->project, 'Reporting week' => $r->period_start, 'Reference' => $r->reference] + $this->labelFields(array_intersect_key($r->data ?? [], $fields)));
         })]];
@@ -385,6 +475,7 @@ class ExecutiveDepartmentRecords
             ->where(fn ($q) => $q->whereNull('report_status')->orWhereNotIn('report_status', ['draft', 'submitted', 'returned']))->whereBetween('week_start', [$from, $to])
             ->when($staff, fn ($q) => $q->where(fn ($who) => $who->where('lead_staff_id', $staff)
                 ->orWhereJsonContains('supporting_staff_ids', $staff)->orWhereJsonContains('supporting_staff_ids', (string) $staff)))->latest('week_start');
+
         return [$this->page('Weekly source reports', 'weekly', $rows, fn ($r) => $this->row($r->campaign_name ?: 'Weekly update', $r->leadStaff?->name, $r->status, [
             'Client' => $r->client_name, 'Week starts' => $r->week_start, 'Deliverables' => $r->deliverables,
         ]))];

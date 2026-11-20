@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Schema;
 /** Executive planning reads live sources; controls add missing facts, never parallel task/stock ledgers. */
 class ExecutiveCommandCentre
 {
-    public function build(Request $r): array
+    public function build(Request $r, array $export = []): array
     {
         abort_unless($r->user()->canViewExecutiveActivity(), 403);
         $f = $r->validate(['exec_view' => 'nullable|in:'.implode(',', array_keys(config('executive_tracker.tabs'))), 'exec_period' => 'nullable|in:day,week,month,year', 'exec_date' => 'nullable|date_format:Y-m-d', 'exec_department' => 'nullable|string|max:60', 'exec_person' => 'nullable|integer|exists:users,id', 'exec_project' => 'nullable|integer|exists:crm_pipeline_projects,id', 'exec_activation' => 'nullable|integer|exists:performance_registers,id', 'exec_brief' => 'nullable|integer|exists:creative_requests,id', 'exec_q' => 'nullable|string|max:150', 'exec_calendar' => 'nullable|in:week,month,year,agenda', 'exec_scope' => 'nullable|in:all,work,activity,meetings,availability,attendance', 'exec_attention' => 'nullable|boolean']);
@@ -40,6 +40,9 @@ class ExecutiveCommandCentre
         $to = match ($period) {
             'day' => $anchor->copy()->endOfDay(),'week' => $from->copy()->endOfWeek(),'year' => $from->copy()->endOfYear(),default => $from->copy()->endOfMonth()
         };
+        if (! empty($export['window'])) {
+            [$from, $to] = $export['window'];
+        }
         $staff = User::internalStaff()->orderBy('name')->get(['id', 'name', 'department', 'status', 'job_title', 'line_manager_id', 'profile_photo_path', 'work_email', 'email', 'phone']);
         $names = $staff->keyBy('id');
         $stock = \App\Models\Asset::where('is_warehouse_tracked', true)->with('assignee:id,name', 'lastHandler:id,name')->orderBy('name')->get(['id', 'name', 'asset_tag', 'warehouse_quantity', 'warehouse_location', 'condition', 'status', 'assigned_to', 'last_handled_by', 'last_handled_at']);
@@ -226,7 +229,7 @@ class ExecutiveCommandCentre
         foreach (FleetRequest::where('status', 'approved')->whereBetween('requested_date', [$from, $to])->get() as $fleet) {
             $add('fleet:'.$fleet->id, 'fleet', 'Fleet · '.$fleet->optionLabel(), $fleet->requested_date->format('Y-m-d').' '.($fleet->requested_time ?? '00:00'), null, $fleet->user_id, null, $fleet->status, route('portal.fleet-requests'), ['Transport' => $fleet->optionLabel(), 'Passengers' => $fleet->passengers]);
         }
-        if (($f['exec_scope'] ?? 'all') === 'attendance') {
+        if (($f['exec_scope'] ?? 'all') === 'attendance' || ! empty($export['attendance'])) {
             foreach (Attendance::whereBetween('clock_in_at', [$from, $to])->get() as $a) {
                 $add('attendance:'.$a->id, 'attendance', 'Recorded attendance', $a->clock_in_at, $a->clock_out_at, $a->user_id, null, 'recorded', route('dashboard'), ['Clock-in' => $a->clock_in_at?->format('d M Y H:i'), 'Clock-out' => $a->clock_out_at?->format('d M Y H:i'), 'Status' => $a->status]);
             }
@@ -235,9 +238,18 @@ class ExecutiveCommandCentre
         foreach ($availability->filter(fn ($w) => str_starts_with($w['key'], 'passout:')) as $window) {
             $add($window['key'], 'absence', $window['label'], $window['start'], $window['end'], $window['user_id'], null, 'approved', route('portal.leaves'), ['Availability' => 'Approved afternoon release; reasons remain private']);
         }
-        $events = $events->filter(fn ($e) => $e['start']->lte($to) && $e['end']->gte($from))->filter(function ($e) use ($f, $names, $projectRows) {
+        $events = $events->filter(fn ($e) => $e['start']->lte($to) && $e['end']->gte($from))->filter(function ($e) use ($f, $names, $projectRows, $export) {
             $person = $names->get($e['owner']);
             $department = User::normalizeDepartmentKey($person?->department ?? '');
+            if (! empty($export['people']) && ! array_intersect($export['people'], array_merge([$e['owner']], $e['support']))) {
+                return false;
+            }
+            if (! empty($export['departments']) && ! in_array($department, $export['departments'], true)) {
+                return false;
+            }
+            if (! empty($export['projects']) && ! in_array($e['project_id'], $export['projects'], true)) {
+                return false;
+            }
             if (! empty($f['exec_person']) && (int) $f['exec_person'] !== $e['owner'] && ! in_array((int) $f['exec_person'], $e['support'], true)) {
                 return false;
             }if (! empty($f['exec_department']) && $department !== $f['exec_department']) {
@@ -251,7 +263,7 @@ class ExecutiveCommandCentre
             }
 
             return match ($f['exec_scope'] ?? 'all') {
-                'work' => ! in_array($e['kind'], ['absence', 'meeting', 'fleet', 'attendance', 'activity']),'activity' => $e['kind'] === 'activity','meetings' => in_array($e['kind'], ['meeting', 'fleet']),'availability' => $e['kind'] === 'absence','attendance' => $e['kind'] === 'attendance',default => $e['kind'] !== 'attendance'
+                'work' => ! in_array($e['kind'], ['absence', 'meeting', 'fleet', 'attendance', 'activity']),'activity' => $e['kind'] === 'activity','meetings' => in_array($e['kind'], ['meeting', 'fleet']),'availability' => $e['kind'] === 'absence','attendance' => $e['kind'] === 'attendance',default => ! empty($export['attendance']) || $e['kind'] !== 'attendance'
             };
         })->map(function ($e) use ($names, $projectRows, $availability) {
             $availabilityOwner = (int) ($e['meta']['_availability_user_id'] ?? $e['owner']);
@@ -317,6 +329,35 @@ class ExecutiveCommandCentre
             }
         }
         $activeProjects = $projectRows->filter(fn ($x) => $x['events']->isNotEmpty() || (! empty($f['exec_project']) && in_array((int) $f['exec_project'], $x['ids'])) || (! empty($f['exec_activation']) && ($x['source_kind'] ?? null) === 'activation' && $x['native_id'] == $f['exec_activation']) || (! empty($f['exec_brief']) && ($x['source_kind'] ?? null) === 'creative' && $x['native_id'] == $f['exec_brief']) || ($x['project']->week_start->betweenIncluded($from, $to) && empty($f['exec_person']) && empty($f['exec_department']) && empty($f['exec_q']) && empty($f['exec_activation']) && empty($f['exec_brief'])));
+        if ($export) {
+            $activeProjects = $activeProjects->filter(function ($row) use ($export, $names) {
+                if (! empty($export['projects']) && ! in_array($row['project']->id, $export['projects'], true)) {
+                    return false;
+                }
+                if (! empty($export['people']) && ! $row['events']->count() && ! in_array($row['project']->owner_id, $export['people'], true)) {
+                    return false;
+                }
+                if (! empty($export['departments']) && ! $row['events']->count() && ! in_array(User::normalizeDepartmentKey($names->get($row['project']->owner_id)?->department ?? ''), $export['departments'], true)) {
+                    return false;
+                }
+
+                return true;
+            });
+        }
+        if ($export) {
+            $selectedPeople = $export['people'] ?? [];
+            if (! $selectedPeople && ! empty($f['exec_person'])) {
+                $selectedPeople = [(int) $f['exec_person']];
+            }
+            $selectedDepartments = $export['departments'] ?? [];
+            if (! $selectedDepartments && ! empty($f['exec_department'])) {
+                $selectedDepartments = [$f['exec_department']];
+            }
+            $resourceMatch = fn ($row) => $activeProjects->has($row['project']->id) && (! $selectedPeople || array_intersect($selectedPeople, array_filter([$row['owner_id'] ?? null, $row['staff_id'] ?? null]))) && (! $selectedDepartments || in_array(User::normalizeDepartmentKey($row['person']?->department ?? ''), $selectedDepartments, true));
+            $resourceRows = $resourceRows->filter($resourceMatch)->values();
+            $assetRows = $assetRows->filter($resourceMatch)->values();
+            $clashes = $clashes->filter(fn ($clash) => $resourceMatch($clash['a']) && $resourceMatch($clash['b']))->values();
+        }
         foreach ($activeProjects as $id => $row) {
             $row['open_events'] = $row['events']->where('done', false)->reject(fn ($e) => in_array($e['kind'], ['activity', 'absence', 'attendance', 'meeting']));
             $row['next'] = $row['open_events']->sortBy('end')->first();
@@ -330,18 +371,19 @@ class ExecutiveCommandCentre
         }
         $warehousing = AssetWarehouseRequest::with('asset:id,name', 'custodian:id,name', 'requester:id,name')->where(fn ($q) => $q->whereIn('crm_project_id', $activeProjects->flatMap(fn ($p) => $p['ids']))->orWhereIn('operations_activation_id', $activationMap->filter(fn ($projectId) => $activeProjects->has($projectId))->keys()))->latest()->get();
         $campaignIds = $nativeActivations->filter(fn ($a) => $activeProjects->has($activationMap->get($a->id)))->pluck('data.campaign_id')->filter()->unique();
-        $movementLogs = \App\Models\AssetLog::with('asset:id,name', 'user:id,name')->whereIn('campaign_id', $campaignIds)->whereBetween('created_at', [$from, $to])->latest()->limit(100)->get();
-        $posmMovements = \App\Models\PosmLedger::with('creator:id,name', 'asset:id,name')->whereIn('campaign_id', $campaignIds)->where(fn ($q) => $q->whereBetween('occurred_on', [$from->toDateString(), $to->toDateString()])->orWhere(fn ($d) => $d->whereNull('occurred_on')->whereBetween('created_at', [$from, $to])))->latest()->limit(100)->get();
+        $movementLogs = \App\Models\AssetLog::with('asset:id,name', 'user:id,name')->whereIn('campaign_id', $campaignIds)->whereBetween('created_at', [$from, $to])->latest()->when(! $export, fn ($q) => $q->limit(100))->get();
+        $posmMovements = \App\Models\PosmLedger::with('creator:id,name', 'asset:id,name')->whereIn('campaign_id', $campaignIds)->where(fn ($q) => $q->whereBetween('occurred_on', [$from->toDateString(), $to->toDateString()])->orWhere(fn ($d) => $d->whereNull('occurred_on')->whereBetween('created_at', [$from, $to])))->latest()->when(! $export, fn ($q) => $q->limit(100))->get();
         $linkedFinance = app(LinkedProjectDependencies::class)->finance($activeProjects, $briefs, $handovers, $idMap, $r->user());
         $controlIds = $activeProjects->pluck('control.id')->filter();
         $projectIds = $activeProjects->flatMap(fn ($p) => $p['ids']);
         $briefIds = $briefs->filter(fn ($b) => $projectIds->contains($b->crm_project_id))->flatMap(fn ($b) => collect([$b->id])->merge($b->parts->pluck('id')));
         $handoverIds = $handovers->whereIn('project_id', $projectIds)->pluck('id');
-        $history = PerformanceEvent::with('actor:id,name')->whereBetween('created_at', [$from, $to])->where(fn ($q) => $q->where(fn ($x) => $x->where('entity_type', 'project_control')->whereIn('entity_id', $controlIds))->orWhere(fn ($x) => $x->where('entity_type', 'crm_project')->whereIn('entity_id', $projectIds))->orWhere(fn ($x) => $x->where('entity_type', 'creative_request')->whereIn('entity_id', $briefIds))->orWhere(fn ($x) => $x->where('entity_type', 'operations_handover')->whereIn('entity_id', $handoverIds)))->latest('id')->paginate(20, ['*'], 'exec_history_page')->withQueryString();
+        $historyQuery = PerformanceEvent::with('actor:id,name')->whereBetween('created_at', [$from, $to])->where(fn ($q) => $q->where(fn ($x) => $x->where('entity_type', 'project_control')->whereIn('entity_id', $controlIds))->orWhere(fn ($x) => $x->where('entity_type', 'crm_project')->whereIn('entity_id', $projectIds))->orWhere(fn ($x) => $x->where('entity_type', 'creative_request')->whereIn('entity_id', $briefIds))->orWhere(fn ($x) => $x->where('entity_type', 'operations_handover')->whereIn('entity_id', $handoverIds)))->latest('id');
+        $history = $export ? new \Illuminate\Pagination\LengthAwarePaginator($allHistory = $historyQuery->get(), $allHistory->count(), max(1, $allHistory->count())) : $historyQuery->paginate(20, ['*'], 'exec_history_page')->withQueryString();
         $holidays = \App\Models\HrRegisterRecord::where('kind', 'holiday')->get()->filter(fn ($h) => ! empty($h->data['date']) && $h->data['date'] >= $from->toDateString() && $h->data['date'] <= $to->toDateString())->groupBy(fn ($h) => $h->data['date']);
         $days = [];
         $cursor = $from->copy();
-        while ($cursor->lte($to)) {
+        while (! $export && $cursor->lte($to)) {
             $days[] = $cursor->copy();
             $cursor->addDay();
         }
