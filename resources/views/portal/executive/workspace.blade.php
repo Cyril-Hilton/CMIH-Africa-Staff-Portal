@@ -6,6 +6,7 @@
  $formatDate=fn($date)=>$date?\Illuminate\Support\Carbon::parse($date)->format('d M Y, H:i'):'Date setup needed';
 @endphp
 @include('portal.executive.styles')
+@include('portal.executive.chart-styles')
 <section id="executive-command" class="exec" data-no-silent aria-label="Executive command centre">
  <div class="top"><div><p class="eyebrow">CMIH Africa / Executive command centre</p><h2>Every project. Connected.</h2><p class="muted">Ownership, commitments and delivery across the organisation.</p></div><a class="button" href="{{ route('portal.project-journey') }}">Open relationship tracker ↗</a></div>
  <nav aria-label="Executive dashboard views">@foreach(config('executive_tracker.tabs') as $key=>$label)<a href="{{ $execUrl(['exec_view'=>$key]) }}" @if($view===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
@@ -22,6 +23,9 @@
  <label>Source<select name="exec_scope">@foreach(['all'=>'All sources','work'=>'Work & deadlines','activity'=>'Reported activity','meetings'=>'Meetings & transport','availability'=>'Availability','attendance'=>'Recorded attendance'] as $key=>$label)<option value="{{ $key }}" @selected(($f['exec_scope']??'all')===$key)>{{ $label }}</option>@endforeach</select></label><button class="primary">Apply filters</button><a class="button" href="{{ $execUrl(['exec_activation'=>null,'exec_brief'=>null,'exec_project'=>null,'exec_person'=>null,'exec_department'=>null,'exec_q'=>null,'exec_scope'=>'all']) }}">Clear selection</a>
  </form>
  <p class="report-note">{{ $from->format('d M Y') }} – {{ $to->format('d M Y') }} · Live source records. Missing plans receive no readiness credit; reported progress and independently verified delivery remain distinct.</p>
+ @if($view!=='reports')
+ @include('portal.executive.tab-chart',['chartSpec'=>app(\App\Services\ExecutiveTabCharts::class)->forTab($command)])
+ @endif
  @if($view==='reports')
  @include('portal.executive.reports')
  @else

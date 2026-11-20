@@ -3,6 +3,7 @@
  $sourceRequest=request()->duplicate();$sourceRequest->query->set('weekly_from',$from->toDateString());$sourceRequest->query->set('weekly_to',$to->toDateString());
  $sourceReports=app(\App\Services\ExecutiveDepartmentRecords::class)->build($sourceRequest,$sourceDepartment,empty($f['exec_person'])?null:(int)$f['exec_person'],request('activity_section'));
 @endphp
+@include('portal.executive.tab-chart',['chartSpec'=>app(\App\Services\ExecutiveTabCharts::class)->forTab($command,$sourceReports)])
 <div class="panel" aria-label="Department source reports"><div class="between"><div><h3>Department source reports</h3><p class="muted">Original published records, related assets and follow-up. Department staff and date filters apply.</p></div><a class="button" href="{{ $execUrl(['weekly_department'=>$sourceDepartment,'report_date'=>$anchor->toDateString(),'report_period'=>$period==='day'?'week':$period,'weekly_from'=>$from->toDateString(),'weekly_to'=>$to->toDateString()]) }}#staff-weekly-performance">Open department dashboard ↓</a></div>
 <nav aria-label="Report departments">@foreach(config('performance.departments') as $key=>$label)<a href="{{ $execUrl(['exec_department'=>$key,'activity_department'=>$key,'activity_section'=>null]) }}">{{ $label }}</a>@endforeach</nav>
 <nav aria-label="Source categories">@foreach($sourceReports['sections'] as $key=>$label)<a href="{{ $execUrl(['activity_section'=>$key]) }}" @if($sourceReports['section']===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>

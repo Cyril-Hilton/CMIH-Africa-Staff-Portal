@@ -28,4 +28,4 @@
 @endif
 </div>
 @endif
-<div class="grid">@include('portal.executive.chart',['chartTitle'=>'Process pipeline · next stage by project','chartData'=>$charts['process']]) @include('portal.executive.chart',['chartTitle'=>'Approved original budgets by client · GHS','chartData'=>$charts['approved_budget_client']])</div><p class="muted">Budget amounts use linked approved original records in GHS only. Other currencies are not converted or combined.</p>
+<div class="grid">@include('portal.executive.chart',['chartTitle'=>'Approved original budgets by client · GHS','chartData'=>$charts['approved_budget_client']])</div><p class="muted">Budget amounts use linked approved original records in GHS only. Other currencies are not converted or combined.</p>

@@ -61,7 +61,9 @@ class ExecutiveCommandCentreTest extends TestCase
         $u = $this->executive();
         $p = $this->project($u);
         foreach (array_keys(config('executive_tracker.tabs')) as $view) {
-            $this->actingAs($u)->get(route('dashboard', ['exec_view' => $view, 'exec_project' => $p->id, 'exec_date' => '2026-11-19']))->assertOk();
+            $response = $this->actingAs($u)->get(route('dashboard', ['exec_view' => $view, 'exec_project' => $p->id, 'exec_date' => '2026-11-19']))->assertOk();
+            $response->assertSee('data-executive-top-chart="'.$view.'"', false)->assertSee('View chart data');
+            $this->assertSame(1, substr_count($response->getContent(), 'data-executive-top-chart='));
         }
     }
 
@@ -171,6 +173,6 @@ class ExecutiveCommandCentreTest extends TestCase
         $this->actingAs($other)->get(route('portal.executive.controls.show', $control))->assertForbidden();
         $d = $this->data($u, ['exec_activation' => $a->id]);
         $this->assertSame(1, $d['summary']['staff_gaps']);
-        $this->assertSame(0,$d['summary']['overdue']);
+        $this->assertSame(0, $d['summary']['overdue']);
     }
 }
