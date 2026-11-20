@@ -45,7 +45,7 @@
                                     <p class="text-brand-white/40">{{ $m->email }} | {{ $m->phone }}</p>
                                     <p class="text-brand-white/30 mt-0.5">DOB: {{ \Carbon\Carbon::parse($m->date_of_birth)->format('M d, Y') }} ({{ \Carbon\Carbon::parse($m->date_of_birth)->age }} yrs)</p>
                                 </td>
-                                <form method="POST" action="{{ route('portal.merchandisers-admin.pairings.pair', $m) }}">
+                                <form method="POST" action="{{ route('portal.merchandisers-admin.pair', $m) }}">
                                     @csrf
                                     <td class="py-4 pr-2">
                                         <select name="region_id" required class="rounded bg-brand-black/40 border border-brand-white/10 px-2 py-1 text-brand-white focus:border-amber-500 focus:ring-0 text-xs w-full">
@@ -160,7 +160,7 @@
                             <!-- Inline Remap Edit Form -->
                             <tr id="edit-pairing-{{ $m->id }}" class="hidden bg-brand-white/5">
                                 <td colspan="7" class="p-4 border-b border-brand-white/10">
-                                    <form method="POST" action="{{ route('portal.merchandisers-admin.pairings.pair', $m) }}" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
+                                    <form method="POST" action="{{ route('portal.merchandisers-admin.pair', $m) }}" class="grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
                                         @csrf
                                         <div>
                                             <label class="block text-[10px] text-brand-ash uppercase tracking-wider mb-1">Region</label>

@@ -68,3 +68,7 @@ The Mac browser accepted navigation, but its screenshot/control surface returned
 - Interface logic: 64 tests passed.
 - Executive, source-entry and privacy group: 16 tests / 188 assertions passed after the calendar adjustment. The further dependency check brought the source-connection group to 5 tests / 73 assertions, all passing.
 - Earlier feature releases and data findings are retained under private release audits; no synthetic production business records were created for verification.
+
+## Follow-up on 20 November
+
+The executive Projects view now includes the live departmental journey with nested stages. Standalone Mega Table daily tasks have been excluded from the executive calendar and its project commitments, following the clarified scope. Read-only published-source navigation, filtered return links and cross-route pagination handling were audited and updated. Browser access worked on 20 November: the project journey layout, expansion, live refresh and workflow navigation were inspected successfully. See `2026-11-20-executive-project-flow-and-navigation.md` for the updated checks. Earlier counts above remain the dated 19 November snapshot.

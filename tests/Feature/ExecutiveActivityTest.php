@@ -63,9 +63,8 @@ class ExecutiveActivityTest extends TestCase
 
         $dashboard = $this->actingAs($cvo)->get(route('dashboard', ['exec_view' => 'calendar']))->assertOk();
         foreach ([$shared, $private, $pending, $creative] as $task) {
-            $dashboard->assertSee($task->title);
-            if ($task->id !== $creative->id) {
-                $dashboard->assertSee('/portal/tasks/'.$task->id, false);
+            if ($task->id === $creative->id) {
+                $dashboard->assertSee($task->title);
             }
             $this->get(route('portal.tasks.show', $task))->assertOk()->assertSee($task->title);
         }

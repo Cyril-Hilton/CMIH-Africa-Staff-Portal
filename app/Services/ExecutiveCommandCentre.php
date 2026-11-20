@@ -69,7 +69,7 @@ class ExecutiveCommandCentre
             $p->setRelation('owner', $activation->owner);
             $c = $activationControls->get($activation->id);
             $sourceSchedule = array_filter(['starts_at' => $activation->data['starts_on'] ?? null, 'ends_at' => ! empty($activation->data['ends_on']) ? Carbon::parse($activation->data['ends_on'])->endOfDay()->toIso8601String() : null, 'operations_owner_id' => $activation->owner_id, 'venue' => $activation->data['location'] ?? null, 'state' => $activation->status === 'completed' ? 'completed' : 'planning'], fn ($v) => $v !== null);
-            $projectRows->put($id, ['project' => $p, 'ids' => [], 'source_kind' => 'activation', 'native_id' => $activation->id, 'source_url' => route('dashboard', ['weekly_department' => 'operations_projects', 'ops_tab' => 'activations', 'report_date' => $activation->period_start->toDateString()]), 'control' => $c, 'schedule' => array_merge($sourceSchedule, $c?->data['schedule'] ?? []), 'process' => $c?->data['process'] ?? [], 'compliance' => $c?->data['compliance'] ?? []]);
+            $projectRows->put($id, ['project' => $p, 'ids' => [], 'source_kind' => 'activation', 'native_id' => $activation->id, 'source_url' => route('portal.executive.registers.show', $activation), 'control' => $c, 'schedule' => array_merge($sourceSchedule, $c?->data['schedule'] ?? []), 'process' => $c?->data['process'] ?? [], 'compliance' => $c?->data['compliance'] ?? []]);
         }
         $activationMap = $nativeActivations->mapWithKeys(function ($a) use ($idMap) {
             $linked = $a->data['crm_project_id'] ?? $a->data['_crm_project_id'] ?? null;
@@ -151,9 +151,10 @@ class ExecutiveCommandCentre
             }
         }
         $sourceTasks = $briefs->pluck('task_id')->merge($handovers->pluck('task_id'))->filter();
-        foreach (Task::realWork()->whereNotIn('id', $sourceTasks)->where(fn ($q) => $q->whereBetween('due_on', [$from, $to])->orWhere(fn ($d) => $d->whereNull('due_on')->whereBetween('created_at', [$from, $to])))->with('assignee:id,name,department')->get() as $t) {
+        $projectTaskIds = $projectRows->flatMap(fn ($row) => collect($row['control']?->data['tasks']['rows'] ?? [])->pluck('task_id'))->filter()->unique();
+        foreach (Task::realWork()->whereIn('id', $projectTaskIds)->whereNotIn('id', $sourceTasks)->where(fn ($q) => $q->whereBetween('due_on', [$from, $to])->orWhere(fn ($d) => $d->whereNull('due_on')->whereBetween('created_at', [$from, $to])))->with('assignee:id,name,department')->get() as $t) {
             $title = $t->canBeViewedBy($r->user()) ? $t->title : 'Restricted task';
-            $add('task:'.$t->id, $t->due_on ? 'task' : 'activity', $t->due_on ? $title : 'Task logged - '.$title, $t->due_on ?? $t->created_at, null, $t->assigned_to, $t->custom_fields['executive_control_project_id'] ?? (! empty($t->custom_fields['executive_control_activation_id']) ? -(int) $t->custom_fields['executive_control_activation_id'] : null), $t->isApprovedForPerformance() ? 'verified' : (in_array(strtolower($t->status), ['completed', 'approved', 'paid', 'done']) ? 'awaiting_verification' : $t->status), $t->canBeViewedBy($r->user()) ? route('portal.tasks.show', $t) : null, ['_actual_at' => $t->isApprovedForPerformance() ? ($t->completion_review_requested_at ?? $t->completion_reviewed_at)?->toIso8601String() : null, 'Deadline' => $t->due_on?->format('d M Y H:i') ?? 'Deadline setup needed', 'Entered' => $t->created_at->format('d M Y H:i'), 'Progress' => $t->progress.'%', 'Completion review' => $t->completion_review_status ?? 'Awaiting completion'], $t->supporting_staff_ids ?? []);
+            $add('task:'.$t->id, $t->due_on ? 'task' : 'activity', $t->due_on ? $title : 'Task logged - '.$title, $t->due_on ?? $t->created_at, null, $t->assigned_to, $t->custom_fields['executive_control_project_id'] ?? (! empty($t->custom_fields['executive_control_activation_id']) ? -(int) $t->custom_fields['executive_control_activation_id'] : null), $t->isApprovedForPerformance() ? 'verified' : (in_array(strtolower($t->status), ['completed', 'approved', 'paid', 'done']) ? 'awaiting_verification' : $t->status), $t->canBeViewedBy($r->user()) ? route('portal.tasks.show', ['task' => $t, 'return_to' => '/dashboard?'.http_build_query($r->query()).'#executive-command']) : null, ['_actual_at' => $t->isApprovedForPerformance() ? ($t->completion_review_requested_at ?? $t->completion_reviewed_at)?->toIso8601String() : null, 'Deadline' => $t->due_on?->format('d M Y H:i') ?? 'Deadline setup needed', 'Entered' => $t->created_at->format('d M Y H:i'), 'Progress' => $t->progress.'%', 'Completion review' => $t->completion_review_status ?? 'Awaiting completion'], $t->supporting_staff_ids ?? []);
         }
         foreach (PerformanceRegister::where('department', 'finance')->where('status', '!=', 'cancelled')->whereNotNull('approved_at')->get() as $item) {
             foreach (['due_on', 'expected_on'] as $field) {
@@ -171,7 +172,7 @@ class ExecutiveCommandCentre
             $private = in_array(User::normalizeDepartmentKey($item->department), ['hr_admin']) && ! $r->user()->canAuditHrAndFinance() && ! $r->user()->isCvoOrSuperAdmin();
             $title = $private ? 'HR commitment' : $item->title;
             $pid = $item->data['_crm_project_id'] ?? $item->data['crm_project_id'] ?? ($activationMap->get((int) ($item->data['activation_id'] ?? 0)) ?? ($item->kind === 'activation' && $projectRows->has(-$item->id) ? -$item->id : null));
-            $url = route('dashboard', ['weekly_department' => User::normalizeDepartmentKey($item->department), 'report_date' => $item->period_start->toDateString()]);
+            $url = route('portal.executive.registers.show', ['register' => $item, 'return_to' => '/dashboard?'.http_build_query($r->query()).'#executive-command']);
             $dated = false;
             foreach (['starts_on', 'due_on', 'action_due_on', 'report_due_on', 'expected_on', 'deadline'] as $field) {
                 if (! empty($item->data[$field])) {
@@ -256,7 +257,7 @@ class ExecutiveCommandCentre
                 $event['meta']['Upstream verification state'] = $upstream->pluck('upstream_state')->unique()->implode(' · ');
             }
 
-return $event;
+            return $event;
         });
         $resourceRows = collect();
         $assetRows = collect();
@@ -264,6 +265,9 @@ return $event;
         foreach ($projectRows as $id => $row) {
             $c = $row['control'];
             $row['check'] = $this->compliance($row['compliance']);
+            if ($view === 'projects') {
+                $row['flow'] = app(ExecutiveProjectFlow::class)->build($row, $briefs, $handovers, $nativeActivations, $r->user());
+            }
             $row['chart_key'] = $row['project']->client_name.' / '.$row['project']->project_name.(isset($row['source_kind']) ? ' · '.$row['source_kind'].' #'.$row['native_id'] : '');
             $row['events'] = $events->where('project_id', $id);
             $row['execution_required'] = ($row['source_kind'] ?? null) === 'activation' || ! empty($row['schedule']['activation_type']) || ! empty($row['schedule']['starts_at']) || ($row['project']->team_workflow['operations_required'] ?? null) === true || $handovers->contains(fn ($h) => in_array($h->project_id, $row['ids'])) || $nativeActivations->contains(fn ($a) => in_array($a->data['crm_project_id'] ?? $a->data['_crm_project_id'] ?? 0, $row['ids']));
@@ -391,6 +395,6 @@ return $event;
             }
         }$applicable = $total - $excluded;
 
-        return ['score' => $applicable ? round(100 * $yes / $applicable,1) : 0, 'yes' => $yes, 'applicable' => $applicable, 'excluded' => $excluded, 'outstanding' => $applicable - $yes, 'ready' => $applicable > 0 && $yes === $applicable];
+        return ['score' => $applicable ? round(100 * $yes / $applicable, 1) : 0, 'yes' => $yes, 'applicable' => $applicable, 'excluded' => $excluded, 'outstanding' => $applicable - $yes, 'ready' => $applicable > 0 && $yes === $applicable];
     }
 }

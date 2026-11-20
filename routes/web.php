@@ -227,9 +227,10 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/updates/{update}/edit', [UpdateController::class, 'edit'])->name('updates.edit');
     Route::patch('/updates/{update}', [UpdateController::class, 'update'])->name('updates.update');
 
+    Route::get('/executive/registers/{register}', [\App\Http\Controllers\Portal\ExecutiveSourceController::class, 'show'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('executive.registers.show');
     Route::get('/tasks', [TaskController::class, 'index'])->name('tasks');
     Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
-    Route::get('/tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+    Route::get('/tasks/{task}', [TaskController::class, 'show'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('tasks.show');
     Route::get('/tasks/{task}/edit', [TaskController::class, 'edit'])->name('tasks.edit');
     Route::post('/tasks/{task}/impact', [\App\Http\Controllers\Portal\DeliveryImpactController::class, 'task'])->name('tasks.impact');
     Route::post('/performance/commitments/{item}/impact', [\App\Http\Controllers\Portal\DeliveryImpactController::class, 'commitment'])->name('performance.impact');

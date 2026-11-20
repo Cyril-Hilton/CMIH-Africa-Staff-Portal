@@ -97,7 +97,9 @@ class ExecutionSourceConnectionsTest extends TestCase
         $person = $this->person();
         $executive = $this->person('executive', 'super_admin');
         LeaveApplication::create(['user_id' => $person->id, 'leave_type' => 'annual', 'start_date' => '2026-11-18', 'end_date' => '2026-11-18', 'days' => 1, 'reason' => 'PRIVATE MEDICAL DATA', 'status' => 'approved']);
-        Task::create(['title' => 'Deadline needs coverage', 'assigned_to' => $person->id, 'assigned_by' => $executive->id, 'department' => 'operations_projects', 'status' => 'open', 'due_on' => '2026-11-18']);
+        $coverageTask = Task::create(['title' => 'Deadline needs coverage', 'assigned_to' => $person->id, 'assigned_by' => $executive->id, 'department' => 'operations_projects', 'status' => 'open', 'due_on' => '2026-11-18']);
+        $coverageProject = CrmPipelineProject::create(['owner_id' => $person->id, 'created_by' => $person->id, 'updated_by' => $person->id, 'client_name' => 'Client', 'project_name' => 'Coverage project', 'stage' => 'project_ongoing', 'source_period_confirmed' => true, 'week_start' => '2026-11-16', 'week_end' => '2026-11-22']);
+        ProjectExecutionControl::create(['crm_project_id' => $coverageProject->id, 'created_by' => $executive->id, 'updated_by' => $executive->id, 'data' => ['tasks' => ['rows' => [['task_id' => $coverageTask->id]]]], 'revision' => 1]);
         $d = $this->projection($executive);
         $task = $d['events']->firstWhere('title', 'Deadline needs coverage');
         $this->assertTrue($task['leave_deadline']);
@@ -166,6 +168,6 @@ class ExecutionSourceConnectionsTest extends TestCase
         $this->assertTrue($service->work($viewer, $events)->sole()['blocked']);
         $up->update(['workflow_state' => 'verified']);
         $this->assertFalse($service->work($viewer, $events)->sole()['blocked']);
-        $this->assertDatabaseCount('performance_dependencies',1);
+        $this->assertDatabaseCount('performance_dependencies', 1);
     }
 }

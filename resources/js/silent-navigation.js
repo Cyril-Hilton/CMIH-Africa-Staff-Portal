@@ -1,3 +1,4 @@
+import { isPaginationDestination } from './navigation-link-policy';
 const generatedSelector = '[data-silent-generated], #global-loader';
 const filterParameterPattern = /(^|_)(page|filter|search|sort|direction|status|department|category|type|period|date|from|to|start|end|priority|assignee|range|year|month|week)($|_)/i;
 const activeRequests = new Map();
@@ -37,10 +38,7 @@ const elementAtPath = (root, path) => {
 
 const isPaginationLink = (link) => {
     if (link.closest('[data-mega-pagination], [data-weekly-pagination]')) return false;
-    if (link.closest('nav[aria-label*="pagination" i]')) return true;
-
-    const url = new URL(link.href, window.location.origin);
-    return Array.from(url.searchParams.keys()).some((key) => key === 'page' || key.endsWith('_page'));
+    return isPaginationDestination(link.href, window.location.href, Boolean(link.closest('nav[aria-label*="pagination" i]')));
 };
 
 const isFilterLink = (link) => {

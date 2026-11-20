@@ -6,7 +6,7 @@
  $formatDate=fn($date)=>$date?\Illuminate\Support\Carbon::parse($date)->format('d M Y, H:i'):'Date setup needed';
 @endphp
 @include('portal.executive.styles')
-<section id="executive-command" class="exec" aria-label="Executive command centre">
+<section id="executive-command" class="exec" data-no-silent aria-label="Executive command centre">
  <div class="top"><div><p class="eyebrow">CMIH Africa / Executive command centre</p><h2>Every project. Connected.</h2><p class="muted">Ownership, commitments and delivery across the organisation.</p></div><a class="button" href="{{ route('portal.project-journey') }}">Open relationship tracker ↗</a></div>
  <nav aria-label="Executive dashboard views">@foreach(config('executive_tracker.tabs') as $key=>$label)<a href="{{ $execUrl(['exec_view'=>$key]) }}" @if($view===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
  <form method="get" action="{{ route('dashboard') }}#executive-command" class="filters">

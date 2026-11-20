@@ -2,12 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\{CreativeRequest, CrmPipelineProject, OperationsHandover, PerformanceRegister, User};
+use App\Models\CreativeRequest;
+use App\Models\CrmPipelineProject;
+use App\Models\OperationsHandover;
+use App\Models\PerformanceRegister;
+use App\Models\User;
 use App\Services\Creative\CreativeAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\{Carbon, Collection, Str};
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class ProjectJourney
 {
@@ -27,27 +33,33 @@ class ProjectJourney
 
     public function scopeVisible(Builder $query, User $viewer): Builder
     {
-        if($viewer->canViewExecutiveActivity() || CreativeAccess::lead($viewer) || OperationsHandoverWorkflow::lead($viewer)
-            || (ClientRelationsPipeline::staffMember($viewer)&&$viewer->isLineManager())) return $query;
-        return $query->where(fn($q)=>$q->where('owner_id',$viewer->id)->orWhereJsonContains('supporting_staff_ids',$viewer->id)
-            ->orWhereIn('id',CreativeRequest::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('assignee_id',$viewer->id)->orWhere('reviewer_id',$viewer->id)->orWhere(fn($support)=>$support->withSupportingStaff($viewer->id))->orWhereHas('parts',fn($parts)=>$parts->withParticipant($viewer->id)))->whereNotNull('crm_project_id')->select('crm_project_id'))
-            ->orWhereIn('id',OperationsHandover::where(fn($q)=>$q->where('requester_id',$viewer->id)->orWhere('lead_id',$viewer->id))->select('project_id'))
-            ->orWhereIn('id',\App\Models\ProjectExecutionControl::whereJsonContains('data->participant_ids',$viewer->id)->select('crm_project_id'))
-            ->orWhereIn('id',PerformanceRegister::where('department','finance')->where('owner_id',$viewer->id)->whereNotNull('data->_crm_project_id')->select('data->_crm_project_id'))
-            ->orWhereIn('id',PerformanceRegister::whereIn('department',User::departmentAliases('operations_projects'))->whereNotNull('approved_at')->where('owner_id',$viewer->id)->whereNotNull('data->crm_project_id')->select('data->crm_project_id')));
+        if ($viewer->canViewExecutiveActivity() || CreativeAccess::lead($viewer) || OperationsHandoverWorkflow::lead($viewer)
+            || (ClientRelationsPipeline::staffMember($viewer) && $viewer->isLineManager())) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q->where('owner_id', $viewer->id)->orWhereJsonContains('supporting_staff_ids', $viewer->id)
+            ->orWhereIn('id', CreativeRequest::where(fn ($q) => $q->where('requester_id', $viewer->id)->orWhere('assignee_id', $viewer->id)->orWhere('reviewer_id', $viewer->id)->orWhere(fn ($support) => $support->withSupportingStaff($viewer->id))->orWhereHas('parts', fn ($parts) => $parts->withParticipant($viewer->id)))->whereNotNull('crm_project_id')->select('crm_project_id'))
+            ->orWhereIn('id', OperationsHandover::where(fn ($q) => $q->where('requester_id', $viewer->id)->orWhere('lead_id', $viewer->id))->select('project_id'))
+            ->orWhereIn('id', \App\Models\ProjectExecutionControl::whereJsonContains('data->participant_ids', $viewer->id)->select('crm_project_id'))
+            ->orWhereIn('id', PerformanceRegister::where('department', 'finance')->where('owner_id', $viewer->id)->whereNotNull('data->_crm_project_id')->select('data->_crm_project_id'))
+            ->orWhereIn('id', PerformanceRegister::whereIn('department', User::departmentAliases('operations_projects'))->whereNotNull('approved_at')->where('owner_id', $viewer->id)->whereNotNull('data->crm_project_id')->select('data->crm_project_id')));
     }
 
     public function canLinkAnyProject(User $viewer): bool
     {
-        return CreativeAccess::lead($viewer) || (CreativeAccess::staff($viewer) && User::normalizeDepartmentKey($viewer->department)==='creatives');
+        return CreativeAccess::lead($viewer) || (CreativeAccess::staff($viewer) && User::normalizeDepartmentKey($viewer->department) === 'creatives');
     }
 
     /** Project identity only; commercial/private fields are never returned by the picker. */
     public function linkableProjects(User $viewer): Builder
     {
-        return CrmPipelineProject::where('source_period_confirmed',true)->when(!$this->canLinkAnyProject($viewer),function($q)use($viewer){
-            if(ClientRelationsPipeline::staffMember($viewer))$q->when(!$viewer->isLineManager(),fn($q)=>$q->where('owner_id',$viewer->id));
-            else $q->whereRaw('1 = 0');
+        return CrmPipelineProject::where('source_period_confirmed', true)->when(! $this->canLinkAnyProject($viewer), function ($q) use ($viewer) {
+            if (ClientRelationsPipeline::staffMember($viewer)) {
+                $q->when(! $viewer->isLineManager(), fn ($q) => $q->where('owner_id', $viewer->id));
+            } else {
+                $q->whereRaw('1 = 0');
+            }
         });
     }
 
@@ -79,7 +91,7 @@ class ProjectJourney
         };
         $view = $filters['view'] ?? 'journeys';
         $focus = $filters['project'] ?? null;
-        $projects = $this->scopeVisible(CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed', true),$viewer)
+        $projects = $this->scopeVisible(CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed', true), $viewer)
             ->when($focus, fn ($q) => $q->whereKey($focus), fn ($q) => $this->inPeriod($q, $from, $to, $viewer))
             ->when($filters['q'] ?? null, fn ($q, $term) => $q->where(fn ($search) => $search
                 ->where('client_name', 'like', '%'.$term.'%')->orWhere('project_name', 'like', '%'.$term.'%')->orWhere('brand', 'like', '%'.$term.'%')))
@@ -104,7 +116,7 @@ class ProjectJourney
         $attention = $rows->filter(fn ($row) => $row['needs_attention'])->count();
         $schedule = $upcoming->countBy(fn ($row) => $row['date']->copy()->startOfWeek()->toDateString())->sortKeys();
         $filtered = $view === 'upcoming' ? $upcoming : $rows;
-        if (!empty($filters['stage'])) {
+        if (! empty($filters['stage'])) {
             $filtered = $filtered->where('stage', $filters['stage']);
         }
         $page = max(1, $request->integer('page', 1));
@@ -114,7 +126,7 @@ class ProjectJourney
         ]);
         $linkOptions = $focus && $this->canLink($viewer, $projects->first())
             ? CreativeRequest::visibleTo($viewer)->whereNull('parent_request_id')->whereNull('crm_project_id')
-                ->when(!CreativeAccess::lead($viewer), fn ($q) => $q->where('requester_id', $viewer->id))
+                ->when(! CreativeAccess::lead($viewer), fn ($q) => $q->where('requester_id', $viewer->id))
                 ->latest('id')->limit(100)->get(['id', 'title', 'reference', 'revision'])
             : collect();
 
@@ -131,36 +143,37 @@ class ProjectJourney
             ->orWhereIn('id', OperationsReporting::activations()->whereBetween('period_start', [$from->toDateString(), $to->toDateString()])->select('data->crm_project_id')));
     }
 
-    private function project(CrmPipelineProject $project, Collection $briefs, Collection $handovers, Collection $activations, User $viewer): array
+    public function project(CrmPipelineProject $project, Collection $briefs, Collection $handovers, Collection $activations, User $viewer): array
     {
-        $requirements=$project->team_workflow??[];
-        $skipCreative=($requirements['creative_required']??null)===false && $briefs->isEmpty();
-        $skipOperations=($requirements['operations_required']??null)===false && $handovers->isEmpty() && $activations->isEmpty();
-        $skipped=['client'=>false,'creative'=>$skipCreative,'approval'=>$skipCreative,'handover'=>$skipOperations,'execution'=>$skipOperations,'closeout'=>false];
+        $requirements = $project->team_workflow ?? [];
+        $skipCreative = ($requirements['creative_required'] ?? null) === false && $briefs->isEmpty();
+        $skipOperations = ($requirements['operations_required'] ?? null) === false && $handovers->isEmpty() && $activations->isEmpty();
+        $skipped = ['client' => false, 'creative' => $skipCreative, 'approval' => $skipCreative, 'handover' => $skipOperations, 'execution' => $skipOperations, 'closeout' => false];
         $liveHandovers = $handovers->where('stage', '!=', 'cancelled');
         $liveActivations = $activations->where('status', '!=', 'cancelled');
         $finishedHandovers = $liveHandovers->filter(fn ($h) => $h->stage === 'completed' && $h->verified_at);
-        $signedHandovers = $liveHandovers->filter(fn ($h) => $h->cr_signoff_at && $h->ops_signoff_at);
+        $signedHandovers = $liveHandovers->filter(fn ($h) => $h->cr_signoff_at && $h->ops_signoff_at && $h->handover_approved_at);
         $packages = $briefs->flatMap(fn ($b) => $b->is_group && $b->parts->isNotEmpty() ? $b->parts : [$b]);
-        $packages = $packages->reject(fn ($b) => $b->stage === 'archived' && !$b->completed_at);
+        $packages = $packages->reject(fn ($b) => $b->stage === 'archived' && ! $b->completed_at);
         $signedBriefs = $packages->filter(fn ($b) => in_array($b->stage, ['completed', 'archived'], true) && $b->completed_at);
         $reviewingBriefs = $packages->filter(fn ($b) => in_array($b->stage, ['in_review', 'delivered'], true));
         $submitted = $liveHandovers->filter(fn ($h) => in_array($h->stage, ['awaiting_acceptance', 'accepted', 'completed'], true) && $h->submitted_at);
-        $date = $liveHandovers->pluck('event_at')->filter()->merge($liveActivations->map(fn (PerformanceRegister $r) =>
-            !empty($r->data['starts_on']) ? Carbon::parse($r->data['starts_on']) : null)->filter())->sort()->values();
+        $date = $liveHandovers->pluck('event_at')->filter()->merge($liveActivations->map(fn (PerformanceRegister $r) => ! empty($r->data['starts_on']) ? Carbon::parse($r->data['starts_on']) : null)->filter())->sort()->values();
         $nextEvent = $date->first(fn ($dt) => $dt->gte(today())) ?? $date->last();
         $targetDate = $nextEvent ?? $project->expected_close_date;
-        $finished = ($skipOperations && $project->stage==='project_completed') || $liveHandovers->isNotEmpty() && $finishedHandovers->count() === $liveHandovers->count()
+        $finished = ($skipOperations && $project->stage === 'project_completed') || $liveHandovers->isNotEmpty() && $finishedHandovers->count() === $liveHandovers->count()
             && $liveActivations->every(fn ($record) => $record->status === 'completed');
         $stage = match (true) {
             in_array($project->stage, ['closed_lost', 'cancelled', 'lost'], true) => 'cancelled',
             $finished && $packages->count() === $signedBriefs->count() => 'complete',
-            $skipOperations && ($skipCreative || ($packages->isNotEmpty() && $signedBriefs->count()===$packages->count())) => 'closeout',
+            $skipOperations && ($skipCreative || ($packages->isNotEmpty() && $signedBriefs->count() === $packages->count())) => 'closeout',
             $packages->isNotEmpty() && $signedBriefs->count() !== $packages->count()
                 && $reviewingBriefs->count() + $signedBriefs->count() !== $packages->count() => 'creative',
             $packages->isNotEmpty() && $signedBriefs->count() !== $packages->count() => 'approval',
             $submitted->isNotEmpty() && $submitted->count() === $liveHandovers->count() => 'closeout',
             $signedHandovers->isNotEmpty() => 'execution',
+            $liveActivations->isNotEmpty() && $liveActivations->every(fn ($a) => OperationsReporting::activationExecuted($a)) => 'closeout',
+            $liveActivations->contains(fn ($a) => $a->status === 'in_progress') => 'execution',
             $liveHandovers->isNotEmpty() => 'handover',
             $signedBriefs->isNotEmpty() && $signedBriefs->count() === $packages->count() => 'handover',
             $reviewingBriefs->isNotEmpty() && $reviewingBriefs->count() + $signedBriefs->count() === $packages->count() => 'approval',
@@ -172,10 +185,14 @@ class ProjectJourney
             'creative' => $packages->isNotEmpty() && $reviewingBriefs->count() + $signedBriefs->count() === $packages->count(),
             'approval' => $packages->isNotEmpty() && $signedBriefs->count() === $packages->count(),
             'handover' => $liveHandovers->isNotEmpty() && $signedHandovers->count() === $liveHandovers->count(),
-            'execution' => $liveHandovers->isNotEmpty() && $submitted->count() === $liveHandovers->count(),
+            'execution' => ($liveHandovers->isNotEmpty() && $submitted->count() === $liveHandovers->count()) || ($liveHandovers->isEmpty() && $liveActivations->isNotEmpty() && $liveActivations->every(fn ($a) => OperationsReporting::activationExecuted($a))),
             'closeout' => $stage === 'complete',
         ];
-        foreach($skipped as $key=>$skip) if($skip)$done[$key]=true;
+        foreach ($skipped as $key => $skip) {
+            if ($skip) {
+                $done[$key] = true;
+            }
+        }
         $notes = [
             'client' => $project->week_start?->format('d M Y').' · '.Str::headline($project->stage),
             'creative' => $packages->count().' linked work '.Str::plural('package', $packages->count()),
@@ -184,14 +201,20 @@ class ProjectJourney
             'execution' => $submitted->count().' of '.$liveHandovers->count().' delivery records submitted',
             'closeout' => $finishedHandovers->count().' of '.$liveHandovers->count().' handovers verified',
         ];
-        if($skipOperations)$notes['closeout']=$project->stage==='project_completed'?'Client Relations project completion recorded':'Client Relations final project closeout pending';
-        foreach($skipped as $key=>$skip) if($skip)$notes[$key]='Not required for this project · stage skipped';
-        $needsAttention = !in_array($stage, ['complete','cancelled'], true) && (
+        if ($skipOperations) {
+            $notes['closeout'] = $project->stage === 'project_completed' ? 'Client Relations project completion recorded' : 'Client Relations final project closeout pending';
+        }
+        foreach ($skipped as $key => $skip) {
+            if ($skip) {
+                $notes[$key] = 'Not required for this project · stage skipped';
+            }
+        }
+        $needsAttention = ! in_array($stage, ['complete', 'cancelled'], true) && (
             ($targetDate && $targetDate->lt(today())) || $packages->contains(fn ($item) => filled($item->blocker))
             || $liveActivations->contains(fn ($item) => in_array($item->status, ['blocked', 'on_hold'], true))
         );
 
-        return ['project' => $project, 'stage' => $stage, 'done' => $done, 'skipped'=>$skipped, 'notes' => $notes, 'briefs' => $briefs, 'handovers' => $handovers,
+        return ['project' => $project, 'stage' => $stage, 'done' => $done, 'skipped' => $skipped, 'notes' => $notes, 'briefs' => $briefs, 'handovers' => $handovers,
             'activations' => $activations, 'date' => $targetDate, 'date_label' => $nextEvent ? 'Execution date' : 'Expected close',
             'needs_attention' => $needsAttention, 'can_link' => $this->canLink($viewer, $project),
             'can_unlink' => fn (CreativeRequest $brief) => $this->canLink($viewer, $project)
