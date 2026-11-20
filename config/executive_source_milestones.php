@@ -4,6 +4,7 @@
 return [
     'registers' => [
         'finance' => [
+            'commercial_risk' => ['due_on' => ['actual' => 'resolved_on']],
             '*' => ['due_on' => ['actual' => 'paid_on', 'mode' => 'settlement'], 'expected_on' => ['actual' => 'paid_on', 'mode' => 'settlement']],
         ],
         'operations_projects' => [

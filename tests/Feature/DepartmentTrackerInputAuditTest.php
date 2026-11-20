@@ -81,6 +81,8 @@ class DepartmentTrackerInputAuditTest extends TestCase
         $traffic = $this->person('executive', 'staff');
         $traffic->update(['permissions_matrix' => [User::EXECUTIVE_ACTIVITY_PERMISSION]]);
         $this->assertFalse($this->executive($traffic)['events']->contains('key', $event['key']));
+        $traffic->update(['permissions_matrix' => [User::EXECUTIVE_ACTIVITY_PERMISSION, User::HR_FINANCE_AUDIT_PERMISSION]]);
+        $this->actingAs($traffic->fresh())->get(route('portal.hr-workspace', ['hr_tab' => 'relations']))->assertOk()->assertSee('2026-11-18')->assertSee('PRIVATE CASE CONTENT')->assertDontSee('name="data[resolved_on]"', false);
     }
 
     public function test_finance_paid_late_is_a_dated_outcome_and_part_payment_remains_open(): void
@@ -137,6 +139,7 @@ class DepartmentTrackerInputAuditTest extends TestCase
         $event = $this->executive($exec)['events']->firstWhere('key', 'register:'.$record->id.':required_on');
         $this->assertTrue($event['done']);
         $this->assertTrue($event['late']);
+        $this->actingAs($staff)->get(route('portal.operations', ['ops_tab' => 'execution']))->assertOk()->assertSee('Delivered On')->assertSee('2026-11-19');
     }
 
     public function test_unrelated_edits_do_not_move_a_recorded_sales_stage_date(): void
@@ -151,5 +154,32 @@ class DepartmentTrackerInputAuditTest extends TestCase
         $step = collect($d['projectRows'][$p->id]['flow']['sections']['client']['records'][0]['steps'])->firstWhere('label', 'Project ongoing');
         $this->assertSame('2026-11-17 10:00:00', $step['at']);
         $this->assertSame('Recorded in portal', $step['date_kind']);
+    }
+
+    public function test_finance_entered_credit_date_displays_and_risk_resolution_is_not_a_payment(): void
+    {
+        $u = $this->person('finance');
+        config(['finance_reporting.manager_user_id' => $u->id]);
+        $exec = $this->person('executive', 'super_admin');
+        $payload = ['kind' => 'invoice', 'title' => 'Display submitted credit date', 'reference' => 'DISPLAY-INV', 'owner_id' => $u->id, 'period_start' => '2026-11-01', 'period_end' => '2026-11-30', 'status' => 'paid', 'reason' => 'Record actual settlement', 'data' => ['value' => 100, 'paid_amount' => 50, 'paid_on' => '2026-11-18', 'credited_amount' => 50, 'credited_on' => '2026-11-19', 'due_on' => '2026-11-15']];
+        $this->actingAs($u)->post(route('portal.finance.reporting.save'), $payload)->assertSessionHasNoErrors();
+        $this->get(route('portal.finance', ['finance_tab' => 'invoices', 'finance_period' => 'month', 'finance_date' => '2026-11-20']))->assertOk()->assertSee('Display submitted credit date')->assertSee('Credited On')->assertSee('19 Nov 2026');
+        $risk = $this->register($u, 'finance', 'commercial_risk', ['risk_type' => 'Other', 'due_on' => '2026-11-15', 'resolved_on' => '2026-11-19']);
+        $event = $this->executive($exec)['events']->firstWhere('key', 'finance:'.$risk->id.':due_on');
+        $this->assertTrue($event['done']);
+        $this->assertTrue($event['late']);
+    }
+
+    public function test_brands_submitted_fields_are_available_in_read_details_after_review(): void
+    {
+        $u = $this->person('brands_marketing', 'staff');
+        $hod = $this->person('brands_marketing');
+        $id = $this->actingAs($u)->postJson(route('portal.brands.reports.submit'), ['category' => 'activation', 'title' => 'Display saved brand brief', 'owner_id' => $u->id, 'week' => '2026-11-16', 'data' => ['partner' => 'castel', 'brief_status' => 'closed', 'outcome' => 'won', 'brief_date' => '2026-11-17', 'closed_on' => '2026-11-19', 'remarks' => 'BRANDS-READ-BACK-EVIDENCE']])->assertStatus(202)->json('id');
+        $this->actingAs($hod)->postJson(route('portal.brands.reports.review', $id), ['revision' => 1, 'decision' => 'approve'])->assertOk();
+        $row = PerformanceRegister::sole();
+        $result = $this->actingAs($u)->getJson(route('portal.brands.reports.detail', ['type' => 'register', 'id' => $row->id]))->assertOk()->json();
+        $values = collect($result['display'])->pluck('html')->implode(' ');
+        $this->assertStringContainsString('BRANDS-READ-BACK-EVIDENCE', $values);
+        $this->assertStringContainsString('2026-11-19', $values);
     }
 }

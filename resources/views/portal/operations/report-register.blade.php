@@ -69,6 +69,12 @@
                             @endif
                         @endif
                         @include('portal.operations.report-fields', ['detailFields' => array_intersect_key($data, $safeFields($kind)) + $derived + ['project' => $entry->project, 'source_reference' => $data['import_source'] ?? null, 'duration_as_reported' => $data['duration_as_reported'] ?? null, 'source_serial' => $data['source_serial'] ?? null, 'evidence_link' => $modules && $member ? $entry->evidence_url : null]])
+                        @if($kind==='activation')
+                            @php($sharedExecution=app(\App\Services\ExecutionPlan::class)->forActivation($entry))
+                            @if($sharedExecution && (auth()->user()->canViewExecutiveActivity() || $manager || (int)$entry->owner_id===auth()->id() || in_array(auth()->id(),$sharedExecution->data['participant_ids']??[],true)))
+                                <aside class="my-3 rounded-xl border border-sky-300/30 p-3"><strong>Published execution plan</strong><p class="text-sm">View the entered staffing, schedule, crew, compliance, external assets and task commitments together.</p><a class="ops-button" href="{{ route('portal.executive.controls.show',$sharedExecution) }}">View shared execution commitments ↗</a></aside>
+                            @endif
+                        @endif
                         @if(!empty($data['crm_project_id']) && ($connectedProject=\App\Models\CrmPipelineProject::find($data['crm_project_id'])))
                             <details data-connected-project="{{ route('portal.project-journey.accountability',$connectedProject) }}"><summary class="cursor-pointer text-sm font-semibold">Connected project · teams, dates & accountability</summary><div data-connected-project-content></div></details>
                         @endif

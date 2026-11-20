@@ -89,6 +89,7 @@ class ExecutionSourceConnectionsTest extends TestCase
         $this->assertLessThan(100, $d['activeProjects']->first()['check']['score']);
         $this->actingAs($executive)->get(route('dashboard', ['exec_view' => 'calendar', 'exec_date' => '2026-11-19']))->assertOk()->assertSee('Approved leave')->assertDontSee('PRIVATE REASON FOR ABSENCE');
         $this->actingAs($staff)->get(route('portal.executive.controls.show', $control))->assertOk()->assertSee('Original venue');
+        $this->get(route('portal.operations', ['ops_tab' => 'projects', 'ops_subtab' => 'activation']))->assertOk()->assertSee('View shared execution commitments');
         $this->get(route('portal.operations', ['ops_edit' => $record->id]))->assertOk()->assertSee('name="execution_revision" value="1"', false);
     }
 
