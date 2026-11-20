@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CrmPipelineProject extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use \App\Models\Concerns\ReviewsRevenue;
 
     protected $guarded = ['id'];

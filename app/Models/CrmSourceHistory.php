@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CrmSourceHistory extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'crm_source_history';
 
     public $timestamps = false;

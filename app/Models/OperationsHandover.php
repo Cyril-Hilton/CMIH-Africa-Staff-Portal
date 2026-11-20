@@ -2,6 +2,8 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 class OperationsHandover extends Model {
+    use \App\Models\Concerns\ReportingArchive;
+
  protected $guarded=['id'];
  protected function casts():array{return ['resources'=>'array','attendees'=>'array',...array_fill_keys(['handover_approved_at','execution_due_at','agreed_setup_due_at','agreed_execution_due_at','execution_completed_at','event_at','setup_due_at','acknowledged_at','meeting_scheduled_at','meeting_held_at','cr_signoff_at','ops_signoff_at','submitted_at','accepted_at','verified_at'],'datetime')];}
  public function requester(){return $this->belongsTo(User::class,'requester_id');}

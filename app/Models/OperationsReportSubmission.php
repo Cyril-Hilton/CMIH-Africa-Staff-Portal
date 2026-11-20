@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OperationsReportSubmission extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $guarded = ['id'];
 
     protected function casts(): array

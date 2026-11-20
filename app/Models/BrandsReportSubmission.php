@@ -2,6 +2,8 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 class BrandsReportSubmission extends Model {
+    use \App\Models\Concerns\ReportingArchive;
+
  protected $guarded=['id'];
  protected function casts():array{return ['payload'=>'array','reviewed_at'=>'datetime','revision'=>'integer'];}
  public function submitter(){return $this->belongsTo(User::class,'submitted_by');}

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceDependency extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'performance_dependencies';
 
     protected $guarded = ['id'];

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class HrDashboardActivity extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use \Illuminate\Database\Eloquent\SoftDeletes;
     public const STATUSES = ['Not Started', 'In Progress', 'Pending Approval', 'On Hold', 'Completed', 'Cancelled'];
 

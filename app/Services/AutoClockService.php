@@ -21,6 +21,11 @@ class AutoClockService
             return;
         }
 
+        if (\Illuminate\Support\Facades\Schema::hasTable('reporting_archive_batches')) {
+            $resetAt=\Illuminate\Support\Facades\DB::table('reporting_archive_batches')->latest('created_at')->value('created_at');
+            if ($resetAt && $date->lte(Carbon::parse($resetAt)->startOfDay())) return;
+        }
+
         // 1. Ensure daily task exists
         if (self::isCurtisBarnor($user)) {
             $taskTitle = '3D/4D Product Mockups and Creative Design Development';

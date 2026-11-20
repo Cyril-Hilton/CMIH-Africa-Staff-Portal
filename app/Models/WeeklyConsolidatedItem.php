@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WeeklyConsolidatedItem extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use HasFactory;
 
     protected $attributes = ['workflow_state' => 'legacy', 'revision' => 1, 'risk_level' => 'low', 'measurement_direction' => 'higher'];

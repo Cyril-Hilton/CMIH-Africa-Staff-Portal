@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceOutbox extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'performance_outbox';
 
     protected $guarded = ['id'];

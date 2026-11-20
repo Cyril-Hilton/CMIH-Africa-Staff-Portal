@@ -6,6 +6,7 @@
  $sections=\App\Services\ExecutiveExport::SECTIONS;
 @endphp
 <section class="exec" data-no-silent data-export-builder>
+ @if(auth()->user()->isCvoOrSuperAdmin()||auth()->user()->canAuditHrAndFinance())<a class="button" href="{{ route('portal.reporting-archives') }}">Previous reporting cycles · archive ↗</a>@endif
  <nav aria-label="Breadcrumbs"><a href="{{ route('dashboard') }}">Dashboard</a><a href="{{ $back }}">Executive portal</a><span class="button" aria-current="page">Export data</span></nav>
  <div class="top"><div><p class="eyebrow">Executive portal / Your report, your selection</p><h2>{{ $report?'Review your export':'Build an executive report' }}</h2><p class="muted">Choose the information you need. Export as Excel or a presentation-ready PDF.</p></div><a class="button" href="{{ $back }}">← Back to executive portal</a></div>
  @if($errors->any())<div class="panel danger" role="alert">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif

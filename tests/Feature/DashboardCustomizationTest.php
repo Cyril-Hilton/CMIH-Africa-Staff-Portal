@@ -725,15 +725,15 @@ class DashboardCustomizationTest extends TestCase
         $managerDashboard = $this->actingAs($manager)->get(route('dashboard'));
         $managerDashboard->assertOk();
         $managerDashboard->assertSee('Weekly Department Reports');
-        $managerDashboard->assertSee('Open Market Activations');
-        $managerDashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
+        $managerDashboard->assertDontSee('Open Market Activations');
+        $managerDashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
 
         $staffDashboard = $this->actingAs($staff)->get(route('dashboard', [
             'weekly_department' => 'operations_projects',
         ]));
         $staffDashboard->assertOk();
         $staffDashboard->assertSee('Weekly Department Reports');
-        $staffDashboard->assertSee('Open Market Activations');
+        $staffDashboard->assertDontSee('Open Market Activations');
         $staffDashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $item), false);
         $staffDashboard->assertDontSee('+ Add Activity');
     }
@@ -838,10 +838,10 @@ class DashboardCustomizationTest extends TestCase
         $dashboard->assertSee('The Mega Table');
         $dashboard->assertSee('CVO Visible Mega Task');
         $dashboard->assertSee('Weekly Department Reports');
-        $dashboard->assertSee('CVO Weekly Campaign');
+        $dashboard->assertDontSee('CVO Weekly Campaign');
         $dashboard->assertSee('Add Weekly Update');
-        $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
-        $dashboard->assertSee(route('portal.dashboard.weekly-consolidated.destroy', $weeklyItem), false);
+        $dashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.update', $weeklyItem), false);
+        $dashboard->assertDontSee(route('portal.dashboard.weekly-consolidated.destroy', $weeklyItem), false);
 
         $weeklyCreate = $this->actingAs($cvo)->post(route('portal.dashboard.weekly-consolidated.store'), [
             'department' => 'finance',

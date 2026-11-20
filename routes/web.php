@@ -227,6 +227,8 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::get('/updates/{update}/edit', [UpdateController::class, 'edit'])->name('updates.edit');
     Route::patch('/updates/{update}', [UpdateController::class, 'update'])->name('updates.update');
 
+    Route::get('/reporting-archives', [\App\Http\Controllers\Portal\ReportingArchiveController::class, 'index'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('reporting-archives');
+    Route::get('/reporting-archives/{batch}/{table}/{format}', [\App\Http\Controllers\Portal\ReportingArchiveController::class, 'download'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('reporting-archives.download');
     Route::get('/executive/export', [\App\Http\Controllers\Portal\ExecutiveExportController::class, 'index'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('executive.export');
     Route::post('/executive/export/preview', [\App\Http\Controllers\Portal\ExecutiveExportController::class, 'preview'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('executive.export.preview');
     Route::post('/executive/export/download', [\App\Http\Controllers\Portal\ExecutiveExportController::class, 'download'])->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->name('executive.export.download');

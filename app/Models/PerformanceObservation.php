@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceObservation extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'performance_observations';
 
     protected $guarded = ['id'];

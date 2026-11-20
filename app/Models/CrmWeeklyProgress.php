@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CrmWeeklyProgress extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $table = 'crm_weekly_progress';
 
     protected $guarded = ['id'];

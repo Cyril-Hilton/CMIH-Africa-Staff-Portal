@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class CrmClientRecord extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $guarded = ['id'];
 
     protected $attributes = ['revision' => 1];

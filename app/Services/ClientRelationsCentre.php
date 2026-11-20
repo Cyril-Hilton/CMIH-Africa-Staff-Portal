@@ -51,6 +51,7 @@ class ClientRelationsCentre {
     ->merge($relationships->filter(fn ($row) => $accountMatches($row) && $searchMatches($row->client_name))->pluck('client_name'))
     ->merge($registered->filter($ledgerMatches)->pluck('client_name'));
   }
+  if (empty($f['stage']) && \Illuminate\Support\Facades\Schema::hasTable('crm_account_directory')) $portfolioRecords=$portfolioRecords->merge(\Illuminate\Support\Facades\DB::table('crm_account_directory')->pluck('client_name')->filter(fn($name)=>$searchMatches($name) && (empty($f['client']) || self::key($name)===self::key($f['client']))));
   $names = $portfolioRecords->unique(self::key(...))->sort()->values();
   $portfolioCount = $names->count();
   if (($f['account_scope'] ?? 'engaged') !== 'all') {

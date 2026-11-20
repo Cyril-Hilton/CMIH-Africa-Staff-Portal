@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceDependencyRequest extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     protected $guarded = ['id'];
 
     public function canReview(User $reviewer): bool

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceReportPack extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     public $timestamps = false;
 
     protected $guarded = ['id'];

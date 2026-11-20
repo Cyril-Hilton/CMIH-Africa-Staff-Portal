@@ -5,7 +5,6 @@ $design = [
 'brands_marketing'=>['Brands & Marketing','Brand Insight. Retail Impact.','Brand Analytics, Shopper Marketing & Retail Coordination','#f9a8d4','Brand & Retail Reporting'],
 'hr_admin'=>['HR & Admin','People Make It Happen','People, Workplace & Service Delivery','#c4b5fd','Department Register'],
 ][$key];
-$savedWeeklyCount=\App\Models\WeeklyConsolidatedItem::where('workflow_state','legacy')->whereIn('department',\App\Models\User::departmentAliases($key))->when(request('weekly_from'),fn($q,$date)=>$q->whereDate('week_start','>=',$date))->when(request('weekly_to'),fn($q,$date)=>$q->whereDate('week_start','<=',$date))->count();
 $total=$department['summary']['total']; $verified=$department['summary']['verified'];
 $rate=$total?round(100*$verified/$total):null;
 $needsAttention=collect($department['deliverables'])->where('overdue',true);
@@ -13,7 +12,6 @@ $needsAttention=collect($department['deliverables'])->where('overdue',true);
 
 <div class="dw" data-kind="{{ $key }}" style="--dw:{{ $design[3] }}" x-data="{brandSearch:'',brandStatus:'',section:'{{ request('report_view')==='register'?'register':($key==='hr_admin'?(auth()->user()->hasFullHrAccess()?(request()->has('attendance_period')?'attendance':'weekly'):'people'):($key==='finance'&&request('revenue_view')?'revenue':'weekly')) }}'}">
 <div class="dw-hero"><div><p class="dw-kicker">{{ $design[1] }}</p><h4>{{ $design[0] }}</h4><p class="dw-sub">{{ $design[2] }}</p></div>@if($total)<div class="dw-ring" style="--rate:{{ $rate??0 }}"><div><strong>{{ $rate===null?'—':$rate.'%' }}</strong><small>Verified Delivery</small></div></div>@endif</div>
-@include('portal.partials.weekly-report-summary')
 @if($total || count($department['kpis']))<div class="dw-strip"><div><strong>{{ $total }}</strong><span>Independent Delivery Commitments</span></div><div><strong>{{ $verified }}</strong><span>Verified Deliveries</span></div><div><strong>{{ count($department['kpis']) }}</strong><span>Approved KPI Targets</span></div></div>@endif
 <div class="dw-tabs" role="tablist" aria-label="{{ $design[0] }} Reporting Views">
 @foreach(($key==='hr_admin'?['people'=>'People & Workplace']+(auth()->user()->hasFullHrAccess()?['attendance'=>'Attendance']:[]):[])+['weekly'=>($key==='brands_marketing'?'Weekly Workstreams':'Weekly Updates')]+($key==='operations_projects'?['handover'=>'Plans & Handovers']:[])+($key==='finance'?['revenue'=>'Revenue']:[])+['results'=>'KPI Results','delivery'=>($key==='brands_marketing'?'Team Activity & Delivery':'Delivery & Deadlines'),'register'=>$design[4]] as $view=>$label)<button type="button" role="tab" id="dw-tab-{{ $key }}-{{ $view }}" aria-controls="dw-panel-{{ $key }}-{{ $view }}" :aria-selected="section===@js($view)" @click="section=@js($view)" @keydown.right.prevent="$el.nextElementSibling?.click(); $el.nextElementSibling?.focus()" @keydown.left.prevent="$el.previousElementSibling?.click(); $el.previousElementSibling?.focus()">{{ $label }}</button>@endforeach
@@ -23,7 +21,7 @@ $needsAttention=collect($department['deliverables'])->where('overdue',true);
 @if(in_array($key,['operations_projects','finance','hr_admin']))
 <section role="tabpanel" id="dw-panel-{{ $key }}-weekly" aria-labelledby="dw-tab-{{ $key }}-weekly" x-show="section==='weekly'" @if($key==='hr_admin' && (!auth()->user()->hasFullHrAccess() || request()->has('attendance_period')))style="display:none"@endif>
 @if($key==='operations_projects'&&auth()->user()->canAccessOperationsPrintingRequests())<div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-brand-white/20 p-4"><span class="text-sm">Vendor Printing Requests</span><a class="dw-link" href="{{ route('portal.printing-requests.create') }}">Create request</a><a class="dw-link" href="{{ route('portal.printing-requests.index') }}">Saved requests & PDFs</a></div>@endif
-@include('portal.partials.department-weekly-workstreams')
+
 @include('portal.modules.source-activity',['sourceDepartment'=>$key,'sourceFrom'=>request('weekly_from',now()->startOfWeek()->toDateString()),'sourceTo'=>request('weekly_to',now()->endOfWeek()->toDateString())])
 </section>
 @endif

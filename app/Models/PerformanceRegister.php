@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceRegister extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');

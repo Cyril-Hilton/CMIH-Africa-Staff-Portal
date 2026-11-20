@@ -63,9 +63,9 @@ class AssetWarehouseRequest extends Model
     }
 
     public function custodian():BelongsTo{return $this->belongsTo(User::class,'custodian_id');}
-    public function project():BelongsTo{return $this->belongsTo(CrmPipelineProject::class,'crm_project_id');}
+    public function project():BelongsTo{return $this->belongsTo(CrmPipelineProject::class,'crm_project_id')->withoutGlobalScope('active_reporting');}
     public function handover():BelongsTo{return $this->belongsTo(OperationsHandover::class,'operations_handover_id');}
-    public function report():BelongsTo{return $this->belongsTo(PerformanceRegister::class,'operations_register_id');}
+    public function report():BelongsTo{return $this->belongsTo(PerformanceRegister::class,'operations_register_id')->withoutGlobalScope('active_reporting');}
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
@@ -78,7 +78,7 @@ class AssetWarehouseRequest extends Model
 
     public function operationsActivation(): BelongsTo
     {
-        return $this->belongsTo(PerformanceRegister::class);
+        return $this->belongsTo(PerformanceRegister::class)->withoutGlobalScope('active_reporting');
     }
 
     public function requester(): BelongsTo

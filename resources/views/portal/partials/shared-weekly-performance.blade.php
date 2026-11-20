@@ -25,10 +25,8 @@ Live Creative Workflow & Evidence
 @include('portal.partials.source-performance', ['sourcePerformance'=>$department['source_performance'] ?? null])
 @endif
 @if($key === 'creatives')
-@include('portal.partials.weekly-report-summary')
 @include('portal.creative.workspace',['embedded'=>true])
 @elseif($key === 'client_relations')
-@include('portal.partials.weekly-report-summary')
 @include('portal.client-relations.public-weekly')
 @include('portal.client-relations.kpi-scorecards')
 @elseif($key === 'finance')

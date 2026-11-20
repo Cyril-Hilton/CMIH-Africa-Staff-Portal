@@ -200,7 +200,7 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->actingAs($owner)->get(route('portal.operations', $selection + ['report_period' => 'month']))
             ->assertOk()->assertSee('Private contact marker');
         $this->get(route('dashboard', array_replace($selection, ['ops_tab' => 'weekly', 'report_period' => 'week'])))
-            ->assertOk()->assertSee('Historical workstream marker')->assertSee('Retained weekly content');
+            ->assertOk()->assertDontSee('Historical workstream marker')->assertDontSee('Retained weekly content');
         $this->get(route('dashboard', array_replace($selection, ['report_date' => '2026-11-14'])))
             ->assertOk()->assertDontSee('Historic supplier audit');
     }

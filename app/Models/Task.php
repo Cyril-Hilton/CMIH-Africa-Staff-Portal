@@ -10,6 +10,8 @@ use Illuminate\Support\Carbon;
 
 class Task extends Model
 {
+    use \App\Models\Concerns\ReportingArchive;
+
     use HasFactory;
 
     public const COMPLETED_STATUSES = ['Completed', 'Approved', 'Paid', 'done', 'completed'];
