@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /** Presentation only: charts reuse the same authorized, filtered rows as their tab. */
 class ExecutiveTabCharts
@@ -15,7 +16,7 @@ class ExecutiveTabCharts
         $events = $command['events'];
         $charts = $command['charts'];
         $spec = match ($view) {
-            'overview' => $this->distribution('Portfolio in motion', 'Project & activation records', $charts['stages'], 'Each connected project is counted once. Reported closure remains distinct from verified delivery.', 'donut'),
+            'overview' => $this->distribution('Portfolio in motion', 'Project & activation records', $charts['stages']->mapWithKeys(fn ($count, $state) => [$state === 'Planning / source workflow' ? 'Source workflow · execution stage not recorded' : Str::headline($state) => $count]), 'Each connected project is counted once by execution / source status. An unrecorded execution stage remains separate from planning. Reported closure remains distinct from verified delivery.', 'donut'),
             'projects' => $this->process($projects),
             'calendar' => $this->calendar($command),
             'resources' => $this->distribution('Assets, ready for action', 'Asset checklist & request status', $charts['asset_status'], 'Counts external asset checklist lines and warehouse requests, not stock units. Current warehouse inventory remains in its own table.', 'donut'),

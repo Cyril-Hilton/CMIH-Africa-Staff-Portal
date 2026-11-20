@@ -4,7 +4,7 @@ Reference: Ericka’s Activations Tracker – Updated Draft, Dashboard chart tit
 
 | Tab | Primary chart | Counting rule |
 | --- | --- | --- |
-| Overview | Lifecycle distribution / doughnut | One filtered connected project or independent activation/brief per portfolio record; reported closure is labelled. |
+| Overview | Execution / source-status distribution / doughnut | One filtered connected project or independent activation/brief per portfolio record; reported closure is labelled and an unrecorded execution stage remains separate from recorded planning. |
 | Projects | Brief-to-budget process pipeline / horizontal bars | Execution projects only, once at the next process step lacking the required completion, evidence and status. Direct Creative work does not require activation controls. |
 | Calendar | Planning volume / grouped columns | Work commitments, meetings/transport and approved absences; one count on the first visible day. Reporting activity and attendance are excluded. Year view uses chronological monthly buckets; other periods use daily buckets, retaining zeros. |
 | Resources & Assets | Asset status / doughnut | External asset checklist lines and original warehouse requests, not stock units. No second inventory total is created. |
@@ -21,4 +21,6 @@ Charts read the authorized tab projection. They do not change KPI scoring, revie
 - Focused chart and executive workflow checks: 15 tests, 122 assertions passed.
 - Full application suite: 872 tests, 8,019 assertions passed.
 - Compiled Blade views successfully.
-- Production and browser verification recorded below after completion.
+- Production rendered exactly one top chart in each of the seven tabs for Super Admin, CVO and Traffic profiles, including full-year records. Existing monthly role checks also passed.
+- Browser review confirmed the full-width overview doughnut, calendar column and weekly ownership-bar layouts, legends, totals, date context and position above tab details. Opened the ownership chart data table live and checked its values against the plotted rows. Verified the department selector now displays “All departments”.
+- Final label and filter cleanup checks: 16 tests, 125 assertions passed. Empty staff-department values no longer create a second empty selector option that masks “All departments”.

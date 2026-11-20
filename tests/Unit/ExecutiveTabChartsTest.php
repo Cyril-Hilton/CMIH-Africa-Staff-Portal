@@ -92,4 +92,14 @@ class ExecutiveTabChartsTest extends TestCase
             $this->assertSame('executive-chart-'.$tab, $chart['id']);
         }
     }
+
+    public function test_unknown_execution_stage_is_not_presented_as_recorded_planning(): void
+    {
+        $command = $this->command('overview');
+        $command['charts']['stages'] = collect(['Planning / source workflow' => 7, 'planning' => 3]);
+        $chart = app(ExecutiveTabCharts::class)->forTab($command);
+        $this->assertSame(10, $chart['total']);
+        $this->assertSame('Source workflow · execution stage not recorded', $chart['rows'][0]['label']);
+        $this->assertSame('Planning', $chart['rows'][1]['label']);
+    }
 }
