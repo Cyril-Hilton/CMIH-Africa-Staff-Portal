@@ -156,16 +156,10 @@ class ExecutiveCommandCentre
             $title = $t->canBeViewedBy($r->user()) ? $t->title : 'Restricted task';
             $add('task:'.$t->id, $t->due_on ? 'task' : 'activity', $t->due_on ? $title : 'Task logged - '.$title, $t->due_on ?? $t->created_at, null, $t->assigned_to, $t->custom_fields['executive_control_project_id'] ?? (! empty($t->custom_fields['executive_control_activation_id']) ? -(int) $t->custom_fields['executive_control_activation_id'] : null), $t->isApprovedForPerformance() ? 'verified' : (in_array(strtolower($t->status), ['completed', 'approved', 'paid', 'done']) ? 'awaiting_verification' : $t->status), $t->canBeViewedBy($r->user()) ? route('portal.tasks.show', ['task' => $t, 'return_to' => '/dashboard?'.http_build_query($r->query()).'#executive-command']) : null, ['_actual_at' => $t->isApprovedForPerformance() ? ($t->completion_review_requested_at ?? $t->completion_reviewed_at)?->toIso8601String() : null, 'Deadline' => $t->due_on?->format('d M Y H:i') ?? 'Deadline setup needed', 'Entered' => $t->created_at->format('d M Y H:i'), 'Progress' => $t->progress.'%', 'Completion review' => $t->completion_review_status ?? 'Awaiting completion'], $t->supporting_staff_ids ?? []);
         }
+        $milestones = app(ExecutiveSourceMilestones::class);
         foreach (PerformanceRegister::where('department', 'finance')->where('status', '!=', 'cancelled')->whereNotNull('approved_at')->get() as $item) {
-            foreach (['due_on', 'expected_on'] as $field) {
-                if (! empty($item->data[$field])) {
-                    if ($item->kind === 'activation' && $field === 'starts_on' && $projectRows->has(-$item->id)) {
-                        $dated = true;
-
-                        continue;
-                    }
-                    $add('finance:'.$item->id.':'.$field, 'finance', FinanceDashboard::canRead($r->user()) ? $item->title : 'Finance commitment', $item->data[$field], null, $item->owner_id, $item->data['_crm_project_id'] ?? null, $item->status, route('portal.finance', ['finance_tab' => collect(FinanceDashboard::GROUPS)->search(fn ($v) => in_array($item->kind, $v)) ?: 'overview']), ['Category' => ucwords(str_replace('_', ' ', $item->kind))]);
-                }
+            foreach ($milestones->register($item) as $field => $milestone) {
+                $add('finance:'.$item->id.':'.$field, 'finance', FinanceDashboard::canRead($r->user()) ? $item->title : 'Finance commitment', $milestone['due'], null, $item->owner_id, $item->data['_crm_project_id'] ?? null, $milestone['state'], route('portal.finance', ['finance_tab' => collect(FinanceDashboard::GROUPS)->search(fn ($v) => in_array($item->kind, $v)) ?: 'overview']), ['_actual_at' => $milestone['actual'], 'Actual outcome date' => $milestone['actual'], 'Date source' => 'Entered in Finance form', 'Published in portal' => $item->approved_at?->format('d M Y H:i'), 'Category' => ucwords(str_replace('_', ' ', $item->kind))]);
             }
         }
         foreach (PerformanceRegister::where('department', '!=', 'finance')->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->whereDate('period_start', '<=', $to)->whereDate('period_end', '>=', $from)->get() as $item) {
@@ -174,7 +168,15 @@ class ExecutiveCommandCentre
             $pid = $item->data['_crm_project_id'] ?? $item->data['crm_project_id'] ?? ($activationMap->get((int) ($item->data['activation_id'] ?? 0)) ?? ($item->kind === 'activation' && $projectRows->has(-$item->id) ? -$item->id : null));
             $url = route('portal.executive.registers.show', ['register' => $item, 'return_to' => '/dashboard?'.http_build_query($r->query()).'#executive-command']);
             $dated = false;
+            $mapped = $milestones->register($item);
+            foreach ($mapped as $field => $milestone) {
+                $dated = true;
+                $add('register:'.$item->id.':'.$field, 'department', $title.' · '.ucwords(str_replace('_', ' ', $field)), $milestone['due'], null, $item->owner_id, $pid, $milestone['state'], $private ? null : $url, ['_actual_at' => $milestone['actual'], 'Actual outcome date' => $milestone['actual'], 'Date source' => 'Entered in department form', 'Published in portal' => $item->approved_at?->format('d M Y H:i')], $item->data['collaborator_ids'] ?? []);
+            }
             foreach (['starts_on', 'due_on', 'action_due_on', 'report_due_on', 'expected_on', 'deadline'] as $field) {
+                if (isset($mapped[$field])) {
+                    continue;
+                }
                 if (! empty($item->data[$field])) {
                     if ($item->kind === 'activation' && $field === 'starts_on' && $projectRows->has(-$item->id)) {
                         $dated = true;
@@ -188,6 +190,16 @@ class ExecutiveCommandCentre
                 $add('register:'.$item->id, 'activity', 'Reporting period · '.$title, $item->period_start, $item->period_end?->endOfDay(), $item->owner_id, $pid, $item->status, $url, ['Source' => 'Approved departmental register · not a deadline'], $item->data['collaborator_ids'] ?? []);
             }
         }
+        foreach (\App\Models\HrRegisterRecord::all() as $record) {
+            $schema = app(HrLiveRegisters::class)->schema($record->kind);
+            $canRead = $r->user()->isCvoOrSuperAdmin() || $r->user()->canAuditHrAndFinance();
+            if (! $canRead) {
+                continue;
+            }
+            foreach ($milestones->hr($record->kind, $record->data ?? []) as $field => $milestone) {
+                $add('hrregister:'.$record->id.':'.$field, 'department', $canRead ? ($schema['label'] ?? 'HR register').' · '.$record->label : 'Restricted HR commitment', $milestone['due'], null, $record->data['responsible_id'] ?? $record->created_by, null, $milestone['state'], $canRead ? route('portal.hr-workspace', ['hr_tab' => $schema['tab'] ?? 'people', 'hr_record_q' => $record->label]) : null, ['_actual_at' => $milestone['actual'], 'Actual outcome date' => $milestone['actual'], 'Date source' => 'Entered in HR register', 'Source recorded in portal' => $record->created_at?->format('d M Y H:i')]);
+            }
+        }
         foreach (\App\Models\HrDashboardActivity::whereNotNull('deadline')->whereBetween('deadline', [$from->toDateString(), $to->toDateString()])->get() as $activity) {
             $private = ! $r->user()->isCvoOrSuperAdmin() && ! $r->user()->canAuditHrAndFinance();
             $add('hractivity:'.$activity->id, 'department', $private ? 'Restricted HR commitment' : $activity->activity, $activity->deadline, null, $activity->assigned_to, null, strtolower($activity->status), route('portal.hr-workspace'), ['_actual_at' => $activity->completed_at?->toIso8601String(), 'Source' => 'HR activity · private remarks excluded'], $activity->supporting_staff_ids ?? []);
@@ -198,6 +210,10 @@ class ExecutiveCommandCentre
         foreach (WeeklyConsolidatedItem::with('leadStaff:id,name')->whereIn('workflow_state', ['legacy', 'approved', 'verified', 'closed'])->where(fn ($q) => $q->whereNull('report_status')->orWhereNotIn('report_status', ['draft', 'submitted', 'returned']))->where('department', '!=', 'creatives')->whereDate('week_start', '<=', $to)->whereDate('week_end', '>=', $from)->get() as $w) {
             $restricted = in_array(User::normalizeDepartmentKey($w->department), ['finance', 'hr_admin']) && ! $r->user()->canAuditHrAndFinance() && ! $r->user()->isCvoOrSuperAdmin();
             $title = $restricted ? User::departmentLabel($w->department).' report' : ($w->campaign_name ?: User::departmentLabel($w->department).' report');
+            if ($w->project_ends_on) {
+                $actual = in_array($w->workflow_state, ['verified', 'closed']) ? ($w->completed_at ?? $w->verified_at ?? $w->closed_at) : null;
+                $add('weekly:'.$w->id.':project', 'project_window', 'Weekly project · '.$title, $w->project_starts_on ?? $w->project_ends_on, $w->project_ends_on->copy()->endOfDay(), $w->lead_staff_id, null, $actual ? 'verified' : 'in_progress', route('dashboard', ['weekly_department' => $w->department, 'report_date' => $w->week_start->toDateString()]), ['_actual_at' => $actual?->toIso8601String(), 'Date source' => 'Project window entered in weekly form', 'Actual completion' => $actual?->format('d M Y H:i')], $w->supporting_staff_ids ?? []);
+            }
             $add('weekly:'.$w->id, 'activity', 'Reporting week - '.$title, $w->week_start, $w->week_end?->endOfDay(), $w->lead_staff_id, null, $w->status, route('dashboard', ['weekly_department' => $w->department, 'weekly_from' => $w->week_start->toDateString(), 'weekly_to' => $w->week_end?->toDateString()]), ['Source' => 'Weekly departmental report', 'Reporting status' => $w->status, 'Verification' => $w->workflow_state === 'legacy' ? 'Original reported status; not independent completion' : 'Source workflow: '.$w->workflow_state], $w->supporting_staff_ids ?? []);
         }
         foreach (BoardroomRequest::with('invitedStaff:id,name')->whereNotIn('status', ['rejected', 'cancelled'])->where('starts_at', '<=', $to)->where('ends_at', '>=', $from)->get() as $b) {

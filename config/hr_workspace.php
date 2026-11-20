@@ -382,6 +382,14 @@ return json_decode(<<<'JSON'
         "outcome": {
           "type": "textarea",
           "label": "Outcome"
+        },
+        "responsible_id": {
+          "type": "staff",
+          "label": "Responsible person"
+        },
+        "resolved_on": {
+          "type": "date",
+          "label": "Actual resolution date"
         }
       }
     },
@@ -424,6 +432,18 @@ return json_decode(<<<'JSON'
         "outcome": {
           "type": "textarea",
           "label": "Outcome"
+        },
+        "responsible_id": {
+          "type": "staff",
+          "label": "Responsible person"
+        },
+        "due_on": {
+          "type": "date",
+          "label": "Follow-up deadline"
+        },
+        "resolved_on": {
+          "type": "date",
+          "label": "Actual resolution date"
         }
       }
     },
@@ -459,6 +479,18 @@ return json_decode(<<<'JSON'
         "notes": {
           "type": "textarea",
           "label": "Notes"
+        },
+        "responsible_id": {
+          "type": "staff",
+          "label": "Responsible person"
+        },
+        "due_on": {
+          "type": "date",
+          "label": "Follow-up deadline"
+        },
+        "resolved_on": {
+          "type": "date",
+          "label": "Actual resolution date"
         }
       }
     },

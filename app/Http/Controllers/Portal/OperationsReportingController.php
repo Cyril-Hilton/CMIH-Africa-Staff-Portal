@@ -68,6 +68,11 @@ class OperationsReportingController extends Controller
         }
         $data = array_intersect_key($request->validate($rules)['data'] ?? [], $schema);
         app(OperationsTracker::class)->validate($input['kind'], $data);
+        foreach (['delivered_on', 'setup_completed_on', 'shared_on', 'report_shared_on', 'resolved_on', 'returned_on', 'completed_on'] as $actualField) {
+            if (! empty($data[$actualField]) && $data[$actualField] > today()->toDateString()) {
+                throw ValidationException::withMessages(['data.'.$actualField => 'Actual completion dates cannot be in the future.']);
+            }
+        }
         foreach ($data as $field => $value) {
             if (is_string($value) && $schema[$field] === 'text' && ! isset(config('operations_tracker.options')[$field])) {
                 $data[$field] = ReportRichText::html($value);

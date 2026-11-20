@@ -17,7 +17,8 @@
     <p class="muted">{{ $stage['detail'] }}</p>
     @foreach($stage['records'] as $record)
      <section class="flow-record"><div class="between"><div><h4>{{ $record['title'] }}</h4><p class="muted">{{ $record['owner']??'Responsible manager · assignment needed' }} · {{ $record['state'] }}</p></div>@if($record['url'])<a class="button" href="{{ $record['url'] }}">Open workflow ↗</a>@endif</div>
-     <ol class="flow-substages">@foreach($record['steps'] as $sub)<li data-state="{{ $sub['state'] }}"><span>{{ $sub['state']==='done'?'✓':($sub['state']==='current'?'●':'○') }}</span><strong>{{ $sub['label'] }}</strong>@if($sub['at'])<small>{{ $formatDate($sub['at']) }}</small>@endif</li>@endforeach</ol>
+     <ol class="flow-substages">@foreach($record['steps'] as $sub)<li data-state="{{ $sub['state'] }}"><span>{{ $sub['state']==='done'?'✓':($sub['state']==='current'?'●':'○') }}</span><strong>{{ $sub['label'] }}</strong>@if($sub['at'])<small>@if(!empty($sub['date_kind'])){{ $sub['date_kind'] }} · @endif{{ $formatDate($sub['at']) }}</small>@endif</li>@endforeach</ol>
+     @if(!empty($record['planned_start']))<p class="muted">Planned start: {{ $formatDate($record['planned_start']) }}</p>@endif
      @if(!empty($record['requested'])||!empty($record['agreed']))<p class="muted">Requested deadline: {{ $formatDate($record['requested']??null) }} · Department commitment: {{ $formatDate($record['agreed']??null) }}</p>@endif
      </section>
     @endforeach
