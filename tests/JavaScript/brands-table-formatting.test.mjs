@@ -68,6 +68,7 @@ for (const [file, className, parameters, backgroundParameters] of [
    document: {readyState: 'loading', documentElement: {}, addEventListener() {}},
    MutationObserver: class {observe() {}},
    URLSearchParams,
+   clearTimeout() {},
    window: {},
 
   });
