@@ -18,6 +18,11 @@ class Notification extends Model
         'read_at',
     ];
 
+    public function getUrlAttribute($value): ?string
+    {
+        return \App\Support\PortalLinks::notification($value);
+    }
+
     protected function casts(): array
     {
         return [

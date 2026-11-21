@@ -159,7 +159,7 @@ class PerformanceAutomation
                             $locked = PerformanceOutbox::whereKey($message->id)->lockForUpdate()->firstOrFail();
                             $user = User::find($locked->user_id);
                             if (! $locked->emailed_at && $locked->attempts < 5 && $user?->status === 'active') {
-                                Mail::raw($locked->message."\n\nOpen CMIH Portal: ".$locked->url, fn ($mail) => $mail->to($user->work_email ?: $user->email)->subject($locked->title));
+                                Mail::raw($locked->message."\n\nOpen CMIH Portal: ".$locked->url, fn ($mail) => $mail->to($user->notificationEmail())->subject($locked->title));
                                 $locked->update(['emailed_at' => now(), 'last_error' => null]);
                             }
                         });

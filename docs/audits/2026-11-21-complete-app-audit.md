@@ -11,7 +11,7 @@ The audit covers the staff portal and the connected Brands portal, including dep
 | Staff page contracts | 78 rendered page variants checked for valid internal links and form actions, duplicate IDs and unnamed buttons |
 | Staff live controller actions | 531 registered actions verified after deployment |
 | Connected Brands live actions | 91 registered actions verified; retained roster route rendered successfully |
-| Staff regression suite | 915 tests and 8394 assertions passed |
+| Staff regression suite | 919 tests and 8410 assertions passed |
 | Brands regression suite | 455 tests and 3328 assertions passed |
 | Browser logic suite | 81 tests passed |
 | Spreadsheet export validation | Python regression passed in the private test environment |
@@ -21,6 +21,8 @@ The account matrix uses production role, department, manager and permission sett
 ## Repairs
 
 - Notification polling stops after an expired session, avoids overlapping requests, backs off after outages and preserves the last valid badge data. The header explains reconnection or sign-in requirements. Notification cursors and deduplication are separated by account.
+- Existing notifications and the delivery outbox resolve retained loopback URLs to the correct public portal, preserving query filters and anchors. Production background URL generation is pinned to the configured deployment origin, including after an internal request context is rebound. Development links remain local, and unrelated external references are unchanged.
+- Performance email uses the same work-mailbox policy as other staff notifications, including older accounts with their real work address in contact_email. The reminder trail displays that same selected recipient. Failed email remains recorded as failed; portal notification delivery is independently deduplicated.
 - Notification audio respects browser interaction requirements and closes completed audio contexts. CVO-role accounts now receive their financial notifications through the same permission-aware path.
 - Old update entry links use the canonical task workflow. Ownership and details save correctly, staff completion requests still require manager review, and archived tasks cannot reappear through the legacy model. Missing edit and update handlers are present.
 - Legacy stock entry and change routes enforce the Merchandiser Admin permission boundary. Missing roster and stock update handlers resolve to current workflows.
@@ -35,10 +37,18 @@ The account matrix uses production role, department, manager and permission sett
 
 All six department dashboards rendered for the Super Admin, CVO and authorised audit profiles. An ordinary staff projection retained HR and Finance privacy. Individual department pages, notification responses, breadcrumb routes and shared historical Finance dates passed. Protected business data hashes remained unchanged during the staff release checks. The live HR module showed six vendor contacts, and its entry form expanded with readable labels. Creative Calendar to Showcase switching updated the URL, content and breadcrumb together. Finance retained Year selection and displayed its independent revenue-entry action.
 
-The browser also contains extension-injected scripts. The console's receiving-end connection error is consistent with extension messaging; an observed script link points to a Chrome extension. A separate source-less CSP eval diagnostic remains in DevTools; normal portal responses use a report-only policy that permits the app's current evaluator, so that diagnostic cannot be attributed to a failing portal route from the available browser evidence. No browser extension or security setting was disabled to suppress it. Fresh portal loads and tab changes were checked separately from those diagnostics.
+The browser also contains extension-injected scripts. The console's receiving-end connection error is consistent with extension messaging; an observed script link points to a Chrome extension. A separate source-less CSP eval diagnostic remains in DevTools; normal portal responses use a report-only policy that permits the app's current evaluator, so that diagnostic cannot be attributed to a failing portal route from the available browser evidence. A separate Incognito check of the portal sign-in page, without the injected extension scripts, showed zero console messages and no CSP issue. This supports the extension-related interpretation; the isolated check did not sign into staff accounts. No browser extension or security setting was disabled to suppress diagnostics. Fresh authenticated portal loads and tab changes were checked separately.
 
 ## Scope of the result
 
 This is a regression, route, permission and sampled live-browser audit, with the exact coverage above. It does not establish that every possible browser, device, input combination or external service delivery has been exercised. All registered live controller actions in the two deployed app scopes were checked; write workflows were tested in isolation to protect real records. Existing archived reporting data, vendors, assets, payroll and staff records were preserved.
 
 The final all-departments reload showed zero console messages flagged as errors or warnings, while DevTools retained the source-less CSP issue. An earlier navigation logged one transient 503; the subsequent authenticated reload succeeded, all six panels loaded, and the server-side release checks passed. This observation is retained rather than being counted as an application calculation failure.
+
+The final server-log inspection distinguished informational query-count entries from actual errors. Recent dashboard requests returned 200 in 648–678 ms with 12 MB peak memory; Creative data returned 200 in 36–205 ms and Client Relations data in 31–114 ms. No memory exhaustion, execution timeout, database error or 503 entry appeared in the inspected log tail. The hosting error log was not readable through this account. Earlier overnight errors were SMTP 550 recipient rejections. Recipient selection was corrected and tested with the local mail transport; no real staff email was sent as an audit test, and missing external mailboxes were not invented or reported as delivered.
+
+The reported localhost Accountability failure was reproduced in the live browser. Production's APP_URL was already correct. Thirty stored notifications and thirty active outbox rows contained a local request origin; their raw records are retained, while the URL accessor resolves them to the public origin. This protects existing notifications as well as newly generated background links.
+
+The notification link follow-up deployed six runtime files. Production verified public CLI URLs, resolved all 30 retained loopback notification targets, rendered all six departments for the three executive profiles, preserved restricted HR/Finance access, and confirmed unchanged protected business records. The associated mail-recipient and link regression group passed 17 tests and 91 assertions; the focused request-rebinding and transport checks passed 7 tests and 44 assertions.
+
+Authenticated browser verification after the follow-up loaded the public Accountability page and displayed Staff ranking attention with 29 staff flagged. The browser was left on that working page.

@@ -12,6 +12,11 @@ class PerformanceOutbox extends Model
 
     protected $guarded = ['id'];
 
+    public function getUrlAttribute($value): ?string
+    {
+        return \App\Support\PortalLinks::notification($value);
+    }
+
     protected function casts(): array
     {
         return ['dashboard_at' => 'datetime', 'emailed_at' => 'datetime'];

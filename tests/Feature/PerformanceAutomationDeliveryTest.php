@@ -36,6 +36,25 @@ class PerformanceAutomationDeliveryTest extends TestCase
         $this->assertSame(1,Notification::where('user_id',$user->id)->count());
     }
 
+    public function test_performance_email_uses_the_same_work_mailbox_policy_as_other_staff_notifications(): void
+    {
+        config(['performance.email_enabled'=>true,'mail.default'=>'array']);
+        foreach ([
+            ['email'=>'generated-one@cmih.africa','work_email'=>null,'contact_email'=>'real-work@cmihafrica.com','expected'=>'real-work@cmihafrica.com'],
+            ['email'=>'generated-two@cmih.africa','work_email'=>'preferred@cmih.africa','contact_email'=>'other-work@cmihafrica.com','expected'=>'preferred@cmih.africa'],
+            ['email'=>'generated-three@cmih.africa','work_email'=>null,'contact_email'=>'personal@example.test','expected'=>'generated-three@cmih.africa'],
+        ] as $i=>$profile) {
+            $expected=$profile['expected'];unset($profile['expected']);
+            $user=User::factory()->create($profile+['status'=>'active','access_role'=>'staff']);
+            PerformanceWorkflow::notify($user->id,'recipient-test-'.$i,'Work notice','Isolated local notification.');
+            app(PerformanceAutomation::class)->deliver();
+            $email=Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
+            $this->assertSame($expected,$email->getTo()[0]->getAddress());
+            $this->assertSame(1,Notification::where('user_id',$user->id)->count());
+        }
+        $this->assertSame(3,PerformanceOutbox::whereNotNull('emailed_at')->count());
+    }
+
     public function test_mail_failure_is_bounded_and_does_not_repeat_dashboard_notifications(): void
     {
         config(['performance.email_enabled'=>true]);
