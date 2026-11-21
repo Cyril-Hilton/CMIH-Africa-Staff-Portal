@@ -3,15 +3,11 @@
 <section x-data="{ department: @js($initialPerformanceDepartment) }" id="staff-weekly-performance" class="mt-6 space-y-4" aria-label="Staff-wide departmental performance">
 
 @if($initialPerformanceDepartment==='all')
-<div role="tabpanel" id="performance-panel-all" aria-labelledby="performance-tab-all" class="grid gap-3 sm:grid-cols-2">
-@foreach($sharedWeeklyPerformance as $overviewKey=>$overview)
-<a class="rounded-xl border border-brand-white/20 p-4 text-brand-white" href="{{ route('dashboard',array_merge(request()->only(['weekly_from','weekly_to']),['weekly_department'=>$overviewKey],$overviewKey === 'hr_admin' ? ['hr_tab'=>'overview'] : [])) }}#staff-weekly-performance"><strong>{{ $overview['label'] }}</strong><p class="mt-2 text-sm text-brand-ash">{{ $overview['summary']['verified'] }} independently verified deliveries · {{ $overview['summary']['overdue'] }} overdue verified-workflow commitments</p><p class="mt-3 text-sm underline">Open weekly reports & activities</p></a>
-@endforeach
-</div>
+<div role="tabpanel" id="performance-panel-all" aria-labelledby="performance-tab-all" class="space-y-6">
 @endif
 @foreach($sharedWeeklyPerformance as $key=>$department)
-@continue($key !== $initialPerformanceDepartment)
-<div role="tabpanel" data-department="{{ $key }}" id="performance-panel-{{ $key }}" aria-labelledby="performance-tab-{{ $key }}" x-show="department === @js($key)" @if($key !== $initialPerformanceDepartment) style="display: none" @endif class="rounded-2xl border border-brand-white/15 bg-brand-white/5 p-4"><div class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-brand-white"><strong>{{ $department['label'] }}</strong><span class="text-xs text-brand-ash">
+@continue($initialPerformanceDepartment !== 'all' && $key !== $initialPerformanceDepartment)
+<div role="{{ $initialPerformanceDepartment === 'all' ? 'region' : 'tabpanel' }}" data-department="{{ $key }}" id="performance-panel-{{ $key }}" aria-labelledby="performance-tab-{{ $key }}" x-show="department === 'all' || department === @js($key)" @if($initialPerformanceDepartment !== 'all' && $key !== $initialPerformanceDepartment) style="display: none" @endif class="rounded-2xl border border-brand-white/15 bg-brand-white/5 p-4"><div class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-brand-white"><strong>{{ $department['label'] }}</strong><span class="text-xs text-brand-ash">
 @if($key === 'creatives')
 Live Creative Workflow & Evidence
 @elseif(!in_array($key, ['brands_marketing', 'hr_admin', 'operations_projects'], true))
@@ -53,4 +49,7 @@ Live Creative Workflow & Evidence
 @endif
 @endif
 </div>@endforeach
+@if($initialPerformanceDepartment==='all')
+</div>
+@endif
 </section>

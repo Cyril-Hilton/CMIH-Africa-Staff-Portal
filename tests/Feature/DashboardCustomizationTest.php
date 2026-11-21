@@ -611,7 +611,7 @@ class DashboardCustomizationTest extends TestCase
         $response->assertOk();
         $response->assertViewHas('weeklyDepartmentFilter', 'all');
         $response->assertSee('All Departments');
-        $response->assertSee('Open weekly reports & activities',false);
+        $response->assertSee('data-brands-reports',false)->assertSee('data-creative-studio',false)->assertSee('id="finance-workspace"',false);
         $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'brands_marketing','brands_tab'=>'workstream','weekly_from'=>'2026-07-20','weekly_to'=>'2026-07-26']))->assertOk()->assertSee('Brands Latest Row');
         $response->assertSee('Finance');
         $this->actingAs($cvo)->get(route('dashboard',['weekly_department'=>'finance','weekly_from'=>'2026-07-13','weekly_to'=>'2026-07-19']))->assertOk()->assertSee('Every figure. A clear picture.');

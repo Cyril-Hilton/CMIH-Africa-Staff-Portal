@@ -38,6 +38,44 @@ class ExecutiveDashboardConsolidationTest extends TestCase
         }
     }
 
+    public function test_all_departments_renders_each_current_dashboard_for_executive_review(): void
+    {
+        foreach ([['access_role'=>'super_admin'], ['access_role'=>'staff','job_level'=>'CVO','position_title'=>'CVO'], ['access_role'=>'staff','department'=>'executive','permissions_matrix'=>[User::EXECUTIVE_ACTIVITY_PERMISSION, User::HR_FINANCE_AUDIT_PERMISSION]]] as $role) {
+            $viewer=User::factory()->create($role+['status'=>'active']);
+            $response=$this->actingAs($viewer)->get(route('dashboard',['weekly_department'=>'all']))->assertOk();
+            foreach (array_keys(config('performance.departments')) as $department) {
+                $response->assertSee('id="performance-panel-'.$department.'"',false);
+            }
+            foreach (['data-brands-reports','data-creative-studio','data-operations-reporting','id="finance-workspace"','aria-label="HR and Admin live registers"','data-crm-centre'] as $marker) {
+                $response->assertSee($marker,false);
+            }
+            $response->assertDontSee('Open weekly reports &amp; activities',false);
+            $response->assertDontSee('Historical Weekly Consolidated',false);
+            $this->get(route('portal.dashboard.live',['section'=>'weekly-consolidated-table','weekly_department'=>'all']))->assertOk()->assertSee('data-creative-studio',false)->assertSee('id="finance-workspace"',false);
+        }
+    }
+
+    public function test_combined_dashboard_live_refresh_keeps_the_selected_finance_reporting_dates(): void
+    {
+        $viewer=User::factory()->create(['status'=>'active','access_role'=>'super_admin']);
+        foreach (['week'=>['2026-10-12','2026-10-18'], 'month'=>['2026-10-01','2026-10-31'], 'year'=>['2026-01-01','2026-12-31']] as $mode=>[$from,$to]) {
+            $this->actingAs($viewer)->get(route('portal.dashboard.live',['weekly_department'=>'all','report_period'=>$mode,'report_date'=>'2026-10-14']))
+                ->assertOk()->assertSee('name="finance_from" value="'.$from.'"',false)->assertSee('name="finance_to" value="'.$to.'"',false);
+        }
+    }
+
+    public function test_all_department_view_keeps_hr_and_finance_restricted_for_ordinary_staff(): void
+    {
+        $staff=User::factory()->create(['status'=>'active','access_role'=>'staff','department'=>'creatives']);
+        $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->actingAs($staff)
+            ->get(route('dashboard',['weekly_department'=>'all']))->assertOk()
+            ->assertSee('data-creative-studio',false)
+            ->assertSee('Financial records are restricted to Finance and authorised reviewers.')
+            ->assertSee('HR records are restricted.')
+            ->assertDontSee('id="finance-workspace"',false)
+            ->assertDontSee('aria-label="HR and Admin live registers"',false);
+    }
+
     public function test_location_projection_is_bounded_private_and_uses_only_actual_gps_records(): void
     {
         $admin=User::factory()->create(['status'=>'active','access_role'=>'super_admin']);

@@ -43,6 +43,7 @@ class WorkNotificationEmailTest extends TestCase
 
     public function test_leave_requests_notify_current_hr_work_mailbox_and_follow_the_next_manager(): void
     {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-16 09:00:00', 'Africa/Accra'));
         Mail::fake();
         $hr = $this->hr();
         $staff = User::factory()->create(['status' => 'active', 'access_role' => 'staff', 'job_level' => 'executive', 'leave_balance' => 30]);

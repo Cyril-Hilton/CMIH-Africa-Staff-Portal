@@ -340,6 +340,7 @@ class LeaveWorkflowTest extends TestCase
 
     public function test_pending_hr_leave_can_be_updated_before_final_approval(): void
     {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-16 09:00:00', 'Africa/Accra'));
         $staff = User::factory()->create([
             'status' => 'active',
             'access_role' => 'staff',
