@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="portal-user-id" content="{{ auth()->id() }}">
         <meta name="site-theme" content="{{ $site_theme ?? 'BOLDER and BETTER' }}">
 
         <title>{{ config('app.name', 'CMIH Africa') }} - Portal</title>
@@ -462,18 +463,20 @@
             document.addEventListener('DOMContentLoaded', () => {
                 const notificationConfig = {
                     pollUrl: @json(route('portal.notifications.poll', [], false)),
+                    userId: @json(auth()->id()),
                     defaultUrl: @json(route('portal.announcements', [], false)),
                     iconUrl: @json(asset('images/logo/favicon.png')),
                 };
 
                 window.playNotificationSound = function() {
-                    if (window.userMuteSounds) return;
+                    if (window.userMuteSounds || (navigator.userActivation && !navigator.userActivation.hasBeenActive)) return;
 
                     try {
                         const AudioContext = window.AudioContext || window.webkitAudioContext;
                         if (!AudioContext) return;
                         
                         const ctx = new AudioContext();
+                        if (ctx.state !== 'running') { ctx.close().catch(() => {}); return; }
                         
                         // Digital pure tone bell play (chime: E5 -> A5)
                         const osc1 = ctx.createOscillator();
@@ -499,6 +502,7 @@
                         osc1.stop(ctx.currentTime + 0.4);
                         osc2.start(ctx.currentTime + 0.12);
                         osc2.stop(ctx.currentTime + 0.6);
+                        osc2.onended = () => ctx.close().catch(() => {});
                     } catch (err) {
                         console.warn('Playback of notification sound blocked or failed:', err);
                     }
@@ -509,7 +513,7 @@
 
                 const storageGet = (key) => {
                     try {
-                        return window.localStorage.getItem(key);
+                        return window.localStorage.getItem(`${key}:user:${notificationConfig.userId}`);
                     } catch (error) {
                         return null;
                     }
@@ -517,7 +521,7 @@
 
                 const storageSet = (key, value) => {
                     try {
-                        window.localStorage.setItem(key, value);
+                        window.localStorage.setItem(`${key}:user:${notificationConfig.userId}`, value);
                     } catch (error) {
                         // Storage can be unavailable in private browsing.
                     }
@@ -535,7 +539,8 @@
                     }
 
                     const maxAge = maxAgeHours * 60 * 60 * 1000;
-                    return Date.now() - timestamp <= maxAge ? value : '';
+                    const age = Date.now() - timestamp;
+                    return age >= 0 && age <= maxAge ? value : '';
                 };
 
                 const absoluteUrl = (url) => {
@@ -879,50 +884,33 @@
 
                 let lastCheckedTime = recentStoredTimestamp('cmihLastNotificationPollAt');
 
-                const checkNotifications = () => {
-                    const url = lastCheckedTime
+                const checkNotifications = window.createNotificationPoller({
+                    getUrl: () => lastCheckedTime
                         ? `${notificationConfig.pollUrl}?since=${encodeURIComponent(lastCheckedTime)}`
-                        : notificationConfig.pollUrl;
-
-                    fetch(url, {
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
-                        }
-                    })
-                    .then(res => {
-                        if (res.status === 401) {
-                            clearInterval(notificationInterval);
-                            return null;
-                        }
-                        return res.json();
-                    })
-                    .then(async data => {
-                        if (!data) return;
-
+                        : notificationConfig.pollUrl,
+                    onState: (state) => {
+                        const status = document.querySelector('[data-notification-sync-status]');
+                        if (!status) return;
+                        status.hidden = state === 'live';
+                        status.textContent = state === 'signed_out'
+                            ? 'Your session expired. Sign in again to receive live alerts.'
+                            : 'Live alerts are reconnecting. Your last loaded information is still shown.';
+                        status.dataset.state = state;
+                    },
+                    onData: async (data) => {
                         lastCheckedTime = data.timestamp;
                         storageSet('cmihLastNotificationPollAt', lastCheckedTime);
                         updateBadge('[data-sidebar-notification-count]', data.unread_count);
                         updateBadge('[data-sidebar-message-count]', data.unread_message_count);
-
-                        if (data.notifications && data.notifications.length > 0) {
-                            let displayedInAppNotification = false;
-
-                            for (const notif of data.notifications) {
-                                const inAppShown = showInAppNotification(notif);
-                                await showNativeNotification(notif);
-                                displayedInAppNotification = displayedInAppNotification || inAppShown;
-                            }
-
-                            if (displayedInAppNotification) {
-                                window.playNotificationSound();
-                            }
+                        let displayedInAppNotification = false;
+                        for (const notif of data.notifications) {
+                            const inAppShown = showInAppNotification(notif);
+                            await showNativeNotification(notif);
+                            displayedInAppNotification = displayedInAppNotification || inAppShown;
                         }
-                    })
-                    .catch(err => {
-                        console.error('Error polling notifications:', err);
-                    });
-                };
+                        if (displayedInAppNotification) window.playNotificationSound();
+                    },
+                });
 
                 const checkNotificationsWhenVisible = () => {
                     if (!document.hidden) {

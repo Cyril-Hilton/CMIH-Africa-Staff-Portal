@@ -393,7 +393,7 @@
                             <p class="text-xs text-white/50">Printable physical tag for furniture & company assets</p>
                         </div>
                     </div>
-                    <button type="button" @click="showStickerModal = false" class="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition">
+                    <button type="button" aria-label="Close asset labels" @click="showStickerModal = false" class="rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>

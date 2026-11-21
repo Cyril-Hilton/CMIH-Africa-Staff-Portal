@@ -14,6 +14,15 @@ const comparableValue = (value) => {
         return { type: 'number', value: Number(numeric) };
     }
 
+    const localDate = text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (localDate) {
+        const [,d,m,y,h='0',minute='0',second='0'] = localDate;
+        const timestamp = Date.UTC(Number(y),Number(m)-1,Number(d),Number(h),Number(minute),Number(second));
+        const parsed = new Date(timestamp);
+        if (parsed.getUTCFullYear()===Number(y) && parsed.getUTCMonth()===Number(m)-1 && parsed.getUTCDate()===Number(d) && Number(h)<24 && Number(minute)<60 && Number(second)<60) return {type:'date',value:timestamp};
+        return {type:'string',value:text.toLocaleLowerCase()};
+    }
+
     const timestamp = Date.parse(text);
     if (!Number.isNaN(timestamp) && /(\d{1,4}[-/]\d{1,2}|\d{1,2}\s+[A-Za-z]{3,}|\bJan\b|\bFeb\b|\bMar\b|\bApr\b|\bMay\b|\bJun\b|\bJul\b|\bAug\b|\bSep\b|\bOct\b|\bNov\b|\bDec\b)/i.test(text)) {
         return { type: 'date', value: timestamp };
@@ -42,14 +51,13 @@ const headerLabel = (th, fallback) => normaliseText(th.dataset.label || th.textC
     .trim();
 
 const tableStorageKey = (table) => {
-    if (table.dataset.tableKey) {
-        return `cmih-table:${window.location.pathname}:${table.dataset.tableKey}`;
-    }
-
+    const params = new URLSearchParams(window.location.search || '');
+    const context = ['weekly_department','hr_tab','finance_tab','ops_tab','brands_tab','creative_view']
+        .map(key => `${key}=${params.get(key) || ''}`).join('&');
+    const user = document.querySelector('meta[name="portal-user-id"]')?.content || 'guest';
     const tables = Array.from(document.querySelectorAll('table'));
-    const index = tables.indexOf(table);
-
-    return `cmih-table:${window.location.pathname}:${index}`;
+    const identity = table.dataset.tableKey || `${table.closest('[data-department]')?.dataset.department || ''}:${tables.indexOf(table)}`;
+    return `cmih-table:${user}:${window.location.pathname}:${context}:${identity}`;
 };
 
 const readState = (table) => {
@@ -119,12 +127,8 @@ const sortTable = (table, columnIndex, direction) => {
         const rightValue = comparableValue(right.row.cells[columnIndex]?.textContent || '');
         const result = compareValues(leftValue, rightValue);
 
-        return result === 0 ? left.index - right.index : result;
+        return result === 0 ? left.index - right.index : (direction === 'desc' ? -result : result);
     });
-
-    if (direction === 'desc') {
-        sortedRows.reverse();
-    }
 
     sortedRows.forEach(({ row }) => body.appendChild(row));
 

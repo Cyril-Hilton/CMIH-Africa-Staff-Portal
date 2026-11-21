@@ -1,8 +1,10 @@
 const storageKey = 'cmih-theme';
 
 const getStoredTheme = () => {
-    const stored = window.localStorage.getItem(storageKey);
-    return stored === 'light' || stored === 'dark' ? stored : null;
+    try {
+        const stored = window.localStorage.getItem(storageKey);
+        return stored === 'light' || stored === 'dark' ? stored : null;
+    } catch { return null; }
 };
 
 const updateToggles = (theme) => {
@@ -34,7 +36,7 @@ const applyTheme = (theme, persist = true) => {
     updateToggles(theme);
     updateThemeImages(theme);
     if (persist) {
-        window.localStorage.setItem(storageKey, theme);
+        try { window.localStorage.setItem(storageKey, theme); } catch { /* Theme remains usable when browser storage is unavailable. */ }
     }
 };
 

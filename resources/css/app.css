@@ -616,3 +616,6 @@
 .cmih-confirmation button:focus-visible { outline: 3px solid #639de6; outline-offset: 3px; }
 
 body.cmih-confirmation-open > :not(.cmih-confirmation) { filter: blur(4px); }
+
+/* Source KPI warnings must remain legible on the light reporting surface. */
+:root[data-theme='light'] [data-source-department] .text-amber-200 { color: #854d0e; }

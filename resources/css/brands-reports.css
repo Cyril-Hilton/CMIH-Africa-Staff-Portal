@@ -46,7 +46,8 @@ html[data-theme=light] .br-status-danger{color:#923335;background:#ffe3e3;border
     color: inherit;
     font-weight: 600;
 }
-.hr-dashboard .hr-report-control:is(summary) { cursor: pointer; }
+.hr-dashboard summary.hr-report-control { display: inline-block; cursor: pointer; list-style: none; }
+.hr-dashboard summary.hr-report-control::-webkit-details-marker { display: none; }
 .hr-dashboard .hr-report-control:hover,
 .hr-dashboard .hr-report-control[aria-current]:not([aria-current="false"]) {
     border-color: var(--br-accent);

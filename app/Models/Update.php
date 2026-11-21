@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Update extends Model
 {
     use HasFactory;
+    use \App\Models\Concerns\ReportingArchive;
 
     protected $table = 'tasks';
 

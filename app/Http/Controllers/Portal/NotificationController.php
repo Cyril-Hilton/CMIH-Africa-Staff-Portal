@@ -27,9 +27,7 @@ class NotificationController extends Controller
      */
     private function isCVO(User $user): bool
     {
-        return $user->job_level === 'super_admin'
-            || $user->access_role === 'super_admin'
-            || in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah'], true);
+        return $user->isCvoOrSuperAdmin() || $user->isCyrilHilton();
     }
 
     private function formatPersistentNotification(Notification $notification): array

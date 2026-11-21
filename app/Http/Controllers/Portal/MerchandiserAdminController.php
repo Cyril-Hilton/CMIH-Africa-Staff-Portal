@@ -22,6 +22,7 @@ class MerchandiserAdminController extends Controller
      */
     public function tracking(Request $request)
     {
+        $this->authorizeAdmin();
         $activeMerchandisers = User::where('access_role', 'merchandiser')
             ->where('status', 'active')
             ->get();
@@ -113,6 +114,7 @@ class MerchandiserAdminController extends Controller
      */
     public function pairings()
     {
+        $this->authorizeAdmin();
         $pendingMerchandisers = User::where('access_role', 'merchandiser')
             ->where('status', 'pending')
             ->get();
@@ -144,6 +146,7 @@ class MerchandiserAdminController extends Controller
      */
     public function pair(Request $request, User $user)
     {
+        $this->authorizeAdmin();
         if ($user->access_role !== 'merchandiser') {
             abort(403);
         }
@@ -167,6 +170,7 @@ class MerchandiserAdminController extends Controller
      */
     public function skus()
     {
+        $this->authorizeAdmin();
         $skus = Sku::orderBy('name')->get();
         return view('portal.merchandiser_admin.skus', compact('skus'));
     }
@@ -174,8 +178,20 @@ class MerchandiserAdminController extends Controller
     /**
      * Add Sku
      */
+    private function authorizeAdmin(): void
+    {
+        abort_unless(auth()->user()?->isMerchandiserPortalAdmin(), 403);
+    }
+
+    public function updateSku(Request $request, Sku $sku)
+    {
+        $this->authorizeAdmin();
+        return app(\App\Http\Controllers\Merchandiser\MerchandiserAdminHubController::class)->updateSku($request, $sku);
+    }
+
     public function storeSku(Request $request)
     {
+        $this->authorizeAdmin();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:skus,name'],
         ]);
@@ -190,6 +206,7 @@ class MerchandiserAdminController extends Controller
      */
     public function destroySku(Sku $sku)
     {
+        $this->authorizeAdmin();
         $sku->delete();
         return back()->with('status', 'SKU deleted successfully.');
     }
@@ -199,6 +216,7 @@ class MerchandiserAdminController extends Controller
      */
     public function kds()
     {
+        $this->authorizeAdmin();
         $kds = KeyDistributor::with('region')->orderBy('name')->get();
         $regions = Region::orderBy('name')->get();
         return view('portal.merchandiser_admin.kds', compact('kds', 'regions'));
@@ -209,6 +227,7 @@ class MerchandiserAdminController extends Controller
      */
     public function storeKd(Request $request)
     {
+        $this->authorizeAdmin();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'region_id' => ['required', 'exists:regions,id'],
@@ -227,6 +246,7 @@ class MerchandiserAdminController extends Controller
      */
     public function updateKd(Request $request, KeyDistributor $kd)
     {
+        $this->authorizeAdmin();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'region_id' => ['required', 'exists:regions,id'],
@@ -252,6 +272,7 @@ class MerchandiserAdminController extends Controller
      */
     public function checkKdDependents(KeyDistributor $kd)
     {
+        $this->authorizeAdmin();
         $dependents = $this->getKdDependents($kd);
 
         return response()->json([
@@ -268,6 +289,7 @@ class MerchandiserAdminController extends Controller
      */
     public function destroyKd(Request $request, KeyDistributor $kd)
     {
+        $this->authorizeAdmin();
         $dependents = $this->getKdDependents($kd);
         $hasDependents = count($dependents['merchandisers']) > 0 || 
                          count($dependents['tms']) > 0 || 
@@ -314,6 +336,7 @@ class MerchandiserAdminController extends Controller
      */
     public function outlets()
     {
+        $this->authorizeAdmin();
         $outlets = Outlet::with('keyDistributor')->orderBy('name')->get();
         $kds = KeyDistributor::orderBy('name')->get();
         return view('portal.merchandiser_admin.outlets', compact('outlets', 'kds'));
@@ -324,6 +347,7 @@ class MerchandiserAdminController extends Controller
      */
     public function storeOutlet(Request $request)
     {
+        $this->authorizeAdmin();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:32', 'unique:outlets,code'],
@@ -344,6 +368,7 @@ class MerchandiserAdminController extends Controller
      */
     public function updateOutlet(Request $request, Outlet $outlet)
     {
+        $this->authorizeAdmin();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'kd_id' => ['required', 'exists:key_distributors,id'],
@@ -363,6 +388,7 @@ class MerchandiserAdminController extends Controller
      */
     public function destroyOutlet(Outlet $outlet)
     {
+        $this->authorizeAdmin();
         $outlet->delete();
         return back()->with('status', 'Outlet deleted successfully.');
     }

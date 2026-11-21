@@ -232,7 +232,7 @@
                 {{-- Trigger button --}}
                 <div class="p-3">
                     <button type="button"
-                            @click="fabOpen = !fabOpen"
+                            aria-label="Conversation actions" :aria-expanded="fabOpen.toString()" @click="fabOpen = !fabOpen"
                             class="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-red px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-brand-red/80 transition active:scale-95">
                         <svg class="h-4 w-4 transition-transform duration-200" :class="{'rotate-45': fabOpen}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />

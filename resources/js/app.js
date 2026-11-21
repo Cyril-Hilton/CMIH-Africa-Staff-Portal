@@ -1,3 +1,6 @@
+import './module-breadcrumbs';
+import './form-labels';
+import './notification-polling';
 import './project-routing';
 import './brands-reports';
 import './action-points';

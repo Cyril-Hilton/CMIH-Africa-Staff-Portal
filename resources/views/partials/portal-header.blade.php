@@ -102,4 +102,5 @@
             @endif
         </div>
     </div>
+    <p data-notification-sync-status hidden role="status" aria-live="polite" class="mt-2 text-sm text-brand-ash"></p>
 </header>

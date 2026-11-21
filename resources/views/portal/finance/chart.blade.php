@@ -3,12 +3,12 @@ $fPoints=collect($f_months);$fMax=max(1,ceil($fPoints->flatMap(fn($p)=>[$p['reve
 $fX=fn($i)=>70+($fPoints->count()>1?$i/($fPoints->count()-1)*1050:525);$fY=fn($n)=>300-((float)$n/$fMax*245);
 @endphp
 <article class="fd-panel" aria-label="Revenue, receipts and expenses chart" x-data="{revenue:true,receipts:true,expenses:true}">
-<div class="flex flex-wrap justify-between items-center gap-3"><div><p class="fd-kicker">The financial picture</p><h4 class="text-xl font-semibold mt-2">Revenue, income & expenses</h4></div><div class="flex flex-wrap gap-4 text-xs">@foreach(['revenue'=>['Revenue','#e6c78d'],'receipts'=>['Cash received','#67d8bb'],'expenses'=>['Expenses','#85b5f1']] as $series=>[$label,$color])<label class="flex items-center gap-2"><input type="checkbox" x-model="{{ $series }}" style="width:auto;margin:0;accent-color:{{ $color }}"><span style="color:{{ $color }}">{{ $label }}</span></label>@endforeach</div></div>
+<div class="flex flex-wrap justify-between items-center gap-3"><div><p class="fd-kicker">The financial picture</p><h4 class="text-xl font-semibold mt-2">Revenue, income & expenses</h4></div><div class="flex flex-wrap gap-4 text-xs">@foreach(['revenue'=>['Revenue','var(--fd-revenue)'],'receipts'=>['Cash received','var(--fd-receipts)'],'expenses'=>['Expenses','var(--fd-expenses)']] as $series=>[$label,$color])<label class="flex items-center gap-2"><input type="checkbox" x-model="{{ $series }}" style="width:auto;margin:0;accent-color:{{ $color }}"><span style="color:{{ $color }}">{{ $label }}</span></label>@endforeach</div></div>
 <svg viewBox="0 0 1180 350" role="img" aria-labelledby="finance-chart-title finance-chart-desc" preserveAspectRatio="none"><title id="finance-chart-title">Filtered financial activity in GHS</title><desc id="finance-chart-desc">Monthly reporting amounts. Revenue and cash received are distinct series; pending entries and partially selected periods are excluded.</desc><defs><linearGradient id="finance-gold-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e6c78d" stop-opacity=".2"/><stop offset="100%" stop-color="#e6c78d" stop-opacity="0"/></linearGradient></defs>
 @foreach(range(0,4) as $i)@php
 $y=300-$i*61.25;
 @endphp<line x1="70" y1="{{ $y }}" x2="1120" y2="{{ $y }}" stroke="#ffffff16"/><text x="58" y="{{ $y+4 }}" fill="#9aaec5" text-anchor="end" font-size="11">{{ number_format($fMax*$i/4,0) }}</text>@endforeach
-@foreach(['revenue'=>'#e6c78d','receipts'=>'#67d8bb','expenses'=>'#85b5f1'] as $series=>$color)
+@foreach(['revenue'=>'var(--fd-revenue)','receipts'=>'var(--fd-receipts)','expenses'=>'var(--fd-expenses)'] as $series=>$color)
 <g x-show="{{ $series }}">@if($fPoints->count()===1)
 @php
 $barIndex=array_search($series,['revenue','receipts','expenses']);$barValue=$fPoints->first()[$series];$barX=250+$barIndex*300;
