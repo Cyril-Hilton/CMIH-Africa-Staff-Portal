@@ -1,4 +1,6 @@
-@if($sourcePerformance)
+@if($sourcePerformance && $sourcePerformance['department']==='brands_marketing')
+@include('portal.partials.brands-source-performance')
+@elseif($sourcePerformance)
 <section class="my-4 rounded-2xl border border-amber-300/25 bg-brand-black/25 p-5" aria-label="Automatic department KPI reporting" data-source-department="{{ $sourcePerformance['department'] }}">
     <div class="flex flex-wrap items-start justify-between gap-3">
         <div><h4 class="text-lg font-semibold">KPI Achievement & Reporting Gaps</h4><p class="mt-1 text-xs text-brand-ash">{{ ($sourcePerformance['native_sources']??false)?'Live portal records & departmental results':'Published department results' }} · {{ $sourcePerformance['provisional'] ? 'Current period · provisional' : 'Selected historical period' }}</p></div>

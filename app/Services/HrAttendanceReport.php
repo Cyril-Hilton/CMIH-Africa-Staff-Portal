@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 
 class HrAttendanceReport
 {
-    public function build(array $filters = [], string $pageName = 'page'): array
+    public function build(array $filters = [], string $pageName = 'page', ?User $onlyUser = null): array
     {
         $v = \Illuminate\Support\Facades\Validator::make($filters, ['period' => 'nullable|in:weekly,monthly,yearly', 'date' => 'nullable|date', 'q' => 'nullable|string|max:100', 'department' => 'nullable|string|max:100', 'punctuality' => 'nullable|in:all,late,on_time,missing,no_clockins', 'sort' => 'nullable|in:name,newest,oldest', 'direction' => 'nullable|in:asc,desc'])->validate();
         $period = $v['period'] ?? 'weekly';
@@ -20,13 +20,13 @@ class HrAttendanceReport
         $to = match ($period) {
             'monthly' => $from->copy()->endOfMonth(),'yearly' => $from->copy()->endOfYear(),default => $from->copy()->endOfWeek()
         };
-        $eligible = User::internalStaff()->where(fn ($q) => $q->where('status', 'active')->orWhereHas('attendances', fn ($q) => $q->whereBetween('clock_in_at', [$from, $to])))->get()->reject(fn ($u) => $u->isCvoOrSuperAdmin() || strtolower((string) $u->access_role) === 'cvo');
+        $eligible = User::internalStaff()->when($onlyUser, fn ($q) => $q->whereKey($onlyUser->id))->where(fn ($q) => $q->where('status', 'active')->orWhereHas('attendances', fn ($q) => $q->whereBetween('clock_in_at', [$from, $to])))->get()->reject(fn ($u) => $u->isCvoOrSuperAdmin() || strtolower((string) $u->access_role) === 'cvo');
         $departments = $eligible->pluck('department')->filter()->unique()->sort()->values();
         $staff = $eligible->filter(fn ($u) => (empty($v['q']) || str_contains(mb_strtolower($u->name), mb_strtolower($v['q']))) && (empty($v['department']) || in_array($u->department, User::departmentAliases($v['department']))));
         $base = Attendance::whereIn('user_id', $staff->pluck('id'))->whereBetween('clock_in_at', [$from, $to]);
         $all = (clone $base)->orderBy('clock_in_at')->get()->groupBy('user_id');
         $tracking = Attendance::whereIn('user_id', $eligible->pluck('id'))->min('clock_in_at');
-        $trackingFrom = $tracking ? Carbon::parse($tracking)->startOfDay() : today();
+        $trackingFrom = $onlyUser ? (PerformanceScoringService::resetStartsOn() ?? $from->copy()) : ($tracking ? Carbon::parse($tracking)->startOfDay() : today());
         $leaves = LeaveApplication::whereIn('user_id', $staff->pluck('id'))->where('status', 'approved')->whereDate('start_date', '<=', $to)->whereDate('end_date', '>=', $from)->get()->groupBy('user_id');
         $todayRows = Attendance::whereIn('user_id', $staff->pluck('id'))->whereBetween('clock_in_at', [today(), today()->endOfDay()])->orderBy('clock_in_at')->get()->unique('user_id')->keyBy('user_id');
         $todayWorkday = ! today()->isWeekend() && ! in_array(today()->toDateString(), \App\Services\CompanyCalendar::nonWorkingDates(), true);

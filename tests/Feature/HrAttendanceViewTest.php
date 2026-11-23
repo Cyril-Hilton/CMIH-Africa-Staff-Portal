@@ -16,7 +16,7 @@ class HrAttendanceViewTest extends TestCase {
   $this->get(route('portal.hr-reporting.attendance',['period'=>'monthly','date'=>'2026-10-20','punctuality'=>'late','department'=>'finance','q'=>'Punctual','sort'=>'newest']))->assertOk()->assertSee('50% On Time')->assertDontSee('2026-10-20 08:45');
   $this->get(route('portal.hr-reporting.attendance',['period'=>'yearly','date'=>'2026-10-20']))->assertOk()->assertSee('66.7% On Time');
   $this->actingAs($hr)->get(route('dashboard',['weekly_department'=>'hr_admin','attendance_period'=>'yearly','attendance_date'=>'2026-10-20']))->assertOk()->assertSee('dw-tab-hr_admin-attendance',false)->assertSee('66.7% On Time');
-  $this->actingAs($staff)->get(route('portal.hr-reporting.attendance'))->assertForbidden();
+  $this->actingAs($staff)->get(route('portal.hr-reporting.attendance'))->assertOk()->assertSee('Your attendance records');
   $this->get(route('dashboard',['weekly_department'=>'hr_admin']))->assertOk()->assertDontSee('dw-tab-hr_admin-attendance',false);
  }
  public function test_fixed_break_allowance_excludes_overtime_without_break_clocking():void {

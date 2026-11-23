@@ -71,7 +71,7 @@ class RankingAttention
             $add('recorded_kpi_shortfall', 'Recorded KPI achievement is '.round($score['kpi_rate'], 1).'%. Check the underlying targets and reviewed results.', 'Staff member and KPI reviewer');
         }
 
-        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'preparing' => (bool) $preparing, 'starts_on' => $reset];
+        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'attention_task_ids' => $tasks->pluck('id')->all(), 'preparing' => (bool) $preparing, 'starts_on' => $reset];
     }
 
     public function visible(User $viewer, Carbon $from, Carbon $to, ?int $person = null, ?string $department = null): Collection

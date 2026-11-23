@@ -13,7 +13,12 @@
             for (const selector of ['[data-ranking-attention-panel]', '[data-ranking-attention-indicator]']) {
                 const current = document.querySelector(selector);
                 const updated = page.querySelector(selector);
-                if (current && updated) current.replaceWith(document.importNode(updated, true));
+                if (current && updated) {
+                    const expanded = new Map([...current.querySelectorAll('details[data-ranking-disclosure]')].map(node => [node.dataset.rankingDisclosure, node.open]));
+                    const replacement = document.importNode(updated, true);
+                    replacement.querySelectorAll('details[data-ranking-disclosure]').forEach(node => { if (expanded.has(node.dataset.rankingDisclosure)) node.open = expanded.get(node.dataset.rankingDisclosure); });
+                    current.replaceWith(replacement);
+                }
             }
         } catch (_) {
             // Keep the last valid flags visible if the connection is temporarily unavailable.

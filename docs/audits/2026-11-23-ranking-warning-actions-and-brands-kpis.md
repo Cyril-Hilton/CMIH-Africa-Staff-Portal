@@ -1,0 +1,15 @@
+# Ranking warning actions and Brands KPI presentation
+
+Ranking warnings now provide navigation to their original sources. Unverified tasks open their editable record when the viewer has editing permission; Creative-linked tasks open their brief. Submitted weekly reports use an item filter and stable record anchor, retaining owner and date context. KPI targets open their baseline section; dashboard-derived gaps open the corresponding departmental reporting area. Missing deadlines and Creative scheduling warnings open the appropriate task or brief. Manager-only approval and source permissions remain enforced.
+
+Staff can follow an attendance warning to their own read-only attendance records. The service restricts the query to the signed-in user before applying filters; changing a name filter cannot reveal another person's records. Existing full HR/audit views retain their company-wide scope. Historical timestamps are not editable by staff. Personal report eligibility starts at the reset or selected range and the employee start date, rather than at the employee's first recorded clock-in. Personal attendance breadcrumbs return to the staff dashboard.
+
+The Brands source KPI panel retains its four reporting areas, values, source counts, evidence coverage, attendance figures, scoring rules and metric table. The presentation uses blue gradients, compact score cards, state badges and progress meters, with light and dark styles and responsive two/four-column layouts. Gap updates, scoring explanations, punctuality notes and detailed calculations expand on demand. Brands staff ranking explanations and KPI gap updates also collapse. Existing expansion choices are retained during the minute-by-minute ranking refresh.
+
+No scoring weights, targets, approval workflow or source records were changed. The score service exposes the already computed unverified record IDs so navigation follows the same records used in the score, without reconstructing completion rules in the presentation layer. Other departments retain their KPI card layout.
+
+Validation: full suite 925 tests / 8469 assertions passed; focused navigation, privacy, HR and rendered-route checks 11 tests / 121 assertions passed; 81 JavaScript tests passed. Regression checks cover exact task editing, exact report selection, unauthorized access, self-only attendance filtering, preserved metrics and collapsed explanatory details.
+
+Production installed 17 runtime files with rollback backups. Verification rendered all six departments for Super Admin, CVO and the audit profile; retained ordinary-staff HR/Finance restrictions; checked the blue Brands KPI panel and personal attendance scoping; and confirmed unchanged protected business records. The stylesheet import was merged narrowly against the existing live source, preserving unrelated live CSS differences. Compiled assets retain prior versions for open sessions.
+
+Live browser inspection confirmed the four blue KPI cards, closed detail disclosures and warning action links. The original dashboard tab and appearance were preserved.

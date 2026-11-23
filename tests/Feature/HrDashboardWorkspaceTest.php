@@ -53,7 +53,7 @@ class HrDashboardWorkspaceTest extends TestCase
         $this->assertFalse($administrator->canViewAllPayroll());
         $this->assertFalse($administrator->canReviewIdentityDocuments());
         $this->get(route('portal.hr.staff.index'))->assertForbidden();
-        $this->get(route('portal.hr-reporting.attendance'))->assertForbidden();
+        $this->get(route('portal.hr-reporting.attendance'))->assertOk()->assertViewHas('summary', fn ($rows) => $rows->every(fn ($row) => (int) $row['id'] === $administrator->id));
         $this->get(route('portal.hr-reporting.index'))->assertForbidden();
         $this->get(route('portal.appraisals.report', $manager))->assertForbidden();
         $this->post(route('portal.hr.appraisals.metrics.store'), [])->assertForbidden();

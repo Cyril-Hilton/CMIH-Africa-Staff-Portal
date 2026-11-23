@@ -25,7 +25,7 @@ class PerformanceHubController extends Controller
 {
     public function index(Request $r)
     {
-        $filters = $r->validate(['department' => ['nullable', Rule::in(array_keys(config('performance.departments')))], 'owner' => ['nullable', 'integer'], 'team_lead_id' => ['nullable', 'integer', 'exists:users,id'], 'team' => ['nullable', 'string', 'max:255'], 'client' => ['nullable', 'string', 'max:255'], 'project' => ['nullable', 'string', 'max:255'], 'kpi' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:30'], 'priority' => ['nullable', 'in:Critical,High,Medium,Low'], 'due_from' => ['nullable', 'date_format:Y-m-d'], 'due_to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('due_from') ? ['after_or_equal:due_from'] : [])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('from') ? ['after_or_equal:from'] : [])], 'overdue' => ['nullable', 'in:1'], 'view' => ['nullable', 'in:summary,commitments,kpis,exceptions,trends,dependencies,meeting,dictionary,registers']]);
+        $filters = $r->validate(['department' => ['nullable', Rule::in(array_keys(config('performance.departments')))], 'owner' => ['nullable', 'integer'], 'item' => ['nullable', 'integer', 'min:1'], 'team_lead_id' => ['nullable', 'integer', 'exists:users,id'], 'team' => ['nullable', 'string', 'max:255'], 'client' => ['nullable', 'string', 'max:255'], 'project' => ['nullable', 'string', 'max:255'], 'kpi' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:30'], 'priority' => ['nullable', 'in:Critical,High,Medium,Low'], 'due_from' => ['nullable', 'date_format:Y-m-d'], 'due_to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('due_from') ? ['after_or_equal:due_from'] : [])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('from') ? ['after_or_equal:from'] : [])], 'overdue' => ['nullable', 'in:1'], 'view' => ['nullable', 'in:summary,commitments,kpis,exceptions,trends,dependencies,meeting,dictionary,registers']]);
         $user = $r->user();
         $department = $filters['department'] ?? (Access::executive($user) ? null : Access::department($user));
         if ($department === 'client_relations') {
@@ -54,6 +54,7 @@ class PerformanceHubController extends Controller
                 $q->where($column, $filters[$input]);
             }
         }
+        if (! empty($filters['item'])) $q->whereKey($filters['item']);
         if (! empty($filters['overdue'])) {
             $q->whereNotIn('workflow_state', ['verified', 'closed'])->whereDate('week_end', '<', today());
         }

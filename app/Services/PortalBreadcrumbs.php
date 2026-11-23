@@ -16,6 +16,7 @@ class PortalBreadcrumbs {
    if($request->filled('exec_view')&&config('executive_tracker.tabs.'.$request->query('exec_view'))){$items[]=['label'=>'Executive command centre','url'=>route('dashboard')];$items[]=['label'=>config('executive_tracker.tabs.'.$request->query('exec_view')),'url'=>null];return $items;}
    $items[0]['url']=null;return $items;
   }
+  if($path==='portal/hr-reporting/attendance'&&!$request->user()?->hasFullHrAccess()&&!$request->user()?->canAuditHrAndFinance())return array_merge($items,[['label'=>'My Attendance','url'=>null]]);
   if(str_starts_with($name,'portal.executive.'))return array_merge($items,[['label'=>'Executive command centre','url'=>route('dashboard',['exec_view'=>'projects'])],['label'=>'Source details','url'=>null]]);
   $labels=['portal'=>'Staff Portal','admin'=>'Administration','hr'=>'HR & Admin','hr-workspace'=>'HR & Admin','hr-dashboard'=>'HR & Admin','client-relations'=>'Client Relations','pipeline'=>'Projects & Weekly Entries','creative'=>'Creative Studio','creative-studio'=>'Creative Studio','operations'=>'Operations & Projects','brands'=>'Brands & Marketing','finance'=>'Finance','boardroom-requests'=>'Boardroom Bookings','fleet-requests'=>'Vehicle Requests','warehouse-assets'=>'Warehouse Assets','assets'=>'Office Assets','performance'=>'Performance & Accountability','project-journey'=>'Live Project & Team Tracker','leaves'=>'Leaves & Absences','create'=>'Add New','edit'=>'Edit','show'=>'Details','index'=>'Overview','hr-reporting'=>'HR Reports'];
   $segments=explode('/',$path);$prefix='';
