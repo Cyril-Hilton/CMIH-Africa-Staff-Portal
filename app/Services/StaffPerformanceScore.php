@@ -36,7 +36,7 @@ class StaffPerformanceScore
         $linked = WeeklyConsolidatedItem::where('lead_staff_id', $user->id)->where('workflow_state', '!=', 'legacy')->whereIn('source_task_id', $tasks->pluck('id'))->get();
         $verifiedLinkedTaskIds = $this->verifiedCommitments($linked, $user)->pluck('source_task_id');
         $reviewers = User::whereIn('id', $tasks->pluck('completion_reviewed_by')->filter()->unique())->get()->keyBy('id');
-        $verifiedTaskRows = $tasks->filter(fn ($task) => ($task->completion_review_status === 'approved' && $task->completion_reviewed_at && $this->managerSignedOff($reviewers->get($task->completion_reviewed_by), $user) && TaskStatsService::wasApprovedByExpectedManager($task, $user)) || $verifiedLinkedTaskIds->contains($task->id));
+        $verifiedTaskRows = $tasks->filter(fn ($task) => AutoClockService::isCompletedAutomaticTask($task, $user) || ($task->completion_review_status === 'approved' && $task->completion_reviewed_at && $this->managerSignedOff($reviewers->get($task->completion_reviewed_by), $user) && TaskStatsService::wasApprovedByExpectedManager($task, $user)) || $verifiedLinkedTaskIds->contains($task->id));
         $verifiedTasks = $verifiedTaskRows->count();
         $commitments = WeeklyConsolidatedItem::where('lead_staff_id', $user->id)->whereNull('source_task_id')->where('workflow_state', '!=', 'legacy')->whereBetween('week_start', [$start->toDateString(), $end->toDateString()])->get();
         $verifiedCommitmentRows = $this->verifiedCommitments($commitments, $user);

@@ -148,6 +148,24 @@ class AutoClockService
         }
     }
 
+    /** Recognise only the completed, self-assigned task covered by the auto-clock policy. */
+    public static function isCompletedAutomaticTask(Task $task, User $user): bool
+    {
+        $title = self::isCurtisBarnor($user)
+            ? '3D/4D Product Mockups and Creative Design Development'
+            : (self::isCyril($user)
+                ? 'CMIH Portal Maintainance and Feature Upgrade'
+                : 'Overall App Supervision & Staff Management');
+
+        return self::isAutoClockUser($user)
+            && (int) $task->assigned_to === (int) $user->id
+            && (int) $task->assigned_by === (int) $user->id
+            && $task->title === $title
+            && (int) $task->progress === 100
+            && $task->completion_review_status === null
+            && $task->isApprovedForPerformance();
+    }
+
     public static function isAutoClockUser(User $user): bool
     {
         return !$user->isServiceAccount() && ($user->access_role === 'super_admin'

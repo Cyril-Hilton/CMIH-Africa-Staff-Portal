@@ -32,4 +32,21 @@ class RankingAttentionNavigationTest extends TestCase {
   $staff=$this->staff('brands_marketing');$links=$this->actions($staff,$staff);$tabs=[];foreach($links['kpi_evidence']??[] as $link){parse_str(parse_url($link['url'],PHP_URL_QUERY),$q);$tabs[]=$q['brands_tab']??null;$this->assertSame((string)$staff->id,$q['brands_owner']);}
   $this->assertSame(['people','perfect_store','activation','workstream'],$tabs);
  }
+ public function test_completed_automatic_task_has_delivery_credit_without_manager_review_but_normal_tasks_still_require_it(): void {
+  $staff=$this->staff();$staff->update(['name'=>'Cyril Hilton']);
+  \App\Services\AutoClockService::handleForUser($staff,today());
+  $task=Task::where('assigned_to',$staff->id)->where('title','CMIH Portal Maintainance and Feature Upgrade')->firstOrFail();
+  $this->assertSame(100,$task->progress);$this->assertNull($task->completion_review_status);
+  $row=app(RankingAttention::class)->forPerson($staff,today()->startOfMonth(),today()->endOfMonth());
+  $this->assertSame(1,$row['score']['completion_verified']);$this->assertSame(100.0,$row['score']['task_rate']);
+  $this->assertEmpty($row['score']['unverified_task_ids']);$this->assertNotContains('unverified_delivery',array_column($row['issues'],'code'));
+  $this->assertNotContains('missing_clockins',array_column($row['issues'],'code'));$this->assertNotContains('recorded_lateness',array_column($row['issues'],'code'));
+  $manual=Task::create(['title'=>'Ordinary completed work','assigned_to'=>$staff->id,'assigned_by'=>$staff->id,'department'=>'creatives','status'=>'Completed','progress'=>100,'priority'=>'High','due_on'=>today()]);
+  $row=app(RankingAttention::class)->forPerson($staff,today()->startOfMonth(),today()->endOfMonth());
+  $this->assertSame([$manual->id],$row['score']['unverified_task_ids']);$this->assertSame(1,$row['score']['completion_verified']);
+  $task->update(['status'=>'In Progress','progress'=>90]);$this->assertFalse(\App\Services\AutoClockService::isCompletedAutomaticTask($task->fresh(),$staff));
+  $other=$this->staff();$task->update(['assigned_to'=>$other->id,'assigned_by'=>$other->id,'status'=>'Completed','progress'=>100]);
+  $this->assertFalse(\App\Services\AutoClockService::isCompletedAutomaticTask($task->fresh(),$other));
+ }
+
 }
