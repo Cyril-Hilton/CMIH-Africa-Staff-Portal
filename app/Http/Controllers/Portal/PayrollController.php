@@ -208,23 +208,13 @@ class PayrollController extends Controller
                 ]
             );
 
-            // Send business mail only to the staff notification mailbox.
-            $recipientEmails = array_filter([$staff->notificationEmail()]);
-            if (! empty($recipientEmails)) {
-                try {
-                    Mail::to($recipientEmails)->send(new StaffPayslipMail($payslip, $staff));
-                } catch (\Exception $e) {
-                    // Log error gracefully without breaking loop
-                    logger()->error("Failed sending payslip mail to {$staff->name}: " . $e->getMessage());
-                }
-            }
+            \App\Services\NotificationService::send($staff->id,'Payslip available','Your payslip is available in your private Payroll area.',route('portal.payroll'));
 
             $count++;
         }
 
         $periodLabel = Carbon::createFromFormat('!Y-m', $period)->format('F Y');
-        return back()->with('status', "Monthly payslips generated and emailed to {$count} staff member(s) for {$periodLabel}.");
-        return back()->with('status', " Success! Monthly payslips generated & emailed to {$count} staff members for {$periodLabel}.");
+        return back()->with('status', "Monthly payslips generated for {$count} staff member(s) for {$periodLabel}. Staff are notified in-app.");
     }
 
     /**

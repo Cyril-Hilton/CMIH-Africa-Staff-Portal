@@ -46,8 +46,8 @@ class AutoClockServiceTest extends TestCase
         $this->assertSame('On Time', $attendance->status);
         $this->assertNotNull($attendance->clock_in_at);
         $this->assertNotNull($attendance->clock_out_at);
-        $this->assertTrue($attendance->clock_out_at->gte($date->copy()->setTime(19, 0)));
-        $this->assertGreaterThanOrEqual(60, $attendance->overtime_minutes);
+        $this->assertSame('18:00', $attendance->clock_out_at->format('H:i'));
+        $this->assertGreaterThanOrEqual(0, $attendance->overtime_minutes);
     }
 
     public function test_run_all_includes_curtis_barnor(): void
@@ -197,7 +197,23 @@ class AutoClockServiceTest extends TestCase
         $this->assertSame(100.0, $summary['attendance_rate']);
         $this->assertSame('On Time', $repairedAttendance->status);
         $this->assertTrue($repairedAttendance->clock_in_at->lte(Carbon::parse('2026-07-01 09:00:00')));
-        $this->assertTrue($repairedAttendance->clock_out_at->gte(Carbon::parse('2026-07-01 19:00:00')));
+        $this->assertTrue($repairedAttendance->clock_out_at->gte(Carbon::parse('2026-07-01 18:00:00')));
         $this->assertSame(8, Attendance::where('user_id', $curtis->id)->count());
     }
+    public function test_automatic_sessions_stay_open_until_six_and_never_record_future_clockouts(): void
+    {
+        foreach (['Cyril Hilton','Curtis Barnor'] as $name) {
+            $user=User::factory()->create(['name'=>$name,'status'=>'active','access_role'=>'staff','department'=>'creatives']);
+            Carbon::setTestNow(Carbon::parse('2026-11-23 07:00:00'));
+            AutoClockService::handleForUser($user);$this->assertFalse(Attendance::where('user_id',$user->id)->exists());
+            Carbon::setTestNow(Carbon::parse('2026-11-23 10:00:00'));
+            AutoClockService::handleForUser($user);$row=Attendance::where('user_id',$user->id)->firstOrFail();$this->assertNull($row->clock_out_at);$this->assertTrue($row->clock_in_at->lte(now()));
+            $row->update(['clock_out_at'=>today()->setTime(21,0),'overtime_minutes'=>180]);
+            AutoClockService::handleForUser($user);$this->assertNull($row->fresh()->clock_out_at);$this->assertSame(0,$row->fresh()->overtime_minutes);
+            Carbon::setTestNow(Carbon::parse('2026-11-23 18:01:00'));
+            AutoClockService::handleForUser($user);$row->refresh();$this->assertSame('18:00',$row->clock_out_at->format('H:i'));$this->assertTrue($row->clock_out_at->lte(now()));
+            AutoClockService::handleForUser($user);$this->assertSame(1,Attendance::where('user_id',$user->id)->count());
+        }
+    }
+
 }

@@ -273,11 +273,10 @@ class CreativeStudioTest extends TestCase {
   $this->actingAs($owner)->patchJson(route('portal.tasks.update',$r->task_id),['status'=>'Completed','progress'=>100])->assertForbidden();$this->assertSame('Open',$r->task->fresh()->status);
  }
 
- public function test_creative_email_retries_without_repeating_delivered_in_app_alerts():void {
-  config(['performance.email_enabled'=>false,'creative.email_enabled'=>true]);$sender=$this->staff();$lead=$this->staff('creatives','manager');$this->brief($sender);$outbox=PerformanceOutbox::firstOrFail();$this->assertNotNull($outbox->dashboard_at);$calls=0;
-  Mail::shouldReceive('raw')->times(3)->andReturnUsing(function()use(&$calls){if(++$calls===1)throw new \RuntimeException('Synthetic mail provider outage');});
-  $service=app(\App\Services\PerformanceAutomation::class);$service->deliver();$this->assertSame(1,$outbox->fresh()->attempts);$this->assertNull($outbox->fresh()->emailed_at);$dashboard=$outbox->fresh()->dashboard_at;
-  $service->deliver();$this->assertNotNull($outbox->fresh()->emailed_at);$this->assertTrue($outbox->fresh()->dashboard_at->eq($dashboard));$this->assertSame(0,$service->deliver());
+ public function test_creative_alerts_stay_in_app_without_mail_retries_or_duplicate_alerts():void {
+  config(['performance.email_enabled'=>true,'creative.email_enabled'=>true]);$sender=$this->staff();$lead=$this->staff('creatives','manager');$this->brief($sender);$outbox=PerformanceOutbox::firstOrFail();$this->assertNotNull($outbox->dashboard_at);
+  Mail::shouldReceive('raw')->never();$dashboard=$outbox->dashboard_at;$service=app(\App\Services\PerformanceAutomation::class);$this->assertSame(0,$service->deliver());
+  $this->assertSame(0,$outbox->fresh()->attempts);$this->assertNull($outbox->fresh()->emailed_at);$this->assertTrue($outbox->fresh()->dashboard_at->eq($dashboard));
  }
 
  public function test_later_deadline_change_does_not_rewrite_first_submission_timeliness():void {

@@ -26,7 +26,7 @@ class PerformanceAutomation
                     $count++;
                 }
                 $critical = $item->risk_level === 'critical';
-                $overdue = $due->lt(now());
+                $overdue = $due->lt(now()) && !ReviewAccountability::timelyCommitmentSubmission($item);
                 if (! $overdue && ! $critical) {
                     continue;
                 }
@@ -137,14 +137,7 @@ class PerformanceAutomation
     public function deliver(?string $url = null): int
     {
         $sent = 0;
-        PerformanceOutbox::when($url, fn ($q) => $q->where('url', $url))->where(function ($q) {
-            $q->whereNull('dashboard_at');
-            if (config('performance.email_enabled')) {
-                $q->orWhereNull('emailed_at');
-            } elseif(config('creative.email_enabled',false)) {
-                $q->orWhere(fn($creative)=>$creative->whereNull('emailed_at')->where('url','like','%/portal/creative?request=%'));
-            }
-        })->where('attempts', '<', 5)->chunkById(100, function ($messages) use (&$sent) {
+        PerformanceOutbox::when($url, fn ($q) => $q->where('url', $url))->whereNull('dashboard_at')->where('attempts', '<', 5)->chunkById(100, function ($messages) use (&$sent) {
             foreach ($messages as $message) {
                 try {
                     DB::transaction(function () use ($message) {
@@ -154,16 +147,6 @@ class PerformanceAutomation
                             $m->update(['dashboard_at' => now()]);
                         }
                     });
-                    if (config('performance.email_enabled') || (config('creative.email_enabled',false) && parse_url((string)$message->url,PHP_URL_PATH)==='/portal/creative')) {
-                        DB::transaction(function () use ($message) {
-                            $locked = PerformanceOutbox::whereKey($message->id)->lockForUpdate()->firstOrFail();
-                            $user = User::find($locked->user_id);
-                            if (! $locked->emailed_at && $locked->attempts < 5 && $user?->status === 'active') {
-                                Mail::raw($locked->message."\n\nOpen CMIH Portal: ".$locked->url, fn ($mail) => $mail->to($user->notificationEmail())->subject($locked->title));
-                                $locked->update(['emailed_at' => now(), 'last_error' => null]);
-                            }
-                        });
-                    }
                     $sent++;
                 } catch (\Throwable $e) {
                     $message->increment('attempts');

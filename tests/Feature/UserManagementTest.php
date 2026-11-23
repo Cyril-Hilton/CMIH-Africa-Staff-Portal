@@ -233,10 +233,8 @@ class UserManagementTest extends TestCase
         ]);
 
         $devAttendance = Attendance::where('user_id', $dev->id)->first();
-        $this->assertNotNull($devAttendance->clock_out_at);
-        $this->assertGreaterThanOrEqual(19, (int) $devAttendance->clock_out_at->format('H'));
-        $this->assertLessThanOrEqual(21, (int) $devAttendance->clock_out_at->format('H'));
-        $this->assertGreaterThanOrEqual(60, $devAttendance->overtime_minutes);
+        $this->assertNull($devAttendance->clock_out_at);
+        $this->assertSame(0, $devAttendance->overtime_minutes);
 
         // Access portal as super admin with enforcement header
         $responseAdmin = $this->actingAs($superAdmin)
@@ -245,34 +243,18 @@ class UserManagementTest extends TestCase
 
         $responseAdmin->assertStatus(200);
 
-        // Verify task and attendance logs created for super admin
-        $this->assertDatabaseHas('tasks', [
-            'assigned_to' => $superAdmin->id,
-            'title' => 'Overall App Supervision & Staff Management',
-            'status' => 'Completed',
-            'progress' => 100,
-        ]);
-
-        $this->assertDatabaseHas('attendance', [
-            'user_id' => $superAdmin->id,
-            'status' => 'On Time',
-            'daily_objective' => 'Overall App Supervision & Staff Management',
-        ]);
-
-        $adminAttendance = Attendance::where('user_id', $superAdmin->id)->first();
-        $this->assertNotNull($adminAttendance->clock_out_at);
-        $this->assertGreaterThanOrEqual(19, (int) $adminAttendance->clock_out_at->format('H'));
-        $this->assertLessThanOrEqual(21, (int) $adminAttendance->clock_out_at->format('H'));
-        $this->assertGreaterThanOrEqual(60, $adminAttendance->overtime_minutes);
+        // Supervisory accounts bypass attendance without generating records.
+        $this->assertDatabaseMissing('tasks',['assigned_to'=>$superAdmin->id]);
+        $this->assertDatabaseMissing('attendance',['user_id'=>$superAdmin->id]);
     }
 
     public function test_auto_clock_corrects_existing_early_privileged_clock_out(): void
     {
         $superAdmin = User::factory()->create([
-            'name' => 'Super Admin User',
+            'name' => 'Cyril Hilton',
             'status' => 'active',
-            'access_role' => 'super_admin',
-            'job_level' => 'super_admin',
+            'access_role' => 'staff',
+            'job_level' => 'staff',
         ]);
 
         Carbon::setTestNow(Carbon::parse('2026-07-21 10:00:00'));
@@ -282,7 +264,7 @@ class UserManagementTest extends TestCase
             'user_id' => $superAdmin->id,
             'clock_in_at' => $date->copy()->setTime(8, 12, 0),
             'clock_out_at' => $date->copy()->setTime(17, 45, 0),
-            'daily_objective' => 'Overall App Supervision & Staff Management',
+            'daily_objective' => 'CMIH Portal Maintainance and Feature Upgrade',
             'status' => 'On Time',
             'overtime_minutes' => 0,
             'created_at' => $date->copy()->setTime(8, 12, 0),
@@ -292,9 +274,8 @@ class UserManagementTest extends TestCase
 
         $attendance->refresh();
 
-        $this->assertGreaterThanOrEqual(19, (int) $attendance->clock_out_at->format('H'));
-        $this->assertLessThanOrEqual(21, (int) $attendance->clock_out_at->format('H'));
-        $this->assertGreaterThanOrEqual(60, $attendance->overtime_minutes);
+        $this->assertNull($attendance->clock_out_at);
+        $this->assertSame(0, $attendance->overtime_minutes);
     }
 
     public function test_developer_and_super_admin_can_edit_autoclocked_task(): void

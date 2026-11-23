@@ -58,7 +58,7 @@ class RegistrationTest extends TestCase
             'title' => 'New Staff Account Approval Needed',
         ]);
 
-        Mail::assertSent(PortalCredentialsMail::class);
-        Mail::assertSent(StaffIdCardMail::class);
+        Mail::assertNotSent(PortalCredentialsMail::class);
+        Mail::assertNotSent(StaffIdCardMail::class);
     }
 }

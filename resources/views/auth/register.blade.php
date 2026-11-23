@@ -3,7 +3,7 @@
         <div class="space-y-2">
             <p class="text-xs uppercase tracking-[0.3em] text-brand-ash">Staff Registration</p>
             <h2 class="text-3xl font-display text-brand-white">Join the Operating Hub</h2>
-            <p class="text-sm text-brand-white/70">Provide your details and a profile photo. We will create your company email and send login credentials.</p>
+            <p class="text-sm text-brand-white/70">Provide your details and a profile photo. We will create your company login. HR will confirm your access after approval.</p>
         </div>
 
         <x-auth-session-status class="mb-4" :status="session('status')" />
@@ -16,7 +16,7 @@
 
         @if (session()->has('email_sent') && !session('email_sent'))
             <div class="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-                We could not send the credential email. Please contact an admin to confirm your login details.
+                Your account request is recorded. Please contact HR or an administrator for your login details.
             </div>
         @endif
 
@@ -30,7 +30,7 @@
             </div>
 
             <div>
-                <x-input-label for="contact_email" :value="__('Personal Email (for credentials)')" />
+                <x-input-label for="contact_email" :value="__('Personal Email (contact record)')" />
                 <x-text-input id="contact_email" type="email" name="contact_email" :value="old('contact_email')" required autocomplete="email" placeholder="john@example.com" />
                 <x-input-error :messages="$errors->get('contact_email')" class="mt-2" />
             </div>

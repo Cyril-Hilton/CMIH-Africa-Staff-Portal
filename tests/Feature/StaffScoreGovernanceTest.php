@@ -63,7 +63,7 @@ class StaffScoreGovernanceTest extends TestCase
         $this->assertSame(config('performance.score_weights'),StaffPerformanceScore::WEIGHTS);
         $result=app(StaffPerformanceScore::class)->combine(100,0,100);
         $this->assertSame(35.0,$result['score']);
-        $this->assertSame('10-65-25-v4-source-credit',$result['formula_version']);
+        $this->assertSame('10-65-25-v5-review-responsibility',$result['formula_version']);
     }
     public function test_dashboard_exposes_a_total_card_without_inventing_a_complete_score(): void
     {
@@ -106,7 +106,7 @@ class StaffScoreGovernanceTest extends TestCase
         // 100% attendance × 10 + 50% verified tasks × 65 + 80% KPI × 25.
         $this->assertEquals(62.5,$employee['score']);
         $this->assertEquals(62.5,$department['score']);
-        $this->assertSame('10-65-25-v4-source-credit',$employee['formula_version']);
+        $this->assertSame('10-65-25-v5-review-responsibility',$employee['formula_version']);
         $this->assertSame(65,$employee['score_components']['completion']['weight']);
         $this->assertSame(25,$department['score_components']['kpi']['weight']);
         $this->assertTrue($employee['score_complete']);

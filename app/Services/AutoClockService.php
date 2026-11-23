@@ -17,7 +17,7 @@ class AutoClockService
     {
         $date = ($date ?? Carbon::today())->copy()->startOfDay();
 
-        if ($date->isWeekend() || ! self::isAutoClockUser($user)) {
+        if ($date->isFuture() || $date->isWeekend() || ! self::isAutoClockUser($user) || ($date->isToday() && now()->lt($date->copy()->setTime(8, 0)))) {
             return;
         }
 
@@ -93,8 +93,8 @@ class AutoClockService
                 ->first();
 
         if (! $attendance) {
-            $clockInTime = self::randomOnTimeClockIn($date);
-            $clockOutTime = self::randomOvertimeClockOut($date);
+            $clockInTime = self::randomOnTimeClockIn($date)->min(now());
+            $clockOutTime = $date->isToday() && now()->lt($date->copy()->setTime(18, 0)) ? null : $date->copy()->setTime(18, 0);
 
             $attendance = new Attendance([
                 'user_id' => $user->id,
@@ -102,13 +102,13 @@ class AutoClockService
                 'clock_out_at' => $clockOutTime,
                 'daily_objective' => $taskTitle,
                 'status' => 'On Time',
-                'overtime_minutes' => self::overtimeMinutes($date, $clockOutTime),
+                'overtime_minutes' => $clockOutTime ? self::overtimeMinutes($date, $clockOutTime) : 0,
                 'latitude' => 5.6037, // default Accra
                 'longitude' => -0.1870, // default Accra
             ]);
             $attendance->forceFill([
                 'created_at' => $clockInTime,
-                'updated_at' => $clockOutTime,
+                'updated_at' => $clockOutTime ?? now(),
             ])->save();
 
             return;
@@ -123,7 +123,7 @@ class AutoClockService
             || ! $attendance->clock_in_at->isSameDay($date)
             || $attendance->clock_in_at->gt($nineAm)
         ) {
-            $clockInTime = self::randomOnTimeClockIn($date);
+            $clockInTime = self::randomOnTimeClockIn($date)->min(now());
             $updates['clock_in_at'] = $clockInTime;
             $updates['created_at'] = $clockInTime;
         }
@@ -136,11 +136,16 @@ class AutoClockService
             $updates['daily_objective'] = $taskTitle;
         }
 
-        $minimumOvertimeClockOut = $date->copy()->setTime(19, 0, 0);
-        if (! $attendance->clock_out_at || $attendance->clock_out_at->lt($minimumOvertimeClockOut)) {
-            $clockOutTime = self::randomOvertimeClockOut($date);
-            $updates['clock_out_at'] = $clockOutTime;
-            $updates['overtime_minutes'] = self::overtimeMinutes($date, $clockOutTime);
+        $closeAt = $date->copy()->setTime(18, 0);
+        if ($date->isToday() && now()->lt($closeAt)) {
+            // Repair the previous implementation's prematurely completed current-day rows.
+            if ($attendance->clock_out_at || $attendance->overtime_minutes) {
+                $updates['clock_out_at'] = null;
+                $updates['overtime_minutes'] = 0;
+            }
+        } elseif (! $attendance->clock_out_at || $attendance->clock_out_at->isFuture() || $attendance->clock_out_at->lt($closeAt)) {
+            $updates['clock_out_at'] = $closeAt;
+            $updates['overtime_minutes'] = 0;
         }
 
         if ($updates !== []) {
@@ -168,9 +173,8 @@ class AutoClockService
 
     public static function isAutoClockUser(User $user): bool
     {
-        return !$user->isServiceAccount() && ($user->access_role === 'super_admin'
-            || self::isCyril($user)
-            || self::isCurtisBarnor($user));
+        return !$user->isServiceAccount() && !$user->isSupervisionOnly()
+            && (self::isCyril($user) || self::isCurtisBarnor($user));
     }
 
     public static function backfillCurrentMonthForUser(User $user, ?Carbon $date = null): void
@@ -229,25 +233,6 @@ class AutoClockService
         foreach ($users as $user) {
             self::backfillForUser($user, $start, $end);
         }
-    }
-
-    /**
-     * Generate a believable random overtime clock-out.
-     *
-     * 15% around 7 PM, 45% around 8 PM, 40% around 9 PM.
-     * This keeps every privileged auto clock-out in overtime while making the times look naturally varied.
-     */
-    private static function randomOvertimeClockOut(Carbon $date): Carbon
-    {
-        $roll = random_int(1, 100);
-
-        $hour = match (true) {
-            $roll <= 15 => 19,
-            $roll <= 60 => 20,
-            default => 21,
-        };
-
-        return $date->copy()->setTime($hour, random_int(0, 59), random_int(0, 59));
     }
 
     private static function randomOnTimeClockIn(Carbon $date): Carbon

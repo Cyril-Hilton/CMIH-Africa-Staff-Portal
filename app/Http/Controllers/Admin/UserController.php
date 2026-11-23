@@ -177,10 +177,10 @@ class UserController extends Controller
             'must_reset_password' => true,
         ]);
 
-        Mail::to($user->work_email ?: $user->contact_email)->send(new PortalCredentialsMail($user, $temporaryPassword));
+        // The authorised administrator receives the temporary credentials in the portal below.
 
         return back()
-            ->with('status', 'Credentials reset and emailed.')
+            ->with('status', 'Credentials reset. Temporary login details are shown below.')
             ->with('temporary_password', $temporaryPassword)
             ->with('temporary_password_user', $user->name)
             ->with('temporary_password_email', $user->email);

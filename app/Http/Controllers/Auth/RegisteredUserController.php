@@ -105,27 +105,9 @@ class RegisteredUserController extends Controller
             $user->id
         );
 
-        $emailSent = true;
+        $emailSent = false; // Login credentials are shown in the portal; outbound email is disabled.
 
-        try {
-            Mail::to($request->contact_email)->send(new PortalCredentialsMail($user, $temporaryPassword));
-        } catch (Throwable $exception) {
-            $emailSent = false;
-            report($exception);
-        }
-
-        if ($user->idCardReady() && $user->notificationEmail()) {
-            try {
-                Mail::to($user->notificationEmail())->send(new \App\Mail\StaffIdCardMail($user));
-                $user->forceFill(['id_card_sent_at' => now()])->save();
-            } catch (Throwable $exception) {
-                report($exception);
-            }
-        }
-
-        if ($emailSent) {
-            session()->flash('status', 'Welcome aboard! Your CMIH profile is ready for admin approval.');
-        }
+        session()->flash('status', 'Your CMIH profile is awaiting approval. Contact HR for your login details.');
 
         return redirect()->route('login')
             ->with('generated_email', $email)

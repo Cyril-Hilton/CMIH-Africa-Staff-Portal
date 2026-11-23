@@ -189,13 +189,8 @@ class ProfileController extends Controller
 
         $cardChanged = $user->wasChanged($idCardFields);
 
-        if ($user->idCardReady() && $user->notificationEmail() && ($cardChanged || ! $user->id_card_sent_at)) {
-            try {
-                Mail::to($user->notificationEmail())->send(new \App\Mail\StaffIdCardMail($user));
-                $user->forceFill(['id_card_sent_at' => now()])->save();
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
+        if ($user->idCardReady() && $cardChanged) {
+            NotificationService::send($user->id,'Staff ID updated','Your updated staff ID is available on your profile.',route('portal.profile'));
         }
 
         if ($needsProfileApprovalNotification) {

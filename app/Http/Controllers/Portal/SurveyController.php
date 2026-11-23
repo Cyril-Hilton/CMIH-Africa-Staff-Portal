@@ -396,77 +396,13 @@ class SurveyController extends Controller
 
     // ── BROADCAST ──────────────────────────────────────────────────────────────
 
-    public function broadcastCompose(Survey $survey): View
+    public function broadcastCompose(Survey $survey): RedirectResponse
     {
-        $survey->load('responses');
-
-        // Only non-anonymous surveys have emails to send to
-        $recipientCount = $survey->is_anonymous
-            ? 0
-            : $survey->responses->whereNotNull('email')->count();
-
-        return view('portal.surveys.broadcast', compact('survey', 'recipientCount'));
+        return redirect()->route('portal.surveys.show',$survey)->with('status','Email broadcasting is disabled. Use in-app notifications.');
     }
 
     public function broadcastSend(Request $request, Survey $survey): RedirectResponse
     {
-        if ($survey->is_anonymous) {
-            return back()->with('error', 'Cannot send emails to an anonymous survey — no email addresses were collected.');
-        }
-
-        $validated = $request->validate([
-            'subject'        => ['required', 'string', 'max:255'],
-            'body'           => ['required', 'string', 'max:10000'],
-            'event_date'     => ['nullable', 'string', 'max:100'],
-            'event_time'     => ['nullable', 'string', 'max:100'],
-            'event_location' => ['nullable', 'string', 'max:255'],
-            'event_map_url'  => ['nullable', 'string', 'max:1000'],
-            'recipient_ids'  => ['nullable', 'array'],
-            'recipient_ids.*'=> ['integer', 'exists:survey_responses,id'],
-        ]);
-
-        $survey->load('responses');
-
-        // Use selected recipients, or ALL if none specifically chosen
-        $responses = !empty($validated['recipient_ids'])
-            ? $survey->responses->whereIn('id', $validated['recipient_ids'])
-            : $survey->responses->whereNotNull('email')->where('email', '!=', '');
-
-        $sent    = 0;
-        $skipped = 0;
-        $senderName = auth()->user()->name;
-
-        foreach ($responses as $response) {
-            if (!$response->email) { $skipped++; continue; }
-
-            // Personalise body — replace {name} placeholder
-            $personalBody = str_replace(
-                ['{name}', '{Name}', '{NAME}'],
-                $response->name ?? 'there',
-                $validated['body']
-            );
-
-            try {
-                Mail::to($response->email)->send(new SurveyBroadcastMail(
-                    recipientName:  $response->name ?? 'Valued Respondent',
-                    subject:        $validated['subject'],
-                    body:           $personalBody,
-                    eventDate:      $validated['event_date'] ?? null,
-                    eventTime:      $validated['event_time'] ?? null,
-                    eventLocation:  $validated['event_location'] ?? null,
-                    eventMapUrl:    $validated['event_map_url'] ?? null,
-                    surveyTitle:    $survey->title,
-                    senderName:     $senderName,
-                ));
-                $sent++;
-            } catch (\Throwable $e) {
-                $skipped++;
-            }
-        }
-
-        $msg = " Broadcast sent! {$sent} email(s) delivered successfully.";
-        if ($skipped > 0) $msg .= " {$skipped} skipped (no email address or delivery error).";
-
-        return redirect()->route('portal.surveys.show', $survey)->with('status', $msg);
+        return redirect()->route('portal.surveys.show',$survey)->with('status','Email broadcasting is disabled. Use in-app notifications.');
     }
 }

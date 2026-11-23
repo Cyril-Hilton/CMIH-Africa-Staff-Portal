@@ -18,6 +18,13 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            if ($user->isSupervisionOnly()) $user->line_manager_id = null;
+        });
+    }
+
     public const MERCHANDISER_ROLE = 'merchandiser';
 
     public const MERCHANDISER_SUPERVISOR_ROLE = 'merchandiser_supervisor';
@@ -703,6 +710,12 @@ class User extends Authenticatable
         return $this->isActive() && ! $this->isServiceAccount()
             && self::normalizeDepartmentKey($this->department) === 'executive'
             && in_array(self::HR_FINANCE_AUDIT_PERMISSION, $this->permissions_matrix ?? [], true);
+    }
+
+    /** Executive dashboard access is supervisory, not an employee performance assignment. */
+    public function isSupervisionOnly(): bool
+    {
+        return $this->isCvoOrSuperAdmin() || (self::normalizeDepartmentKey($this->department)==='executive' && in_array(self::EXECUTIVE_ACTIVITY_PERMISSION,$this->permissions_matrix??[],true));
     }
 
     public function canViewExecutiveActivity(): bool

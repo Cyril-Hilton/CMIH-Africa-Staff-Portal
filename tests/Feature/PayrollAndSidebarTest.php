@@ -132,8 +132,8 @@ class PayrollAndSidebarTest extends TestCase
             'period' => '2026-07',
         ]);
 
-        Mail::assertSent(StaffPayslipMail::class, 1);
-        Mail::assertSent(StaffPayslipMail::class, fn (StaffPayslipMail $mail) => (int) $mail->staff->id === (int) $selectedStaff->id);
+        Mail::assertNotSent(StaffPayslipMail::class);
+        $this->assertDatabaseHas('notifications',['user_id'=>$selectedStaff->id,'title'=>'Payslip available']);
     }
 
     public function test_signed_payslip_link_is_downloadable_without_login(): void

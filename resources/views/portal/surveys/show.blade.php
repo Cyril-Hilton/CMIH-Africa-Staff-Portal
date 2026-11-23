@@ -33,13 +33,7 @@
                    class="rounded-xl border border-brand-white/25 hover:border-brand-white/50 bg-brand-white/5 hover:bg-brand-white/10 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition">
                     <x-ui-icon name="edit" /> Edit Survey
                 </a>
-                {{-- Broadcast Email --}}
-                @if(!$survey->is_anonymous && $totalResponses > 0)
-                    <a href="{{ route('portal.surveys.broadcast', $survey) }}"
-                       class="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-white transition shadow-lg">
-                        <x-ui-icon name="megaphone" /> Broadcast Email
-                    </a>
-                @endif
+
                 @if($totalResponses > 0)
                     <a href="{{ route('portal.surveys.export', $survey) }}"
                        class="rounded-xl bg-brand-red hover:bg-brand-red-dark px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white transition shadow-lg">

@@ -20,7 +20,7 @@ class HrAttendanceReport
         $to = match ($period) {
             'monthly' => $from->copy()->endOfMonth(),'yearly' => $from->copy()->endOfYear(),default => $from->copy()->endOfWeek()
         };
-        $eligible = User::internalStaff()->when($onlyUser, fn ($q) => $q->whereKey($onlyUser->id))->where(fn ($q) => $q->where('status', 'active')->orWhereHas('attendances', fn ($q) => $q->whereBetween('clock_in_at', [$from, $to])))->get()->reject(fn ($u) => $u->isCvoOrSuperAdmin() || strtolower((string) $u->access_role) === 'cvo');
+        $eligible = User::internalStaff()->when($onlyUser, fn ($q) => $q->whereKey($onlyUser->id))->where(fn ($q) => $q->where('status', 'active')->orWhereHas('attendances', fn ($q) => $q->whereBetween('clock_in_at', [$from, $to])))->get()->reject(fn ($u) => $u->isSupervisionOnly() || $u->isServiceAccount());
         $departments = $eligible->pluck('department')->filter()->unique()->sort()->values();
         $staff = $eligible->filter(fn ($u) => (empty($v['q']) || str_contains(mb_strtolower($u->name), mb_strtolower($v['q']))) && (empty($v['department']) || in_array($u->department, User::departmentAliases($v['department']))));
         $base = Attendance::whereIn('user_id', $staff->pluck('id'))->whereBetween('clock_in_at', [$from, $to]);

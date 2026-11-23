@@ -19,6 +19,7 @@ class RankingAttention
         $end = $to->lt($start) ? $start->copy()->endOfWeek() : $to->copy();
         $score = app(StaffPerformanceScore::class)->user($person, $start, $end);
         $issues = [];
+        if($person->isSupervisionOnly() || $person->isServiceAccount())return ['person'=>$person,'issues'=>[],'score'=>$score,'preparing'=>false,'starts_on'=>$reset];
         $manager = $person->lineManager?->name;
         $reviewer = $manager ? 'Reviewing manager: '.$manager : 'Department reviewing manager';
         $add = function ($code, $message, $responsible) use (&$issues) {
@@ -53,7 +54,7 @@ class RankingAttention
             $add('missing_deadlines', $undated.' work item(s) need a deadline before timely delivery can be measured.', 'Assigning manager');
         }
         $pending = $tasks->filter(fn ($t) => in_array($t->completion_review_status, ['pending', 'submitted', 'pending_review'], true))->count();
-        $pending += WeeklyConsolidatedItem::where('lead_staff_id', $person->id)->whereBetween('week_start', [$start->toDateString(), $end->toDateString()])->whereIn('workflow_state', ['submitted', 'in_review'])->count();
+        $pending += WeeklyConsolidatedItem::where('lead_staff_id', $person->id)->whereBetween('week_start', [$start->toDateString(), $end->toDateString()])->whereIn('workflow_state', ['submitted', 'in_review', 'review', 'completed'])->count();
         if ($pending) {
             $add('awaiting_verification', $pending.' submitted work item(s) await manager review; submission does not yet count as verified completion.', $reviewer);
         }
@@ -64,14 +65,20 @@ class RankingAttention
             }
         }
 
-        if ($eligible && ! $pending && ($score['completion_total'] ?? 0) > ($score['completion_verified'] ?? 0)) {
-            $add('unverified_delivery', (($score['completion_total'] ?? 0) - ($score['completion_verified'] ?? 0)).' linked work item(s) are not yet verified. These remain provisional, rather than completed performance credit.', 'Staff member and '.$reviewer);
+        if ($eligible && ! $pending && (count($score['unverified_task_ids']??[])+count($score['unverified_commitment_ids']??[])) > 0) {
+            $add('unverified_delivery', (count($score['unverified_task_ids']??[])+count($score['unverified_commitment_ids']??[])).' linked work item(s) are not yet verified. These remain provisional, rather than completed performance credit.', $reviewer);
         }
         if (empty($score['kpi_gaps']) && is_numeric($score['kpi_rate'] ?? null) && $score['kpi_rate'] < 100) {
             $add('recorded_kpi_shortfall', 'Recorded KPI achievement is '.round($score['kpi_rate'], 1).'%. Check the underlying targets and reviewed results.', 'Staff member and KPI reviewer');
         }
 
-        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'attention_task_ids' => $tasks->pluck('id')->all(), 'preparing' => (bool) $preparing, 'starts_on' => $reset];
+        $ownReviews=app(ReviewAccountability::class)->rows()->filter(fn($r)=>(int)$r['submitter_id']===$person->id||(int)($r['owner_id']??0)===$person->id)->whereNull('decided_at');
+        if($ownReviews->whereNull('reviewer_id')->isNotEmpty())$add('reviewer_assignment_missing','Submitted work has no eligible reviewing manager assigned. Assign an authorised reviewer.','Department head / executive');
+        if($ownReviews->isNotEmpty() && !$pending)$add('awaiting_manager_review',$ownReviews->count().' submitted entry / entries await manager action. Pending reporting is held for review rather than counted as missing staff evidence.','Reviewing manager');
+        $managerReviews=app(ReviewAccountability::class)->rows()->where('reviewer_id',$person->id)->filter(fn($r)=>$r['due_at']->betweenIncluded($start->copy()->startOfDay(),$end->copy()->endOfDay()));
+        $overdueReviews=$managerReviews->where('overdue',true);
+        if($overdueReviews->isNotEmpty())$add('manager_review_overdue',$overdueReviews->count().' submitted item(s) passed the manager review deadline. Approve or return with correction notes.','Reviewing manager');
+        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'manager_reviews'=>$managerReviews->values()->all(), 'own_reviews'=>$ownReviews->values()->all(), 'attention_task_ids' => $tasks->pluck('id')->all(), 'preparing' => (bool) $preparing, 'starts_on' => $reset];
     }
 
     public function visible(User $viewer, Carbon $from, Carbon $to, ?int $person = null, ?string $department = null): Collection
@@ -79,7 +86,7 @@ class RankingAttention
         $executive = $viewer->canViewExecutiveActivity();
         $people = User::internalStaff()->where('status', 'active')->when(! $executive, fn ($q) => $q->whereKey($viewer->id))->when($person, fn ($q) => $q->whereKey($person))->orderBy('name')->get();
 
-        return $people->reject(fn ($u) => $u->isServiceAccount() || ($u->access_role === 'super_admin' && ! in_array(strtolower(trim($u->name)), ['cyril hilton', 'cyril hilton wemegah'], true)))
+        return $people->reject(fn ($u) => $u->isServiceAccount() || $u->isSupervisionOnly())
             ->filter(fn ($u) => ! $department || User::normalizeDepartmentKey($u->department) === User::normalizeDepartmentKey($department))
             ->map(fn ($u) => $this->forPerson($u, $from, $to))->filter(fn ($row) => count($row['issues']) > 0)->values();
     }

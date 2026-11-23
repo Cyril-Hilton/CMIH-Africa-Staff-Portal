@@ -83,7 +83,7 @@ class WorkNotificationEmailTest extends TestCase
         Mail::fake();
         $hr = $this->hr(['salary' => 5000]);
         $this->actingAs($hr)->post(route('portal.payroll.distribute'), ['period' => '2026-09', 'recipient_ids' => [$hr->id]])->assertSessionHasNoErrors();
-        Mail::assertSent(StaffPayslipMail::class, fn ($mail) => $mail->hasTo('hr.work@cmihafrica.com') && count($mail->to) === 1);
+        Mail::assertNotSent(StaffPayslipMail::class);
         $this->post('/portal/awards/lock', ['award_type' => 'employee_of_the_month', 'period' => '2026-09', 'winner_id' => $hr->id, 'winner_score' => 95])->assertSessionHasNoErrors();
         Mail::assertSent(AwardCertificateMail::class, fn ($mail) => $mail->hasTo('hr.work@cmihafrica.com') && count($mail->to) === 1);
     }

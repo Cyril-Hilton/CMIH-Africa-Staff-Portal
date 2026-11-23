@@ -66,7 +66,7 @@
         $canClockOutNow = \Illuminate\Support\Carbon::now()->gte($clockOutAvailableAt);
     @endphp
 
-    @if (!$isDeveloperUser && !$user->isCvoOrSuperAdmin() && !$user->isServiceAccount())
+    @if (!$isDeveloperUser && !$user->isSupervisionOnly() && !$user->isServiceAccount())
     <!-- Attendance Clock In/Out Widget -->
     <div data-dashboard-today class="mb-8 glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -818,7 +818,7 @@
 
     </details>
 
-    @if(!$user->isCvoOrSuperAdmin() && !$user->isServiceAccount())
+    @if(!$user->isSupervisionOnly() && !$user->isServiceAccount())
     <details class="dashboard-secondary"><summary class="dashboard-section-summary">My Performance · {{ now()->format('F Y') }}</summary>
     <p class="mt-3 text-sm text-brand-ash">This month: {{ $individualStats['open_deliverables'] }} unfinished activities · {{ $individualStats['overtime_hours'] }} recorded overtime hours. Verified performance is shown below.</p>
     @include('portal.partials.staff-performance-score')

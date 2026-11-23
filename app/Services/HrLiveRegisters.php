@@ -59,7 +59,7 @@ class HrLiveRegisters
   $out=[];foreach($kinds as $kind)$out[$kind]=['schema'=>$this->schema($kind),'rows'=>$this->records($kind,$viewer)];return $out;
  }
  public function attendance(User $viewer,string $from,string $to): array {
-  $staff=$this->staff($viewer)->filter(fn($u)=>!$u->isCvoOrSuperAdmin() && !$u->isServiceAccount());$expected=$attended=$punctual=0;
+  $staff=$this->staff($viewer)->filter(fn($u)=>!$u->isSupervisionOnly() && !$u->isServiceAccount());$expected=$attended=$punctual=0;
   foreach($staff as $u){$v=PerformanceScoringService::attendanceSummary($u,Carbon::parse($from),Carbon::parse($to));$expected+=$v['expected_workdays'];$attended+=$v['attendance_days'];$punctual+=$v['punctual_days'];}
   return ['expected'=>$expected,'attended'=>$attended,'on_time'=>$punctual,'late'=>max(0,$attended-$punctual),'absent'=>max(0,$expected-$attended),'rate'=>$expected?round(100*$attended/$expected,1):0];
  }

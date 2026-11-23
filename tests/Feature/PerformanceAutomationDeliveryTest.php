@@ -16,58 +16,32 @@ class PerformanceAutomationDeliveryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_real_local_mail_transport_and_dashboard_delivery_are_deduplicated(): void
+    public function test_delivery_is_in_app_only_even_if_legacy_email_settings_are_enabled(): void
     {
-        config(['performance.email_enabled'=>true,'mail.default'=>'array']);
+        config(['performance.email_enabled'=>true,'creative.email_enabled'=>true,'mail.default'=>'array']);
         $user=User::factory()->create(['status'=>'active','work_email'=>'preview-only@example.test']);
-        PerformanceWorkflow::notify($user->id,'local-mail-test','Performance review ready','Review the verified output.');
+        PerformanceWorkflow::notify($user->id,'in-app-only-test','Performance review ready','Review the verified output.');
         $this->artisan('performance:process')->assertSuccessful();
         $mailer=Mail::mailer('array');
-        $messages=$mailer->getSymfonyTransport()->messages();
-        $this->assertCount(1,$messages);
-        $email=$messages->first()->getOriginalMessage();
-        $this->assertSame('preview-only@example.test',$email->getTo()[0]->getAddress());
-        $this->assertStringContainsString('Review the verified output.',$email->getTextBody());
-        $this->assertStringContainsString('/portal/performance',$email->getTextBody());
-        $this->assertNotNull(PerformanceOutbox::firstOrFail()->emailed_at);
+        $this->assertCount(0,$mailer->getSymfonyTransport()->messages());
+        $this->assertNull(PerformanceOutbox::firstOrFail()->emailed_at);
+        $this->assertNotNull(PerformanceOutbox::firstOrFail()->dashboard_at);
         $this->assertSame(1,Notification::where('user_id',$user->id)->count());
         $this->artisan('performance:process')->assertSuccessful();
-        $this->assertCount(1,$mailer->getSymfonyTransport()->messages());
         $this->assertSame(1,Notification::where('user_id',$user->id)->count());
+        $this->assertCount(0,$mailer->getSymfonyTransport()->messages());
     }
 
-    public function test_performance_email_uses_the_same_work_mailbox_policy_as_other_staff_notifications(): void
+    public function test_the_global_mail_guard_blocks_direct_mail_and_leaves_in_app_delivery_available(): void
     {
-        config(['performance.email_enabled'=>true,'mail.default'=>'array']);
-        foreach ([
-            ['email'=>'generated-one@cmih.africa','work_email'=>null,'contact_email'=>'real-work@cmihafrica.com','expected'=>'real-work@cmihafrica.com'],
-            ['email'=>'generated-two@cmih.africa','work_email'=>'preferred@cmih.africa','contact_email'=>'other-work@cmihafrica.com','expected'=>'preferred@cmih.africa'],
-            ['email'=>'generated-three@cmih.africa','work_email'=>null,'contact_email'=>'personal@example.test','expected'=>'generated-three@cmih.africa'],
-        ] as $i=>$profile) {
-            $expected=$profile['expected'];unset($profile['expected']);
-            $user=User::factory()->create($profile+['status'=>'active','access_role'=>'staff']);
-            PerformanceWorkflow::notify($user->id,'recipient-test-'.$i,'Work notice','Isolated local notification.');
-            app(PerformanceAutomation::class)->deliver();
-            $email=Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
-            $this->assertSame($expected,$email->getTo()[0]->getAddress());
-            $this->assertSame(1,Notification::where('user_id',$user->id)->count());
-        }
-        $this->assertSame(3,PerformanceOutbox::whereNotNull('emailed_at')->count());
-    }
-
-    public function test_mail_failure_is_bounded_and_does_not_repeat_dashboard_notifications(): void
-    {
-        config(['performance.email_enabled'=>true]);
+        $mailer=Mail::mailer('array');
+        $mailer->raw('This must never leave the application.',fn($mail)=>$mail->to('isolated@example.test')->subject('Policy test'));
+        $this->assertCount(0,$mailer->getSymfonyTransport()->messages());
         $user=User::factory()->create(['status'=>'active']);
-        PerformanceWorkflow::notify($user->id,'retry-test','Test only','Local simulated failure');
-        Mail::shouldReceive('raw')->times(5)->andThrow(new \RuntimeException('Simulated local transport outage'));
-        $service=app(PerformanceAutomation::class);
-        for($i=0;$i<6;$i++)$service->deliver();
-        $row=PerformanceOutbox::firstOrFail();
-        $this->assertSame(5,(int)$row->attempts);
-        $this->assertNull($row->emailed_at);
-        $this->assertNotNull($row->dashboard_at);
+        PerformanceWorkflow::notify($user->id,'direct-mail-policy','In-app notice','Local in-app notification.');
+        app(PerformanceAutomation::class)->deliver();
         $this->assertSame(1,Notification::where('user_id',$user->id)->count());
+        $this->assertSame(0,(int)PerformanceOutbox::firstOrFail()->attempts);
     }
 
     public function test_reports_have_real_scheduled_commands_for_every_required_frequency(): void

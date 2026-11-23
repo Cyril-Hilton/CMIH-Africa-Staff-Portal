@@ -22,11 +22,11 @@ class CreativeHistoricalPeriodTest extends TestCase {
   $this->actingAs($u)->getJson('/portal/creative-studio/data')->assertOk()->assertJsonPath('completion_summary.verified',0)->assertJsonPath('completion_summary.historical_reported',1)->assertJsonPath('items.0.stage_label','Historically Reported Complete');
   $this->assertNull($item->fresh()->completed_at);
  }
- public function test_creative_email_is_queued_while_in_app_alert_is_immediate():void {
+ public function test_creative_alert_stays_in_app_even_when_a_legacy_email_flag_is_enabled():void {
   \Illuminate\Support\Facades\Bus::fake();
   config(['creative.email_enabled'=>true]);$u=User::factory()->create(['access_role'=>'super_admin','status'=>'active']);
   $item=app(\App\Services\Creative\CreativeWorkflow::class)->create($u,['title'=>'Queue delivery audit','brief'=>'This brief verifies that email does not block a board stage response.','creative_type'=>'Presentation','requested_deadline'=>now()->addWeek(),'priority'=>'High']);
-  \Illuminate\Support\Facades\Bus::assertDispatched(\App\Jobs\DeliverCreativeNotifications::class,fn($job)=>$job->requestId===$item->id && $job->connection==='database' && $job->afterCommit===true);
+  \Illuminate\Support\Facades\Bus::assertNotDispatched(\App\Jobs\DeliverCreativeNotifications::class);
   $this->assertNotNull(\App\Models\PerformanceOutbox::where('url',route('portal.creative',['request'=>$item->id]))->firstOrFail()->dashboard_at);
  }
 }

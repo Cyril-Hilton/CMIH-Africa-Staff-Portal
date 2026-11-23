@@ -17,6 +17,7 @@ class AttendanceController extends Controller
     /** Recover a refreshed, bookmarked or login-restored clock-in URL without changing attendance. */
     public function clockInPage(Request $request): RedirectResponse
     {
+        if($request->user()->isSupervisionOnly())return redirect()->route('dashboard')->with('status','Your supervisory account does not require attendance clock-in or clock-out.');
         $recorded = Attendance::where('user_id', $request->user()->id)
             ->whereDate('clock_in_at', Carbon::today())->exists();
 
@@ -30,6 +31,7 @@ class AttendanceController extends Controller
      */
     public function clockIn(Request $request): RedirectResponse
     {
+        if($request->user()->isSupervisionOnly())return redirect()->route('dashboard')->with('status','Your supervisory account does not require attendance clock-in or clock-out.');
         $validator = Validator::make($request->all(), [
             'daily_objective' => ['nullable', 'string', 'max:1000'],
             'latitude' => ['nullable', 'numeric'],
@@ -94,6 +96,7 @@ class AttendanceController extends Controller
      */
     public function clockOut(Request $request): RedirectResponse
     {
+        if($request->user()->isSupervisionOnly())return redirect()->route('dashboard')->with('status','Your supervisory account does not require attendance clock-in or clock-out.');
         $user = Auth::user();
 
         // Get today's active clock-in

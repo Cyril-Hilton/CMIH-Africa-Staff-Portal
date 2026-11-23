@@ -555,6 +555,8 @@ class TaskController extends Controller
         if ($needsCompletionReview) {
             $this->routeCompletionReview($task->refresh(), $user, $requiredManager);
         } elseif ($inlineCompletionApproval) {
+            \App\Services\PerformanceWorkflow::record('task',$task->id,$user->id,'approve',[],$task->getAttributes(),$task->completion_review_note ?: 'Completion approved.');
+
             NotificationService::send(
                 (int) $task->assigned_to,
                 'Task Completion Approved',
@@ -651,6 +653,8 @@ class TaskController extends Controller
                 ])->save();
             }
 
+            \App\Services\PerformanceWorkflow::record('task',$task->id,$user->id,'approve',[],$task->getAttributes(),$task->completion_review_note ?: 'Completion approved.');
+
             NotificationService::send(
                 (int) $task->assigned_to,
                 'Task Completion Approved',
@@ -678,6 +682,8 @@ class TaskController extends Controller
             'completion_review_note' => $comment ?: 'Please review and redo this task before resubmitting.',
             'notes_feedback' => ($task->notes_feedback ?? '') . $auditNote,
         ])->save();
+
+        \App\Services\PerformanceWorkflow::record('task',$task->id,$user->id,'return',[],$task->getAttributes(),$comment ?: 'Returned for correction.');
 
         if ($task->completionReviewTask) {
             $task->completionReviewTask->forceFill([
@@ -891,6 +897,8 @@ class TaskController extends Controller
             'completion_review_task_id' => $reviewTask->id,
             'completion_review_note' => null,
         ])->save();
+
+        \App\Services\PerformanceWorkflow::record('task',$task->id,$actor->id,'submit_completion',[],$task->getAttributes(),'Work submitted for manager review.');
 
         NotificationService::sendApprovalNeededToMany(
             [$manager->id],

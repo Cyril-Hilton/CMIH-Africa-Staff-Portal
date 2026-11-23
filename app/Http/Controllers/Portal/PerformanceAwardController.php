@@ -406,7 +406,7 @@ class PerformanceAwardController extends Controller
     {
         $isCyril = in_array(strtolower(trim($user->name)), ['cyril hilton', 'cyril hilton wemegah'], true);
 
-        return $user->isServiceAccount() || ($user->access_role === 'super_admin' && ! $isCyril);
+        return $user->isServiceAccount() || $user->isSupervisionOnly();
     }
 
     private function scoreUserForPeriod(User $user, Carbon $startDate, Carbon $endDate, bool $includeInactiveAsZero = false): array

@@ -12,7 +12,8 @@ Artisan::command('autoclock:superusers', function () {
     $this->info('Developer and super admin accounts successfully clocked in, clocked out, and backfilled for the current month.');
 })->purpose('Auto clock in and out developer and super admin accounts');
 
-\Illuminate\Support\Facades\Schedule::command('autoclock:superusers')->dailyAt('00:01');
+\Illuminate\Support\Facades\Schedule::command('autoclock:superusers')->weekdays()->at('08:00')->timezone('Africa/Accra');
+\Illuminate\Support\Facades\Schedule::command('autoclock:superusers')->weekdays()->at('18:01')->timezone('Africa/Accra');
 
 Artisan::command('awards:backfill-autoclock {period? : Optional period in YYYY-MM or YYYY format}', function () {
     $period = (string) ($this->argument('period') ?: now()->format('Y-m'));

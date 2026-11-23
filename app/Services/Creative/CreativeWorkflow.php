@@ -143,7 +143,7 @@ class CreativeWorkflow {
    $outbox=\App\Models\PerformanceOutbox::where('dedupe_key',hash('sha256',$dedupe.':'.$id))->lockForUpdate()->firstOrFail();
    if(!$outbox->dashboard_at){\App\Services\NotificationService::send((int)$id,$title,$message,$outbox->url);$outbox->update(['dashboard_at'=>now()]);}
   }
-  if(config('creative.email_enabled')) \App\Jobs\DeliverCreativeNotifications::dispatch($r->id)->onConnection('database')->afterCommit();
+  // Creative alerts are delivered in-app above; no outbound email job is created.
  }
 
 }

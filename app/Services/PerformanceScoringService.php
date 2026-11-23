@@ -17,7 +17,7 @@ class PerformanceScoringService
         $rangeStart = $startDate->copy()->startOfDay();
         $rangeEnd = self::effectiveEndDate($startDate, $endDate);
 
-        if ($user->isServiceAccount()) {
+        if ($user->isServiceAccount() || $user->isSupervisionOnly()) {
             return ['expected_workdays' => 0, 'attendance_days' => 0, 'punctual_days' => 0, 'attendance_rate' => 0.0, 'punctuality_score' => 0.0, 'excluded' => true];
         }
         if (! $rangeEnd) {

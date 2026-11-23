@@ -25,7 +25,7 @@ class PerformanceHubController extends Controller
 {
     public function index(Request $r)
     {
-        $filters = $r->validate(['department' => ['nullable', Rule::in(array_keys(config('performance.departments')))], 'owner' => ['nullable', 'integer'], 'item' => ['nullable', 'integer', 'min:1'], 'team_lead_id' => ['nullable', 'integer', 'exists:users,id'], 'team' => ['nullable', 'string', 'max:255'], 'client' => ['nullable', 'string', 'max:255'], 'project' => ['nullable', 'string', 'max:255'], 'kpi' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:30'], 'priority' => ['nullable', 'in:Critical,High,Medium,Low'], 'due_from' => ['nullable', 'date_format:Y-m-d'], 'due_to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('due_from') ? ['after_or_equal:due_from'] : [])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('from') ? ['after_or_equal:from'] : [])], 'overdue' => ['nullable', 'in:1'], 'view' => ['nullable', 'in:summary,commitments,kpis,exceptions,trends,dependencies,meeting,dictionary,registers']]);
+        $filters = $r->validate(['department' => ['nullable', Rule::in(array_keys(config('performance.departments')))], 'owner' => ['nullable', 'integer'], 'item' => ['nullable', 'integer', 'min:1'], 'team_lead_id' => ['nullable', 'integer', 'exists:users,id'], 'team' => ['nullable', 'string', 'max:255'], 'client' => ['nullable', 'string', 'max:255'], 'project' => ['nullable', 'string', 'max:255'], 'kpi' => ['nullable', 'integer'], 'status' => ['nullable', 'string', 'max:30'], 'priority' => ['nullable', 'in:Critical,High,Medium,Low'], 'due_from' => ['nullable', 'date_format:Y-m-d'], 'due_to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('due_from') ? ['after_or_equal:due_from'] : [])], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('from') ? ['after_or_equal:from'] : [])], 'overdue' => ['nullable', 'in:1'], 'review_event'=>['nullable','integer','min:1'], 'source_gap'=>['nullable','string','max:80'], 'view' => ['nullable', 'in:reviews,summary,commitments,kpis,exceptions,trends,dependencies,meeting,dictionary,registers']]);
         $user = $r->user();
         $department = $filters['department'] ?? (Access::executive($user) ? null : Access::department($user));
         if ($department === 'client_relations') {
@@ -124,9 +124,14 @@ class PerformanceHubController extends Controller
             $sourceTasks = \App\Models\Task::whereIn('department', User::departmentAliases($department))->orderByDesc('updated_at')->limit(200)->get();
             $sourceBudgets = \App\Models\ProjectBudget::whereIn('task_id', $sourceTasks->pluck('id'))->where('status', 'CVO Approved')->get()->filter(fn ($budget) => $budget->canView($user));
         }
+        $reviewRows=app(\App\Services\ReviewAccountability::class)->rows()->filter(fn($row)=>Access::executive($user)||(int)$row['reviewer_id']===$user->id||(int)$row['submitter_id']===$user->id||(int)($row['owner_id']??0)===$user->id)->filter(fn($row)=>$row['submitted_at']->toDateString()<=$to && $row['due_at']->toDateString()>=$from);
+        if(!empty($filters['review_event']))$reviewRows=$reviewRows->where('event_id',(int)$filters['review_event']);
+        $sourceGap=$filters['source_gap']??null;
+        $gapOwner=(!empty($filters['owner'])&&(Access::executive($user)||$user->isLineManager()))?(int)$filters['owner']:$user->id;
+        $gapBriefs=$sourceGap && $department==='creatives' ? \App\Models\CreativeRequest::studioWork()->visibleTo($user)->where('assignee_id',$gapOwner)->whereNotIn('stage',['completed','archived','cancelled'])->orderBy('internal_eta')->limit(30)->get():collect();
         $tab = $filters['view'] ?? 'summary';
 
-        return view('portal.performance.index', compact('user', 'department', 'from', 'to', 'items', 'records', 'kpis', 'observations', 'registers', 'objectives', 'dependencies', 'staff', 'summary', 'tab', 'catalog', 'teamScore', 'targetPlans', 'reportingSchemas', 'registerKind', 'sourceExceptions', 'openCases', 'kpiRevisions', 'sourceTasks', 'sourceBudgets', 'executiveSummary', 'dependencyOptions', 'dependencyRequests', 'teamLeads'));
+        return view('portal.performance.index', compact('reviewRows','sourceGap','gapBriefs','user', 'department', 'from', 'to', 'items', 'records', 'kpis', 'observations', 'registers', 'objectives', 'dependencies', 'staff', 'summary', 'tab', 'catalog', 'teamScore', 'targetPlans', 'reportingSchemas', 'registerKind', 'sourceExceptions', 'openCases', 'kpiRevisions', 'sourceTasks', 'sourceBudgets', 'executiveSummary', 'dependencyOptions', 'dependencyRequests', 'teamLeads'));
     }
 
     public function export(Request $r, string $format)

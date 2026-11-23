@@ -2,18 +2,18 @@
  $bkAttendance=$sourcePerformance['attendance'];
  $bkGaps=collect($sourcePerformance['areas'])->filter(fn($area)=>!empty($area['result_gap']))->count();
 @endphp
-<section class="brands-kpi-workspace" aria-label="Automatic department KPI reporting" data-source-department="brands_marketing">
+<section class="brands-kpi-workspace" aria-label="Automatic department KPI reporting" data-source-department="{{ $sourcePerformance['department'] }}">
  <header class="bk-heading">
-  <div><span class="bk-eyebrow">Brands / Marketing · Performance</span><h4>KPI Achievement & Reporting Gaps</h4><p class="bk-muted">{{ ($sourcePerformance['native_sources']??false)?'Live portal records & departmental results':'Published department results' }} · {{ $sourcePerformance['provisional']?'Current period · provisional':'Selected historical period' }}</p></div>
+  <div><span class="bk-eyebrow">{{ \App\Models\User::departmentLabel($sourcePerformance['department']) }} · Performance</span><h4>KPI Achievement & Reporting Gaps</h4><p class="bk-muted">{{ ($sourcePerformance['native_sources']??false)?'Live portal records & departmental results':'Published department results' }} · {{ $sourcePerformance['provisional']?'Current period · provisional':'Selected historical period' }}</p></div>
   <div class="bk-overall"><span>Business KPI credit</span><strong>{{ $sourcePerformance['achievement_credit'] }}<small> / 100</small></strong><span>Equal area shares</span></div>
  </header>
- <div class="bk-summary"><span><i aria-hidden="true"></i><strong>{{ $sourcePerformance['reported'] }} / {{ $sourcePerformance['expected'] }}</strong> areas reported</span><span><strong>{{ $sourcePerformance['coverage']??0 }}%</strong> coverage</span><span><strong>{{ $bkGaps }}</strong> {{ $bkGaps===1?'area needs':'areas need' }} an update</span></div>
+ <div class="bk-summary"><span><i aria-hidden="true"></i><strong>{{ $sourcePerformance['reported'] }} / {{ $sourcePerformance['expected'] }}</strong> {{ ($sourcePerformance['native_sources']??false)?'areas with source evidence':'areas reported' }}</span><span><strong>{{ $sourcePerformance['coverage']??0 }}%</strong> coverage</span><span><strong>{{ $bkGaps }}</strong> {{ $bkGaps===1?'area needs':'areas need' }} an update</span></div>
  <div class="bk-grid">
  @foreach($sourcePerformance['areas'] as $area)
   <article class="bk-card" data-kpi-area="{{ $area['name'] }}">
    <div class="bk-card-top"><span class="bk-index">{{ str_pad($loop->iteration,2,'0',STR_PAD_LEFT) }}</span><span class="bk-state" @if($area['achievement_credit']>=100)data-complete="true"@endif>{{ $area['state'] }}</span></div>
    <h5>{{ $area['name'] }}</h5>
-   <p class="bk-value">{{ $area['achievement_credit'] }}<span> / 100</span></p><p class="bk-muted">Achievement credit</p>
+   <p class="bk-value">{{ !empty($area['awaiting_review'])?'—':$area['achievement_credit'] }}<span>{{ !empty($area['awaiting_review'])?' review pending':' / 100' }}</span></p><p class="bk-muted">Achievement credit</p>
    <div class="bk-progress" role="meter" aria-label="{{ $area['name'] }} achievement credit" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $area['achievement_credit'] }}"><span style="width:{{ max(0,min(100,$area['achievement_credit'])) }}%"></span></div>
    <p class="bk-records">{{ $area['records'] }} source records</p>
    @if($area['result_gap'])<details class="bk-update"><summary>Update & gap details <span aria-hidden="true">⌄</span></summary><p>{{ $area['result_gap'] }}</p></details>@endif

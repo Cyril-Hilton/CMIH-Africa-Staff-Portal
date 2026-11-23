@@ -16,7 +16,7 @@
 
         @if (session()->has('email_sent') && !session('email_sent'))
             <div class="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-                We could not send the credential email. Please contact an admin to confirm your login details.
+                Your account request is recorded. Please contact HR or an administrator for your login details.
             </div>
         @endif
 

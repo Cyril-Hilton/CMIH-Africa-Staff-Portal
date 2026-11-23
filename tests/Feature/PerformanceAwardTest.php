@@ -292,7 +292,7 @@ class PerformanceAwardTest extends TestCase
 
         $cyril = User::factory()->create([
             'status' => 'active',
-            'access_role' => 'super_admin',
+            'access_role' => 'staff',
             'name' => 'Cyril Hilton'
         ]);
 
@@ -391,7 +391,7 @@ class PerformanceAwardTest extends TestCase
 
         $cyril = User::factory()->create([
             'status' => 'active',
-            'access_role' => 'super_admin',
+            'access_role' => 'staff',
             'name' => 'Cyril Hilton',
             'department' => 'creatives',
         ]);

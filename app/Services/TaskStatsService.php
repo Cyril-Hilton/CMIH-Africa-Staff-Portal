@@ -11,8 +11,8 @@ class TaskStatsService
 {
     public static function forUser(User $user, ?Carbon $startDate = null, ?Carbon $endDate = null): array
     {
-        if ($user->isServiceAccount()) {
-            return array_fill_keys(['assigned_total','created_total','assigned_or_created_total','accountable_total','completed','approved','approved_own_work','approved_by_user','pending','overdue','awaiting_creative_review','completion_rate'],0)+['approval_label'=>'Excluded service account','excluded'=>true];
+        if ($user->isServiceAccount() || $user->isSupervisionOnly()) {
+            return array_fill_keys(['assigned_total','created_total','assigned_or_created_total','accountable_total','completed','approved','approved_own_work','approved_by_user','pending','overdue','awaiting_creative_review','completion_rate'],0)+['approval_label'=>$user->isSupervisionOnly()?'Supervisory account · not scored':'Excluded service account','excluded'=>true];
         }
         $assignedQuery = self::assignedToUserQuery($user, $startDate, $endDate);
         $createdQuery = self::createdByUserQuery($user, $startDate, $endDate);
@@ -229,6 +229,7 @@ class TaskStatsService
         return $query
             ->pendingFinalSignOff()
             ->whereNotIn('id',\App\Services\Creative\CreativeAccountability::neutralTaskIds())
+            ->whereNot(fn($q)=>$q->whereIn('completion_review_status',['pending','submitted','pending_review'])->whereNotNull('completion_review_requested_at')->whereRaw('DATE(completion_review_requested_at) <= DATE(due_on)'))
             ->whereNotNull('due_on')
             ->where('due_on', '<', $cutoff)
             ->count();

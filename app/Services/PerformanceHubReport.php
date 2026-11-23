@@ -46,8 +46,8 @@ class PerformanceHubReport
         };
         $current = $approved->filter(fn ($o) => $o->period_start->toDateString() >= $from && $o->period_end->toDateString() <= $to);
         $done = $items->whereIn('workflow_state', ['verified', 'closed']);
-        $overdue = $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && $i->dueDate()?->lt(now()));
-        $dated = $done->filter(fn ($i) => $i->completed_at && $i->dueDate());
+        $overdue = $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && !ReviewAccountability::timelyCommitmentSubmission($i) && $i->dueDate()?->lt(now()));
+        $dated = $done->filter(fn ($i) => ($i->submitted_at || $i->completed_at) && $i->dueDate());
         $targetPlans = ($targetPlans ?? collect())->whereNull('withdrawn_at')->filter(fn ($plan) => ! $plan->amends_plan_id || $plan->approved_at);
         $definitions = $definitions ?? $current->map(fn ($row) => $row->kpi)->unique('id');
         $kpiRows = $definitions->map(function ($k) use ($current, $qualifiedHistory, $historicalScope, $from, $to, $targetPlans) {
@@ -145,16 +145,16 @@ class PerformanceHubReport
             $measured = $measures->whereNotNull('achievement');
             $score = PerformanceMath::creditedWeightedScore($measures->map(fn($r)=>['weight'=>$r['scoring_weight'],'achievement'=>$r['achievement']]));
             $verified = $rows->whereIn('workflow_state', ['verified', 'closed']);
-            $dated = $verified->filter(fn ($i) => $i->completed_at && $i->dueDate());
+            $dated = $verified->filter(fn ($i) => ($i->submitted_at || $i->completed_at) && $i->dueDate());
 
             return [$department => ['total' => $rows->count(), 'verified' => $verified->count(),
                 'overdue' => $rows->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && $i->dueDate()?->lt(now()))->count(),
                 'kpi_score' => $score, 'kpi_measured' => $measured->count(), 'kpi_expected' => $measures->count(),
-                'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => $i->completed_at->lte($i->dueDate()))->count(), $dated->count()),
+                'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => ReviewAccountability::commitmentSubmittedOnTime($i))->count(), $dated->count()),
                 'critical' => $rows->where('risk_level', 'critical')->whereNotIn('workflow_state', ['verified', 'closed'])->count()]];
         });
 
-        return ['delivery_trends' => $this->deliveryTrends($items), 'total' => $items->count(), 'verified' => $done->count(), 'overdue' => $overdue->count(), 'completion' => PerformanceMath::percentage($done->count(), $items->count()), 'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => $i->completed_at->lte($i->dueDate()))->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'quality' => $done->whereNotNull('quality_score')->avg('quality_score'), 'kpis' => $kpiRows, 'dimensions' => $dimensions, 'departments' => $departments, 'staff' => $staff, 'root_causes' => $items->whereNotNull('root_cause')->countBy('root_cause'), 'trends' => $trends, 'performance_trends' => $performanceTrends, 'exceptions' => $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && ($i->isOverdue() || in_array($i->risk_level, ['high', 'critical']) || $i->escalation_level > 0)), 'operational' => $this->operational($registers, $to), 'pending_observations' => $observations->whereNull('approved_at')->count()];
+        return ['delivery_trends' => $this->deliveryTrends($items), 'total' => $items->count(), 'verified' => $done->count(), 'overdue' => $overdue->count(), 'completion' => PerformanceMath::percentage($done->count(), $items->count()), 'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => ReviewAccountability::commitmentSubmittedOnTime($i))->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'quality' => $done->whereNotNull('quality_score')->avg('quality_score'), 'kpis' => $kpiRows, 'dimensions' => $dimensions, 'departments' => $departments, 'staff' => $staff, 'root_causes' => $items->whereNotNull('root_cause')->countBy('root_cause'), 'trends' => $trends, 'performance_trends' => $performanceTrends, 'exceptions' => $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && ($i->isOverdue() || in_array($i->risk_level, ['high', 'critical']) || $i->escalation_level > 0)), 'operational' => $this->operational($registers, $to), 'pending_observations' => $observations->whereNull('approved_at')->count()];
     }
 
     public function deliveryTrends(Collection $items): Collection

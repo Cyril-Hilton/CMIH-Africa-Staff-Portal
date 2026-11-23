@@ -19,6 +19,12 @@ class RankingAttentionActions
             $add('kpi_setup','Open targets & KPI setup',route('portal.performance.index',$context+['view'=>'kpis']).'#kpi-targets');
             foreach($score['kpis']??[] as $kpi){
                 if(($kpi['result_reported']??false)&&!in_array('recorded_kpi_shortfall',array_column($row['issues'],'code')))continue;
+                if(!empty($kpi['id']) && !is_numeric($kpi['id'])){
+                    if($kpi['id']==='manager-review-timeliness')$add('recorded_kpi_shortfall','Review manager turnaround',route('portal.performance.index',$context+['view'=>'reviews']).'#manager-reviews');
+                    elseif($kpi['id']==='staff-submission-timeliness'){foreach(Task::whereIn('id',$kpi['source_ids']??[])->get() as $sourceTask)if($sourceTask->canBeViewedBy($viewer))$add('recorded_kpi_shortfall','Review submission: '.$sourceTask->title,route($sourceTask->canBeEditedBy($viewer)?'portal.tasks.edit':'portal.tasks.show',$sourceTask));}
+                    elseif($kpi['id']==='creative-review-timeliness'){foreach(CreativeRequest::whereIn('id',$kpi['source_ids']??[])->get() as $sourceBrief)if(CreativeAccess::view($viewer,$sourceBrief))$add('recorded_kpi_shortfall','Review brief: '.$sourceBrief->title,route('portal.creative',['request'=>$sourceBrief->id]));}
+                    continue;
+                }
                 if(!empty($kpi['id'])){
                     $anchor=!empty($kpi['target_plan_id'])?'target-plan-'.$kpi['target_plan_id']:'kpi-targets';
                     $url=route('portal.performance.index',$context+['view'=>'kpis','kpi'=>$kpi['id']]).'#'.$anchor;
@@ -28,7 +34,7 @@ class RankingAttentionActions
         }
         // Dashboard-derived KPIs are corrected in their original reporting module.
         foreach($score['kpis']??[] as $kpi)if(empty($kpi['id'])&&!($kpi['result_reported']??false)){
-            $url=$this->reportingArea($person,$from,$to,$kpi['name']);
+            $url=$department==='creatives' ? route('portal.performance.index',$context+['view'=>'kpis','source_gap'=>$kpi['name']]).'#source-gap' : $this->reportingArea($person,$from,$to,$kpi['name']);
             $add('kpi_evidence','Open '.$kpi['name'],$url);
         }
         $add('delivery_setup','Open department reporting',$this->reportingArea($person,$from,$to));
@@ -46,7 +52,7 @@ class RankingAttentionActions
             if(!PerformanceAccess::view($viewer,$item))continue;
             $url=route('portal.performance.index',$context+['view'=>'commitments','item'=>$item->id]).'#commitment-'.$item->id;
             if(in_array($item->id,$score['unverified_commitment_ids']??[]))$add('unverified_delivery','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
-            if(in_array($item->workflow_state,['submitted','in_review'],true))$add('awaiting_verification','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
+            if(in_array($item->workflow_state,['submitted','in_review','review','completed'],true))$add('awaiting_verification','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
         }
         foreach(Task::realWork()->with(['creativeRequest','assignee'])->where('assigned_to',$person->id)->whereNull('due_on')->whereNotIn('status',['Completed','Done','Cancelled','cancelled'])->get() as $task){
             if(!$task->canBeViewedBy($viewer))continue;
@@ -63,6 +69,8 @@ class RankingAttentionActions
             }
             $add('recorded_lateness','Review your attendance',route('portal.hr-reporting.attendance',['period'=>'monthly','date'=>$from->toDateString(),'punctuality'=>'late']));
         }
+        foreach($row['own_reviews']??[] as $review)$add(empty($review['reviewer_id'])?'reviewer_assignment_missing':'awaiting_manager_review','View review deadline: '.$review['title'],ReviewAccountability::url($review));
+        foreach($row['manager_reviews']??[] as $review)if($review['overdue'])$add('manager_review_overdue','Review: '.$review['title'],ReviewAccountability::url($review));
         return array_map('array_values',$actions);
     }
 

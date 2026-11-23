@@ -95,10 +95,11 @@ class ReportingResetTest extends TestCase
 
     public function test_automatic_backfill_does_not_recreate_old_mega_table_tasks_or_change_retained_attendance(): void
     {
-        $u = $this->actor();
+        $admin = $this->actor();
+        $u = User::factory()->create(['name'=>'Cyril Hilton','access_role'=>'staff','status'=>'active','department'=>'creatives']);
         \App\Services\AutoClockService::handleForUser($u, today());
         $service = app(ReportingReset::class);
-        $service->archive($u, 'Fresh start', 'backup.sqlite');
+        $service->archive($admin, 'Fresh start', 'backup.sqlite');
         $attendance = DB::table('attendance')->get()->toJson();
         $count = DB::table('tasks')->count();
         \App\Services\AutoClockService::backfillCurrentMonthForUser($u);

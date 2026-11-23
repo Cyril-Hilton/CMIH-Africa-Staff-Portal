@@ -228,6 +228,13 @@ class DepartmentSourcePerformance
             }
         }
         unset($reportArea);
+        if($owner){
+            $pendingAreas=app(ReviewAccountability::class)->pendingAreas($owner,$department);
+            foreach($areas as &$pendingArea)if(in_array($pendingArea['name'],$pendingAreas,true) && !$pendingArea['reported']){
+                $pendingArea['awaiting_review']=true;$pendingArea['state']='Awaiting manager review';$pendingArea['result_gap']='Submitted for manager review. This area is held pending; it is not a missing staff report. Approved business results remain separate.';
+            }
+            unset($pendingArea);
+        }
         $reported = collect($areas)->where('reported', true)->count();
         $businessCredit = PerformanceMath::creditedWeightedScore(array_map(fn ($a) => ['achievement' => $a['achievement_credit']], $areas));
 

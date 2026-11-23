@@ -14,7 +14,11 @@ class PerformanceWorkflow
 {
     public static function record(string $type, int $id, ?int $actor, string $action, array $before, array $after, string $reason): void
     {
-        PerformanceEvent::create(['entity_type' => $type, 'entity_id' => $id, 'actor_id' => $actor, 'action' => $action, 'before' => $before, 'after' => $after, 'reason' => $reason]);
+        $snapshot=ReviewAccountability::snapshot($type,$id,$actor,$action,$after);
+        if($snapshot)$after['_review_accountability']=$snapshot;
+        request()->attributes->remove('manager_review_accountability');
+        if($type==='task')request()->attributes->remove('task_first_submission_'.$id);
+        PerformanceEvent::create(['entity_type' => $type, 'entity_id' => $id, 'actor_id' => $actor, 'action' => $action, 'before' => $before, 'after' => $after, 'reason' => $reason, 'created_at'=>now()]);
     }
 
     public static function notify(int $user, string $key, string $title, string $message, ?string $url = null): void
