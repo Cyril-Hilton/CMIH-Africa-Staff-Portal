@@ -21,6 +21,12 @@ class AppServiceProvider extends ServiceProvider
     {
         \App\Support\PortalLinks::configureConsoleRoot();
 
+        // Organisation policy: portal notifications stay inside the application.
+        config(['performance.email_enabled'=>false,'creative.email_enabled'=>false,'mail.default'=>'array']);
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, fn () => false);
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Notifications\Events\NotificationSending::class, fn ($event) => $event->channel === 'mail' ? false : null);
+
+
         \Illuminate\Validation\Rules\Password::defaults(function () {
             return \Illuminate\Validation\Rules\Password::min(8)
                 ->letters()
