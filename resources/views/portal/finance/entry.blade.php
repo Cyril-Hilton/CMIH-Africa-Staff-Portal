@@ -1,7 +1,7 @@
 @php
 $fSchema=config('department_reporting.finance.'.$f_kind,[]);$fEntry=$f_edit?->data??[];
 $fOld=fn($key,$default=null)=>old('kind')===$f_kind && (int)old('record_id',0)===(int)($f_edit?->id??0)?old($key,$default):$default;
-$fLabels=['value'=>'Document / expected amount','paid_amount'=>$f_kind==='receipt'?'Amount received':'Amount paid','actual'=>'Actual amount','target'=>'Revenue target','expected_on'=>'Expected date','paid_on'=>$f_kind==='receipt'?'Received on':'Paid on','account_lead'=>'Account lead','staff_group'=>'Staff / payroll group','tax_type'=>'Tax / statutory obligation','processing_state'=>'Invoice status','filing_state'=>'Filing status','notes'=>'Comments / notes','event_date'=>'Event date'];
+$fLabels=['counterparty'=>$f_kind==='receipt'?'Received from / payer':'Payee / supplier','value'=>'Document / expected amount','paid_amount'=>$f_kind==='receipt'?'Amount received':'Amount paid','actual'=>'Actual amount','target'=>'Revenue target','expected_on'=>'Expected date','paid_on'=>$f_kind==='receipt'?'Received on':'Paid on','account_lead'=>'Account lead','staff_group'=>'Staff / payroll group','tax_type'=>'Tax / statutory obligation','processing_state'=>'Invoice status','filing_state'=>'Filing status','notes'=>'Comments / notes','event_date'=>'Event date'];
 $fMonthly=in_array($f_kind,['revenue','revenue_target','payroll','tax']);
 $fDefaultStart=$fMonthly?$f_date->copy()->startOfMonth()->toDateString():$f_from->toDateString();
 $fDefaultEnd=$fMonthly?$f_date->copy()->endOfMonth()->toDateString():$f_to->toDateString();
@@ -17,7 +17,7 @@ $fStart=$fOld('period_start',$f_edit?->period_start?->toDateString()??$fDefaultS
 @if($f_kind==='revenue')<label>Revenue entry type<select name="data[revenue_type]" x-model="revenueType" @change="if(revenueType==='monthly_total')setMonth()"><option value="monthly_total">Monthly total · all revenue for the month</option><option value="direct">Additional revenue · outside CRM totals</option></select></label>@endif
 @if($fMonthly)<label @if($f_kind==='revenue')x-show="revenueType==='monthly_total'"@endif>Reporting month<input type="month" x-model="month" @change="setMonth()" aria-label="Reporting month"></label>@endif
 <label>Entry title<input name="title" value="{{ $fOld('title',$f_edit?->title) }}" maxlength="255" required placeholder="Short description"></label>
-<label>Client / counterparty<input name="client" value="{{ $fOld('client',$f_edit?->client) }}" maxlength="255"></label>
+<label>{{ in_array($f_kind,['receipt','payment'])?'Project client / brand':'Client / counterparty' }}<input name="client" value="{{ $fOld('client',$f_edit?->client) }}" maxlength="255"></label>
 <label>Project name<input name="project" value="{{ $fOld('project',$f_edit?->project) }}" maxlength="255"></label>
 <label>Finance owner<select name="owner_id" required>@foreach($f_staff as $person)<option value="{{ $person->id }}" @selected((int)$fOld('owner_id',$f_edit?->owner_id??auth()->id())===$person->id)>{{ $person->name }}</option>@endforeach</select></label>
 <label>Reporting from<input name="period_start" x-ref="start" type="date" required value="{{ $fStart }}"></label>

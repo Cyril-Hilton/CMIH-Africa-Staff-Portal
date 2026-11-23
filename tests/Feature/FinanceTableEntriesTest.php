@@ -82,4 +82,14 @@ class FinanceTableEntriesTest extends TestCase
         $this->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasErrors('reference');$this->assertDatabaseCount('performance_registers',1);
     }
 
+    public function test_cash_tables_distinguish_project_client_from_the_actual_payer_or_payee(): void
+    {
+        [$staff,$manager]=$this->team();
+        foreach(['receipt'=>'Original payer','payment'=>'Original supplier'] as $kind=>$party){
+            $payload=$this->payload($staff,$kind,['value'=>100,'paid_amount'=>0,'counterparty'=>$party]);
+            $this->actingAs($staff)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasNoErrors();
+        }
+        $this->get(route('portal.finance',['finance_tab'=>'cashflow','finance_date'=>'2026-11-23']))->assertOk()->assertSee('Original payer')->assertSee('Original supplier')->assertSee('Project client / brand')->assertSee('Payee / supplier')->assertSee('Received from / payer');
+    }
+
 }
