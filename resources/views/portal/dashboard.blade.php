@@ -1649,6 +1649,7 @@
                         window.initExecutiveProjectTracker?.();
                     }
 
+                    if (!isUserNavigation && weeklyConsolidatedRegion.querySelector('dialog[open]')) return;
                     weeklyConsolidatedRegion.replaceWith(freshRegion);
                     weeklyConsolidatedRegion = freshRegion;
                     rememberWeeklyDepartment(requestedDepartment || freshDepartment);

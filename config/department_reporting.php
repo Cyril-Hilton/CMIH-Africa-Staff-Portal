@@ -15,7 +15,7 @@ return [
         'milestone' => ['planned_on' => 'date', 'delivered_on' => 'date', 'impact' => 'text'],
         'risk' => ['probability' => 'number', 'exposure' => 'money', 'mitigation' => 'text'],
     ]),
-    'finance' => [
+    'finance' => array_map(fn($fields) => $fields + ['notes'=>'text'], [
         'profitability' => ['revenue'=>'money','direct_cost'=>'money','variable_cost'=>'money','gross_profit_target'=>'money'],
         'revenue' => ['target'=>'money','actual'=>'money','earned_on'=>'date','source'=>'text','client'=>'text','function'=>'text','revenue_type'=>'text'],
         'revenue_target' => ['target'=>'money'],
@@ -28,7 +28,7 @@ return [
         'commercial_risk' => ['risk_type'=>'text','account_lead'=>'text','amount_at_risk'=>'money','due_on'=>'date','mitigation'=>'text','resolution'=>'text','resolved_on'=>'date'],
         'payroll' => ['staff_group'=>'text','headcount'=>'number','value'=>'money','paid_amount'=>'money','due_on'=>'date','paid_on'=>'date'],
         'tax' => ['tax_type'=>'text','value'=>'money','paid_amount'=>'money','due_on'=>'date','paid_on'=>'date','filing_state'=>'text','filed_on'=>'date'],
-    ],
+    ]),
     'hr_admin' => [
         'workforce' => ['approved_headcount' => 'number', 'actual_headcount' => 'number', 'new_hires' => 'number', 'departures' => 'number', 'average_headcount' => 'number', 'eligible_days' => 'number', 'attended_days' => 'number', 'late_days' => 'number', 'leave_days' => 'number', 'reviews_due' => 'number', 'reviews_completed' => 'number'],
         'vacancy' => ['approved_on' => 'date', 'target_fill_on' => 'date', 'offer_accepted_on' => 'date', 'candidates' => 'number', 'interviews' => 'number', 'offers' => 'number'],

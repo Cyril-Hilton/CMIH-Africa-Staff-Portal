@@ -18,7 +18,8 @@ class FinanceReportingController extends Controller
     public function save(Request $request)
     {
         abort_unless(FinanceDashboard::canWrite($request->user()), 403);
-        $v = $request->validate(['crm_project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'operations_handover_id' => 'nullable|integer|exists:operations_handovers,id', 'outside_crm' => 'sometimes|accepted', 'record_id' => 'nullable|integer', 'version' => 'nullable|string|max:64', 'kind' => ['required', Rule::in(array_keys(config('department_reporting.finance')))], 'reference' => 'required|string|max:255', 'title' => 'required|string|max:255', 'client' => 'nullable|string|max:255', 'project' => 'nullable|string|max:255', 'owner_id' => 'required|integer|exists:users,id', 'period_start' => 'required|date_format:Y-m-d', 'period_end' => 'required|date_format:Y-m-d|after_or_equal:period_start', 'status' => 'required|in:planned,in_progress,submitted,completed,paid,resolved,cancelled', 'evidence_url' => 'nullable|url:http,https|max:2000', 'reason' => 'required|string|max:2000', 'actions' => 'nullable|array|max:20', 'actions.*.task' => 'nullable|string|max:1000', 'actions.*.owner' => 'nullable|string|max:255', 'actions.*.due' => 'nullable|date_format:Y-m-d', 'actions.*.status' => 'nullable|in:planned,in_progress,completed']);
+        $v = $request->validate(['crm_project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'operations_handover_id' => 'nullable|integer|exists:operations_handovers,id', 'outside_crm' => 'sometimes|accepted', 'entry_key' => 'nullable|ulid', 'record_id' => 'nullable|integer', 'version' => 'nullable|string|max:64', 'kind' => ['required', Rule::in(array_keys(config('department_reporting.finance')))], 'reference' => 'nullable|string|max:255', 'title' => 'required|string|max:255', 'client' => 'nullable|string|max:255', 'project' => 'nullable|string|max:255', 'owner_id' => 'required|integer|exists:users,id', 'period_start' => 'required|date_format:Y-m-d', 'period_end' => 'required|date_format:Y-m-d|after_or_equal:period_start', 'status' => 'required|in:planned,in_progress,submitted,completed,paid,resolved,cancelled', 'evidence_url' => 'nullable|url:http,https|max:2000', 'reason' => 'required|string|max:2000', 'actions' => 'nullable|array|max:20', 'actions.*.task' => 'nullable|string|max:1000', 'actions.*.owner' => 'nullable|string|max:255', 'actions.*.due' => 'nullable|date_format:Y-m-d', 'actions.*.status' => 'nullable|in:planned,in_progress,completed']);
+        $v['reference'] = filled($v['reference'] ?? null) ? $v['reference'] : 'FIN-'.($v['entry_key']??strtoupper((string) \Illuminate\Support\Str::ulid()));
         $owner = User::findOrFail($v['owner_id']);
         abort_unless($owner->isActive() && PerformanceAccess::department($owner) === 'finance', 422, 'Choose an active Finance owner.');
         $schema = config('department_reporting.finance.'.$v['kind']);
@@ -31,10 +32,16 @@ class FinanceReportingController extends Controller
         $required = match ($v['kind']) {
             'revenue' => ['actual'],'revenue_target' => ['target'],'invoice','payable','receipt','payment','payroll','tax' => ['value', 'paid_amount'],'expense' => ['actual'],'commercial_risk' => ['risk_type'],default => []
         };
+        if ($v['kind'] === 'invoice' && $request->input('data.processing_state') === 'Pending reconciliation approval') {
+            $required = []; // A pre-invoice tracker can exist before the value is agreed.
+        }
         foreach ($required as $field) {
             $rules['data.'.$field] = str_replace('nullable', 'required', $rules['data.'.$field]);
         }
         $data = $request->validate($rules)['data'] ?? [];
+        if (in_array($v['kind'], ['invoice','payable','receipt','payment','payroll','tax'], true) && !isset($data['value']) && ((float)($data['paid_amount']??0)>0 || (float)($data['credited_amount']??0)>0 || $v['status']==='paid')) {
+            throw ValidationException::withMessages(['data.value'=>'Record the document amount before recording a settlement.']);
+        }
         foreach (['paid_amount', 'credited_amount'] as $field) {
             if (isset($data['value'],$data[$field]) && $data[$field] > $data['value']) {
                 throw ValidationException::withMessages(['data.'.$field => 'Cannot exceed the document amount.']);
