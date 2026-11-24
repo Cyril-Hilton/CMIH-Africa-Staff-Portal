@@ -439,7 +439,7 @@ class DepartmentController extends Controller
         }
 
         return response()->view('portal.departments.finance', compact('user', 'claims', 'invoices', 'auditOnly')
-            + ($canReadFinance ? app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'finance') : []))
+            + (\App\Services\FinanceDashboard::canViewDashboard($user) ? app(\App\Services\DepartmentModuleWorkspace::class)->build($request, 'finance') : []))
             ->header('Cache-Control', 'private, no-store');
     }
 

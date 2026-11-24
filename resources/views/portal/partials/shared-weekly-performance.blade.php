@@ -23,7 +23,7 @@ Live Creative Workflow & Evidence
 @include('portal.client-relations.public-weekly')
 @include('portal.client-relations.kpi-scorecards')
 @elseif($key === 'finance')
-@if(\App\Services\FinanceDashboard::canRead(auth()->user()))
+@if(\App\Services\FinanceDashboard::canViewDashboard(auth()->user()))
 @if(request()->boolean('revenue_view'))
 @include('portal.client-relations.revenue-review',['key'=>'finance'])
 @else

@@ -8,6 +8,12 @@ use Illuminate\Support\Carbon;
 /** One read model for the Finance module and executive dashboard. No copied ledgers. */
 class FinanceDashboard
 {
+    /** Published departmental reporting is visible to all active internal staff. */
+    public static function canViewDashboard(User $user): bool
+    {
+        return $user->isActive() && !$user->isServiceAccount()
+            && !in_array($user->access_role, [...User::MERCHANDISER_FIELD_ROLES, User::BRAND_PROMOTER_ROLE], true);
+    }
     public static function canRead(User $user): bool
     {
         return $user->isActive() && ($user->isCvoOrSuperAdmin() || $user->canAuditHrAndFinance() || (PerformanceAccess::department($user)==='finance' && \App\Services\Creative\CreativeAccess::staff($user)));
@@ -56,7 +62,7 @@ class FinanceDashboard
     }
     public function build(Request $request): array
     {
-        abort_unless(self::canRead($request->user()),403);
+        abort_unless(self::canViewDashboard($request->user()),403);
         $v=$request->validate(['finance_tab'=>'nullable|in:'.implode(',',array_keys(self::TABS)),'finance_period'=>'nullable|in:day,week,month,year,custom','finance_date'=>'nullable|date_format:Y-m-d','finance_from'=>'nullable|date_format:Y-m-d','finance_to'=>'nullable|date_format:Y-m-d|after_or_equal:finance_from','finance_owner'=>'nullable|integer|exists:users,id','finance_status'=>'nullable|in:all,pending,approved,open,closed','finance_q'=>'nullable|string|max:150','finance_basis'=>'nullable|in:ledger,crm,combined,direct','finance_kind'=>'nullable|in:'.implode(',',array_keys(config('department_reporting.finance'))),'finance_edit'=>'nullable|integer']);
         $tab=$v['finance_tab']??((request('module_view')==='revenue'||request()->boolean('revenue_view'))?'revenue':'overview');$period=$v['finance_period']??(($request->routeIs('dashboard') || $request->attributes->get('dashboard_reporting_period'))?($request->filled('weekly_from')&&$request->filled('weekly_to')?'custom':'week'):'month');$date=Carbon::parse($v['finance_date']??(($request->routeIs('dashboard') || $request->attributes->get('dashboard_reporting_period'))?$request->input('weekly_from',today()->toDateString()):today()->toDateString()));
         [$from,$to]=match($period){'day'=>[$date->copy(),$date->copy()],'week'=>[$date->copy()->startOfWeek(),$date->copy()->endOfWeek()],'year'=>[$date->copy()->startOfYear(),$date->copy()->endOfYear()],'custom'=>[Carbon::parse($v['finance_from']??$request->input('weekly_from',$date->copy()->startOfMonth())),Carbon::parse($v['finance_to']??$request->input('weekly_to',$date->copy()->endOfMonth()))],default=>[$date->copy()->startOfMonth(),$date->copy()->endOfMonth()]};
@@ -64,6 +70,7 @@ class FinanceDashboard
         $owner=$v['finance_owner']??null;$status=$v['finance_status']??'all';$search=trim($v['finance_q']??'');
         $base=PerformanceRegister::where('department','finance')->where(fn($q)=>$q->where(fn($p)=>$p->whereDate('period_start','<=',$to)->whereDate('period_end','>=',$from))->orWhere(fn($p)=>$p->whereIn('kind',['receipt','payment'])->where('data->paid_on','>=',$from->toDateString())->where('data->paid_on','<=',$to->toDateString())))
             ->when($owner,fn($q)=>$q->where('owner_id',$owner))->when($search,fn($q)=>$q->where(fn($x)=>$x->where('title','like','%'.$search.'%')->orWhere('reference','like','%'.$search.'%')->orWhere('client','like','%'.$search.'%')->orWhere('project','like','%'.$search.'%')));
+        if (!self::canRead($request->user())) $base->whereNotNull('approved_at');
         $base->when($status==='pending',fn($q)=>$q->whereNull('approved_at'))->when($status==='approved',fn($q)=>$q->whereNotNull('approved_at'))
             ->when($status==='open',fn($q)=>$q->whereNotIn('status',['completed','paid','resolved','cancelled']))->when($status==='closed',fn($q)=>$q->whereIn('status',['completed','paid','resolved','cancelled']));
         $all=(clone $base)->get();
@@ -104,8 +111,8 @@ class FinanceDashboard
         $staff=User::internalStaff()->where('status','active')->whereIn('department',User::departmentAliases('finance'))->orderBy('name')->get();
         $names=User::whereIn('id',$displayRows->flatMap(fn($r)=>[$r->owner_id,$r->submitted_by,$r->approved_by]))->pluck('name','id');
         $kind=$v['finance_kind']??(self::GROUPS[$tab][0]??'revenue');if($tab!=='overview'&&!in_array($kind,self::GROUPS[$tab],true))$kind=self::GROUPS[$tab][0];$edit=null;if(!empty($v['finance_edit'])){$edit=PerformanceRegister::where('department','finance')->findOrFail($v['finance_edit']);abort_unless(self::canWrite($request->user())&&((int)$edit->submitted_by===$request->user()->id||PerformanceAccess::manages($request->user(),'finance')),403);$kind=$edit->kind;}
-        $nativeInvoices=SupplierInvoice::whereBetween('created_at',[$from,$to])->when($owner,fn($q)=>$q->where('submitted_by',$owner))->when($search,fn($q)=>$q->where(fn($x)=>$x->where('supplier_name','like','%'.$search.'%')->orWhere('invoice_number','like','%'.$search.'%')))->when($status==='pending',fn($q)=>$q->where('status','like','%Submitted%'))->when($status==='approved',fn($q)=>$q->where('status','like','%Approved%'))->when($status==='closed',fn($q)=>$q->whereIn('status',['Paid','Rejected','Cancelled']))->when($status==='open',fn($q)=>$q->whereNotIn('status',['Paid','Rejected','Cancelled']))->latest()->paginate(10,['*'],'supplier_page')->withQueryString();
-        $nativeClaims=PettyCashClaim::whereBetween('created_at',[$from,$to])->when($owner,fn($q)=>$q->where('user_id',$owner))->when($search,fn($q)=>$q->where('description','like','%'.$search.'%'))->when($status==='pending',fn($q)=>$q->where('status','like','%Submitted%'))->when($status==='approved',fn($q)=>$q->where('status','like','%Approved%'))->when($status==='closed',fn($q)=>$q->whereIn('status',['Paid','Rejected','Cancelled']))->when($status==='open',fn($q)=>$q->whereNotIn('status',['Paid','Rejected','Cancelled']))->latest()->paginate(10,['*'],'claim_page')->withQueryString();
+        $nativeInvoices=SupplierInvoice::whereBetween('created_at',[$from,$to])->when(!self::canRead($request->user()),fn($q)=>$q->where('submitted_by',$request->user()->id))->when($owner,fn($q)=>$q->where('submitted_by',$owner))->when($search,fn($q)=>$q->where(fn($x)=>$x->where('supplier_name','like','%'.$search.'%')->orWhere('invoice_number','like','%'.$search.'%')))->when($status==='pending',fn($q)=>$q->where('status','like','%Submitted%'))->when($status==='approved',fn($q)=>$q->where('status','like','%Approved%'))->when($status==='closed',fn($q)=>$q->whereIn('status',['Paid','Rejected','Cancelled']))->when($status==='open',fn($q)=>$q->whereNotIn('status',['Paid','Rejected','Cancelled']))->latest()->paginate(10,['*'],'supplier_page')->withQueryString();
+        $nativeClaims=PettyCashClaim::whereBetween('created_at',[$from,$to])->when(!self::canRead($request->user()),fn($q)=>$q->where('user_id',$request->user()->id))->when($owner,fn($q)=>$q->where('user_id',$owner))->when($search,fn($q)=>$q->where('description','like','%'.$search.'%'))->when($status==='pending',fn($q)=>$q->where('status','like','%Submitted%'))->when($status==='approved',fn($q)=>$q->where('status','like','%Approved%'))->when($status==='closed',fn($q)=>$q->whereIn('status',['Paid','Rejected','Cancelled']))->when($status==='open',fn($q)=>$q->whereNotIn('status',['Paid','Rejected','Cancelled']))->latest()->paginate(10,['*'],'claim_page')->withQueryString();
         $projects=app(ClientRelationsCentre::class)->latest(CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed',true)->orderBy('project_name')->get());
         if($edit&&!empty($edit->data['_crm_project_id'])&&!$projects->contains('id',(int)$edit->data['_crm_project_id'])){ $retained=CrmPipelineProject::with('owner:id,name')->find($edit->data['_crm_project_id']);if($retained)$projects->push($retained); }
         $handovers=\App\Models\OperationsHandover::with('lead:id,name')->whereNotNull('handover_approved_at')->get();

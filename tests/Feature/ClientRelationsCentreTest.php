@@ -6,6 +6,20 @@ use App\Models\{User,CrmPipelineProject,CrmAccountTarget,CrmAccountRelationship,
 use App\Services\ClientRelationsCentre;
 class ClientRelationsCentreTest extends TestCase {
  use RefreshDatabase;
+ public function test_focus_rate_counts_unique_active_accounts_against_the_full_portfolio_before_pagination():void {
+  $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-24 12:00:00'));$owner=$this->staff();$other=$this->staff();
+  $url=fn($extra=[])=>route('portal.crm.centre.data',array_replace(['period'=>'week','date'=>'2026-11-23'],$extra));
+  $this->actingAs($owner)->getJson($url())->assertOk()->assertJsonPath('summary.focus_rate',null);
+  foreach(range(1,81) as $n){$name=sprintf('Account %02d',$n);\Illuminate\Support\Facades\DB::table('crm_account_directory')->insert(['client_name'=>$name,'name_key'=>ClientRelationsCentre::key($name)]);}
+  foreach(range(1,6) as $n)$this->project($n===6?$other:$owner,['client_name'=>sprintf('Account %02d',$n),'project_name'=>'Current '.$n,'week_start'=>'2026-11-23']);
+  $this->project($owner,['client_name'=>' account 01 ','project_name'=>'Second project','week_start'=>'2026-11-23']);
+  $this->project($owner,['client_name'=>'Account 07','project_name'=>'Earlier week','week_start'=>'2026-11-09']);
+  foreach([['account_scope'=>'engaged'],['account_scope'=>'all','per_page'=>6,'page'=>2]] as $filters)$this->getJson($url($filters))->assertOk()->assertJsonPath('summary.portfolio_clients',81)->assertJsonPath('summary.engaged_clients',6)->assertJsonPath('summary.focus_rate',7.4);
+  $this->getJson($url(['owner'=>$owner->id]))->assertOk()->assertJsonPath('summary.engaged_clients',5)->assertJsonPath('summary.focus_rate',6.2);
+  $this->getJson($url(['q'=>'Account 01']))->assertOk()->assertJsonPath('summary.portfolio_clients',1)->assertJsonPath('summary.focus_rate',100);
+  $this->getJson($url(['period'=>'month']))->assertOk()->assertJsonPath('summary.engaged_clients',7)->assertJsonPath('summary.focus_rate',8.6);
+  $this->getJson($url(['date'=>'2026-11-30']))->assertOk()->assertJsonPath('summary.engaged_clients',0)->assertJsonPath('summary.focus_rate',0);
+ }
  private function staff($department='client_relations',$role='staff'){return User::factory()->create(['department'=>$department,'access_role'=>$role,'status'=>'active']);}
  private function project($owner,$extra=[]){return CrmPipelineProject::create(array_merge(['client_name'=>'Dove','project_name'=>'Campus Experience','week_start'=>now()->startOfWeek(),'stage'=>'proposal_sent','owner_id'=>$owner->id,'created_by'=>$owner->id,'updated_by'=>$owner->id,'source_period_confirmed'=>true,'proposed_amount'=>200,'po_amount'=>100,'target_amount'=>100,'actual_amount'=>50,'invoiced_amount'=>40,'collected_amount'=>20,'contact_info'=>'PRIVATE-CONTACT','remarks'=>'PRIVATE-NOTE'],$extra));}
  public function test_owner_tabs_show_photos_and_keep_suspended_staff_only_in_historical_periods():void {

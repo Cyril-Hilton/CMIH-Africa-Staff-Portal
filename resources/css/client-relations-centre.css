@@ -169,3 +169,10 @@
 .cr-centre [data-cr-web-project] { align-self: start; }
 
 .cr-connected-return{margin-top:20px;padding-top:18px;border-top:1px solid #81cfca44;min-width:0}.cr-connected-return>h5{color:#a7f3df;font-size:15px;margin-bottom:12px}.cr-connected-return [aria-label="Connected project accountability"]{margin-top:0}
+
+
+
+.cr-centre .cr-account-group h4{flex-wrap:wrap}
+.cr-focus-rate{display:inline-flex;align-items:center;flex-wrap:wrap;gap:.4rem;padding:.3rem .6rem;border:1px solid var(--cr-cyan);border-radius:10px;font-size:.72rem;color:var(--cr-cyan);font-weight:500}
+.cr-focus-rate strong{font-size:1rem;font-variant-numeric:tabular-nums}
+.cr-focus-rate em{font-size:.65rem;font-style:normal;color:var(--cr-muted)}

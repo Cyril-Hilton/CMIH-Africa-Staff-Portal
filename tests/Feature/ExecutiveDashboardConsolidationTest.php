@@ -70,9 +70,9 @@ class ExecutiveDashboardConsolidationTest extends TestCase
         $this->withoutMiddleware(\App\Http\Middleware\EnsureUserIsClockedIn::class)->actingAs($staff)
             ->get(route('dashboard',['weekly_department'=>'all']))->assertOk()
             ->assertSee('data-creative-studio',false)
-            ->assertSee('Financial records are restricted to Finance and authorised reviewers.')
+            ->assertSee('Every figure. A clear picture.')
             ->assertSee('HR records are restricted.')
-            ->assertDontSee('id="finance-workspace"',false)
+            ->assertSee('id="finance-workspace"',false)
             ->assertDontSee('aria-label="HR and Admin live registers"',false);
     }
 

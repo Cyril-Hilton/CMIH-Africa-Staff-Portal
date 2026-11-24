@@ -19,3 +19,9 @@ test('failed shared team loads offer a retry and recover without stale cache',as
  const c=centre();const element={dataset:{crConnectedReturn:'/projects/7/accountability'},isConnected:true,innerHTML:''};c.content={querySelectorAll:()=>[element]};c.api=async()=>{throw Error('Offline');};await c.loadConnectedTeams();assert.match(element.innerHTML,/data-cr-connection-retry/);
  c.api=async()=>({html:'Current team feedback'});await c.loadConnectedTeams();assert.equal(element.innerHTML,'Current team feedback');
 });
+
+test('focus rate sits beside the engaged-period heading and stays independent of pagination',()=>{
+ const c=centre();c.data={summary:{portfolio_clients:81,engaged_clients:6,focus_rate:7.4},client_options:Array.from({length:81},(_,i)=>({name:'Account '+i,key:'account-'+i,engaged:i<6}))};
+ const html=c.accountTabs();assert.match(html,/<h4>Engaged This Period <span>6<\/span><small class="cr-focus-rate"/);assert.match(html,/Focus Rate <strong>7.4%/);assert.match(html,/6 \/ 81 accounts/);assert.match(html,/All Accounts <span>81/);
+ c.data.summary={portfolio_clients:0,engaged_clients:0,focus_rate:null};c.data.client_options=[];assert.match(c.accountTabs(),/Focus Rate <strong>—/);assert.doesNotMatch(c.accountTabs(),/NaN|Infinity/);
+});

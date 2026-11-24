@@ -99,7 +99,7 @@ class ClientBusinessCentre {
  accountTabs(){
   const all=this.data.client_options;
   const group=(key,title,accounts,empty)=>`<section class="cr-account-group cr-account-group--${key}" aria-label="${title}">
-   <h4>${title} <span>${accounts.length}</span></h4>
+   <h4>${title} <span>${accounts.length}</span>${key==='engaged'?`<small class="cr-focus-rate" title="Active accounts in the selected period divided by all accounts in this selection">Focus Rate <strong>${this.data.summary.focus_rate===null?'—':esc(pct(this.data.summary.focus_rate))}</strong><em>${esc(this.data.summary.engaged_clients)} / ${esc(this.data.summary.portfolio_clients)} accounts</em></small>`:''}</h4>
    ${accounts.length?`<nav class="cr-chips cr-account-list" data-cr-account-list="${key}" aria-label="${title} account tabs">
     ${accounts.map(account=>`<button type="button" data-cr-focus="${esc(account.key)}" data-cr-account-group="${key}" aria-pressed="${this.focus===account.key&&this.accountGroup===key}">${esc(account.name)}${key==='all'? `<small>${account.engaged?'Engaged':'No engagement'}</small>` : ''}</button>`).join('')}
    </nav>`:`<p class="cr-muted">${empty}</p>`}

@@ -22,11 +22,26 @@ class FinanceDashboardTest extends TestCase
   $s=$this->projection($owner,['finance_status'=>'pending'])['summary'];$this->assertEquals(0,$s['revenue']);$this->assertEquals(1,$s['pending']);
   $s=$this->projection($owner,['finance_owner'=>$other->id])['summary'];$this->assertEquals(0,$s['revenue']);$s=$this->projection($owner,['finance_q'=>'does not match'])['summary'];$this->assertEquals(0,$s['receipts']);
  }
- public function test_all_sections_render_with_shared_filters_and_private_figures_stay_restricted():void{
+ public function test_all_sections_render_with_shared_filters_and_finance_writes_stay_restricted():void{
   $owner=$this->person();$hod=$this->person(true);$this->row($owner,$hod,'invoice',['value'=>80,'paid_amount'=>10]);
   foreach(array_keys(FinanceDashboard::TABS) as $tab)$this->actingAs($owner)->get(route('portal.finance',['finance_tab'=>$tab,'finance_date'=>'2026-11-19']))->assertOk()->assertSee('Finance data filters')->assertSee('Commercial Risks')->assertSee('Finance team members');
   $outside=User::factory()->create(['department'=>'creatives','status'=>'active']);$this->actingAs($outside)->post(route('portal.finance.reporting.save'),[])->assertForbidden();
-  $this->actingAs($outside)->get(route('dashboard',['weekly_department'=>'finance']))->assertOk()->assertDontSee('Every figure. A clear picture.');
+  $this->actingAs($outside)->get(route('dashboard',['weekly_department'=>'finance']))->assertOk()->assertSee('Every figure. A clear picture.');
+ }
+ public function test_all_departments_can_view_published_finance_without_gaining_write_or_private_access():void{
+  $this->travelTo(now()->setDate(2026,11,24)->setTime(12,0));$owner=$this->person();$hod=$this->person(true);
+  $published=$this->row($owner,$hod,'revenue',['actual'=>100]);$pending=$this->row($owner,$hod,'revenue',['actual'=>999]);$pending->update(['title'=>'Unreviewed finance draft marker','approved_at'=>null]);
+  foreach(['brands_marketing','client_relations','operations_projects','creatives','hr_admin'] as $department){
+   $viewer=User::factory()->create(['department'=>$department,'status'=>'active','access_role'=>'staff']);
+   $this->assertTrue(FinanceDashboard::canViewDashboard($viewer));$this->assertFalse(FinanceDashboard::canRead($viewer));$this->assertFalse(FinanceDashboard::canWrite($viewer));
+   $this->actingAs($viewer)->get(route('dashboard',['weekly_department'=>'finance','finance_tab'=>'revenue']))->assertOk()->assertSee('Every figure. A clear picture.')->assertSee($published->title)->assertDontSee('Unreviewed finance draft marker')->assertDontSee('aria-labelledby="finance-entry-title-',false);
+   foreach(array_keys(FinanceDashboard::TABS) as $tab)$this->get(route('portal.finance',['finance_tab'=>$tab]))->assertOk()->assertSee('Finance data filters');
+   $this->post(route('portal.finance.reporting.save'),[])->assertForbidden();
+   $this->get(route('portal.finance',['finance_edit'=>$published->id]))->assertForbidden();
+  }
+  $this->assertTrue(FinanceDashboard::canViewDashboard(User::factory()->create(['department'=>null,'status'=>'active','access_role'=>'staff'])));
+  $this->assertFalse(FinanceDashboard::canViewDashboard(User::factory()->create(['department'=>'creatives','status'=>'suspended'])));
+  $this->assertFalse(FinanceDashboard::canViewDashboard(User::factory()->create(['department'=>'creatives','status'=>'active','is_service_account'=>true])));
  }
  public function test_entries_require_independent_review_and_updates_do_not_duplicate_sources():void{
   $owner=$this->person();$hod=$this->person(true);$payload=['kind'=>'revenue','reference'=>'NOV-2026','title'=>'November revenue','owner_id'=>$owner->id,'period_start'=>'2026-11-01','period_end'=>'2026-11-30','status'=>'in_progress','data'=>['target'=>1000,'actual'=>900,'revenue_type'=>'monthly_total'],'reason'=>'Monthly source verified by submitter','actions'=>[['task'=>'Collect outstanding invoices','owner'=>'Finance','due'=>'2026-11-30','status'=>'planned']]];
