@@ -24,7 +24,7 @@ class KpiAccuracyAuditTest extends TestCase
         $this->assertSame(25.0,$source['coverage']);
         $this->assertSame(22.5,$source['achievement_credit']);
         $score=app(StaffPerformanceScore::class)->user($owner,Carbon::parse('2026-11-16'),Carbon::parse('2026-11-22'));
-        $this->assertSame(22.5,$score['kpi_rate']);
+        $this->assertSame(90.0,$score['kpi_rate']); // Personal scoring uses owned work; other unassigned categories remain department coverage only.
         $this->assertFalse($score['complete']);
         $this->assertNotNull($score['credited_score']);
         $this->assertSame(0,app(StaffPerformanceScore::class)->user(User::factory()->create(['department'=>'brands_marketing']),Carbon::parse('2026-11-16'),Carbon::parse('2026-11-22'))['kpi_measured']);

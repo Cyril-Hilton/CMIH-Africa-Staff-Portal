@@ -48,7 +48,7 @@ class StaffPerformanceScore
         $verifiedPoints = $verifiedTaskRows->sum($weightFor) + $verifiedCommitmentRows->sum($weightFor);
         $creditedPoints = $tasks->filter(fn ($task) => $verifiedTaskRows->contains('id',$task->id) || $submittedTaskRows->contains('id',$task->id))->sum($weightFor) + $commitments->filter(fn ($item) => $verifiedCommitmentRows->contains('id',$item->id) || $submittedCommitmentRows->contains('id',$item->id))->sum($weightFor);
         $total = $tasks->count() + $commitments->count();
-        $definitions = PerformanceKpi::whereIn('department', $departments)->where('owner_id', $user->id)->where(fn ($q) => $q->whereNull('effective_from')->orWhereDate('effective_from', '<=', $end))->where(fn ($q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $start))->whereHas('objective', fn ($q) => $q->whereDate('starts_on', '<=', $end)->whereDate('ends_on', '>=', $start))->get();
+        $definitions = PerformanceKpi::with('objective')->whereIn('department', $departments)->where('owner_id', $user->id)->where(fn ($q) => $q->whereNull('effective_from')->orWhereDate('effective_from', '<=', $end))->where(fn ($q) => $q->whereNull('effective_until')->orWhereDate('effective_until', '>=', $start))->whereHas('objective', fn ($q) => $q->whereDate('starts_on', '<=', $end)->whereDate('ends_on', '>=', $start))->get();
         $observations = PerformanceObservation::with('kpi')->whereIn('kpi_id', $definitions->pluck('id'))->where('owner_id', $user->id)->where('approved_by', '!=', $user->id)->where(fn ($q) => $q->whereNull('submitted_by')->orWhereColumn('approved_by', '!=', 'submitted_by'))->whereNull('target_plan_id')->whereNotNull('approved_at')->whereDate('period_start', '>=', $start)->whereDate('period_end', '<=', $end)->get();
         $waitingObservations=PerformanceObservation::whereIn('kpi_id',$definitions->pluck('id'))->where('owner_id',$user->id)->whereNull('approved_at')->whereNotNull('actual')->whereDate('period_start','>=',$start)->whereDate('period_end','<=',$end)->get();
         $report = app(PerformanceHubReport::class);
@@ -59,7 +59,14 @@ class StaffPerformanceScore
             $actual = $report->aggregate($rows, $definition->aggregation);
             $achievement = PerformanceMath::achievement($target, $actual, $definition->direction);
             $waiting=$rows->isEmpty() && $waitingObservations->contains('kpi_id',$definition->id);
-            $measures[] = ['awaiting_review'=>$waiting,'id' => $definition->id, 'name' => $definition->name, 'weight' => $waiting?0:$definition->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => $achievement !== null, 'source_ids' => $rows->pluck('id')->all()];
+            $dueAt = match($definition->frequency){
+                'daily'=>$end->copy()->endOfDay(), 'weekly'=>$end->copy()->endOfWeek(),
+                'quarterly'=>$end->copy()->endOfQuarter(), 'yearly','annual'=>$end->copy()->endOfYear(),
+                default=>$end->copy()->endOfMonth(),
+            };
+            $dueAt=$dueAt->min(Carbon::parse($definition->objective->ends_on)->endOfDay());
+            if($definition->effective_until)$dueAt=$dueAt->min($definition->effective_until->copy()->endOfDay());
+            $measures[] = ['attention_due'=>Carbon::parse($dueAt)->endOfDay()->lte(now()),'awaiting_review'=>$waiting,'id' => $definition->id, 'name' => $definition->name, 'weight' => $waiting?0:$definition->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => $achievement !== null, 'source_ids' => $rows->pluck('id')->all()];
         }
         $plans = \App\Models\PerformanceTargetPlan::with(['kpi', 'observation'])->whereNull('withdrawn_at')->where(fn ($q) => $q->whereNull('amends_plan_id')->orWhereNotNull('approved_at'))->whereHas('kpi', fn ($q) => $q->whereIn('department', $departments))->where('scope_type', 'individual')->where('owner_id', $user->id)->whereDate('period_start', '>=', $start)->whereDate('period_end', '<=', $end)->get();
         if ($plans->isNotEmpty()) {
@@ -70,7 +77,7 @@ class StaffPerformanceScore
                     : ($plan->approved_at && $plan->target > 0 ? 0.0 : null);
 
                 $waiting=!$plan->approved_at || ($observation && !$observation->approved_at && $observation->actual!==null);
-                return ['awaiting_review'=>(bool)$waiting,'id' => $plan->kpi_id, 'target_plan_id' => $plan->id, 'name' => $plan->kpi->name, 'weight' => $waiting?0:$plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => (bool) $reported, 'source_ids' => $reported ? [$observation->id] : []];
+                return ['attention_due'=>$plan->period_end->copy()->endOfDay()->lte(now()),'awaiting_review'=>(bool)$waiting,'id' => $plan->kpi_id, 'target_plan_id' => $plan->id, 'name' => $plan->kpi->name, 'weight' => $waiting?0:$plan->weight, 'achievement' => $achievement === null ? null : min(100, max(0, $achievement)), 'result_reported' => (bool) $reported, 'source_ids' => $reported ? [$observation->id] : []];
             })->all();
         }
         $reviewMeasure = \App\Services\Creative\CreativeAccountability::reviewerMeasure($user, $start, $end);
@@ -96,7 +103,7 @@ class StaffPerformanceScore
         $result['complete'] = $result['complete'] && collect($measures)->every(fn ($m) => ($m['result_reported'] ?? false));
         $result['credited_score'] = $result['subtotal'];
         $result['kpi_basis'] = $sourceBasis ? 'Equal shares per required reporting area' : 'Assigned KPI weights';
-        $result['kpi_gaps'] = collect($measures)->filter(fn ($m) => ! ($m['result_reported'] ?? false) && !($m['awaiting_review']??false))->pluck('name')->values()->all();
+        $result['kpi_gaps'] = collect($measures)->filter(fn ($m) => ($m['attention_due']??true) && ! ($m['result_reported'] ?? false) && !($m['awaiting_review']??false))->pluck('name')->values()->all();
         if (! $result['complete']) {
             $result['score'] = null;
         }
@@ -134,7 +141,7 @@ class StaffPerformanceScore
             }
         }
 
-        return ['score' => $coverage === 100 ? round($subtotal, 2) : null, 'subtotal' => round($subtotal, 2), 'coverage_weight' => $coverage, 'complete' => $coverage === 100, 'components' => $components, 'formula_version' => '10-65-25-v5-review-responsibility'];
+        return ['score' => $coverage === 100 ? round($subtotal, 2) : null, 'subtotal' => round($subtotal, 2), 'coverage_weight' => $coverage, 'complete' => $coverage === 100, 'components' => $components, 'formula_version' => '10-65-25-v6-assigned-obligations'];
     }
 
     public function team(Collection $users, Carbon $start, Carbon $end, ?string $department = null, ?Collection $memberScores = null): array
@@ -169,9 +176,9 @@ class StaffPerformanceScore
 
     private function sourceMeasures(array $source): array
     {
-        return array_map(fn ($area) => ['name' => $area['name'], 'weight' => !empty($area['awaiting_review'])?0:1, 'achievement' => !empty($area['awaiting_review'])?null:$area['achievement_credit'], 'awaiting_review'=>!empty($area['awaiting_review']),
+        return array_values(array_map(fn ($area) => ['attention_due'=>$area['attention_due']??false,'name' => $area['name'], 'weight' => !empty($area['awaiting_review'])?0:1, 'achievement' => !empty($area['awaiting_review'])?null:$area['achievement_credit'], 'awaiting_review'=>!empty($area['awaiting_review']),
             'result_reported' => $area['reported'] && $area['result_gap'] === null && $area['measured'] > 0,
-            'source_ids' => [], 'basis' => 'Published dashboard targets and actuals · equal area weight'], $source['areas']);
+            'source_ids' => [], 'basis' => 'Published dashboard targets and actuals · equal area weight'], array_filter($source['areas'],fn($area)=>$area['applicable']??true)));
     }
 
     private function departmentMeasures(string $department, Carbon $start, Carbon $end): Collection

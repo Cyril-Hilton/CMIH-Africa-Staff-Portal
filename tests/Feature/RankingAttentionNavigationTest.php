@@ -10,7 +10,7 @@ class RankingAttentionNavigationTest extends TestCase {
  private function staff($department='creatives'): User {return User::factory()->create(['status'=>'active','access_role'=>'staff','department'=>$department,'start_date'=>'2026-11-23']);}
  private function actions(User $viewer,User $person): array {$row=app(RankingAttention::class)->forPerson($person,today()->startOfMonth(),today()->endOfMonth());return app(RankingAttentionActions::class)->forPerson($viewer,$row,today()->startOfMonth(),today()->endOfMonth());}
  public function test_unverified_work_warning_opens_the_actual_editable_task_and_undated_work_opens_its_deadline_field(): void {
-  $staff=$this->staff();$task=Task::create(['title'=>'Unverified actual work','details'=>'Original task details','assigned_to'=>$staff->id,'assigned_by'=>$staff->id,'department'=>'creatives','status'=>'In Progress','priority'=>'medium','due_on'=>'2026-11-23']);
+  $staff=$this->staff();$task=Task::create(['title'=>'Unverified actual work','details'=>'Original task details','assigned_to'=>$staff->id,'assigned_by'=>$staff->id,'department'=>'creatives','status'=>'In Progress','priority'=>'medium','due_on'=>'2026-11-22']);
   $links=$this->actions($staff,$staff);$this->assertSame(route('portal.tasks.edit',$task),$links['unverified_delivery'][0]['url']);
   $this->actingAs($staff)->get($links['unverified_delivery'][0]['url'])->assertOk()->assertSee('Original task details');
   $task->update(['due_on'=>null]);$links=$this->actions($staff,$staff);$this->assertSame(route('portal.tasks.edit',$task),$links['missing_deadlines'][0]['url']);
@@ -28,9 +28,10 @@ class RankingAttentionNavigationTest extends TestCase {
   $this->get(route('portal.hr-reporting.attendance',['q'=>$other->name]))->assertOk()->assertViewHas('summary',fn($rows)=>$rows->isEmpty())->assertViewHas('logs',fn($logs)=>$logs->isEmpty());
   $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-26 12:00:00'));$this->get(route('portal.hr-reporting.attendance',['period'=>'monthly','date'=>'2026-11-26']))->assertOk()->assertViewHas('summary',fn($rows)=>$rows->first()['expected']===4);
  }
- public function test_brand_gaps_link_to_the_matching_reporting_tab(): void {
-  $staff=$this->staff('brands_marketing');$links=$this->actions($staff,$staff);$tabs=[];foreach($links['kpi_evidence']??[] as $link){parse_str(parse_url($link['url'],PHP_URL_QUERY),$q);$tabs[]=$q['brands_tab']??null;$this->assertSame((string)$staff->id,$q['brands_owner']);}
-  $this->assertSame(['people','perfect_store','activation','workstream'],$tabs);
+ public function test_brand_reporting_links_preserve_the_matching_tab_without_inventing_personal_obligations(): void {
+  $staff=$this->staff('brands_marketing');$service=app(RankingAttentionActions::class);
+  foreach(['People & team coverage'=>'people','Merchandising performance'=>'perfect_store','Activations & visibility'=>'activation','Weekly workstreams'=>'workstream'] as $area=>$tab){$url=$service->reportingArea($staff,today()->startOfMonth(),today()->endOfMonth(),$area);parse_str(parse_url($url,PHP_URL_QUERY),$q);$this->assertSame($tab,$q['brands_tab']);$this->assertSame((string)$staff->id,$q['brands_owner']);}
+  $this->assertEmpty($this->actions($staff,$staff)['kpi_evidence']??[]);
  }
  public function test_completed_automatic_task_has_delivery_credit_without_manager_review_but_normal_tasks_still_require_it(): void {
   $staff=$this->staff();$staff->update(['name'=>'Cyril Hilton']);

@@ -91,6 +91,7 @@ class DepartmentSourcePerformance
             $area('Delivery & review', $briefs->filter(fn ($b) => $b->first_submitted_at || $b->submitted_at || $b->completed_at)->count() + $records->where('kind', 'brief')->filter(fn ($r) => isset($r->data['final_delivered_on']))->count(), 'No submission / delivery result reported.');
             $area('Quality & revisions', $briefs->whereNotNull('quality_score')->count() + $records->where('kind', 'brief')->filter(fn ($r) => isset($r->data['quality_score']) || isset($r->data['revision_rounds']))->count(), 'No quality or revision result recorded.');
             $quality = $briefs->whereNotNull('completed_at')->filter(fn ($b) => $b->completed_at->toDateString() >= $from && $b->completed_at->toDateString() <= $to);
+            if ($owner) $quality = $quality->whereNotNull('quality_score'); // Unrecorded HOD grades are not staff failures.
             if ($quality->isNotEmpty()) {
                 $metrics[] = $this->metric('Quality score', $quality->count() * 100, $quality->whereNotNull('quality_score')->isEmpty() ? null : $quality->sum('quality_score'), 'quality points', $quality->count(), $quality->whereNotNull('quality_score')->count(), 'Recorded verified quality points / maximum available quality points. Missing grades earn zero credit.');
             }
@@ -235,6 +236,24 @@ class DepartmentSourcePerformance
             }
             unset($pendingArea);
         }
+        // Department categories describe the dashboard; they do not assign work to an individual.
+        foreach ($areas as &$individualArea) {
+            $individualArea['applicable'] = !$owner || $individualArea['records'] > 0 || !empty($individualArea['awaiting_review']);
+            $individualArea['attention_due'] = $individualArea['applicable'] && Carbon::parse($to)->endOfDay()->lte(now());
+            if ($owner && $department === 'creatives') {
+                $individualArea['applicable'] = $briefs->isNotEmpty() || $count(['brief']) > 0;
+                $individualArea['attention_due'] = match ($individualArea['name']) {
+                    'Delivery & review' => $due->isNotEmpty(),
+                    'Quality & revisions' => $quality->whereNotNull('quality_score')->isNotEmpty(),
+                    default => false, // Scheduling and grading are HOD responsibilities.
+                };
+            }
+            if (!$individualArea['applicable']) {
+                $individualArea['state'] = 'No assigned reporting obligation';
+                $individualArea['result_gap'] = null;
+            }
+        }
+        unset($individualArea);
         $reported = collect($areas)->where('reported', true)->count();
         $businessCredit = PerformanceMath::creditedWeightedScore(array_map(fn ($a) => ['achievement' => $a['achievement_credit']], $areas));
 

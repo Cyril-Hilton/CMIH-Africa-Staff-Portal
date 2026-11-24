@@ -53,6 +53,7 @@ class PerformanceAutomation
         });
         PerformanceObservation::whereNotNull('approved_at')->whereNotNull('actual')->with('kpi')->chunkById(100, function ($rows) use (&$count) {
             foreach ($rows as $o) {
+                if($o->period_end->copy()->endOfDay()->isFuture())continue;
                 $achievement = PerformanceMath::achievement($o->target, $o->actual, $o->kpi->direction);
                 $rag = PerformanceMath::rag($achievement, $o->kpi->green_threshold, $o->kpi->amber_threshold);
                 if (in_array($rag, ['red', 'amber'])) {
@@ -94,7 +95,7 @@ class PerformanceAutomation
             }
             $count += $targets->count();
         });
-        $approvedHistory = PerformanceObservation::whereNotNull('approved_at')->whereDate('period_end', '<=', today())->with(['kpi', 'targetPlan'])->get();
+        $approvedHistory = PerformanceObservation::whereNotNull('approved_at')->whereDate('period_end', '<', today())->with(['kpi', 'targetPlan'])->get();
         foreach (app(RepeatedPerformanceFailures::class)->detect($approvedHistory, (int) $policy['rules']['repeated_failure_periods']) as $failure) {
             $executives = User::humanAccounts()->where('status', 'active')->get()->filter(fn ($u) => PerformanceAccess::executive($u))->pluck('id')->all();
             foreach (array_unique(array_filter(array_merge([$failure['owner_id'], $failure['reviewer_id']], $executives))) as $recipient) {

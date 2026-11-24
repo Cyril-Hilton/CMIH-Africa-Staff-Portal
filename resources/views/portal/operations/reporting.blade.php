@@ -102,13 +102,12 @@
     @endif
 
     @foreach($registers as $kind => $entries)
+        @continue($kind === 'milestone')
         @include('portal.operations.report-register')
     @endforeach
 
     @if($tab === 'handovers')
         @include('portal.operations.handover-workspace',['handoverEmbedded'=>true])
-    @elseif($tab === 'projects')
-        @include('portal.operations.report-campaigns')
     @elseif($tab === 'assets' && $member)
         <a class="ops-button" href="{{ route('portal.assets.warehouse.intake') }}">Warehouse Asset Intake</a>
         @if($undatedPosm->total())

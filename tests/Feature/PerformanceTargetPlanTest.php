@@ -138,7 +138,7 @@ class PerformanceTargetPlanTest extends TestCase
         $end = Carbon::parse('2026-10-31');
         $this->assertEquals(50, $service->user($s['owner'], $start, $end)['kpi_rate']);
         $this->assertEquals(100, $service->user($other, $start, $end)['kpi_rate']);
-        $this->assertSame(0.0,$service->user($s['manager'], $start, $end)['kpi_rate']); // Missing owned results earn zero credit.
+        $this->assertNull($service->user($s['manager'], $start, $end)['kpi_rate']); // No owned KPI assignment is left unscored.
         $report = app(PerformanceHubReport::class)->build(collect(), collect($results)->each(fn ($r) => $r->setRelation('kpi', $s['kpi'])), collect(), '2026-10-01', '2026-10-31', collect([$s['kpi']]), collect($plans));
         $this->assertEquals(60, $report['departments']['client_relations']['kpi_score']);
         $this->assertEquals(300, $report['kpis'][0]['actual']);

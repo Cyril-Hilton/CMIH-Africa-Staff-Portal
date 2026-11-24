@@ -1,10 +1,10 @@
 @php
-    $percentage = fn ($value) => $value === null ? '0% credit · data gap' : round($value, 2).'%';
+    $percentage = fn ($value) => $value === null ? 'Not yet measured' : round($value, 2).'%';
 @endphp
 <div class="space-y-4">
     <div>
         <h3 class="text-lg font-semibold text-brand-white">Performance Rankings</h3>
-        <p class="mt-1 text-sm text-brand-ash">Ranked by credited points out of 100: 10% punctuality, 65% verified delivery and 25% business KPI achievement. Missing results earn zero credit; their weight is never redistributed. Provisional rankings remain visible while gaps are corrected. Official awards remain separate.</p>
+        <p class="mt-1 text-sm text-brand-ash">Ranked by credited points out of 100: 10% punctuality, 65% verified delivery and 25% business KPI achievement. Missing results earn zero credit; their weight is never redistributed. Provisional rankings remain visible while reporting periods and reviews are in progress. Official awards remain separate.</p>
     </div>
     @foreach(['measured_employees' => 'Staff', 'measured_departments' => 'Departments'] as $key => $label)
         <div class="overflow-x-auto rounded-xl border border-brand-white/10">
@@ -37,7 +37,7 @@
                             </td>
                             <td class="p-3 tabular-nums">{{ $percentage($row['kpi_rate']) }}<span class="block text-xs text-brand-ash">{{ $row['kpi_basis'] ?? 'Assigned KPI weights' }}</span></td>
                             @if($key==='measured_departments')<td class="p-3 tabular-nums">{{ $percentage($row['reporting_coverage']??null) }}<span class="block text-xs text-brand-ash">{{ $row['reporting_missing']??0 }} reporting areas missing</span></td>@endif
-                            <td class="p-3 tabular-nums">{{ $row['credited_score'] ?? $row['score'] ?? 0 }}<span class="block text-xs text-brand-ash">{{ ($row['score_complete']??false) ? 'Complete evidence' : 'Provisional · evidence / setup gaps' }}</span></td>
+                            <td class="p-3 tabular-nums">{{ $row['credited_score'] ?? $row['score'] ?? 0 }}<span class="block text-xs text-brand-ash">{{ ($row['score_complete']??false) ? 'Complete evidence' : (!empty($row['kpi_gaps'])?'Provisional · due KPI evidence incomplete':'Provisional · measurement in progress') }}</span></td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="p-4 text-brand-ash">No measured activity for this period.</td></tr>

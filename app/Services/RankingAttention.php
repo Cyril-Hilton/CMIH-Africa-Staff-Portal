@@ -30,9 +30,7 @@ class RankingAttention
         if (! $eligible && ! $preparing) {
             return ['person' => $person, 'issues' => [], 'score' => $score, 'preparing' => false, 'starts_on' => $reset];
         }
-        if (empty($score['kpi_expected'])) {
-            $add('kpi_setup', 'Required KPI targets or reporting setup are missing.', 'Staff member and reporting manager');
-        } elseif (! empty($score['kpi_gaps'])) {
+        if (! empty($score['kpi_gaps'])) {
             $add('kpi_evidence', 'KPI reporting or review is incomplete: '.implode('; ', $score['kpi_gaps']).'.', 'Staff member and KPI reviewer');
         }
         $missing = max(0, ($score['expected_workdays'] ?? 0) - ($score['attendance_days'] ?? 0));
@@ -43,9 +41,6 @@ class RankingAttention
         if ($late) {
             $add('recorded_lateness', $late.' day(s) have recorded late clock-ins affecting punctuality. Review the original record if disputed.', 'Staff member and attendance reviewer');
         }
-        if ($eligible && ($score['completion_total'] ?? 0) === 0) {
-            $add('delivery_setup', 'No measurable work is linked to this period for verified delivery. Record the work and confirm its owner and dates.', 'Staff member and department manager');
-        }
         $tasks = Task::realWork()->where('assigned_to', $person->id)->where(function ($q) use ($start, $end) {
             $q->whereBetween('due_on', [$start->toDateString(), $end->toDateString()])->orWhereBetween('created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])->orWhere(fn ($open) => $open->whereNull('due_on')->whereNotIn('status', ['Completed', 'Done', 'Cancelled', 'cancelled']));
         })->get();
@@ -55,9 +50,6 @@ class RankingAttention
         }
         $pending = $tasks->filter(fn ($t) => in_array($t->completion_review_status, ['pending', 'submitted', 'pending_review'], true))->count();
         $pending += WeeklyConsolidatedItem::where('lead_staff_id', $person->id)->whereBetween('week_start', [$start->toDateString(), $end->toDateString()])->whereIn('workflow_state', ['submitted', 'in_review', 'review', 'completed'])->count();
-        if ($pending) {
-            $add('awaiting_verification', $pending.' submitted work item(s) await manager review; submission does not yet count as verified completion.', $reviewer);
-        }
         if (User::normalizeDepartmentKey($person->department) === 'creatives') {
             $briefs = CreativeRequest::studioWork()->where('assignee_id', $person->id)->whereNotIn('stage', ['completed', 'cancelled'])->whereNull('internal_eta')->count();
             if ($briefs) {
@@ -65,20 +57,21 @@ class RankingAttention
             }
         }
 
-        if ($eligible && ! $pending && (count($score['unverified_task_ids']??[])+count($score['unverified_commitment_ids']??[])) > 0) {
-            $add('unverified_delivery', (count($score['unverified_task_ids']??[])+count($score['unverified_commitment_ids']??[])).' linked work item(s) are not yet verified. These remain provisional, rather than completed performance credit.', $reviewer);
+        $actionableTasks = $tasks->whereIn('id',$score['unverified_task_ids']??[])->filter(fn($task)=>!in_array(strtolower($task->status),['cancelled','canceled'],true) && (in_array(strtolower($task->status),['completed','done'],true) || ($task->due_on && $task->due_on->copy()->endOfDay()->lte(now()))));
+        $actionableCommitments = WeeklyConsolidatedItem::whereIn('id',$score['unverified_commitment_ids']??[])->get()->filter(fn($item)=>in_array($item->workflow_state,['completed','verified','closed'],true) || ($item->week_end && $item->week_end->copy()->endOfDay()->lte(now())));
+        if ($eligible && !$pending && $actionableTasks->count()+$actionableCommitments->count()>0) {
+            $add('unverified_delivery', ($actionableTasks->count()+$actionableCommitments->count()).' due or reported-complete work item(s) need verification or completion. Open the original record for the required action.', $reviewer);
         }
-        if (empty($score['kpi_gaps']) && is_numeric($score['kpi_rate'] ?? null) && $score['kpi_rate'] < 100) {
-            $add('recorded_kpi_shortfall', 'Recorded KPI achievement is '.round($score['kpi_rate'], 1).'%. Check the underlying targets and reviewed results.', 'Staff member and KPI reviewer');
+        $dueResults=collect($score['kpis']??[])->filter(fn($measure)=>($measure['attention_due']??true) && ($measure['result_reported']??false));
+        if ($dueResults->contains(fn($measure)=>is_numeric($measure['achievement']??null) && $measure['achievement']<100)) {
+            $add('recorded_kpi_shortfall', 'Recorded due KPI achievement is '.round(PerformanceMath::creditedWeightedScore($dueResults), 1).'%. Check the underlying targets and reviewed results.', 'Staff member and KPI reviewer');
         }
 
         $ownReviews=app(ReviewAccountability::class)->rows()->filter(fn($r)=>(int)$r['submitter_id']===$person->id||(int)($r['owner_id']??0)===$person->id)->whereNull('decided_at');
-        if($ownReviews->whereNull('reviewer_id')->isNotEmpty())$add('reviewer_assignment_missing','Submitted work has no eligible reviewing manager assigned. Assign an authorised reviewer.','Department head / executive');
-        if($ownReviews->isNotEmpty() && !$pending)$add('awaiting_manager_review',$ownReviews->count().' submitted entry / entries await manager action. Pending reporting is held for review rather than counted as missing staff evidence.','Reviewing manager');
         $managerReviews=app(ReviewAccountability::class)->rows()->where('reviewer_id',$person->id)->filter(fn($r)=>$r['due_at']->betweenIncluded($start->copy()->startOfDay(),$end->copy()->endOfDay()));
         $overdueReviews=$managerReviews->where('overdue',true);
         if($overdueReviews->isNotEmpty())$add('manager_review_overdue',$overdueReviews->count().' submitted item(s) passed the manager review deadline. Approve or return with correction notes.','Reviewing manager');
-        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'manager_reviews'=>$managerReviews->values()->all(), 'own_reviews'=>$ownReviews->values()->all(), 'attention_task_ids' => $tasks->pluck('id')->all(), 'preparing' => (bool) $preparing, 'starts_on' => $reset];
+        return ['person' => $person, 'issues' => $issues, 'score' => $score, 'manager_reviews'=>$managerReviews->values()->all(), 'own_reviews'=>$ownReviews->values()->all(), 'actionable_unverified_task_ids'=>$actionableTasks->pluck('id')->all(),'actionable_unverified_commitment_ids'=>$actionableCommitments->pluck('id')->all(),'attention_task_ids' => $tasks->pluck('id')->all(), 'preparing' => (bool) $preparing, 'starts_on' => $reset];
     }
 
     public function visible(User $viewer, Carbon $from, Carbon $to, ?int $person = null, ?string $department = null): Collection

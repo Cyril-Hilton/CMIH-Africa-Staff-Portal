@@ -930,7 +930,7 @@
     </section>
 
     </details>
-    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Recognition &amp; Awards<span class="mt-1 block text-xs font-normal text-brand-ash">{{ count($awardStandings['measured_employees']) }} staff ranked · {{ count($awardStandings['incomplete_employees']) }} with evidence / setup gaps</span></span></summary>
+    <details class="dashboard-secondary"><summary class="dashboard-section-summary"><span>Recognition &amp; Awards<span class="mt-1 block text-xs font-normal text-brand-ash">{{ count($awardStandings['measured_employees']) }} staff ranked · {{ count($awardStandings['incomplete_employees']) }} with provisional scores</span></span></summary>
     <!--  Performance Awards Leaderboard Section -->
     <div class="glass-panel rounded-2xl p-6 border border-brand-white/10 bg-brand-white/5 mb-8">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">

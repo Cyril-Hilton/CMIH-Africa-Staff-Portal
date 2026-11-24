@@ -45,13 +45,13 @@ class RankingAttentionActions
             $brief=$task->creativeRequest;
             $url=$brief&&CreativeAccess::view($viewer,$brief)?route('portal.creative',['request'=>$brief->id]):route($task->canBeEditedBy($viewer)?'portal.tasks.edit':'portal.tasks.show',$task);
             $label=($brief?'Open brief: ':'Open task: ').($brief?->title?:$task->title);
-            if(in_array($task->id,$score['unverified_task_ids']??[]))$add('unverified_delivery',$label,$url);
+            if(in_array($task->id,$row['actionable_unverified_task_ids']??$score['unverified_task_ids']??[]))$add('unverified_delivery',$label,$url);
             if(in_array($task->completion_review_status,['pending','submitted','pending_review'],true))$add('awaiting_verification',$label,$url);
         }
         foreach(WeeklyConsolidatedItem::whereIn('id',$score['source_commitments']??[])->get() as $item){
             if(!PerformanceAccess::view($viewer,$item))continue;
             $url=route('portal.performance.index',$context+['view'=>'commitments','item'=>$item->id]).'#commitment-'.$item->id;
-            if(in_array($item->id,$score['unverified_commitment_ids']??[]))$add('unverified_delivery','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
+            if(in_array($item->id,$row['actionable_unverified_commitment_ids']??$score['unverified_commitment_ids']??[]))$add('unverified_delivery','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
             if(in_array($item->workflow_state,['submitted','in_review','review','completed'],true))$add('awaiting_verification','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
         }
         foreach(Task::realWork()->with(['creativeRequest','assignee'])->where('assigned_to',$person->id)->whereNull('due_on')->whereNotIn('status',['Completed','Done','Cancelled','cancelled'])->get() as $task){
