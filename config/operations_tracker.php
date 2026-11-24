@@ -20,6 +20,7 @@ return [
         'execution' => ['procurement', 'supplier', 'production', 'fabrication'],
         'follow-up' => ['client_approval', 'project_report', 'risk_issue', 'risk'],
     ],
+    'retired_project_fields' => ['completed_on', 'rework_count', 'complaints', 'quality_issues', 'supporting_team', 'ends_on', 'due_on', 'project_stage', 'progress_percent', 'action_due_on', 'is_activation', 'outlet', 'primary_requirement'],
     'private_fields' => ['budget', 'actual_cost', 'revenue', 'cost_to_completion', 'cost', 'contact_person', 'payment_status', 'exposure'],
     'tables' => [
         'team_allocation' => ['outlet' => 'text', 'location' => 'text', 'client_service' => 'text', 'project_in_charge' => 'text', 'setup_on' => 'date', 'setup_completed_on' => 'date', 'setup_date_as_reported' => 'text', 'activation_dates_as_reported' => 'text', 'technical_support' => 'text', 'handyman' => 'text', 'transport' => 'text', 'source_serial' => 'text'],

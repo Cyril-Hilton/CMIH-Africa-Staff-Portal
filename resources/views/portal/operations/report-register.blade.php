@@ -1,6 +1,6 @@
 @php
     $columns = match ($kind) {
-        'project' => ['brand', 'project_stage', 'project_status', 'progress_percent', 'rag_status', 'due_on'],
+        'project' => ['brand', 'project_status', 'rag_status'],
         'activation' => ['brand', 'location', 'starts_on', 'ends_on', 'report_shared'],
         'posm_deployment' => ['asset_code', 'quantity', 'location', 'current_location', 'expected_return_on', 'return_status'],
         'team_allocation' => ['outlet', 'location', 'setup_on', 'activation_dates_as_reported', 'client_service', 'technical_support', 'handyman', 'transport'],

@@ -25,6 +25,44 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->travelTo(now()->setDate(2026, 11, 14)->setTime(12, 0));
     }
 
+    public function test_circled_master_project_fields_are_retired_without_erasing_saved_history(): void
+    {
+        $manager = $this->person('manager');
+        $staff = $this->person();
+        $retired = ['completed_on', 'rework_count', 'complaints', 'quality_issues', 'supporting_team', 'ends_on', 'due_on',
+            'project_stage', 'progress_percent', 'action_due_on', 'is_activation', 'outlet', 'primary_requirement'];
+        $this->assertEqualsCanonicalizing($retired, config('operations_tracker.retired_project_fields'));
+        foreach ([$manager, $staff] as $viewer) {
+            foreach (['dashboard', 'portal.operations'] as $route) {
+                $html = $this->actingAs($viewer)->get(route($route, ['weekly_department'=>'operations_projects', 'ops_tab'=>'projects', 'ops_add'=>'project']))
+                    ->assertOk()->getContent();
+                foreach ($retired as $field) $this->assertStringNotContainsString('name="data['.$field.']"', $html);
+                foreach (['awarded_on', 'started_on', 'satisfaction_score', 'brand', 'location', 'starts_on', 'project_status', 'key_issue', 'team_handyman_requirement'] as $field) {
+                    $this->assertStringContainsString('name="data['.$field.']"', $html);
+                }
+            }
+        }
+        $this->actingAs($manager)->post(route('portal.operations.reporting.save'), [
+            'kind'=>'project', 'title'=>'Simplified project', 'week'=>'2026-11-09', 'status'=>'planned',
+            'data'=>['brand'=>'Dove', 'project_status'=>'Planning', 'progress_percent'=>55],
+        ])->assertSessionHasNoErrors();
+        $record = PerformanceRegister::sole();
+        $this->assertArrayNotHasKey('progress_percent', $record->data);
+        $record->update(['data'=> $record->data + ['progress_percent'=>40,'ends_on'=>'2026-11-14','supporting_team'=>'Retained earlier report']]);
+        $this->post(route('portal.operations.reporting.save'), [
+            'kind'=>'project','source'=>$record->id,'source_version'=>OperationsReporting::version($record->fresh()),
+            'title'=>'Simplified project updated','week'=>'2026-11-09','status'=>'in_progress',
+            'data'=>['brand'=>'Dove updated','project_status'=>'In Progress','progress_percent'=>99],
+        ])->assertSessionHasNoErrors();
+        $record->refresh();
+        $this->assertSame(40, $record->data['progress_percent']);
+        $this->assertSame('2026-11-14', $record->data['ends_on']);
+        $this->assertSame('Retained earlier report', $record->data['supporting_team']);
+        $this->assertSame('Dove updated', strip_tags($record->data['brand']));
+        $this->assertArrayHasKey('progress_percent', OperationsReporting::schemas()['weekly_update']);
+        $this->assertArrayHasKey('ends_on', OperationsReporting::schemas()['activation']);
+    }
+
     public function test_actual_weekly_entry_forms_submit_for_staff_and_hod_with_the_warehouse_checklist(): void
     {
         $manager = $this->person('manager');
