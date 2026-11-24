@@ -98,6 +98,7 @@ class OperationsReporting
         $modules = $request->routeIs('portal.operations');
         $anchor = $modules ? 'operations-reporting' : 'staff-weekly-performance';
         $returnQuery = $request->only(['report_period', 'report_date', 'ops_tab', 'ops_owner', 'ops_q', 'ops_sort', 'ops_status', 'ops_direction', 'ops_rows', 'ops_warehouse', 'ops_source']);
+        $returnQuery += app(AssetTableFilters::class)->values($request);
         $returnQuery['ops_tab'] = $tab;
         $returnQuery += $modules ? ['module_view' => 'overview'] : ['weekly_department' => self::DEPARTMENT];
         $workspaceUrl = fn (array $parameters = [], bool $keepPeriod = true) => route(
@@ -197,6 +198,7 @@ class OperationsReporting
             $assets = Asset::query()->where('is_warehouse_tracked', true)->with('assignee')
                 ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match
                     ->where('name', 'like', "%$search%")->orWhere('asset_tag', 'like', "%$search%")->orWhere('warehouse_location', 'like', "%$search%")));
+            app(AssetTableFilters::class)->apply($assets, $request);
             $this->sort($assets, $sort, $direction, 'name', 'assigned_to', 'updated_at');
             $inventory = $paginate($assets->orderBy('name')->orderBy('id'), 'ops_inventory_page');
             $movementQuery = $this->movements($user)->whereNotNull('issued_at')->where(fn (Builder $q) => $q

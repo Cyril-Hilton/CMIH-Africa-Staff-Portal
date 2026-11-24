@@ -40,6 +40,7 @@ class WarehouseAssetController extends Controller
             ->where('is_warehouse_tracked', true);
 
         $this->applyAssetFilters($assetsQuery, $filters);
+        app(\App\Services\AssetTableFilters::class)->apply($assetsQuery, $request);
 
         $warehouseAssets = $assetsQuery
             ->latest()
@@ -769,6 +770,7 @@ class WarehouseAssetController extends Controller
             ->latest();
 
         $this->applyAssetFilters($query, $filters);
+        app(\App\Services\AssetTableFilters::class)->apply($query, request());
 
         return [
             $query->get()->map(fn (Asset $asset) => $this->exportInventoryRow($asset))->all(),

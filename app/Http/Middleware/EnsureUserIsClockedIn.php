@@ -101,6 +101,27 @@ class EnsureUserIsClockedIn
                     ->withErrors(['attendance' => 'Your report has not been saved: clock in first. Your entries are preserved below. Open Clock In in another tab, then return here and submit again.']);
             }
 
+            if (in_array($currentRoute, ['portal.hr-registers.store','portal.hr-registers.update','portal.hr-dashboard.activities.store','portal.hr-dashboard.activities.update'], true)
+                && \App\Services\HrLiveRegisters::canEdit($user)) {
+                $parameters=['weekly_department'=>'hr_admin','hr_period'=>'week'];
+                $from=$request->input('hr_from');
+                if(is_string($from)&&preg_match('/^\d{4}-\d{2}-\d{2}$/',$from)&&strtotime($from)!==false)$parameters['hr_from']=$from;
+                $old=$request->except(['_token','_method']);
+                if(str_starts_with($currentRoute,'portal.hr-registers.')){
+                    $kind=$request->route('kind');$schema=app(\App\Services\HrLiveRegisters::class)->schema((string)$kind);
+                    $parameters['hr_tab']=$schema['tab']??'overview';$id=(int)$request->route('id');
+                    if($id)$parameters['hr_record_focus']=$kind.':'.$id;
+                    $old['register_kind']=$kind;$old['register_id']=$id;
+                    $anchor='hr-registers';
+                }else{
+                    $parameters['hr_tab']=$request->input('tab','overview');$activity=$request->route('activity');
+                    if($activity)$parameters['hr_edit']=$activity instanceof \App\Models\HrDashboardActivity?$activity->id:(int)$activity;
+                    $anchor='hr-activity-table';
+                }
+                return redirect()->route('dashboard',$parameters)->withFragment($anchor)->withInput($old)
+                    ->withErrors(['attendance'=>'Your HR entry has not been saved: clock in first. The form below keeps your entries. Open Clock In in another tab, then return and submit again. Re-select any attachment.']);
+            }
+
             return redirect()->route('dashboard')->withErrors([
                 'attendance' => 'You must clock in and set your daily objective before accessing other portal features.'
             ]);

@@ -62,6 +62,7 @@
     <form class="br-filters" method="get" action="{{ $modules ? route('portal.operations').'#operations-reporting' : route('dashboard').'#staff-weekly-performance' }}" data-no-ajax data-no-silent>
         @if($modules)<input type="hidden" name="module_view" value="overview">@else<input type="hidden" name="weekly_department" value="operations_projects">@endif
         <input type="hidden" name="ops_tab" value="{{ $tab }}">
+        @foreach(\App\Services\AssetTableFilters::FIELDS as $assetKey=>$label)@if(request()->filled($assetKey))<input type="hidden" name="{{ $assetKey }}" value="{{ request($assetKey) }}">@endif @endforeach
         <input type="hidden" name="ops_owner" value="{{ $owner }}">
         @if(request()->filled('ops_warehouse'))<input type="hidden" name="ops_warehouse" value="{{ request('ops_warehouse') }}">@endif
         @if($modules)
@@ -76,7 +77,7 @@
         @if($tab !== 'kpis')<label>Sort By<select name="ops_sort">@foreach(['newest'=>'Latest dates first','oldest'=>'Earliest dates first','title'=>'Title A–Z','owner'=>'Owner A–Z','status'=>'Status A–Z'] as $id=>$label)<option value="{{ $id }}" @selected(($filters['ops_sort'] ?? 'newest') === $id)>{{ $label }}</option>@endforeach</select></label>
         <label>Rows per Table<select name="ops_rows">@foreach([10,25,50] as $size)<option value="{{ $size }}" @selected((int) ($filters['ops_rows'] ?? 10) === $size)>{{ $size }}</option>@endforeach</select></label>@endif
         <button class="ops-button ops-primary">Apply Filters</button>
-        <a class="ops-button" href="{{ $workspaceUrl(['ops_q'=>null,'ops_status'=>null,'ops_owner'=>null,'ops_sort'=>null,'ops_direction'=>null,'ops_rows'=>null]) }}">Clear Filters</a>
+        <a class="ops-button" href="{{ $workspaceUrl(array_merge(['ops_q'=>null,'ops_status'=>null,'ops_owner'=>null,'ops_sort'=>null,'ops_direction'=>null,'ops_rows'=>null],array_fill_keys(array_keys(\App\Services\AssetTableFilters::FIELDS),null))) }}">Clear Filters</a>
     </form>
     @if($modules)
         <nav class="br-period-nav" aria-label="Operations reporting period navigation">

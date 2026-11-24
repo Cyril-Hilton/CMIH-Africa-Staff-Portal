@@ -35,6 +35,7 @@
          class="space-y-6 transition-opacity duration-150">
         <section class="glass-panel rounded-2xl p-5 sm:p-6">
             <form method="GET" action="{{ route('portal.assets') }}" class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                @include('portal.assets.table-filters',['assetFiltersEmbedded'=>true,'assetWarehouse'=>false,'assetFilterKeys'=>['asset_item','asset_location','asset_handler','asset_project','asset_department']])
                 <input type="search" name="search" value="{{ $search }}" placeholder="Search assets, tag, location, brand..."
                        class="xl:col-span-2 rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0">
 
@@ -47,21 +48,21 @@
 
                 <select name="status" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                     <option value="">All status</option>
-                    @foreach(['Available', 'In Use', 'Maintenance', 'Retired'] as $option)
+                    @foreach(app(\App\Services\AssetTableFilters::class)->options(false)["asset_status"] as $option)
                         <option value="{{ $option }}" @selected($status === $option)>{{ $option }}</option>
                     @endforeach
                 </select>
 
                 <select name="condition" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                     <option value="">All condition</option>
-                    @foreach(['New', 'Good', 'Fair', 'Poor'] as $option)
+                    @foreach(app(\App\Services\AssetTableFilters::class)->options(false)["asset_condition"] as $option)
                         <option value="{{ $option }}" @selected($condition === $option)>{{ $option }}</option>
                     @endforeach
                 </select>
 
                 <select name="type" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                     <option value="">All types</option>
-                    @foreach(['Hardware', 'Software', 'Vehicle', 'Furniture', 'Office Equipment', 'Other'] as $option)
+                    @foreach($assetTypes as $option)
                         <option value="{{ $option }}" @selected($type === $option)>{{ $option }}</option>
                     @endforeach
                 </select>

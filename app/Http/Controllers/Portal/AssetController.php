@@ -46,7 +46,7 @@ class AssetController extends Controller
 
         if ($type !== '') {
             $assetsQuery->where(function ($q) use ($type) {
-                $q->where('type', $type);
+                $q->where('type', $type)->orWhere('category', $type);
                 if (\Illuminate\Support\Facades\Schema::hasColumn('assets', 'asset_type')) {
                     $q->orWhere('asset_type', $type);
                 }
@@ -90,6 +90,7 @@ class AssetController extends Controller
                 $assetsQuery->latest();
         }
 
+        app(\App\Services\AssetTableFilters::class)->apply($assetsQuery, $request);
         $assets = $assetsQuery->paginate(10, ['*'], 'asset_page')->withQueryString();
         $staff = \App\Models\User::internalStaff()->where('status', 'active')->orderBy('name')->get();
         $canCreateAssets = $request->user()?->isActive() ?? false;
@@ -103,7 +104,8 @@ class AssetController extends Controller
             ->orderBy('brand')
             ->pluck('brand');
 
-        return view('portal.assets', compact('assets', 'search', 'type', 'status', 'condition', 'brand', 'staffFilter', 'sort', 'direction', 'staff', 'canCreateAssets', 'brands'));
+        $assetTypes = app(\App\Services\AssetTableFilters::class)->options(false)['asset_type'];
+        return view('portal.assets', compact('assetTypes', 'assets', 'search', 'type', 'status', 'condition', 'brand', 'staffFilter', 'sort', 'direction', 'staff', 'canCreateAssets', 'brands'));
     }
 
     public function store(Request $request): RedirectResponse

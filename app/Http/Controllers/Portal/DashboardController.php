@@ -23,6 +23,7 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        app(\App\Services\AssetTableFilters::class)->values($request);
         $user = $request->user();
         app(\App\Services\DashboardReportingPeriod::class)->apply($request);
         $request->validate(['mega_date'=>'nullable|date_format:Y-m-d']);

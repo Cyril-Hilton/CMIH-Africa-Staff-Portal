@@ -77,11 +77,13 @@ class HrDashboardActivityController extends Controller
             }
             $data['attachment'] = ['path' => $newPath, 'name' => basename($file->getClientOriginalName())];
         }
+        $savedActivityId = null;
         try {
-            $oldPath = DB::transaction(function () use ($data, $activity, $revision, $tab, $user) {
+            $oldPath = DB::transaction(function () use ($data, $activity, $revision, $tab, $user, &$savedActivityId) {
                 if (!$activity) {
                     $row=HrDashboardActivity::create($data + ['tab' => $tab, 'created_by' => $user->id,'completed_at'=>$data['status']==='Completed'?now():null]);
                     PerformanceWorkflow::record('hr_activity',$row->id,$user->id,'create',[],$row->getAttributes(),'HR activity created');
+                    $savedActivityId=$row->id;
                     $this->notify($row);
                     return null;
                 }
@@ -95,6 +97,7 @@ class HrDashboardActivityController extends Controller
                 $completed=$data['status']==='Completed'?($saved->status==='Completed'?$saved->completed_at:now()):null;
                 $saved->update($data + ['revision' => $saved->revision + 1,'completed_at'=>$completed,'approved_at'=>$data['status']==='Pending Approval'?null:$saved->approved_at,'approved_by'=>$data['status']==='Pending Approval'?null:$saved->approved_by]);
                 PerformanceWorkflow::record('hr_activity',$saved->id,$user->id,'update',$before,$saved->getAttributes(),'HR activity updated');
+                $savedActivityId=$saved->id;
                 $this->notify($saved);
                 return $oldPath;
             });
@@ -106,9 +109,12 @@ class HrDashboardActivityController extends Controller
         }
         // Earlier attachments remain private for the retained change history.
 
-        return redirect()->to(route('dashboard', $request->only(['hr_period', 'hr_from', 'hr_to', 'hr_owner', 'hr_q', 'hr_category', 'hr_status', 'hr_sort', 'hr_direction']) + [
-            'weekly_department' => 'hr_admin', 'hr_tab' => $tab,
-        ]).'#staff-weekly-performance')->with('status', 'HR/Admin activity saved.');
+        $showDate=$data['status']==='Completed'?today()->toDateString():$data['opened_on'];
+        return redirect()->to(route('dashboard', [
+            'weekly_department'=>'hr_admin','hr_tab'=>$tab,'hr_period'=>$request->input('hr_period','week'),
+            'hr_from'=>$showDate,'hr_to'=>max($showDate,(string)$request->input('hr_to',$showDate)),
+            'hr_activity_focus'=>$savedActivityId,
+        ]).'#hr-activity-table')->with('status', 'HR/Admin activity saved.');
     }
 
     public function show(Request $request,HrDashboardActivity $activity)

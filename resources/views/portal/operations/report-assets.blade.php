@@ -7,6 +7,7 @@
         @endforeach
     </nav>
     @if($warehouseTab === 'inventory')
+        @include('portal.assets.table-filters',['assetWarehouse'=>true])
         <p class="br-note">Stock and warehouse locations are current. Select Issue &amp; Return History to see movements in the reporting period.</p>
         <div class="br-table-wrap" tabindex="0" role="region" aria-label="Current warehouse inventory">
             <table class="br-table ops-table">

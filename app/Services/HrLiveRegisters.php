@@ -24,7 +24,7 @@ class HrLiveRegisters
    'contract_expires_at'=>['type'=>'date','label'=>'Contract end date'],'phone'=>['type'=>'text','label'=>'Phone'],'email'=>['type'=>'email','label'=>'Email'],
    'next_of_kin_name'=>['type'=>'text','label'=>'Emergency contact name'],'next_of_kin_phone'=>['type'=>'text','label'=>'Emergency contact phone']]];
   if($kind==='asset')return ['tab'=>'assets','label'=>'Office Asset Register','fields'=>[
-   'asset_tag'=>['type'=>'text','label'=>'Asset tag'],'name'=>['type'=>'text','label'=>'Description'],'category'=>['type'=>'text','label'=>'Category'],'quantity_procured'=>['type'=>'number','label'=>'Quantity'],
+   'asset_tag'=>['type'=>'text','label'=>'Asset tag'],'name'=>['type'=>'text','label'=>'Description'],'brand'=>['type'=>'text','label'=>'Brand'],'category'=>['type'=>'text','label'=>'Category'],'quantity_procured'=>['type'=>'number','label'=>'Quantity'],
    'location'=>['type'=>'text','label'=>'Location'],'assigned_to'=>['type'=>'staff','label'=>'Assigned to'],'acquired_on'=>['type'=>'date','label'=>'Date acquired'],'asset_value'=>['type'=>'number','label'=>'Cost (GHS)'],
    'condition'=>['type'=>'select','label'=>'Condition','options'=>['New','Good','Fair','Poor','Damaged','Lost','Under repair','Disposed']]]];
   return config('hr_workspace.registers.'.$kind,[]);
@@ -43,7 +43,7 @@ class HrLiveRegisters
   if($kind==='vendor')return app(HrVendorDirectory::class)->records();
   if($kind==='asset')return Asset::with('assignee:id,name')->where(fn($q)=>$q->where('is_warehouse_tracked',false)->orWhereNull('is_warehouse_tracked'))->orderBy('name')->get()->map(fn($a)=>[
    'id'=>$a->id,'kind'=>'asset','label'=>$a->name,'revision'=>hash('sha256',json_encode($a->getRawOriginal())),'attachment'=>null,'url'=>route('portal.assets'),
-   'data'=>['asset_tag'=>$a->asset_tag,'name'=>$a->name,'category'=>$a->category?:$a->type,'quantity_procured'=>$a->hr_details['inventory_quantity']??($a->quantity_procured>0?$a->quantity_procured:1),'location'=>$a->location,'assigned_to'=>$a->assigned_to,'acquired_on'=>$a->hr_details['acquired_on']??null,'asset_value'=>$a->asset_value,'condition'=>$a->condition]
+   'data'=>['asset_tag'=>$a->asset_tag,'name'=>$a->name,'brand'=>$a->brand,'category'=>$a->category?:$a->type,'quantity_procured'=>$a->hr_details['inventory_quantity']??($a->quantity_procured>0?$a->quantity_procured:1),'location'=>$a->location,'assigned_to'=>$a->assigned_to,'acquired_on'=>$a->hr_details['acquired_on']??null,'asset_value'=>$a->asset_value,'condition'=>$a->condition]
   ]);
   return HrRegisterRecord::where('kind',$kind)->orderBy('label')->get()->filter(function($row)use($viewer,$kind){
    if(self::full($viewer))return true;

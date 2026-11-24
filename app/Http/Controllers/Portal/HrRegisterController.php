@@ -13,7 +13,7 @@ class HrRegisterController extends Controller {
   app(HrRegisterEditor::class)->validate($kind,$r->input('data'),$r->user(),$id);
   $attachment=null;if($r->hasFile('attachment')){$f=$r->file('attachment');app(\App\Services\Creative\CreativeUploadScreening::class)->check($f);$path=$f->store('hr-register-documents','local');abort_unless($path,503);$attachment=['path'=>$path,'name'=>basename($f->getClientOriginalName())];}
   try{$row=app(HrRegisterEditor::class)->save($kind,$r->input('data'),$r->user(),$id,$r->input('revision'),$attachment);}catch(\Throwable $e){if($attachment)Storage::disk('local')->delete($attachment['path']);throw $e;}
-  return redirect()->to($this->back($r,app(HrLiveRegisters::class)->schema($kind)['tab']))->with('status','Register saved. Overview totals updated automatically.');
+  return redirect()->to($this->back($r,app(HrLiveRegisters::class)->schema($kind)['tab'], $kind.':'.$row->id))->with('status','Register saved. Overview totals updated automatically.');
  }
  public function destroy(Request $r,string $kind,int $id){
   abort_unless(HrLiveRegisters::canEdit($r->user()),403);$service=app(HrLiveRegisters::class);abort_unless($service->schema($kind),404);
@@ -37,5 +37,5 @@ class HrRegisterController extends Controller {
   $events=\App\Models\PerformanceEvent::with('actor:id,name')->where('entity_type',$type)->where('entity_id',$id)->orderByDesc('id')->paginate(20)->withQueryString();
   return response()->view('portal.hr-reporting.history',compact('events','kind','id'))->header('Cache-Control','private, no-store');
  }
- private function back(Request $r,string $tab): string {return route('portal.hr-workspace',$r->only(['hr_period','hr_from','hr_to','hr_owner'])+['hr_tab'=>$tab]).'#hr-registers';}
+ private function back(Request $r,string $tab,?string $focus=null): string {return route('portal.hr-workspace',$r->only(['hr_period','hr_from','hr_to','hr_owner'])+['hr_tab'=>$tab,'hr_record_focus'=>$focus]).'#hr-registers';}
 }

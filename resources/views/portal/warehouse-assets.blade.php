@@ -82,6 +82,7 @@
 
         <section class="glass-panel rounded-2xl p-5 sm:p-6">
             <form method="GET" action="{{ route('portal.assets.warehouse.index') }}" class="grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+                @include('portal.assets.table-filters',['assetFiltersEmbedded'=>true,'assetWarehouse'=>true,'assetFilterKeys'=>['asset_type','asset_handler','asset_project','asset_department']])
                 <input type="search" name="search" value="{{ $filters['search'] }}" placeholder="Search name, tag, serial..."
                        class="xl:col-span-2 rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white placeholder-brand-white/30 focus:border-brand-red focus:ring-0">
 
@@ -101,14 +102,14 @@
 
                 <select name="condition" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                     <option value="">All condition</option>
-                    @foreach(['New', 'Excellent', 'Good', 'Fair', 'Poor'] as $option)
+                    @foreach(app(\App\Services\AssetTableFilters::class)->options(true)["asset_condition"] as $option)
                         <option value="{{ $option }}" @selected($filters['condition'] === $option)>{{ $option }}</option>
                     @endforeach
                 </select>
 
                 <select name="status" class="rounded-xl border border-brand-white/10 bg-brand-black/50 px-3 py-2 text-sm text-brand-white focus:border-brand-red focus:ring-0">
                     <option value="">All status</option>
-                    @foreach(['Available', 'In Use', 'Deployed', 'Pending Approval', 'In Repair', 'Under Remodel', 'Retired'] as $option)
+                    @foreach(app(\App\Services\AssetTableFilters::class)->options(true)["asset_status"] as $option)
                         <option value="{{ $option }}" @selected($filters['status'] === $option)>{{ $option }}</option>
                     @endforeach
                 </select>

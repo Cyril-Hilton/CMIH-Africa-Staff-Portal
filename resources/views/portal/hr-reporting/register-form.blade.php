@@ -1,8 +1,9 @@
+@php($restoreRegister=old('register_kind')===$kind&&(int)old('register_id',0)===(int)($record['id']??0))
 <form method="POST" enctype="multipart/form-data" action="{{ $record ? route('portal.hr-registers.update',[$kind,$record['id']]) : route('portal.hr-registers.store',$kind) }}" class="hr-activity-form mt-4" data-no-ajax data-no-silent>
-@csrf @if($record)@method('PATCH')<input type="hidden" name="revision" value="{{ $record['revision'] }}">@endif
+@csrf <input type="hidden" name="register_kind" value="{{ $kind }}"><input type="hidden" name="register_id" value="{{ $record['id']??0 }}"> @if($record)@method('PATCH')<input type="hidden" name="revision" value="{{ $record['revision'] }}">@endif
 @foreach(['hr_period'=>$period,'hr_from'=>$from,'hr_to'=>$to] as $key=>$value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
 @foreach($schema['fields'] as $field=>$f)
-    @php($value=old('data.'.$field,$record['data'][$field]??null))
+    @php($value=$restoreRegister?old('data.'.$field,$record['data'][$field]??null):($record['data'][$field]??null))
     @php($type=$f['type'])
     <label @class(['hr-activity-wide'=>in_array($type,['textarea','staff_multi'])])>{{ $f['label'] }}
     @if($type==='textarea')<textarea name="data[{{ $field }}]" rows="2" maxlength="6000">{{ $value }}</textarea>
