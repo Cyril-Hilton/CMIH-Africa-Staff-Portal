@@ -25,7 +25,7 @@ The office asset manager, warehouse manager, Operations inventory and HR office 
 
 ## Validation
 
-Full application suite: **964 tests / 10,169 assertions passed**. Final focused native-form, filter and clock-recovery suite: **9 tests / 907 assertions passed**. Additional warehouse/filter checks: **14 tests / 140 assertions passed**. JavaScript: **82 passed**. Whitespace checks passed. The added controls reuse existing compiled styles and do not require an asset rebuild.
+Final full application suite, including the generated-sticker regression: **965 tests / 10,173 assertions passed**. Final focused native-form, filter and clock-recovery suite: **9 tests / 907 assertions passed**. Additional warehouse/filter checks: **14 tests / 140 assertions passed**. JavaScript: **82 passed**. Whitespace checks passed. The added controls reuse existing compiled styles and do not require an asset rebuild.
 
 The matrix exercises current permissions and representative valid data for every entry type. It does not claim to cover every possible arbitrary value or every individual browser/device combination. Submitted Operations entries still require the configured HOD review; pending review is a saved state, not publication into approved totals.
 
