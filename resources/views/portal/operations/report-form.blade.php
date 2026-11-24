@@ -19,6 +19,9 @@
     $selectedOwner = (int) $previous('owner_id', $payload['owner_id'] ?? $formRecord?->owner_id ?? auth()->id());
     $selectedStatus = $previous('status', $payload['status'] ?? $formRecord?->status ?? 'planned');
 @endphp
+@if(!auth()->user()->isSupervisionOnly() && !\App\Models\Attendance::where('user_id',auth()->id())->whereDate('clock_in_at',today())->exists())
+<aside class="br-correction mb-4" role="note"><strong>Clock in before submitting this report.</strong><p>The report is saved only after you submit it successfully. Keep this form open while you clock in.</p><a class="ops-button" href="{{ route('dashboard') }}#clock-in-form" target="_blank" rel="noopener">Open Clock In in another tab</a></aside>
+@endif
 @if(!$submission&&!$formRecord&&$formKind==='activation'&&!$fromHandover)
 <form method="get" class="ops-form mb-4" action="{{ url()->current() }}#operations-entry">@foreach(request()->except('ops_project') as $key=>$value)@if(is_scalar($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif @endforeach<label>Start with an existing Client Relations project · optional<select name="ops_project"><option value="">Direct Operations activation</option>@foreach(app(\App\Services\ClientRelationsCentre::class)->latest(\App\Models\CrmPipelineProject::where('source_period_confirmed',true)->with('owner:id,name')->get()) as $master)<option value="{{ $master->id }}" @selected($selectedMaster?->id===$master->id)>{{ $master->client_name }} · {{ $master->project_name }}</option>@endforeach</select></label><button class="ops-button" type="submit">Load project & current execution plan</button><p class="br-help">Choose this before filling the entry. Project identity and current commitments are loaded once.</p></form>
 @endif

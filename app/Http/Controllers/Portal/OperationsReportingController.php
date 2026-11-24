@@ -211,6 +211,7 @@ class OperationsReportingController extends Controller
 
         $destination = route($moduleEntry ? 'portal.operations' : 'dashboard', [
             'weekly_department' => OperationsReporting::DEPARTMENT,
+            'ops_tab' => collect(config('operations_tracker.groups'))->search(fn ($kinds) => in_array($entry->kind, $kinds, true)) ?: 'weekly',
             'report_period' => 'week',
             'report_date' => $entry->payload['period_start'],
             'ops_review' => $entry->id,

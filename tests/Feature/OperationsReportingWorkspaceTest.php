@@ -25,6 +25,44 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->travelTo(now()->setDate(2026, 11, 14)->setTime(12, 0));
     }
 
+    public function test_actual_weekly_entry_forms_submit_for_staff_and_hod_with_the_warehouse_checklist(): void
+    {
+        $manager = $this->person('manager');
+        $staff = $this->person();
+        foreach (range(1, 154) as $number) {
+            Asset::create(['name' => 'Warehouse item '.$number, 'type' => 'Equipment', 'condition' => 'Good',
+                'status' => 'Available', 'warehouse_quantity' => 5, 'is_warehouse_tracked' => true, 'added_by' => $manager->id]);
+        }
+        foreach ([$staff, $manager] as $actor) {
+            foreach (['weekly_update', 'project', 'activation', 'team_allocation'] as $kind) {
+                $url = route('dashboard', ['weekly_department' => 'operations_projects', 'ops_tab' => 'weekly',
+                    'ops_add' => $kind, 'report_period' => 'week', 'report_date' => '2026-11-09']);
+                $html = $this->actingAs($actor)->get($url)->assertOk()->getContent();
+                $dom = new \DOMDocument;
+                @$dom->loadHTML($html);
+                $xpath = new \DOMXPath($dom);
+                $forms = $xpath->query('//form[@action="'.route('portal.operations.reporting.save').'"]');
+                $this->assertCount(1, $forms);
+                $pairs = [];
+                foreach ($xpath->query('.//input|.//select|.//textarea', $forms->item(0)) as $node) {
+                    $name = $node->getAttribute('name');
+                    if (!$name || $node->hasAttribute('disabled') || (in_array($node->getAttribute('type'), ['checkbox', 'radio']) && !$node->hasAttribute('checked'))) continue;
+                    if ($node->tagName === 'select') {
+                        $option = $xpath->query('.//option[@selected]', $node)->item(0) ?? $xpath->query('.//option', $node)->item(0);
+                        $value = $option?->hasAttribute('value') ? $option->getAttribute('value') : $option?->textContent;
+                    } else $value = $node->tagName === 'textarea' ? $node->textContent : $node->getAttribute('value');
+                    $pairs[] = urlencode($name).'='.urlencode($value ?? '');
+                }
+                parse_str(implode('&', $pairs), $input);
+                $input['title'] = $title = 'Native form '.$kind.' '.$actor->id;
+                $response = $this->from($url)->post(route('portal.operations.reporting.save'), $input)->assertSessionHasNoErrors();
+                $entry = OperationsReportSubmission::where('submitted_by', $actor->id)->where('kind', $kind)->latest('id')->firstOrFail();
+                $this->assertSame($actor->id === $manager->id ? 'published' : 'pending', $entry->state);
+                $this->get($response->headers->get('Location'))->assertOk()->assertSee($title);
+            }
+        }
+    }
+
     public function test_team_review_workflow_publishes_to_both_views_and_preserves_week_on_edit(): void
     {
         $staff = $this->person();

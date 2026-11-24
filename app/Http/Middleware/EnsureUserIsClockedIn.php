@@ -77,6 +77,30 @@ class EnsureUserIsClockedIn
                 ], 403);
             }
 
+            // Weekly entry forms can be opened on the dashboard before clock-in.
+            // Keep the completed form available when its write is blocked.
+            if ($currentRoute === 'portal.operations.reporting.save' && ! $request->boolean('module_entry')) {
+                $kind = $request->input('kind');
+                $parameters = ['weekly_department' => 'operations_projects', 'report_period' => 'week'];
+                $week = $request->input('week');
+                if (is_string($week) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $week) && strtotime($week) !== false) {
+                    $parameters['report_date'] = $week;
+                }
+                $anchor = 'operations-entry';
+                if ($request->integer('submission') > 0) {
+                    $parameters['ops_review'] = $request->integer('submission');
+                    $anchor = 'operations-reviews';
+                } elseif ($request->integer('source') > 0) {
+                    $parameters['ops_edit'] = $request->integer('source');
+                } elseif (is_string($kind) && array_key_exists($kind, \App\Services\OperationsReporting::schemas())) {
+                    $parameters['ops_add'] = $kind;
+                }
+
+                return redirect()->route('dashboard', $parameters)->withFragment($anchor)
+                    ->withInput($request->except(['_token', '_method']))
+                    ->withErrors(['attendance' => 'Your report has not been saved: clock in first. Your entries are preserved below. Open Clock In in another tab, then return here and submit again.']);
+            }
+
             return redirect()->route('dashboard')->withErrors([
                 'attendance' => 'You must clock in and set your daily objective before accessing other portal features.'
             ]);
