@@ -54,7 +54,7 @@ class RankingAttentionActions
             if(in_array($item->id,$row['actionable_unverified_commitment_ids']??$score['unverified_commitment_ids']??[]))$add('unverified_delivery','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
             if(in_array($item->workflow_state,['submitted','in_review','review','completed'],true))$add('awaiting_verification','Open report: '.($item->campaign_name?:'WCT-'.$item->id),$url);
         }
-        foreach(Task::realWork()->with(['creativeRequest','assignee'])->where('assigned_to',$person->id)->whereNull('due_on')->whereNotIn('status',['Completed','Done','Cancelled','cancelled'])->get() as $task){
+        foreach(Task::realWork()->with(['creativeRequest','assignee'])->where('assigned_to',$person->id)->whereNull('due_on')->whereNotIn('id',OperationsHandoverWorkflow::unconfirmedTaskIds())->whereNotIn('status',['Completed','Done','Cancelled','cancelled'])->get() as $task){
             if(!$task->canBeViewedBy($viewer))continue;
             $url=$task->creativeRequest?route('portal.creative',['request'=>$task->creativeRequest->id]):route($task->canBeEditedBy($viewer)?'portal.tasks.edit':'portal.tasks.show',$task);
             $add('missing_deadlines','Set deadline: '.$task->title,$url);

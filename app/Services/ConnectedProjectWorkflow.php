@@ -31,8 +31,8 @@ class ConnectedProjectWorkflow
             'delivery.operations.plan_url'=>'nullable|url:https|max:2000',
             'delivery.operations.acceptance_criteria'=>'nullable|string|min:10|max:8000',
             'delivery.operations.event_at'=>'nullable|date',
-            'delivery.operations.execution_due_at'=>'nullable|date|after_or_equal:delivery.operations.event_at',
-            'delivery.operations.setup_due_at'=>'nullable|date|before_or_equal:delivery.operations.event_at',
+            'delivery.operations.execution_due_at'=>'nullable|date',
+            'delivery.operations.setup_due_at'=>'nullable|date',
             'delivery.operations.location'=>'nullable|string|max:255',
             'delivery.change_note'=>'nullable|string|max:2000',
         ])['delivery'];
@@ -50,12 +50,13 @@ class ConnectedProjectWorkflow
                 && ($team==='creative'?CreativeAccess::lead($manager):OperationsHandoverWorkflow::lead($manager));
             if(!$valid)throw ValidationException::withMessages(['delivery.'.$team.'_manager_id'=>'Tag an active '.$team.' line manager.']);
             $data[$team.'_manager_id']=$manager->id;
+            if($team==='operations')OperationsHandoverWorkflow::requestedDates($data['operations']??[],$project?OperationsHandover::where('project_id',$project->id)->where('stage','!=','cancelled')->first():null,'delivery.operations.');
             if(!$linked) {
-                $fields=$team==='creative'?['brief','creative_type','requested_deadline']:['plan','acceptance_criteria','event_at','setup_due_at','location'];
+                $fields=$team==='creative'?['brief','creative_type','requested_deadline']:['plan','acceptance_criteria','location'];
                 foreach($fields as $field) if(!filled($data[$team][$field]??null)) throw ValidationException::withMessages(['delivery.'.$team.'.'.$field=>'Complete this field to send the '.$team.' request.']);
                 $original=$request->attributes->get('crm_approved_submission')?->created_at??now();
                 foreach($team==='creative'?['requested_deadline']:['event_at','setup_due_at'] as $field) {
-                    if(Carbon::parse($data[$team][$field])->lte($original))throw ValidationException::withMessages(['delivery.'.$team.'.'.$field=>'Choose a deadline after the original request submission.']);
+                    if(filled($data[$team][$field]??null)&&Carbon::parse($data[$team][$field])->lte($original))throw ValidationException::withMessages(['delivery.'.$team.'.'.$field=>'Choose a deadline after the original request submission.']);
                 }
             }
         }
@@ -142,12 +143,12 @@ class ConnectedProjectWorkflow
                 $state['operations_original_execution']=$handover->event_at?->toIso8601String();
                 PerformanceWorkflow::record('operations_handover',$handover->id,$actor->id,'submitted',[],$handover->getAttributes()+['original_request_at'=>$state['operations_requested_at'],'manager_id'=>$state['operations_manager_id']],'Routed from the published Client Relations weekly entry.');
             } elseif($input) {
-                $prior=$handover->getAttributes();$handover->fill(collect($input)->only(['plan','acceptance_criteria','event_at','setup_due_at','execution_due_at','location','plan_url'])->filter(fn($v,$key)=>$v!==null||$key==='plan_url')->all());
+                $prior=$handover->getAttributes();$handover->fill(collect($input)->only(['plan','acceptance_criteria','event_at','setup_due_at','execution_due_at','location','plan_url'])->filter(fn($v,$key)=>$v!==null||in_array($key,['plan_url','event_at','setup_due_at','execution_due_at']))->all());
                 if($handover->isDirty()) {
                     if(in_array($handover->stage,['completed','cancelled'],true))throw ValidationException::withMessages(['delivery.operations'=>'This handover is closed. Start a new handover for additional work.']);
                     $handover->cr_signoff_at=null;$handover->ops_signoff_at=null;$handover->handover_approved_at=null;$handover->handover_approved_by=null;$handover->submitted_at=null;$handover->accepted_at=null;$handover->execution_completed_at=null;$handover->submission_evidence=null;$handover->stage=$handover->meeting_held_at?'handover_meeting':($handover->acknowledged_at?'acknowledged':'submitted');$handover->revision++;$handover->save();
                     PerformanceWorkflow::record('operations_handover',$handover->id,$actor->id,'project_request_changed',$prior,$handover->getAttributes(),$delivery['change_note']??'Client Relations changed the execution request; both teams must reconfirm handover sign-off.');
-                    if($handover->task_id)$handover->task->update(['details'=>$handover->plan,'due_on'=>($handover->agreed_setup_due_at??$handover->setup_due_at)->toDateString()]);
+                    if($handover->task_id)$handover->task->update(['details'=>$handover->plan,'due_on'=>OperationsHandoverWorkflow::taskDue($handover)]);
                 }
             }
             $state['operations_handover_id']=$handover->id;

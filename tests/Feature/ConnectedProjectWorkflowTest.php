@@ -272,4 +272,24 @@ class ConnectedProjectWorkflowTest extends TestCase
         $brief=app(CreativeWorkflow::class)->plan($brief,$s['creative'],['revision'=>$brief->revision,'assignee_id'=>$s['creative']->id,'reviewer_id'=>$reviewer->id,'planned_start'=>'2026-11-19T09:00','internal_eta'=>'2026-11-21T10:00','estimated_hours'=>8,'acknowledge_warnings'=>true]);
         $this->postJson(route('portal.crm.update',$id),$s['payload']+['revision'=>$p->revision])->assertOk();$this->assertSame($reviewer->id,$brief->fresh()->reviewer_id);
     }
+    public function test_operations_can_be_routed_with_unconfirmed_dates_then_updated_and_cleared_without_duplicates(): void
+    {
+        $s=$this->setupProject();
+        foreach(['event_at','setup_due_at','execution_due_at'] as $field)$s['payload']['delivery']['operations'][$field]=null;
+        $id=$this->actingAs($s['owner'])->postJson(route('portal.crm.store'),$s['payload'])->assertCreated()->json('id');
+        $project=CrmPipelineProject::findOrFail($id);$handover=OperationsHandover::sole();
+        foreach(['event_at','setup_due_at','execution_due_at'] as $field)$this->assertNull($handover->$field);
+        $this->actingAs($s['operations'])->postJson(route('portal.operations.handovers.action',$handover),['revision'=>$handover->revision,'action'=>'assign','lead_id'=>$s['operations']->id,'reason'=>'Assign lead while client dates are unconfirmed'])->assertOk();
+        $handover->refresh();$task=$handover->task;$this->assertNull($task->due_on);
+        $attention=app(\App\Services\RankingAttention::class)->forPerson($s['operations'],now()->startOfMonth(),now()->endOfMonth());$this->assertNotContains('missing_deadlines',array_column($attention['issues'],'code'));
+        $s['payload']['delivery']['operations']['setup_due_at']='2026-11-26T16:00';$s['payload']['delivery']['operations']['event_at']='2026-11-27T10:00';$s['payload']['delivery']['operations']['execution_due_at']='2026-11-28T18:00';
+        $this->actingAs($s['owner'])->postJson(route('portal.crm.update',$project),$s['payload']+['revision'=>$project->fresh()->revision])->assertOk();
+        $this->assertSame('2026-11-26',$task->fresh()->due_on->toDateString());$this->assertDatabaseCount('operations_handovers',1);
+        $this->getJson(route('portal.project-journey.accountability',$id))->assertOk()->assertSee('2026-11-28');
+        foreach(['event_at','setup_due_at','execution_due_at'] as $field)$s['payload']['delivery']['operations'][$field]=null;
+        $this->postJson(route('portal.crm.update',$project),$s['payload']+['revision'=>$project->fresh()->revision])->assertOk();
+        $this->assertNull($task->fresh()->due_on);$this->assertNull($handover->fresh()->event_at);$this->assertDatabaseCount('operations_handovers',1);
+        $this->assertGreaterThanOrEqual(2,PerformanceEvent::where('entity_type','operations_handover')->where('entity_id',$handover->id)->where('action','project_request_changed')->count());
+    }
+
 }

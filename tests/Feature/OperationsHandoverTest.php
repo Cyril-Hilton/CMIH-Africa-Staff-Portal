@@ -49,4 +49,22 @@ class OperationsHandoverTest extends TestCase {
   $this->actingAs($sender)->postJson(route('portal.operations.handovers.action',$h),['revision'=>$h->revision,'action'=>'meeting','reason'=>'Meeting without Operations','meeting_scheduled_at'=>now()->subHour()->toIso8601String(),'meeting_held_at'=>now()->subMinutes(20)->toIso8601String(),'meeting_location'=>'Office','meeting_minutes'=>'Agreed plan without operations present','attendees'=>[$sender->id]])->assertUnprocessable();
  }
  public function test_guests_and_unrelated_creators_cannot_create_handover():void {$this->getJson(route('portal.operations.handovers.data'))->assertUnauthorized();$creator=$this->staff('creatives');$this->actingAs($creator)->postJson(route('portal.operations.handovers.store'),[])->assertForbidden();}
+ public function test_unconfirmed_and_partial_dates_are_saved_and_timeline_updates_are_audited():void {
+  $sender=$this->staff();$hod=$this->staff('operations_projects','manager');$p=$this->project($sender);$payload=$this->payload($p);unset($payload['event_at'],$payload['setup_due_at']);
+  $this->actingAs($sender)->postJson(route('portal.operations.handovers.store'),$payload)->assertCreated();$h=OperationsHandover::sole();$this->assertNull($h->event_at);$this->assertNull($h->setup_due_at);
+  $this->getJson(route('portal.operations.handovers.data',['from'=>today()->toDateString(),'to'=>today()->addDays(6)->toDateString()]))->assertOk()->assertJsonPath('items.0.id',$h->id);
+  $h=$this->action($h,$hod,'assign',['lead_id'=>$hod->id]);$this->assertNull($h->task->due_on);
+  $this->actingAs($hod)->postJson(route('portal.operations.handovers.action',$h),['revision'=>$h->revision,'action'=>'timeline','setup_due_at'=>now()->addDays(4)->toIso8601String(),'reason'=>'Only the sender sets requested dates'])->assertForbidden();
+  $h=$this->action($h,$sender,'timeline',['setup_due_at'=>now()->addDays(4)->toIso8601String()]);$this->assertNull($h->event_at);$this->assertNotNull($h->task->due_on);
+  $h=$this->action($h,$sender,'timeline',['setup_due_at'=>null,'event_at'=>null,'execution_due_at'=>now()->addDays(6)->toIso8601String()]);$this->assertNull($h->setup_due_at);$this->assertSame(now()->addDays(6)->toDateString(),$h->task->due_on->toDateString());
+  $h=$this->action($h,$sender,'timeline',['execution_due_at'=>null]);$this->assertNull($h->task->due_on);
+  $this->assertDatabaseHas('performance_events',['entity_type'=>'operations_handover','entity_id'=>$h->id,'action'=>'timeline','actor_id'=>$sender->id]);
+ }
+ public function test_known_timeline_order_is_enforced_without_requiring_unknown_dates():void {
+  $sender=$this->staff();$p=$this->project($sender);$payload=$this->payload($p);$payload['event_at']=now()->addDays(3)->toIso8601String();$payload['setup_due_at']=now()->addDays(4)->toIso8601String();
+  $this->actingAs($sender)->postJson(route('portal.operations.handovers.store'),$payload)->assertUnprocessable()->assertJsonValidationErrors('setup_due_at');
+  unset($payload['event_at']);$payload['execution_due_at']=now()->addDays(3)->toIso8601String();$this->postJson(route('portal.operations.handovers.store'),$payload)->assertUnprocessable()->assertJsonValidationErrors('execution_due_at');
+  unset($payload['setup_due_at']);$this->postJson(route('portal.operations.handovers.store'),$payload)->assertCreated();$h=OperationsHandover::sole();$this->assertNull($h->event_at);$this->assertNull($h->setup_due_at);$this->assertNotNull($h->execution_due_at);
+ }
+
 }

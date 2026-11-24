@@ -7,7 +7,7 @@
         </div>
     </x-slot>
 @if(isset($moduleDepartment))
-@include('portal.modules.navigation',['moduleToolTabs'=>['projects'=>'Campaign Tools','handovers'=>'Handovers & Requests','resources'=>'Vendor Tools','people'=>'Promoters']])
+@include('portal.modules.navigation',['moduleToolTabs'=>['handovers'=>'Handovers & Requests','resources'=>'Vendor Tools','people'=>'Promoters']])
 <div class="contents">
 @endif
 

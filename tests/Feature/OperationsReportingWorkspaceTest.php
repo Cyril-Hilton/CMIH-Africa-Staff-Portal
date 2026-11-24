@@ -237,7 +237,10 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->actingAs($manager)->patch(route('portal.assets.warehouse.activation', $movement), ['activation_link' => 'campaign:'.$campaign->id])->assertRedirect();
         $this->assertEquals($campaign->id, $movement->fresh()->campaign_id);
         $this->assertNull($movement->fresh()->operations_activation_id);
-        $this->get(route('portal.operations', ['ops_tab'=>'projects']))->assertOk()->assertSee('Previously saved campaign')->assertSee('East gate loading area');
+        $this->get(route('portal.operations', ['ops_tab'=>'assets', 'ops_warehouse'=>'movements']))
+            ->assertOk()->assertSee('East gate loading area');
+        $this->assertDatabaseHas('campaigns', ['id' => $campaign->id, 'name' => 'Previously saved campaign']);
+        $this->get(route('portal.operations'))->assertOk()->assertDontSee('Campaign Tools');
     }
 
     public function test_supporting_staff_survive_review_and_appear_under_their_staff_filter(): void

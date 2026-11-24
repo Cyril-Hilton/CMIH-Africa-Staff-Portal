@@ -44,7 +44,7 @@ class RankingAttention
         $tasks = Task::realWork()->where('assigned_to', $person->id)->where(function ($q) use ($start, $end) {
             $q->whereBetween('due_on', [$start->toDateString(), $end->toDateString()])->orWhereBetween('created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])->orWhere(fn ($open) => $open->whereNull('due_on')->whereNotIn('status', ['Completed', 'Done', 'Cancelled', 'cancelled']));
         })->get();
-        $undated = $tasks->whereNull('due_on')->count();
+        $undated = $tasks->whereNull('due_on')->whereNotIn('id',OperationsHandoverWorkflow::unconfirmedTaskIds())->count();
         if ($undated) {
             $add('missing_deadlines', $undated.' work item(s) need a deadline before timely delivery can be measured.', 'Assigning manager');
         }

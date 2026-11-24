@@ -5,6 +5,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 class OperationsHandoverWorkflow {
+ public static function requestedDates(array $input,?OperationsHandover $existing=null,string $prefix=''):void {
+  $dates=[];foreach(['event_at','setup_due_at','execution_due_at'] as $field){$value=array_key_exists($field,$input)?$input[$field]:$existing?->$field;$dates[$field]=filled($value)?Carbon::parse($value):null;}
+  if($dates['setup_due_at']&&$dates['event_at']&&$dates['setup_due_at']->gt($dates['event_at']))throw ValidationException::withMessages([$prefix.'setup_due_at'=>'Setup cannot be after the execution start.']);
+  $start=$dates['event_at']??$dates['setup_due_at'];
+  if($dates['execution_due_at']&&$start&&$dates['execution_due_at']->lt($start))throw ValidationException::withMessages([$prefix.'execution_due_at'=>'Execution completion cannot precede its recorded start or setup.']);
+ }
+ public static function taskDue(OperationsHandover $h):?string {return ($h->agreed_setup_due_at??$h->setup_due_at??$h->agreed_execution_due_at??$h->execution_due_at??$h->event_at)?->toDateString();}
+ public static function unconfirmedTaskIds():array {return OperationsHandover::whereNotNull('task_id')->whereNull('setup_due_at')->whereNull('agreed_setup_due_at')->whereNull('execution_due_at')->whereNull('agreed_execution_due_at')->whereNull('event_at')->pluck('task_id')->all();}
  public static function ops(User $u):bool{return $u->isActive()&&User::normalizeDepartmentKey($u->department)==='operations_projects';}
  public static function lead(User $u):bool{return $u->isActive()&&PerformanceAccess::manages($u,'operations_projects');}
  public static function sender(User $u,OperationsHandover $h):bool{return ClientRelationsPipeline::member($u)&&($u->isLineManager()||(int)$h->requester_id===$u->id||(int)$h->project?->owner_id===$u->id);}
@@ -19,13 +27,21 @@ class OperationsHandoverWorkflow {
   if($ops&&$h->cr_signoff_at&&$h->ops_signoff_at&&!in_array($h->stage,['completed','cancelled','accepted'])){$actions[]='resource';foreach(['planning','sourcing','setup'] as $stage)if($h->stage!==$stage)$actions[]=$stage;$actions[]='submit';}
   if($sender&&$h->stage==='awaiting_acceptance'&&(int)$h->lead_id!==$u->id){$actions[]='accept';$actions[]='return';}
   if(self::lead($u)&&$h->stage==='accepted'&&(int)$h->lead_id!==$u->id)$actions[]='verify';
-  if($sender&&!in_array($h->stage,['completed','cancelled']))$actions[]='cancel';
+  if($sender&&!in_array($h->stage,['completed','cancelled'])){$actions[]='timeline';$actions[]='cancel';}
   return array_values(array_unique($actions));
  }
  public function transition(OperationsHandover $original,User $actor,array $d):OperationsHandover {
   return DB::transaction(function()use($original,$actor,$d){$h=OperationsHandover::with('project')->lockForUpdate()->findOrFail($original->id);abort_if((int)$d['revision']!==(int)$h->revision,409,'This handover changed. Refresh before saving.');abort_unless(in_array($d['action'],$this->allowed($actor,$h)),403,'This action belongs to the responsible department or reviewer.');$before=$h->getAttributes();$action=$d['action'];
    switch($action){
-    case 'assign':foreach(['agreed_setup_due_at','agreed_execution_due_at'] as $field)if(!empty($d[$field]))$h->$field=$d[$field];if($h->agreed_execution_due_at&&$h->agreed_execution_due_at->lt($h->agreed_setup_due_at??$h->setup_due_at))throw ValidationException::withMessages(['agreed_execution_due_at'=>'Execution completion cannot precede the setup deadline.']);$owner=User::findOrFail($d['lead_id']??0);abort_unless(self::ops($owner),422,'Choose an active Operations team member.');$h->lead_id=$owner->id;if(!$h->task_id){$t=Task::create(['title'=>'OPS-'.$h->id.' · '.$h->title,'details'=>$h->plan,'client_name'=>$h->project->client_name,'assigned_to'=>$owner->id,'assigned_by'=>$actor->id,'department'=>'operations_projects','priority'=>$h->priority,'status'=>'Open','progress'=>0,'due_on'=>($h->agreed_setup_due_at??$h->setup_due_at)->toDateString()]);$t->forceFill(['performance_weight'=>$d['performance_weight']??1,'weight_approved_by'=>$actor->id,'weight_approved_at'=>now()])->save();$h->task_id=$t->id;}else{$h->task->update(['assigned_to'=>$owner->id,'due_on'=>($h->agreed_setup_due_at??$h->setup_due_at)->toDateString()]);}break;
+    case 'assign':foreach(['agreed_setup_due_at','agreed_execution_due_at'] as $field)if(!empty($d[$field]))$h->$field=$d[$field];if($h->agreed_execution_due_at&&($h->agreed_setup_due_at??$h->setup_due_at)&&$h->agreed_execution_due_at->lt($h->agreed_setup_due_at??$h->setup_due_at))throw ValidationException::withMessages(['agreed_execution_due_at'=>'Execution completion cannot precede the setup deadline.']);$owner=User::findOrFail($d['lead_id']??0);abort_unless(self::ops($owner),422,'Choose an active Operations team member.');$h->lead_id=$owner->id;if(!$h->task_id){$t=Task::create(['title'=>'OPS-'.$h->id.' · '.$h->title,'details'=>$h->plan,'client_name'=>$h->project->client_name,'assigned_to'=>$owner->id,'assigned_by'=>$actor->id,'department'=>'operations_projects','priority'=>$h->priority,'status'=>'Open','progress'=>0,'due_on'=>self::taskDue($h)]);$t->forceFill(['performance_weight'=>$d['performance_weight']??1,'weight_approved_by'=>$actor->id,'weight_approved_at'=>now()])->save();$h->task_id=$t->id;}else{$h->task->update(['assigned_to'=>$owner->id,'due_on'=>self::taskDue($h)]);}break;
+    case 'timeline':
+     self::requestedDates($d,$h);
+     foreach(['event_at','setup_due_at','execution_due_at'] as $field)if(array_key_exists($field,$d))$h->$field=$d[$field];
+     if($h->isDirty(['event_at','setup_due_at','execution_due_at'])){
+      $h->cr_signoff_at=null;$h->ops_signoff_at=null;$h->handover_approved_at=null;$h->handover_approved_by=null;$h->submitted_at=null;$h->accepted_at=null;$h->execution_completed_at=null;$h->submission_evidence=null;
+      $h->stage=$h->meeting_held_at?'handover_meeting':($h->acknowledged_at?'acknowledged':'submitted');
+      if($h->task_id)$h->task->update(['due_on'=>self::taskDue($h)]);
+     }break;
     case 'acknowledge':$h->acknowledged_at??=now();$h->stage='acknowledged';break;
     case 'meeting':
      if(empty($d['meeting_scheduled_at'])||empty($d['meeting_location']))throw ValidationException::withMessages(['meeting_scheduled_at'=>'Record the handover meeting time and location or meeting link.']);
@@ -65,7 +81,7 @@ class OperationsHandoverWorkflow {
  public function notify(OperationsHandover $h,string $title,?string $notificationKey=null):void {
   $ids=User::internalStaff()->where('status','active')->get()->filter(fn($u)=>self::lead($u))->pluck('id')->merge([$h->requester_id,$h->lead_id,$h->project?->owner_id])->merge(collect($h->resources??[])->pluck('owner_id'))->merge(collect($h->attendees??[])->pluck('id'))->merge($h->task?->supporting_staff_ids??[])->merge($h->project?->supporting_staff_ids??[])->filter()->unique();
   $ids=User::whereIn('id',$ids)->where('status','active')->pluck('id');
-  foreach($ids as $id){$key=$notificationKey??'ops-handover:'.$h->id.':'.$h->revision.':'.$title;PerformanceWorkflow::notify((int)$id,$key,$title,$h->title.' · '.($h->project?->project_name??'Connected project').'. Handover meeting: '.($h->meeting_held_at?->format('d M Y H:i')??$h->meeting_scheduled_at?->format('d M Y H:i')??'Not scheduled').'; setup due: '.(($h->agreed_setup_due_at??$h->setup_due_at)?->format('d M Y H:i')??'Needs recording').'; execution completion due: '.(($h->agreed_execution_due_at??$h->execution_due_at)?->format('d M Y H:i')??'Needs recording').'. Open the handover for sign-offs and next actions.',route('portal.operations.handovers.index',['handover'=>$h->id]));$outbox=PerformanceOutbox::where('dedupe_key',hash('sha256',$key.':'.$id))->firstOrFail();if(!$outbox->dashboard_at){NotificationService::send((int)$id,$outbox->title,$outbox->message,$outbox->url);$outbox->update(['dashboard_at'=>now()]);}}
+  foreach($ids as $id){$key=$notificationKey??'ops-handover:'.$h->id.':'.$h->revision.':'.$title;PerformanceWorkflow::notify((int)$id,$key,$title,$h->title.' · '.($h->project?->project_name??'Connected project').'. Handover meeting: '.($h->meeting_held_at?->format('d M Y H:i')??$h->meeting_scheduled_at?->format('d M Y H:i')??'Not scheduled').'; setup due: '.(($h->agreed_setup_due_at??$h->setup_due_at)?->format('d M Y H:i')??'To be confirmed').'; execution completion due: '.(($h->agreed_execution_due_at??$h->execution_due_at)?->format('d M Y H:i')??'To be confirmed').'. Open the handover for sign-offs and next actions.',route('portal.operations.handovers.index',['handover'=>$h->id]));$outbox=PerformanceOutbox::where('dedupe_key',hash('sha256',$key.':'.$id))->firstOrFail();if(!$outbox->dashboard_at){NotificationService::send((int)$id,$outbox->title,$outbox->message,$outbox->url);$outbox->update(['dashboard_at'=>now()]);}}
   if(config('performance.email_enabled'))DB::afterCommit(fn()=>defer(fn()=>app(PerformanceAutomation::class)->deliver()));
  }
 }
