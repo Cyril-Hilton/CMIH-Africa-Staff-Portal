@@ -10,6 +10,30 @@ class BrandsReportsWorkspaceTest extends TestCase {
  private function staff($role='staff',$department='brands_marketing'){return User::factory()->create(['department'=>$department,'status'=>'active','access_role'=>$role]);}
  private function payload($u,$category='workstream'){return ['category'=>$category,'title'=>'Retail week update','owner_id'=>$u->id,'week'=>'2026-11-02','reason'=>'Weekly reporting update for review','data'=>match($category){'workstream'=>['project'=>'Shopper Marketing','brand'=>'Unilever','task_in_week'=>'<p>Review the retail store data.</p><table><tr><td>Coverage</td><td>80%</td></tr></table>','status'=>'In Progress','priority'=>'High','kpis'=>'<p>Coverage target: 90%</p>'],'people'=>['cohort'=>'unilever','scope'=>'unilever','planned_count'=>120,'active_count'=>118,'attrition_count'=>2,'average_headcount'=>119,'leave_count'=>0,'absent_count'=>1],'perfect_store'=>['partner'=>'unilever','breakdown'=>'region','location'=>'Accra','osa_target_percent'=>95,'osa_previous_percent'=>80,'osa_actual_percent'=>88],'activation'=>['partner'=>'castel','brief_status'=>'closed','outcome'=>'won','brief_date'=>'2026-11-02','revert_date'=>'2026-11-03','target_sales'=>100,'total_sales'=>120,'sales_unit'=>'cases','target_reach'=>200,'total_reach'=>180,'conversions'=>45,'conversion_base'=>90],'visibility'=>['partner'=>'unilever','posm_type'=>'Shelf panel','scheduled'=>2500,'deployed'=>500,'planned_scope'=>5,'active_scope'=>3] }];}
  private function approve($manager,$id,$revision=1){return $this->actingAs($manager)->postJson(route('portal.brands.reports.review',$id),['revision'=>$revision,'decision'=>'approve']);}
+ public function test_activation_success_rate_includes_pending_briefs_and_respects_the_selected_scope():void {
+  $manager=$this->staff('manager');$other=$this->staff();$service=app(BrandsDashboard::class);
+  $filters=['tab'=>'activation','date'=>'2026-11-04','owner'=>$manager->id];
+  $stats=fn($f)=>array_column($service->build($f,$manager)['summary'],1,0);
+  $this->assertNull($stats($filters)['Success Rate']);
+  foreach(['Pending brief','Won one','Won two','Won three'] as $i=>$title){
+   $v=$this->payload($manager,'activation');$v['title']=$title;
+   if($i===0){$v['data']['brief_status']='pending';$v['data']['outcome']='ongoing';}
+   $this->actingAs($manager)->postJson(route('portal.brands.reports.submit'),$v)->assertSuccessful();
+  }
+  $summary=$stats($filters);
+  $this->assertEquals(['Briefs Received'=>4,'Responded'=>4,'Pending'=>1,'Closed'=>3,'Success Rate'=>75],$summary);
+  $this->assertEquals(0,$stats($filters+['q'=>'Pending brief'])['Success Rate']);
+  $this->assertEquals(100,$stats($filters+['q'=>'Won one'])['Success Rate']);
+  $v=$this->payload($other,'activation');$v['title']='Another owner lost brief';$v['data']['outcome']='lost';
+  $this->postJson(route('portal.brands.reports.submit'),$v)->assertSuccessful();
+  $this->assertEquals(75,$stats($filters)['Success Rate']);
+  $this->assertEquals(60,$stats(['tab'=>'activation','date'=>'2026-11-04'])['Success Rate']);
+  $this->assertNull($stats(['tab'=>'activation','date'=>'2026-11-18'])['Success Rate']);
+  $v=$this->payload($manager,'activation');$v['title']='Closed without outcome';unset($v['data']['outcome']);
+  $this->postJson(route('portal.brands.reports.submit'),$v)->assertSuccessful();
+  $this->assertEquals(60,$stats($filters)['Success Rate']);
+  $this->assertStringContainsString('divided by all briefs received',$service->build($filters,$manager)['notice']);
+ }
  public function test_staff_submit_manager_return_correct_and_publish_without_overwriting_an_earlier_week():void {
   $u=$this->staff();$manager=$this->staff('manager');$other=$this->staff();$v=$this->payload($u);
   $id=$this->actingAs($u)->postJson(route('portal.brands.reports.submit'),$v)->assertStatus(202)->json('id');$this->assertDatabaseCount('weekly_consolidated_items',0);
