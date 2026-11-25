@@ -20,7 +20,8 @@ class HrWorkspace {
   abort_if($from->diffInDays($to)>731,422,'Choose a date range of no more than two years.');$from=$from->toDateString();$to=$to->toDateString();
   $owner=(int)($v['hr_owner']??0);$team=HrDashboard::team()->get();if($owner&&!$team->contains('id',$owner))$owner=0;
   $query=HrDashboardActivity::with(['staff:id,name','assignee:id,name'])->whereDate('opened_on','<=',$to)->where(fn($q)=>$q->whereDate('opened_on','>=',$from)->orWhereDate('deadline','>=',$from)->orWhereBetween('completed_at',[$from.' 00:00:00',$to.' 23:59:59'])->orWhereNotIn('status',['Completed','Cancelled']));
-  if(!$full)$query->whereIn('staff_id',$registers->staff($u)->pluck('id'))->whereIn('tab',array_keys($tabs));
+  if(HrLiveRegisters::contributor($u))$query->whereIn('tab',array_keys($tabs))->where(fn($q)=>$q->where('created_by',$u->id)->orWhere('assigned_to',$u->id));
+  elseif(!$full)$query->whereIn('staff_id',$registers->staff($u)->pluck('id'))->whereIn('tab',array_keys($tabs));
   if($owner)$query->where(fn($q)=>$q->where('assigned_to',$owner)->orWhere('staff_id',$owner));
   if($tab!=='overview')$query->whereIn('tab',$tab==='facilities'?['facilities','operations']:[$tab]);
   if(!empty($v['hr_q'])){$n='%'.str_replace(['!','%','_'],['!!','!%','!_'],mb_strtolower($v['hr_q'])).'%';$query->where(fn($q)=>$q->whereRaw("LOWER(activity) LIKE ? ESCAPE '!'",[$n])->orWhereRaw("LOWER(remarks) LIKE ? ESCAPE '!'",[$n]));}
@@ -44,7 +45,7 @@ class HrWorkspace {
    foreach($tabs as $key=>$t)$tabCounts[$key]=HrDashboardActivity::whereIn('tab',$key==='facilities'?['facilities','operations']:[$key])->whereNotIn('status',['Completed','Cancelled'])->count();
   }
   $edit=$request->integer('hr_edit')?HrDashboardActivity::find($request->integer('hr_edit')):null;
-  if($edit)abort_unless(HrLiveRegisters::canEdit($u)&&in_array($edit->tab,$tab==='facilities'?['facilities','operations']:[$tab]),403);
+  if($edit)abort_unless((!HrLiveRegisters::contributor($u)||in_array($u->id,[$edit->created_by,$edit->assigned_to],true))&&HrLiveRegisters::canEdit($u)&&in_array($edit->tab,$tab==='facilities'?['facilities','operations']:[$tab]),403);
   $people=$registers->staff($u)->pluck('name','id');$write=HrLiveRegisters::canEdit($u);$modernWorkspace=true;
   return compact('modernWorkspace','tabs','tab','period','from','to','owner','team','activities','allExportActivities','summary','stats','groups','home','alerts','upcoming','tabCounts','registers','people','write','full','edit','v');
  }

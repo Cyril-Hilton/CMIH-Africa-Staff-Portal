@@ -2,12 +2,13 @@
 @foreach($sharedWeeklyPerformance as $key=>$department)
 @php
     $departmentParams = request()->except(['weekly_auto','weekly_page','search_weekly','brands_page','crm_page','brands_search','department_entry_search']);
+    if(auth()->user()->canViewExecutiveActivity())$departmentParams=request()->only(['report_period','report_date','weekly_from','weekly_to']);
     if ($key === 'hr_admin' && $weeklyDepartmentFilter !== 'hr_admin') {
         unset($departmentParams['hr_existing'], $departmentParams['attendance_period']);
         $departmentParams['hr_tab'] = 'overview';
     }
 @endphp
-<a role="tab" id="performance-tab-{{ $key }}" aria-controls="performance-panel-{{ $key }}" aria-selected="{{ $weeklyDepartmentFilter===$key?'true':'false' }}" href="{{ route('dashboard',array_merge($departmentParams,['weekly_department'=>$key]),false) }}#staff-weekly-performance" data-weekly-department-tab @keydown.right.prevent="$el.nextElementSibling?.focus(); $el.nextElementSibling?.click()" @keydown.left.prevent="$el.previousElementSibling?.focus(); $el.previousElementSibling?.click()" class="rounded-xl border px-4 py-3 text-sm font-semibold {{ $weeklyDepartmentFilter===$key?'border-sky-300/60 bg-sky-400/15 text-sky-100':'border-brand-white/15 text-brand-ash' }}">{{ $department['label'] }}</a>
+<a role="tab" id="performance-tab-{{ $key }}" aria-controls="performance-panel-{{ $key }}" aria-selected="{{ $weeklyDepartmentFilter===$key?'true':'false' }}" href="{{ route('dashboard',array_merge($departmentParams,['weekly_department'=>$key]),false) }}#staff-weekly-performance" @if(auth()->user()->canViewExecutiveActivity()) data-no-silent @else data-weekly-department-tab @endif @keydown.right.prevent="$el.nextElementSibling?.focus(); $el.nextElementSibling?.click()" @keydown.left.prevent="$el.previousElementSibling?.focus(); $el.previousElementSibling?.click()" class="rounded-xl border px-4 py-3 text-sm font-semibold {{ $weeklyDepartmentFilter===$key?'border-sky-300/60 bg-sky-400/15 text-sky-100':'border-brand-white/15 text-brand-ash' }}">{{ $department['label'] }}</a>
 @endforeach
-<a role="tab" id="performance-tab-all" aria-controls="performance-panel-all" aria-selected="{{ $weeklyDepartmentFilter==='all'?'true':'false' }}" href="{{ route('dashboard',array_merge(request()->only(['weekly_from','weekly_to']),['weekly_department'=>'all']),false) }}#staff-weekly-performance" data-weekly-department-tab class="rounded-xl border border-brand-white/15 px-4 py-3 text-sm">All Departments</a>
+<a role="tab" id="performance-tab-all" aria-controls="performance-panel-all" aria-selected="{{ $weeklyDepartmentFilter==='all'?'true':'false' }}" href="{{ route('dashboard',array_merge(request()->only(['weekly_from','weekly_to']),['weekly_department'=>'all']),false) }}#staff-weekly-performance" @if(auth()->user()->canViewExecutiveActivity()) data-no-silent @else data-weekly-department-tab @endif class="rounded-xl border border-brand-white/15 px-4 py-3 text-sm">All Departments</a>
 </nav>

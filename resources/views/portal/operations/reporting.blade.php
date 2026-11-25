@@ -117,8 +117,6 @@
         @include('portal.operations.report-assets')
     @elseif($tab === 'weekly')
         {{-- Weekly entries use the current operational registers above. --}}
-    @elseif($tab === 'kpis')
-        @include('portal.operations.report-kpis')
     @endif
     @endif
 </section>

@@ -16,6 +16,7 @@ class HrRegisterController extends Controller {
   return redirect()->to($this->back($r,app(HrLiveRegisters::class)->schema($kind)['tab'], $kind.':'.$row->id))->with('status','Register saved. Overview totals updated automatically.');
  }
  public function destroy(Request $r,string $kind,int $id){
+  abort_if(HrLiveRegisters::contributor($r->user()),403);
   abort_unless(HrLiveRegisters::canEdit($r->user()),403);$service=app(HrLiveRegisters::class);abort_unless($service->schema($kind),404);
   $r->validate(['revision'=>'required']);
   DB::transaction(function()use($r,$kind,$id){
@@ -27,7 +28,7 @@ class HrRegisterController extends Controller {
   });return redirect()->to($this->back($r,$service->schema($kind)['tab']))->with('status','Record archived; change history retained.');
  }
  public function attachment(Request $r,HrRegisterRecord $record){
-  $schema=app(HrLiveRegisters::class)->schema($record->kind);abort_unless($schema&&HrLiveRegisters::tabAllowed($r->user(),$schema['tab'])&&app(HrLiveRegisters::class)->records($record->kind,$r->user())->contains('id',$record->id),404);
+  $schema=app(HrLiveRegisters::class)->schema($record->kind);abort_unless($schema&&HrLiveRegisters::kindAllowed($r->user(),$record->kind)&&HrLiveRegisters::tabAllowed($r->user(),$schema['tab'])&&app(HrLiveRegisters::class)->records($record->kind,$r->user())->contains('id',$record->id),404);
   $f=$record->attachment;abort_unless($f&&Storage::disk('local')->exists($f['path']),404);return Storage::disk('local')->download($f['path'],$f['name'],['Cache-Control'=>'private, no-store','X-Content-Type-Options'=>'nosniff']);
  }
  public function history(Request $r,string $kind,int $id){

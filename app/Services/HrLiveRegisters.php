@@ -9,10 +9,13 @@ class HrLiveRegisters
 {
  public static function full(User $u): bool {return $u->isActive() && ($u->hasFullHrAccess() || $u->canAuditHrAndFinance());}
  public static function manager(User $u): bool {return $u->hasFullHrAccess() && !$u->isCvoOrSuperAdmin();}
- public static function canEdit(User $u): bool {return $u->isActive() && ($u->access_role==='super_admin' || ($u->hasFullHrAccess()&&!$u->isCvoOrSuperAdmin()));}
+ public static function contributor(User $u): bool {return $u->isActive() && !$u->isServiceAccount() && User::normalizeDepartmentKey($u->department)==='hr_admin' && in_array((int)$u->id,config('hr_weekly_access.contributors',[]),true);}
+ public static function kindAllowed(User $u,string $kind): bool {return !self::contributor($u) || in_array($kind,config('hr_weekly_access.registers'),true);}
+ public static function canEdit(User $u): bool {return $u->isActive() && (self::contributor($u) || $u->access_role==='super_admin' || ($u->hasFullHrAccess()&&!$u->isCvoOrSuperAdmin()));}
  public static function tabAllowed(User $u,string $tab): bool {
   if(!$u->isActive())return false;
   if(self::full($u))return true;
+  if(self::contributor($u))return in_array($tab,config('hr_weekly_access.tabs'),true);
   if($u->isLineManager())return in_array($tab,['people','attendance','performance'],true);
   return false;
  }
@@ -33,7 +36,7 @@ class HrLiveRegisters
   return User::internalStaff()->when(!self::full($viewer),fn($q)=>$q->whereIn('department',User::departmentAliases($viewer->department)))->orderBy('name')->get();
  }
  public function records(string $kind,User $viewer): Collection {
-  $schema=$this->schema($kind);abort_unless($schema && self::tabAllowed($viewer,$schema['tab']),403);
+  $schema=$this->schema($kind);abort_unless($schema && self::kindAllowed($viewer,$kind) && self::tabAllowed($viewer,$schema['tab']),403);
   if($kind==='staff')return $this->staff($viewer)->map(function($u)use($schema,$viewer){
    $data=$u->only(array_keys($schema['fields']));
    foreach(['start_date','contract_expires_at'] as $f)$data[$f]=$u->$f?->toDateString();
@@ -46,7 +49,7 @@ class HrLiveRegisters
    'data'=>['asset_tag'=>$a->asset_tag,'name'=>$a->name,'brand'=>$a->brand,'category'=>$a->category?:$a->type,'quantity_procured'=>$a->hr_details['inventory_quantity']??($a->quantity_procured>0?$a->quantity_procured:1),'location'=>$a->location,'assigned_to'=>$a->assigned_to,'acquired_on'=>$a->hr_details['acquired_on']??null,'asset_value'=>$a->asset_value,'condition'=>$a->condition]
   ]);
   return HrRegisterRecord::where('kind',$kind)->orderBy('label')->get()->filter(function($row)use($viewer,$kind){
-   if(self::full($viewer))return true;
+   if(self::full($viewer)||self::contributor($viewer))return true;
    $ids=$this->staff($viewer)->pluck('id');
    return (!empty($row->data['staff_id']) && $ids->contains((int)$row->data['staff_id'])) || ($kind==='training' && $ids->intersect($row->data['attendees']??[])->isNotEmpty());
   })->map(fn($r)=>['id'=>$r->id,'kind'=>$kind,'label'=>$r->label,'data'=>$r->data,'revision'=>$r->revision,'attachment'=>$r->attachment,'url'=>null]);
@@ -55,7 +58,8 @@ class HrLiveRegisters
   $kinds=collect(config('hr_workspace.registers'))->filter(fn($s)=>$s['tab']===$tab)->keys()->all();
   if($tab==='people')array_unshift($kinds,'staff');if($tab==='assets')array_unshift($kinds,'asset');
   // Department heads see employee-linked appraisal and training records, not general HR notes.
-  if(!self::full($viewer))$kinds=array_values(array_intersect($kinds,['staff','appraisal_record','training','improvement_plan']));
+  if(self::contributor($viewer))$kinds=array_values(array_intersect($kinds,config('hr_weekly_access.registers')));
+  elseif(!self::full($viewer))$kinds=array_values(array_intersect($kinds,['staff','appraisal_record','training','improvement_plan']));
   $out=[];foreach($kinds as $kind)$out[$kind]=['schema'=>$this->schema($kind),'rows'=>$this->records($kind,$viewer)];return $out;
  }
  public function attendance(User $viewer,string $from,string $to): array {
@@ -66,7 +70,8 @@ class HrLiveRegisters
  private function stock(Collection $rows): int {return (int)$rows->sum(fn($r)=>(int)($r['data']['quantity']??$r['data']['quantity_procured']??1));}
  public function stats(string $tab,User $u,string $from,string $to): array {
   $staff=$this->staff($u);$active=$staff->where('status','active')->filter(fn($s)=>!$s->start_date||$s->start_date->lte(today()));$native=fn($kind)=>$this->records($kind,$u);
-  $rows=fn($kind)=>HrRegisterRecord::where('kind',$kind)->get()->filter(fn($r)=>self::full($u) || $staff->contains('id',(int)($r->data['staff_id']??0)) || ($kind==='training' && $staff->pluck('id')->intersect($r->data['attendees']??[])->isNotEmpty()));$between=fn($date)=>$date && substr($date,0,10)>=$from && substr($date,0,10)<=min($to,today()->toDateString());
+  $rows=fn($kind)=>HrRegisterRecord::where('kind',$kind)->get()->filter(fn($r)=>self::full($u) || (self::contributor($u) && self::kindAllowed($u,$kind)) || $staff->contains('id',(int)($r->data['staff_id']??0)) || ($kind==='training' && $staff->pluck('id')->intersect($r->data['attendees']??[])->isNotEmpty()));$between=fn($date)=>$date && substr($date,0,10)>=$from && substr($date,0,10)<=min($to,today()->toDateString());
+  if(self::contributor($u))return ['Available registers'=>count($this->groups($tab,$u))];
   $stats=[];
   switch($tab){
    case 'people':
@@ -116,6 +121,7 @@ class HrLiveRegisters
   return $documents->merge($signed)->map(fn($id)=>(int)$id)->unique()->count();
  }
  public function options(string $kind,User $viewer): array {
+  if($kind!=='staff'&&!self::kindAllowed($viewer,$kind))return [];
   $key='hr_register_options.'.$kind.'.'.$viewer->id;$request=request();if($request->attributes->has($key))return $request->attributes->get($key);
   if($kind==='staff')$result=$this->staff($viewer)->pluck('name','id')->all();
   elseif(in_array($kind,['asset','vendor']))$result=$this->records($kind,$viewer)->pluck('label','id')->all();

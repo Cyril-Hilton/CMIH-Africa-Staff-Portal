@@ -19,7 +19,7 @@ class HrRegisterEditor
     {
         $service = app(HrLiveRegisters::class);
         $schema = $service->schema($kind);
-        abort_unless(HrLiveRegisters::canEdit($viewer) && $schema, 403);
+        abort_unless(HrLiveRegisters::canEdit($viewer) && HrLiveRegisters::kindAllowed($viewer,$kind) && $schema, 403);
         $data = array_map(fn ($v) => is_string($v) && trim($v) === '' ? null : $v, $data);
         $rules = [];
         foreach ($schema['fields'] as $key => $f) {

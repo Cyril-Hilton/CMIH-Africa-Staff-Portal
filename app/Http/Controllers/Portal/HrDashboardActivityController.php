@@ -120,8 +120,9 @@ class HrDashboardActivityController extends Controller
     public function show(Request $request,HrDashboardActivity $activity)
     {
         $user=$request->user();
+        if(HrLiveRegisters::contributor($user))abort_unless(HrLiveRegisters::tabAllowed($user,$activity->tab==='operations'?'facilities':$activity->tab)&&in_array($user->id,[$activity->created_by,$activity->assigned_to],true),403);
          $participant=!in_array($activity->tab,['relations','welfare','compliance'],true)&&in_array($user->id,[(int)$activity->assigned_to,(int)$activity->staff_id,...array_map('intval',$activity->supporting_staff_ids??[])],true);
-        abort_unless($user->isActive() && (HrLiveRegisters::full($user)||$participant||($user->isLineManager()&&HrLiveRegisters::tabAllowed($user,$activity->tab)&&$activity->staff&&User::normalizeDepartmentKey($activity->staff->department)===User::normalizeDepartmentKey($user->department))),403);
+        abort_unless($user->isActive() && (HrLiveRegisters::full($user)||(HrLiveRegisters::contributor($user)&&$activity->created_by===$user->id)||$participant||($user->isLineManager()&&HrLiveRegisters::tabAllowed($user,$activity->tab)&&$activity->staff&&User::normalizeDepartmentKey($activity->staff->department)===User::normalizeDepartmentKey($user->department))),403);
         return response()->view('portal.hr-reporting.activity-detail',compact('activity'))->header('Cache-Control','private, no-store');
     }
     public function approve(Request $request,HrDashboardActivity $activity)
@@ -139,7 +140,7 @@ class HrDashboardActivityController extends Controller
     }
     public function destroy(Request $request,HrDashboardActivity $activity)
     {
-        abort_unless(HrLiveRegisters::canEdit($request->user()),403);$request->validate(['revision'=>'required|integer']);
+        abort_unless(HrLiveRegisters::canEdit($request->user())&&!HrLiveRegisters::contributor($request->user()),403);$request->validate(['revision'=>'required|integer']);
         DB::transaction(function()use($request,$activity){$row=HrDashboardActivity::lockForUpdate()->findOrFail($activity->id);abort_unless($row->revision===(int)$request->input('revision'),409,'Activity changed. Refresh before archiving.');$before=$row->getAttributes();$row->delete();PerformanceWorkflow::record('hr_activity',$row->id,$request->user()->id,'archive',$before,$row->getAttributes(),'HR activity archived with its history.');});
         return back()->with('status','Activity archived.');
     }
@@ -155,9 +156,10 @@ class HrDashboardActivityController extends Controller
     public function attachment(Request $request, HrDashboardActivity $activity)
     {
         $user = $request->user();
+        if(HrLiveRegisters::contributor($user))abort_unless(HrLiveRegisters::tabAllowed($user,$activity->tab==='operations'?'facilities':$activity->tab)&&in_array($user->id,[$activity->created_by,$activity->assigned_to],true),404);
          $participant=!in_array($activity->tab,['relations','welfare','compliance'],true)&&in_array($user->id,[(int)$activity->assigned_to,(int)$activity->staff_id,...array_map('intval',$activity->supporting_staff_ids??[])],true);
         $legacyAdmin=User::normalizeDepartmentKey($user->department)==='hr_admin' && HrDashboard::canRead($user) && isset(HrDashboard::tabs($user)[$activity->tab]);
-        abort_unless($user->isActive()&&(HrLiveRegisters::full($user)||$participant||$legacyAdmin),404);
+        abort_unless($user->isActive()&&(HrLiveRegisters::full($user)||(HrLiveRegisters::contributor($user)&&$activity->created_by===$user->id)||$participant||$legacyAdmin),404);
         $file = $activity->attachment;
         abort_unless($file && Storage::disk('local')->exists($file['path']), 404);
         return Storage::disk('local')->download($file['path'], $file['name'], [

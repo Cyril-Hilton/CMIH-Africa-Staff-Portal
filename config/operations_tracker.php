@@ -8,9 +8,7 @@ return [
         'handovers' => 'Connected Projects & Handovers',
         'assets' => 'Assets & POSM',
         'execution' => 'Procurement & Execution',
-        'follow-up' => 'Approvals, Reports & Risks',
         'weekly' => 'Weekly Workstream',
-        'kpis' => 'KPI Results',
         'sources' => 'Source Workbooks',
     ],
     'groups' => [
@@ -18,8 +16,8 @@ return [
         'projects' => ['project', 'activation', 'milestone'],
         'assets' => ['posm_deployment'],
         'execution' => ['procurement', 'supplier', 'production', 'fabrication'],
-        'follow-up' => ['client_approval', 'project_report', 'risk_issue', 'risk'],
     ],
+    'retired_kinds' => ['milestone', 'client_approval', 'project_report', 'risk_issue', 'risk'],
     'retired_project_fields' => ['completed_on', 'rework_count', 'complaints', 'quality_issues', 'supporting_team', 'ends_on', 'due_on', 'project_stage', 'progress_percent', 'action_due_on', 'is_activation', 'outlet', 'primary_requirement'],
     'private_fields' => ['budget', 'actual_cost', 'revenue', 'cost_to_completion', 'cost', 'contact_person', 'payment_status', 'exposure'],
     'tables' => [

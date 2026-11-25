@@ -39,7 +39,7 @@ class OperationsReporting
 
     public static function schemas(): array
     {
-        return config('department_reporting.'.self::DEPARTMENT);
+        return array_diff_key(config('department_reporting.'.self::DEPARTMENT),array_flip(config('operations_tracker.retired_kinds')));
     }
 
     public static function fields(string $kind, bool $private): array
@@ -68,6 +68,7 @@ class OperationsReporting
         $member = self::member($user);
         $manager = self::manager($user);
         $warehouseHistory = $member && $user->canExportWarehouseAssets();
+        if(in_array($request->query('ops_tab'),['follow-up','kpis'],true))$request->query->set('ops_tab','weekly');
         $filters = $request->validate([
             'ops_tab' => ['nullable', Rule::in(array_keys(config('operations_tracker.tabs')))],
             'ops_owner' => 'nullable|integer',
@@ -105,7 +106,7 @@ class OperationsReporting
             $modules ? 'portal.operations' : 'dashboard',
             array_filter(array_replace($keepPeriod ? $returnQuery : array_diff_key($returnQuery, ['report_period' => true, 'report_date' => true]), $parameters), fn ($value) => $value !== null && $value !== '')
         ).'#'.(isset($parameters['ops_review']) ? 'operations-reviews' : (isset($parameters['ops_add']) || isset($parameters['ops_edit']) ? 'operations-entry' : $anchor));
-        $approved = PerformanceRegister::query()->whereIn('department', User::departmentAliases(self::DEPARTMENT))->whereNotNull('approved_at');
+        $approved = PerformanceRegister::query()->whereIn('department', User::departmentAliases(self::DEPARTMENT))->whereIn('kind',array_keys(self::schemas()))->whereNotNull('approved_at');
         $published = (clone $approved)->where(fn (Builder $q) => $q->whereNull('data->import_undated')->orWhere('data->import_undated', false))
             ->where(fn (Builder $period) => $period->whereBetween('period_start', [$from, $to])
                 ->orWhere(fn (Builder $spans) => $spans->whereIn('kind', ['fabrication', 'team_allocation'])
@@ -225,7 +226,7 @@ class OperationsReporting
         $checkoutLogs = $warehouseHistory && $campaignIds->isNotEmpty()
             ? \App\Models\AssetLog::whereIn('campaign_id', $campaignIds)->with(['asset','user'])->latest()->get()->groupBy('campaign_id') : collect();
 
-        $reviewQuery = OperationsReportSubmission::query()
+        $reviewQuery = OperationsReportSubmission::query()->whereIn('kind',array_keys(self::schemas()))
             ->when(! $manager, fn ($query) => $query->where('submitted_by', $user->id));
         $reviewCounts = $member ? (clone $reviewQuery)->selectRaw('state, COUNT(*) AS total')->groupBy('state')->pluck('total', 'state')->all() : [];
         $focusedSubmission = $member && ! empty($filters['ops_review'])
@@ -249,13 +250,7 @@ class OperationsReporting
         $showEditor = $newKind || $edit || ($submissions && $submissions->contains(fn ($entry) => ($manager && $entry->state === 'pending') || ($entry->submitted_by === $user->id && $entry->state === 'returned')));
         $collaborationStaff = $showEditor ? User::internalStaff()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'department']) : collect();
         $reviewCollaborators = $submissions ? User::internalStaff()->whereIn('id', $submissions->flatMap(fn ($entry) => $entry->payload['data']['collaborator_ids'] ?? [])->unique())->get(['id', 'name']) : collect();
-        if ($tab === 'kpis') {
-            $performance = app(SharedWeeklyPerformance::class)->build(self::DEPARTMENT, $from, $to)[self::DEPARTMENT] ?? [];
-            $kpiRows = collect($performance['kpis'] ?? [])->when($owner, fn ($q) => $q->where('owner_id', $owner))
-                ->filter(fn ($row) => $search === '' || mb_stripos($row['name'], $search) !== false);
-            $deliveryRows = collect($performance['deliverables'] ?? [])->when($owner, fn ($q) => $q->where('owner_id', $owner))
-                ->filter(fn ($row) => $search === '' || mb_stripos($row['project'] ?? '', $search) !== false);
-        }
+
 
         $sourceArchive = [];
         if ($tab === 'sources' && is_file($path = storage_path('app/private/operations-workbook-snapshot.json'))) {
