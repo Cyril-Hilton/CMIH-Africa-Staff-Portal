@@ -21,3 +21,9 @@ Fixed an executive report link with two fragment anchors. Report department swit
 - Focused end-to-end matrix: 10 tests / 1,016 assertions passed. Final focused privacy/navigation/Operations suite: 17 tests / 674 assertions passed. JavaScript: 82 passed.
 
 Synthetic entries and approvals are confined to the test database. Production verification is read-only and compares protected business data before and after rendering.
+
+## Production result
+
+Confirmed deployed: 15 runtime files, no database migration. Read-only checks used the actual Maxwell, Peggy, Operations HOD and super admin profiles. Both standalone and weekly HR pages exposed Maxwell's 19 permitted register forms and activity forms across 10 tabs. Full HR, payroll ledger and finance audit privileges remained false for Maxwell. Peggy's payroll destination rendered successfully. Retired Operations controls were absent, old tab URLs loaded their fallback, and all six executive department panels rendered with valid single-anchor department links. Hashes of protected business records, including users, were unchanged. The tagged release job was removed after verification.
+
+Backup: `cmih-hr-operations-executive-20261125-20261125-215902`.
