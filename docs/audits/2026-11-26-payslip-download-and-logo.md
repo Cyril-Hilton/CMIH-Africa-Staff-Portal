@@ -9,3 +9,11 @@ Synthetic PDF rendered as one A4 page. Poppler rendering was visually checked: c
 The requested employee account was verified in production. August and September 2026 issued statements exist; October has no issued record in that account. A connected-mail search did not locate an existing October copy. An October statement must not be fabricated using current salary figures. The user's one-off email request does not re-enable automated portal emails.
 
 Full application suite: **973 tests / 10,374 assertions passed**. Final focused suite: **11 tests / 72 assertions passed**. JavaScript: **82 passed**. Download anchors explicitly bypass partial-page navigation and use native browser downloads. Production verification and email outcome are recorded below when confirmed.
+
+## Production verification
+
+Confirmed deployed: five runtime files; backup `cmih-payslip-download-20261126-r2-20261126-200702`. Actual issued August and September PDFs were rendered through the production controller, verified as PDF attachments with embedded images, downloaded through the private hosting connection and hash-checked. Both are one-page A4 documents. Another ordinary employee was denied access. Payslip, staff and protected business data remained unchanged. The archive check found no archived payslip rows or additional stored copies for the requested employee, including July.
+
+An initial one-off email was sent to the portal login address. The user clarified that this is not the contact mailbox. That message is retained in Sent for traceability. The separate staff contact-email field was subsequently verified and the user explicitly confirmed that destination. The two available statements were sent to the confirmed contact email, and the Sent message was reread to verify its recipient and both PDF attachments. Automatic portal email remains disabled. The private delivery receipt records the email identifiers without adding salary or banking information to this audit.
+
+The raw payslip table (without model scopes), archive membership and stored employee copies were checked: this employee has exactly two issued records, August and September 2026. The original request for three recent months is limited by the absence of a third issued statement; July and October were not regenerated.
