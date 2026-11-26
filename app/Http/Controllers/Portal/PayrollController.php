@@ -231,6 +231,13 @@ class PayrollController extends Controller
             403
         );
 
+        if ($request->boolean('download')) {
+            $document = app(\App\Services\PayslipDocument::class);
+            return response($document->render($payslip))->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="'.$document->filename($payslip).'"')
+                ->header('Cache-Control', 'private, no-store')->header('X-Content-Type-Options', 'nosniff');
+        }
+
         $staff = $payslip->user ?: $viewer;
 
         return response()->view('emails.staff-payslip', [

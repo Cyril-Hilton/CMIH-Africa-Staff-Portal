@@ -46,10 +46,11 @@
             body { background: #ffffff; padding: 0; }
             .container { border: 0; border-radius: 0; box-shadow: none; }
             .action-row { display: none; }
+            .table th { color: #111111 !important; background: #f4f5f7 !important; }
             .logo-light-mode { display: block !important; }
             .logo-dark-mode { display: none !important; }
         }
-        @media (prefers-color-scheme: dark) {
+        @media screen and (prefers-color-scheme: dark) {
             body { background-color: #0d0d0d; color: #ffffff; }
             .container { background: #141414; border-color: #2a2a2a; box-shadow: none; }
             .letterhead { border-bottom-color: #2a2a2a; }
@@ -81,14 +82,14 @@
         $logoDarkPath = public_path('images/logo/logo-dark.png');
         $logoLightUrl = isset($message) && file_exists($logoLightPath)
             ? $message->embed($logoLightPath)
-            : asset('images/logo/logo-light.png');
+            : app(\App\Services\PayslipDocument::class)->logo('light');
         $logoDarkUrl = isset($message) && file_exists($logoDarkPath)
             ? $message->embed($logoDarkPath)
-            : asset('images/logo/logo-dark.png');
+            : app(\App\Services\PayslipDocument::class)->logo('dark');
         $downloadUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
             'portal.payroll.payslip.signed',
             now()->addDays(14),
-            ['payslip' => $payslip->id]
+            ['payslip' => $payslip->id, 'download' => 1]
         );
     @endphp
 
@@ -183,7 +184,7 @@
             </p>
 
             <div class="action-row">
-                <a href="{{ $downloadUrl }}" class="download-button">Download / View Payslip</a>
+                <a href="{{ $downloadUrl }}" download data-no-silent class="download-button">Download PDF</a>
                 @if(! isset($message))
                     <button type="button" class="print-button" onclick="window.print()">Print / Save as PDF</button>
                 @endif

@@ -168,7 +168,7 @@ class PayrollAndSidebarTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Staff Payslip Statement', false);
-        $response->assertSee('Download / View Payslip', false);
+        $response->assertSee('Download PDF', false);
         $response->assertSee('Print / Save as PDF', false);
         $response->assertSee('Ghana Office', false);
         $response->assertSee('Nigeria Office', false);
