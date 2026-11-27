@@ -54,18 +54,71 @@ class FinanceTableEntriesTest extends TestCase
         $this->get(route('portal.finance',['finance_tab'=>'invoices','finance_date'=>'2026-11-23']))->assertOk()->assertSee('Typed lead')->assertSee('20 Nov 2026')->assertSee('Pending reconciliation approval');
     }
 
-    public function test_unknown_invoice_value_cannot_be_used_to_record_settlement(): void
+    public function test_every_finance_entry_type_accepts_partial_data_for_staff_and_manager(): void
+    {
+        [$staff,$manager]=$this->team();
+        foreach(array_keys(config('department_reporting.finance')) as $kind){
+            $this->actingAs($staff)->post(route('portal.finance.reporting.save'),['kind'=>$kind,'data'=>['notes'=>'Details to follow']])->assertSessionHasNoErrors();
+            $row=PerformanceRegister::where('kind',$kind)->sole();
+            $this->assertSame($staff->id,$row->owner_id);
+            $this->assertNull($row->approved_at);
+            $this->assertArrayNotHasKey('value',$row->data);
+            $this->assertArrayNotHasKey('actual',$row->data);
+            $this->assertArrayNotHasKey('paid_amount',$row->data);
+            // Complete the same partial entry later; it still needs manager review.
+            $this->actingAs($staff)->post(route('portal.finance.reporting.save'),['kind'=>$kind,'record_id'=>$row->id,'version'=>hash('sha256',json_encode($row->getAttributes())),'data'=>['notes'=>'Updated later']])->assertSessionHasNoErrors();
+            $this->assertSame($row->reference,$row->fresh()->reference);
+            $this->assertSame('Updated later',$row->fresh()->data['notes']);
+            $this->assertNull($row->fresh()->approved_at);
+            $row->delete();
+            $this->actingAs($manager)->post(route('portal.finance.reporting.save'),['kind'=>$kind])->assertSessionHasNoErrors();
+            $row=PerformanceRegister::where('kind',$kind)->sole();
+            $this->assertNotNull($row->approved_at);
+            $this->assertSame($manager->id,$row->owner_id);
+            $row->delete();
+        }
+    }
+
+    public function test_finance_forms_have_no_browser_required_fields(): void
+    {
+        [$staff]=$this->team();
+        foreach(array_keys(FinanceDashboard::GROUPS) as $tab){
+            $html=$this->actingAs($staff)->get(route('portal.finance',['finance_tab'=>$tab]))->assertOk()->getContent();
+            $doc=new \DOMDocument();@$doc->loadHTML($html);$xp=new \DOMXPath($doc);
+            $this->assertSame(0,$xp->query('//form[contains(@action,"finance") and @method="POST"]//*[@required]')->length,$tab);
+        }
+    }
+
+    public function test_empty_form_fields_stay_null_and_do_not_display_a_false_zero_result(): void
+    {
+        [$staff]=$this->team();
+        $this->actingAs($staff)->post(route('portal.finance.reporting.save'),['kind'=>'revenue','title'=>'','owner_id'=>'','period_start'=>'','period_end'=>'','status'=>'','reason'=>'','data'=>['actual'=>'','target'=>100,'revenue_type'=>'monthly_total']])->assertSessionHasNoErrors();
+        $row=PerformanceRegister::sole();
+        $this->assertNull($row->data['actual']);
+        $html=$this->get(route('portal.finance',['finance_tab'=>'revenue','finance_date'=>today()->toDateString()]))->assertOk()->getContent();
+        $this->assertStringContainsString('Actual not recorded',$html);
+        $this->assertStringNotContainsString('Below target',$this->cell($row,'achievement'));
+        $profit=new PerformanceRegister(['kind'=>'profitability','data'=>['revenue'=>100]]);
+        $this->assertStringContainsString('Not measured',$this->cell($profit,'gross_profit'));
+    }
+
+    private function cell(PerformanceRegister $row,string $field): string
+    {
+        return view('portal.finance.table-value',['row'=>$row,'field'=>$field,'f_monthlyTargets'=>collect(),'fMoney'=>fn($value)=>'GHS '.$value])->render();
+    }
+
+    public function test_paid_amount_can_be_recorded_before_the_document_amount_is_known(): void
     {
         [$staff]=$this->team();
         $payload=$this->payload($staff,'invoice',['processing_state'=>'Pending reconciliation approval','paid_amount'=>5,'paid_on'=>'2026-11-20']);
-        $this->actingAs($staff)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasErrors('data.value');$this->assertDatabaseCount('performance_registers',0);
+        $this->actingAs($staff)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasNoErrors();$row=PerformanceRegister::sole();$this->assertArrayNotHasKey('value',$row->data);$this->assertEquals(5,$row->data['paid_amount']);$this->assertNull($row->approved_at);
     }
 
     public function test_validation_reopens_correct_form_and_edit_preserves_notes(): void
     {
         [$staff,$manager]=$this->team();
         $url=route('portal.finance',['finance_tab'=>'invoices','finance_date'=>'2026-11-23']);
-        $payload=$this->payload($staff,'invoice',['processing_state'=>'Sent']);
+        $payload=$this->payload($staff,'invoice',['processing_state'=>'Sent','value'=>'invalid amount']);
         $this->actingAs($staff)->from($url)->post(route('portal.finance.reporting.save'),$payload)->assertSessionHasErrors('data.value');
         $this->get($url)->assertOk()->assertSee('$refs.entry.showModal()',false)->assertSee('Typed client');
         $payload['data']=['value'=>100,'paid_amount'=>0,'notes'=>'Saved note','account_lead'=>'Typed lead'];

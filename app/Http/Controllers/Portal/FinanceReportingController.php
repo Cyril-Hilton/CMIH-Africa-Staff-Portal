@@ -18,8 +18,19 @@ class FinanceReportingController extends Controller
     public function save(Request $request)
     {
         abort_unless(FinanceDashboard::canWrite($request->user()), 403);
-        $v = $request->validate(['crm_project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'operations_handover_id' => 'nullable|integer|exists:operations_handovers,id', 'outside_crm' => 'sometimes|accepted', 'entry_key' => 'nullable|ulid', 'record_id' => 'nullable|integer', 'version' => 'nullable|string|max:64', 'kind' => ['required', Rule::in(array_keys(config('department_reporting.finance')))], 'reference' => 'nullable|string|max:255', 'title' => 'required|string|max:255', 'client' => 'nullable|string|max:255', 'project' => 'nullable|string|max:255', 'owner_id' => 'required|integer|exists:users,id', 'period_start' => 'required|date_format:Y-m-d', 'period_end' => 'required|date_format:Y-m-d|after_or_equal:period_start', 'status' => 'required|in:planned,in_progress,submitted,completed,paid,resolved,cancelled', 'evidence_url' => 'nullable|url:http,https|max:2000', 'reason' => 'required|string|max:2000', 'actions' => 'nullable|array|max:20', 'actions.*.task' => 'nullable|string|max:1000', 'actions.*.owner' => 'nullable|string|max:255', 'actions.*.due' => 'nullable|date_format:Y-m-d', 'actions.*.status' => 'nullable|in:planned,in_progress,completed']);
-        $v['reference'] = filled($v['reference'] ?? null) ? $v['reference'] : 'FIN-'.($v['entry_key']??strtoupper((string) \Illuminate\Support\Str::ulid()));
+        $v = $request->validate(['crm_project_id' => 'nullable|integer|exists:crm_pipeline_projects,id', 'operations_handover_id' => 'nullable|integer|exists:operations_handovers,id', 'outside_crm' => 'nullable|boolean', 'entry_key' => 'nullable|ulid', 'record_id' => 'nullable|integer', 'version' => 'nullable|string|max:64', 'kind' => ['required', Rule::in(array_keys(config('department_reporting.finance')))], 'reference' => 'nullable|string|max:255', 'title' => 'nullable|string|max:255', 'client' => 'nullable|string|max:255', 'project' => 'nullable|string|max:255', 'owner_id' => 'nullable|integer|exists:users,id', 'period_start' => 'nullable|date_format:Y-m-d', 'period_end' => 'nullable|date_format:Y-m-d', 'status' => 'nullable|in:planned,in_progress,submitted,completed,paid,resolved,cancelled', 'evidence_url' => 'nullable|url:http,https|max:2000', 'reason' => 'nullable|string|max:2000', 'actions' => 'nullable|array|max:20', 'actions.*.task' => 'nullable|string|max:1000', 'actions.*.owner' => 'nullable|string|max:255', 'actions.*.due' => 'nullable|date_format:Y-m-d', 'actions.*.status' => 'nullable|in:planned,in_progress,completed']);
+        $existing = !empty($v['record_id']) ? PerformanceRegister::where('department', 'finance')->findOrFail($v['record_id']) : null;
+        $monthly = in_array($v['kind'], ['revenue_target', 'payroll', 'tax']) || ($v['kind'] === 'revenue' && $request->input('data.revenue_type', 'direct') === 'monthly_total');
+        $v['title'] = $v['title'] ?? $existing?->title ?? (ucwords(str_replace('_', ' ', $v['kind'])).' entry');
+        $v['owner_id'] = $v['owner_id'] ?? $existing?->owner_id ?? (PerformanceAccess::department($request->user()) === 'finance' ? $request->user()->id : User::internalStaff()->whereIn('department', User::departmentAliases('finance'))->where('status', 'active')->orderBy('id')->value('id'));
+        $v['period_start'] = $v['period_start'] ?? $existing?->period_start?->toDateString() ?? ($monthly ? today()->startOfMonth()->toDateString() : today()->toDateString());
+        $v['period_end'] = $v['period_end'] ?? $existing?->period_end?->toDateString() ?? ($monthly ? \Carbon\Carbon::parse($v['period_start'])->endOfMonth()->toDateString() : $v['period_start']);
+        $v['status'] = $v['status'] ?? $existing?->status ?? 'planned';
+        $v['reason'] = $v['reason'] ?? ($existing ? 'Finance entry updated.' : 'Finance entry submitted.');
+        if ($v['period_end'] < $v['period_start']) {
+            throw ValidationException::withMessages(['period_end' => 'Reporting through cannot be before reporting from.']);
+        }
+        $v['reference'] = filled($v['reference'] ?? null) ? $v['reference'] : ($existing?->reference ?? 'FIN-'.($v['entry_key']??strtoupper((string) \Illuminate\Support\Str::ulid())));
         $owner = User::findOrFail($v['owner_id']);
         abort_unless($owner->isActive() && PerformanceAccess::department($owner) === 'finance', 422, 'Choose an active Finance owner.');
         $schema = config('department_reporting.finance.'.$v['kind']);
@@ -29,19 +40,7 @@ class FinanceReportingController extends Controller
                 'money','number' => 'nullable|numeric|min:0|max:999999999999.99','date' => 'nullable|date_format:Y-m-d',default => 'nullable|string|max:2000'
             };
         }
-        $required = match ($v['kind']) {
-            'revenue' => ['actual'],'revenue_target' => ['target'],'invoice','payable','receipt','payment','payroll','tax' => ['value', 'paid_amount'],'expense' => ['actual'],'commercial_risk' => ['risk_type'],default => []
-        };
-        if ($v['kind'] === 'invoice' && $request->input('data.processing_state') === 'Pending reconciliation approval') {
-            $required = []; // A pre-invoice tracker can exist before the value is agreed.
-        }
-        foreach ($required as $field) {
-            $rules['data.'.$field] = str_replace('nullable', 'required', $rules['data.'.$field]);
-        }
         $data = $request->validate($rules)['data'] ?? [];
-        if (in_array($v['kind'], ['invoice','payable','receipt','payment','payroll','tax'], true) && !isset($data['value']) && ((float)($data['paid_amount']??0)>0 || (float)($data['credited_amount']??0)>0 || $v['status']==='paid')) {
-            throw ValidationException::withMessages(['data.value'=>'Record the document amount before recording a settlement.']);
-        }
         foreach (['paid_amount', 'credited_amount'] as $field) {
             if (isset($data['value'],$data[$field]) && $data[$field] > $data['value']) {
                 throw ValidationException::withMessages(['data.'.$field => 'Cannot exceed the document amount.']);
@@ -50,16 +49,10 @@ class FinanceReportingController extends Controller
         if (isset($data['value']) && (float) ($data['paid_amount'] ?? 0) + (float) ($data['credited_amount'] ?? 0) > (float) $data['value']) {
             throw ValidationException::withMessages(['data.paid_amount' => 'Payments and credits together cannot exceed the document amount.']);
         }
-        if ((float) ($data['paid_amount'] ?? 0) > 0 && empty($data['paid_on'])) {
-            throw ValidationException::withMessages(['data.paid_on' => 'Record the actual payment or receipt date.']);
-        }
-        if ((float) ($data['credited_amount'] ?? 0) > 0 && empty($data['credited_on'])) {
-            throw ValidationException::withMessages(['data.credited_on' => 'Record the actual credit date.']);
-        }
         if (! empty($data['credited_on']) && $data['credited_on'] > today()->toDateString()) {
             throw ValidationException::withMessages(['data.credited_on' => 'Actual credits cannot be future-dated.']);
         }
-        if ($v['status'] === 'paid' && isset($data['value']) && (float) ($data['paid_amount'] ?? 0) + (float) ($data['credited_amount'] ?? 0) < (float) $data['value']) {
+        if ($v['status'] === 'paid' && isset($data['value'], $data['paid_amount']) && (float) ($data['paid_amount'] ?? 0) + (float) ($data['credited_amount'] ?? 0) < (float) $data['value']) {
             throw ValidationException::withMessages(['status' => 'A paid record must be fully settled.']);
         }
         if ($v['kind'] === 'revenue') {
@@ -68,13 +61,12 @@ class FinanceReportingController extends Controller
                 throw ValidationException::withMessages(['data.revenue_type' => 'Choose a valid revenue source type.']);
             }
             if ($data['revenue_type'] === 'direct') {
-                if (empty($v['outside_crm'])) {
-                    throw ValidationException::withMessages(['outside_crm' => 'Confirm this revenue is additional to the amounts already reported by Client Relations.']);
-                }if (empty($data['earned_on'])) {
-                    throw ValidationException::withMessages(['data.earned_on' => 'Record the date this revenue was earned.']);
-                }if ($data['earned_on'] > today()->toDateString()) {
-                    throw ValidationException::withMessages(['data.earned_on' => 'Actual revenue cannot be future-dated.']);
-                }$v['period_start'] = $v['period_end'] = $data['earned_on'];
+                if (!empty($data['earned_on'])) {
+                    if ($data['earned_on'] > today()->toDateString()) {
+                        throw ValidationException::withMessages(['data.earned_on' => 'Actual revenue cannot be future-dated.']);
+                    }
+                    $v['period_start'] = $v['period_end'] = $data['earned_on'];
+                }
                 unset($data['target']);
             }
         }
