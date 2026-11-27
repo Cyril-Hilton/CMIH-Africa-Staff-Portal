@@ -32,7 +32,7 @@ class FinanceDashboard
     }
     public static function published(PerformanceRegister $row): bool
     {
-        if(!$row->approved_at || $row->status==='cancelled')return false;
+        if(!$row->approved_at || $row->status==='cancelled' || !in_array($row->data['_finance_currency']??'GHS',['GHS','GHC','GH₵','GH¢'],true))return false;
         if(($row->data['_finance_workflow']??null)==='manager_review')return (int)$row->approved_by===(int)config('finance_reporting.manager_user_id');
         return !$row->approved_by?empty($row->data['_finance_currency']):((int)$row->approved_by!==(int)$row->owner_id&&(int)$row->approved_by!==(int)$row->submitted_by);
     }
@@ -78,8 +78,8 @@ class FinanceDashboard
         // Additive amounts are counted only when their entire recorded period is selected.
         $measured=$approved->filter(fn($r)=>$r->period_start->gte($from)&&$r->period_end->lte($to));
         $cash=$approved->whereIn('kind',['receipt','payment'])->filter(fn($r)=>!empty($r->data['paid_on'])&&$r->data['paid_on']>=$from->toDateString()&&$r->data['paid_on']<=$to->toDateString());
-        $cashSum=fn($kind)=>round($cash->where('kind',$kind)->sum(fn($r)=>(float)($r->data['paid_amount']??0)),2);
-        $sum=fn($kind,$field)=>round($measured->where('kind',$kind)->sum(fn($r)=>(float)($r->data[$field]??0)),2);
+        $cashSum=fn($kind)=>FinanceReportingMath::sumKnown($cash->where('kind',$kind),'paid_amount');
+        $sum=fn($kind,$field)=>FinanceReportingMath::sumKnown($measured->where('kind',$kind),$field);
         $crm=CrmPipelineProject::with('owner:id,name')->where('source_period_confirmed',true)->whereDate('week_start','>=',$from)->whereDate('week_start','<=',$to)
             ->where(fn($q)=>$q->whereNull('week_end')->orWhereDate('week_end','<=',$to))->when($search,fn($q)=>$q->where(fn($x)=>$x->where('project_name','like','%'.$search.'%')->orWhere('client_name','like','%'.$search.'%')))->get();
         $crm=app(ClientRelationsCentre::class)->latest($crm)->filter(fn($r)=>!$owner||(int)$r->revenue_finance_by===(int)$owner);
@@ -88,18 +88,27 @@ class FinanceDashboard
         $direct=$measured->where('kind','revenue')->filter(fn($r)=>($r->data['revenue_type']??'monthly_total')==='direct');
         $ledger=$measured->where('kind','revenue')->reject(fn($r)=>($r->data['revenue_type']??'monthly_total')==='direct');
         $basis=$v['finance_basis']??($ledger->isNotEmpty()?'ledger':'combined');
-        $directTotal=round($direct->sum(fn($r)=>(float)($r->data['actual']??0)),2);$crmTotal=round($confirmed->sum(fn($r)=>(float)$r->confirmedRevenue()),2);
-        $actual=match($basis){'ledger'=>round($ledger->sum(fn($r)=>(float)($r->data['actual']??0)),2),'direct'=>$directTotal,'crm'=>$crmTotal,default=>round($crmTotal+$directTotal,2)};
-        $target=$measured->where('kind','revenue_target')->isNotEmpty()?$sum('revenue_target','target'):$ledger->sum(fn($r)=>(float)($r->data['target']??0));
-        $summary=['revenue'=>$actual,'target'=>$target,'achievement'=>$target>0?round($actual/$target*100,2):0,'receipts'=>$cashSum('receipt'),'payments'=>$cashSum('payment'),'expenses'=>$sum('expense','actual'),'pending'=>$all->whereNull('approved_at')->count(),'partial'=>$approved->count()-$measured->count(),
-            'receivable'=>round($approved->where('kind','invoice')->sum(fn($r)=>max(0,(float)($r->data['value']??0)-(float)($r->data['credited_amount']??0)-(float)($r->data['paid_amount']??0))),2),
-            'payable'=>round($approved->where('kind','payable')->sum(fn($r)=>max(0,(float)($r->data['value']??0)-(float)($r->data['credited_amount']??0)-(float)($r->data['paid_amount']??0))),2),
-            'expected_receipts'=>$approved->where('kind','receipt')->filter(fn($r)=>(float)($r->data['value']??0)>(float)($r->data['paid_amount']??0))->count(),
-            'pending_payments'=>$approved->where('kind','payment')->filter(fn($r)=>(float)($r->data['value']??0)>(float)($r->data['paid_amount']??0))->count(),
+        $directTotal=FinanceReportingMath::sumKnown($direct,'actual');$crmTotal=$confirmed->isEmpty()?null:round($confirmed->sum(fn($r)=>(float)$r->confirmedRevenue()),2);
+        $actual=match($basis){'ledger'=>FinanceReportingMath::sumKnown($ledger,'actual'),'direct'=>$directTotal,'crm'=>$crmTotal,default=>FinanceReportingMath::combine($crmTotal,$directTotal)};
+        $target=$measured->where('kind','revenue_target')->isNotEmpty()?$sum('revenue_target','target'):FinanceReportingMath::sumKnown($ledger,'target');
+        $summary=['revenue'=>$actual,'target'=>$target,'achievement'=>$target>0&&$actual!==null?round($actual/$target*100,2):null,'receipts'=>$cashSum('receipt'),'payments'=>$cashSum('payment'),'expenses'=>$sum('expense','actual'),'pending'=>$all->whereNull('approved_at')->count(),'partial'=>$approved->count()-$measured->count(),
+            'receivable'=>FinanceReportingMath::balances($approved->where('kind','invoice')),
+            'payable'=>FinanceReportingMath::balances($approved->where('kind','payable')),
+            'expected_receipts'=>$approved->where('kind','receipt')->filter(fn($r)=>is_numeric($r->data['value']??null)&&(!isset($r->data['paid_amount'])||(float)$r->data['value']>(float)$r->data['paid_amount']))->count(),
+            'pending_payments'=>$approved->where('kind','payment')->filter(fn($r)=>is_numeric($r->data['value']??null)&&(!isset($r->data['paid_amount'])||(float)$r->data['value']>(float)$r->data['paid_amount']))->count(),
             'risks'=>$approved->where('kind','commercial_risk')->whereNotIn('status',['resolved','completed','paid'])->count()];
+        $summary['incomplete_amounts']=$approved->filter(function($r){$fields=match($r->kind){'revenue','expense'=>['actual'],'revenue_target'=>['target'],'invoice','payable'=>['value','paid_amount'],'receipt','payment'=>['paid_amount','paid_on'],default=>[]};return collect($fields)->contains(fn($key)=>!isset($r->data[$key])||$r->data[$key]==='');})->count();
         $summary['pending_finance']=$summary['pending'];$summary['pending_crm']=$crm->filter(fn($r)=>$r->actual_amount!==null&&$r->confirmedRevenue()===null)->count();$summary['pending']+=$summary['pending_crm'];
         $monthlyTargets=$approved->where('kind','revenue_target')->keyBy(fn($row)=>$row->period_start->format('Y-m'));
-        $months=[];$cursor=$from->copy()->startOfMonth();while($cursor->lte($to)){$key=$cursor->format('Y-m');$rows=$measured->filter(fn($r)=>$r->period_start->format('Y-m')===$key);$months[]=['label'=>$cursor->format('M Y'),'revenue'=>match($basis){'ledger'=>$ledger->filter(fn($r)=>$r->period_start->format('Y-m')===$key)->sum(fn($r)=>(float)($r->data['actual']??0)),'direct'=>$direct->filter(fn($r)=>$r->period_start->format('Y-m')===$key)->sum(fn($r)=>(float)($r->data['actual']??0)),'crm'=>$confirmed->filter(fn($r)=>$r->week_start->format('Y-m')===$key)->sum(fn($r)=>(float)$r->confirmedRevenue()),default=>$direct->filter(fn($r)=>$r->period_start->format('Y-m')===$key)->sum(fn($r)=>(float)($r->data['actual']??0))+$confirmed->filter(fn($r)=>$r->week_start->format('Y-m')===$key)->sum(fn($r)=>(float)$r->confirmedRevenue())},'receipts'=>$cash->where('kind','receipt')->filter(fn($r)=>substr($r->data['paid_on'],0,7)===$key)->sum(fn($r)=>(float)($r->data['paid_amount']??0)),'expenses'=>$rows->where('kind','expense')->sum(fn($r)=>(float)($r->data['actual']??0))];$cursor->addMonth();}
+        $months=[];$cursor=$from->copy()->startOfMonth();
+        while($cursor->lte($to)){
+            $key=$cursor->format('Y-m');$inMonth=fn($r)=>$r->period_start->format('Y-m')===$key;
+            $monthCrm=$confirmed->filter(fn($r)=>$r->week_start->format('Y-m')===$key);
+            $crmAmount=$monthCrm->isEmpty()?null:round($monthCrm->sum(fn($r)=>(float)$r->confirmedRevenue()),2);
+            $directAmount=FinanceReportingMath::sumKnown($direct->filter($inMonth),'actual');
+            $months[]=['label'=>$cursor->format('M Y'),'revenue'=>match($basis){'ledger'=>FinanceReportingMath::sumKnown($ledger->filter($inMonth),'actual'),'direct'=>$directAmount,'crm'=>$crmAmount,default=>FinanceReportingMath::combine($crmAmount,$directAmount)},'receipts'=>FinanceReportingMath::sumKnown($cash->where('kind','receipt')->filter(fn($r)=>substr($r->data['paid_on'],0,7)===$key),'paid_amount'),'expenses'=>FinanceReportingMath::sumKnown($measured->where('kind','expense')->filter($inMonth),'actual')];
+            $cursor->addMonth();
+        }
         $records=(clone $base)->when($tab!=='overview',fn($q)=>$q->whereIn('kind',self::GROUPS[$tab]))
             ->when($status==='pending',fn($q)=>$q->whereNull('approved_at'))->when($status==='approved',fn($q)=>$q->whereNotNull('approved_at'))
             ->when($status==='open',fn($q)=>$q->whereNotIn('status',['completed','paid','resolved','cancelled']))->when($status==='closed',fn($q)=>$q->whereIn('status',['completed','paid','resolved','cancelled']))->latest('period_start')->latest('id')->paginate(15,['*'],'finance_page')->withQueryString();

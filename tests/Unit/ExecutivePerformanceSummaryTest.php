@@ -19,14 +19,14 @@ class ExecutivePerformanceSummaryTest extends TestCase
             $row(6, 'cash', ['account_ref' => 'BANK-1', 'closing_balance' => 500]),
         ]);
         $summary = collect(app(ExecutivePerformanceSummary::class)->build($rows, collect()))->keyBy('label');
-        $this->assertEquals(1000, $summary['Recognised Revenue']['value']);
-        $this->assertEquals(400, $summary['Project Gross Profit']['value']);
+        $this->assertEquals(1000, $summary['Finance-recorded Revenue']['value']);
+        $this->assertEquals(400, $summary['Gross Profit']['value']);
         $this->assertEquals(700, $summary['Receivables']['value']);
         $this->assertEquals(500, $summary['Cash Position']['value']);
         $this->assertSame([6], $summary['Cash Position']['sources']);
         $this->assertNull($summary['Client Satisfaction']['value']);
         $rows->each(fn ($record) => $record->approved_at = null);
         $empty = collect(app(ExecutivePerformanceSummary::class)->build($rows, collect()))->keyBy('label');
-        $this->assertNull($empty['Recognised Revenue']['value']);
+        $this->assertNull($empty['Finance-recorded Revenue']['value']);
     }
 }

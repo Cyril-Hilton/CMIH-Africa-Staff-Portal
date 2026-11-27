@@ -7,9 +7,10 @@ use Illuminate\Support\Collection;
 
 class DepartmentMetricCalculator
 {
-    public function calculate(Collection $registers): array
+    public function calculate(Collection $registers, ?string $asOf = null): array
     {
-        $approved = $registers->whereNotNull('approved_at')->where('status', '!=', 'cancelled');
+        $cutoff = $asOf ? Carbon::parse($asOf)->endOfDay()->min(now()) : now();
+        $approved = $registers->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->filter(fn ($r) => $r->department !== 'finance' || FinanceDashboard::published($r));
         $output = [];
         foreach (config('performance_catalog') as $department => $definitions) {
             foreach ($definitions as $d) {
@@ -44,6 +45,19 @@ class DepartmentMetricCalculator
                         $scope = $all->whereIn('status', explode(',', $other));
                         $value = PerformanceMath::percentage($scope->where('status', $d['status'])->count(), $scope->count());
                         $coverage = $scope->count();
+                    } elseif ($op === 'on_time') {
+                        // A missing completion cannot disappear from a due obligation's denominator.
+                        $due = $records->filter(fn ($r) => !empty($r->data[$other]) && Carbon::parse($r->data[$other])->endOfDay()->lte($cutoff));
+                        $dated = $due->filter(fn ($r) => !empty($r->data[$field]));
+                        $value = PerformanceMath::percentage($dated->filter(fn ($r) => Carbon::parse($r->data[$field])->lte(Carbon::parse($r->data[$other])))->count(), $due->count());
+                        $coverage = $dated->count();
+                        $eligible = $due;
+                    } elseif ($op === 'ratio') {
+                        $denominator = $records->filter(fn ($r) => is_numeric($r->data[$other] ?? null) && $r->data[$other] >= 0);
+                        $known = $denominator->filter(fn ($r) => is_numeric($r->data[$field] ?? null));
+                        $value = $known->isEmpty() ? null : PerformanceMath::ratio($known->sum(fn ($r) => (float) $r->data[$field]), $denominator->sum(fn ($r) => (float) $r->data[$other]));
+                        $coverage = $known->count();
+                        $eligible = $denominator;
                     } elseif ($coverage) {
                         $sum = fn ($key) => (float) $eligible->sum(fn ($r) => (float) $r->data[$key]);
                         $value = match ($op) {
@@ -62,13 +76,13 @@ class DepartmentMetricCalculator
                             'presence_rate' => PerformanceMath::percentage($eligible->count(), $all->filter(fn ($r) => ! empty($r->data[$other]))->count()),
                             'elapsed' => $eligible->filter(fn ($r) => Carbon::parse($r->data[$other])->gte(Carbon::parse($r->data[$field])))->avg(fn ($r) => Carbon::parse($r->data[$field])->diffInDays(Carbon::parse($r->data[$other]))),
                             'on_time' => PerformanceMath::percentage($eligible->filter(fn ($r) => Carbon::parse($r->data[$field])->lte(Carbon::parse($r->data[$other])))->count(), $coverage),
-                            'outstanding' => $eligible->sum(fn ($r) => max(0, (float) $r->data[$field] - (float) $r->data[$other])),
-                            'overdue_balance' => $eligible->filter(fn ($r) => ! empty($r->data['due_on']) && Carbon::parse($r->data['due_on'])->lt(today()))->sum(fn ($r) => max(0, (float) $r->data[$field] - (float) $r->data[$other])),
+                            'outstanding' => $eligible->sum(fn ($r) => max(0, (float) $r->data[$field] - (float) $r->data[$other] - (float) ($r->data['credited_amount'] ?? 0))),
+                            'overdue_balance' => $eligible->filter(fn ($r) => ! empty($r->data['due_on']) && Carbon::parse($r->data['due_on'])->lt($cutoff->copy()->startOfDay()))->sum(fn ($r) => max(0, (float) $r->data[$field] - (float) $r->data[$other] - (float) ($r->data['credited_amount'] ?? 0))),
                             default => null,
                         };
                     }
                 }
-                $output[] = $d + ['department' => $department, 'value' => $value === null ? null : round($value, 4), 'coverage' => $coverage, 'records' => $total, 'source_ids' => $eligible->pluck('id')->all(), 'definition' => ucfirst(str_replace('_', ' ', $op)).' of '.($field ?? 'records').($other ? ' and '.$other : '').'; approved '.$d['kind'].' records only.'];
+                $output[] = $d + ['department' => $department, 'value' => $value === null ? null : round($value, 4), 'coverage' => $coverage, 'records' => $total, 'source_ids' => $eligible->pluck('id')->all(), 'definition' => ($op === 'on_time' ? 'Completions by deadline / all dated obligations due by the reporting cutoff; pending completions stay in the denominator. ' : ($op === 'ratio' ? 'Known numerators / all recorded denominators; missing results retain their denominator. ' : '')).ucfirst(str_replace('_', ' ', $op)).' of '.($field ?? 'records').($other ? ' and '.$other : '').'; approved '.$d['kind'].' records only.'];
             }
         }
 

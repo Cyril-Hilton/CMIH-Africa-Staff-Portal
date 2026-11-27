@@ -104,7 +104,7 @@ class PerformanceHubController extends Controller
             $staff = $staff->whereIn('id', $teamMemberIds);
         }
         $summary = app(PerformanceHubReport::class)->build($items, $observations, $registers, $from, $to, $kpis->filter(fn ($k) => $k->objective && $k->objective->starts_on->toDateString() <= $to && $k->objective->ends_on->toDateString() >= $from && (! $k->effective_from || $k->effective_from->toDateString() <= $to) && (! $k->effective_until || $k->effective_until->toDateString() >= $from)), $targetPlans);
-        $catalog = collect(app(\App\Services\DepartmentMetricCalculator::class)->calculate($registers))->when($department, fn ($c) => $c->where('department', $department));
+        $catalog = collect(app(\App\Services\DepartmentMetricCalculator::class)->calculate($registers, $to))->when($department, fn ($c) => $c->where('department', $department));
         $teamScore = app(\App\Services\StaffPerformanceScore::class)->team($staff, \Illuminate\Support\Carbon::parse($from), \Illuminate\Support\Carbon::parse($to));
         $reportingSchemas = $department ? config('department_reporting.'.$department, []) : [];
         $registerKind = $r->query('register_kind', $department === 'operations_projects' ? 'project' : array_key_first($reportingSchemas));

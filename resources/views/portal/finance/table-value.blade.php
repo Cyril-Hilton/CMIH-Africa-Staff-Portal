@@ -8,8 +8,8 @@
 @elseif(!isset($row->data['actual']))<span class="fd-muted">Actual not recorded</span>
 @elseif($target>0){{ $field==='achievement'?number_format($actual/$target*100,2).'%':($actual>=$target?'Target achieved':'Below target') }}
 @else<span class="fd-muted">Target not recorded</span>@endif
-@elseif($field==='gross_profit' && !isset($row->data['revenue'],$row->data['direct_cost'],$row->data['variable_cost']))<span class="fd-muted">Not measured</span>
-@elseif($field==='gross_profit'){{ $fMoney((float)($row->data['revenue']??0)-(float)($row->data['direct_cost']??0)-(float)($row->data['variable_cost']??0)) }}
+@elseif($field==='gross_profit' && !isset($row->data['revenue'],$row->data['direct_cost']))<span class="fd-muted">Not measured</span>
+@elseif($field==='gross_profit'){{ $fMoney((float)($row->data['revenue']??0)-(float)($row->data['direct_cost']??0)) }}
 @elseif($value===null||$value==='')<span class="fd-muted">—</span>
 @elseif($type==='money'){{ $fMoney($value) }}
 @elseif($type==='date'){{ \Carbon\Carbon::parse($value)->format('d M Y') }}

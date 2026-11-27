@@ -19,9 +19,9 @@ class CreativeDeliveryStats
         $quality=$verified->whereNotNull('quality_score');
         $feedback=$items->flatMap(fn($b)=>$b->updates)->filter(fn($e)=>$e->kind==='changes_requested'&&$e->created_at->betweenIncluded($start,$end));
         return ['total'=>$items->count(),'verified'=>$verified->count(),'due'=>$due->count(),'on_time'=>$onTime,
-            'on_time_credit'=>$due->isEmpty()?0.0:round(100*$onTime/$due->count(),1),
-            'delivery_credit'=>$items->isEmpty()?0.0:round(100*$verified->count()/$items->count(),1),
-            'quality_credit'=>$verified->isEmpty()?0.0:round($quality->sum('quality_score')/$verified->count(),1),
+            'on_time_credit'=>$due->isEmpty()?null:round(100*$onTime/$due->count(),1),
+            'delivery_credit'=>$items->isEmpty()?null:round(100*$verified->count()/$items->count(),1),
+            'quality_credit'=>$quality->isEmpty()?null:round($quality->sum('quality_score')/$verified->count(),1),
             'scope_from'=>$from,'scope_to'=>$to,'quality_measured'=>$quality->count(),'quality_expected'=>$verified->count(),
             'deadline_setup_gaps'=>$items->filter(fn($b)=>!CreativeDeadlines::scoringDue($b))->count(),
             'review_overdue'=>$items->filter(fn($b)=>$b->stage==='in_review' && $b->review_due_at?->isPast())->count(),

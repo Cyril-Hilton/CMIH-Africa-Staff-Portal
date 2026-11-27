@@ -11,7 +11,7 @@ class CreativeKpiSnapshot {
   $report=app(PerformanceHubReport::class)->build(collect(),$observations,collect(),$from->toDateString(),$to->toDateString(),$definitions,$plans);
   if($definitions->isEmpty()){
    $source=app(\App\Services\DepartmentSourcePerformance::class)->build('creatives',$from->toDateString(),$to->toDateString(),null,false);
-   return ['from'=>$from->toDateString(),'to'=>$to->toDateString(),'items'=>array_map(fn($m)=>['name'=>$m['name'],'achievement'=>$m['credited'],'coverage'=>$m['reported'],'rag'=>$m['achievement']===null?'setup':($m['credited']>=100?'green':'amber'),'gap'=>$m['achievement']===null],$source['metrics'])];
+   return ['from'=>$from->toDateString(),'to'=>$to->toDateString(),'items'=>array_map(fn($m)=>['name'=>$m['name'],'achievement'=>$m['has_measured_result']?$m['credited']:null,'coverage'=>$m['reported'],'rag'=>!$m['has_measured_result']?'setup':($m['credited']>=100?'green':'amber'),'gap'=>!$m['has_measured_result']],$source['metrics'])];
   }
   // Shared projection exposes achievement only, never private target/actual amounts or source notes.
   return ['from'=>$from->toDateString(),'to'=>$to->toDateString(),'items'=>$report['kpis']->map(fn($row)=>['name'=>$row['kpi']->name,'achievement'=>$row['achievement'],'coverage'=>$row['coverage'],'rag'=>$row['rag']])->all()];

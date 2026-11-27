@@ -853,7 +853,7 @@
             <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
                 <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Task Completion Rate</p>
                 <p class="mt-3 text-3xl font-semibold text-brand-white">{{ $collectiveStats['eligible_total']?$collectiveStats['win_rate'].'%':'No eligible tasks' }}</p>
-                <p class="text-xs text-brand-ash mt-2">Completed / eligible tasks registered this month; creative review waiting is excluded.</p>
+                <p class="text-xs text-brand-ash mt-2">Approved completions / all tasks registered this month, including work awaiting review. Manager review delays are handled separately in staff scoring.</p>
             </div>
             <div class="glass-panel rounded-2xl p-5 border border-brand-white/10 bg-brand-white/5">
                 <p class="text-xs uppercase tracking-[0.2em] text-brand-ash">Critical Bottlenecks</p>

@@ -105,7 +105,7 @@ class DashboardController extends Controller
             'target_activations' => $targetActivations,
             'reached_activations' => $reachedActivations,
             'win_rate' => $agencyWinRate,
-            'eligible_total' => max(0, $globalTaskStats['total'] - $globalTaskStats['awaiting_creative_review']),
+            'eligible_total' => $globalTaskStats['total'],
             'awaiting_review' => $globalTaskStats['awaiting_creative_review'],
             'bottlenecks' => $criticalBottlenecks,
         ];

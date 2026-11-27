@@ -127,7 +127,7 @@ class HrDashboard
             if ($user->hasFullHrAccess() || $user->canAuditHrAndFinance()) {
                 $staff = User::internalStaff()->where('status', 'active')->when($owner, fn ($q) => $q->whereKey($owner));
                 $stats['Current active headcount'] = (clone $staff)->count();
-                $attendanceStaff = User::internalStaff()->get()->reject(fn ($person) => $person->isCvoOrSuperAdmin())->pluck('id');
+                $attendanceStaff = User::internalStaff()->get()->reject(fn ($person) => $person->isSupervisionOnly())->pluck('id');
                 $attendance = Attendance::query()->whereIn('user_id', $attendanceStaff)
                     ->whereBetween('clock_in_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
                     ->when($owner, fn ($q) => $q->where('user_id', $owner));

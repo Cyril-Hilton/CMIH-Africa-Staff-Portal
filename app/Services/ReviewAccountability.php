@@ -135,7 +135,7 @@ class ReviewAccountability
 
     public static function commitmentSubmittedOnTime(WeeklyConsolidatedItem $item): bool
     {
-        $first=PerformanceEvent::where('entity_type','commitment')->where('entity_id',$item->id)->where('action','submit')->orderBy('id')->first();
+        $first=$item->exists ? PerformanceEvent::where('entity_type','commitment')->where('entity_id',$item->id)->where('action','submit')->orderBy('id')->first() : null;
         $submitted=$first?Carbon::parse($first->created_at):($item->submitted_at??$item->completed_at);
         $originalDue=$first?->after['project_ends_on']??$first?->after['week_end']??null;
         $due=$originalDue?Carbon::parse($originalDue)->endOfDay():$item->dueDate();

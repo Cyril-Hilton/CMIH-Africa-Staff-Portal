@@ -45,8 +45,9 @@ class PerformanceHubReport
             return $departmentIds->isNotEmpty() ? $rows->whereIn('target_plan_id', $departmentIds) : $rows;
         };
         $current = $approved->filter(fn ($o) => $o->period_start->toDateString() >= $from && $o->period_end->toDateString() <= $to);
+        $asOf = Carbon::parse($to)->endOfDay()->min(now());
         $done = $items->whereIn('workflow_state', ['verified', 'closed']);
-        $overdue = $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && !ReviewAccountability::timelyCommitmentSubmission($i) && $i->dueDate()?->lt(now()));
+        $overdue = $items->filter(fn ($i) => $this->pendingOverdue($i, $asOf));
         $dated = $done->filter(fn ($i) => ($i->submitted_at || $i->completed_at) && $i->dueDate());
         $targetPlans = ($targetPlans ?? collect())->whereNull('withdrawn_at')->filter(fn ($plan) => ! $plan->amends_plan_id || $plan->approved_at);
         $definitions = $definitions ?? $current->map(fn ($row) => $row->kpi)->unique('id');
@@ -134,12 +135,12 @@ class PerformanceHubReport
 
             return ['kpi' => $kpi, 'quarterly' => $quarterly, 'series' => $series, 'projected_achievement' => $projected, 'emerging_risk' => $projected !== null && $projected < $kpi->amber_threshold];
         })->values();
-        $staff = $items->whereNotNull('lead_staff_id')->groupBy('lead_staff_id')->map(function ($owned) {
-            return ['name' => $owned->first()->leadStaff?->name ?? 'Former staff', 'assigned' => $owned->count(), 'verified' => $owned->whereIn('workflow_state', ['verified', 'closed'])->count(), 'overdue' => $owned->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && $i->dueDate()?->lt(now()))->count(), 'quality' => $owned->whereNotNull('verified_at')->whereNotNull('quality_score')->avg('quality_score')];
+        $staff = $items->whereNotNull('lead_staff_id')->groupBy('lead_staff_id')->map(function ($owned) use ($asOf) {
+            return ['name' => $owned->first()->leadStaff?->name ?? 'Former staff', 'assigned' => $owned->count(), 'verified' => $owned->whereIn('workflow_state', ['verified', 'closed'])->count(), 'overdue' => $owned->filter(fn ($i) => $this->pendingOverdue($i, $asOf))->count(), 'quality' => $owned->whereNotNull('verified_at')->whereNotNull('quality_score')->avg('quality_score')];
         });
 
         $departmentKeys = $items->pluck('department')->merge($definitions->pluck('department'))->unique();
-        $departments = $departmentKeys->mapWithKeys(function ($department) use ($items, $kpiRows) {
+        $departments = $departmentKeys->mapWithKeys(function ($department) use ($items, $kpiRows, $asOf) {
             $rows = $items->where('department', $department);
             $measures = $kpiRows->filter(fn ($r) => $r['kpi']->department === $department);
             $measured = $measures->whereNotNull('achievement');
@@ -148,37 +149,47 @@ class PerformanceHubReport
             $dated = $verified->filter(fn ($i) => ($i->submitted_at || $i->completed_at) && $i->dueDate());
 
             return [$department => ['total' => $rows->count(), 'verified' => $verified->count(),
-                'overdue' => $rows->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && $i->dueDate()?->lt(now()))->count(),
+                'overdue' => $rows->filter(fn ($i) => $this->pendingOverdue($i, $asOf))->count(),
                 'kpi_score' => $score, 'kpi_measured' => $measured->count(), 'kpi_expected' => $measures->count(),
                 'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => ReviewAccountability::commitmentSubmittedOnTime($i))->count(), $dated->count()),
                 'critical' => $rows->where('risk_level', 'critical')->whereNotIn('workflow_state', ['verified', 'closed'])->count()]];
         });
 
-        return ['delivery_trends' => $this->deliveryTrends($items), 'total' => $items->count(), 'verified' => $done->count(), 'overdue' => $overdue->count(), 'completion' => PerformanceMath::percentage($done->count(), $items->count()), 'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => ReviewAccountability::commitmentSubmittedOnTime($i))->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'quality' => $done->whereNotNull('quality_score')->avg('quality_score'), 'kpis' => $kpiRows, 'dimensions' => $dimensions, 'departments' => $departments, 'staff' => $staff, 'root_causes' => $items->whereNotNull('root_cause')->countBy('root_cause'), 'trends' => $trends, 'performance_trends' => $performanceTrends, 'exceptions' => $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && ($i->isOverdue() || in_array($i->risk_level, ['high', 'critical']) || $i->escalation_level > 0)), 'operational' => $this->operational($registers, $to), 'pending_observations' => $observations->whereNull('approved_at')->count()];
+        return ['delivery_trends' => $this->deliveryTrends($items, $to), 'total' => $items->count(), 'verified' => $done->count(), 'overdue' => $overdue->count(), 'completion' => PerformanceMath::percentage($done->count(), $items->count()), 'on_time' => PerformanceMath::percentage($dated->filter(fn ($i) => ReviewAccountability::commitmentSubmittedOnTime($i))->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'quality' => $done->whereNotNull('quality_score')->avg('quality_score'), 'kpis' => $kpiRows, 'dimensions' => $dimensions, 'departments' => $departments, 'staff' => $staff, 'root_causes' => $items->whereNotNull('root_cause')->countBy('root_cause'), 'trends' => $trends, 'performance_trends' => $performanceTrends, 'exceptions' => $items->filter(fn ($i) => ! in_array($i->workflow_state, ['verified', 'closed']) && ($this->pendingOverdue($i, $asOf) || in_array($i->risk_level, ['high', 'critical']) || $i->escalation_level > 0)), 'operational' => $this->operational($registers, $to), 'pending_observations' => $observations->whereNull('approved_at')->count()];
     }
 
-    public function deliveryTrends(Collection $items): Collection
+    public function deliveryTrends(Collection $items, ?string $asOf = null): Collection
     {
-        return $items->groupBy(fn ($item) => $item->week_start->format('Y-m'))->sortKeys()->map(function ($rows, $period) {
+        $cutoff = $asOf ? Carbon::parse($asOf)->endOfDay()->min(now()) : now();
+        return $items->groupBy(fn ($item) => $item->week_start->format('Y-m'))->sortKeys()->map(function ($rows, $period) use ($cutoff) {
             $verified = $rows->whereIn('workflow_state', ['verified', 'closed']);
-            $dated = $verified->filter(fn ($item) => $item->completed_at && $item->dueDate());
-            $onTime = $dated->filter(fn ($item) => $item->completed_at->lte($item->dueDate()));
+            $dated = $verified->filter(fn ($item) => ($item->submitted_at || $item->completed_at) && $item->dueDate());
+            $onTime = $dated->filter(fn ($item) => ReviewAccountability::commitmentSubmittedOnTime($item));
 
-            return ['period' => $period, 'assigned' => $rows->count(), 'verified' => $verified->count(), 'completion' => PerformanceMath::percentage($verified->count(), $rows->count()), 'on_time' => PerformanceMath::percentage($onTime->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'overdue' => $rows->filter(fn ($item) => ! in_array($item->workflow_state, ['verified', 'closed']) && $item->dueDate()?->lt(now()))->count()];
+            return ['period' => $period, 'assigned' => $rows->count(), 'verified' => $verified->count(), 'completion' => PerformanceMath::percentage($verified->count(), $rows->count()), 'on_time' => PerformanceMath::percentage($onTime->count(), $dated->count()), 'on_time_coverage' => $dated->count(), 'overdue' => $rows->filter(fn ($item) => $this->pendingOverdue($item, $cutoff))->count()];
         })->values();
     }
 
     public function operational(Collection $registers, ?string $asOf = null): array
     {
         $ageDate = $asOf ? Carbon::parse($asOf)->min(today())->startOfDay() : today();
-        $rows = $registers->whereNotNull('approved_at')->where('status', '!=', 'cancelled');
+        $rows = $registers->whereNotNull('approved_at')->where('status', '!=', 'cancelled')->filter(fn ($r) => $r->department !== 'finance' || FinanceDashboard::published($r));
         $metrics = [];
         foreach ($rows->groupBy(fn ($r) => $r->department.' / '.$r->kind) as $kind => $group) {
+            if($group->first()->department==='finance' && $group->first()->kind==='revenue')$group=FinanceReportingMath::revenueSources($group);
             foreach ($group->flatMap(fn ($r) => array_keys($r->data))->unique() as $field) {
+                $schema=config('department_reporting.'.$group->first()->department.'.'.$group->first()->kind,[]);
+                if(!in_array($schema[$field]??null,['number','money'],true)||str_starts_with($field,'_')||str_ends_with($field,'_id'))continue;
                 $values = $group->map(fn ($r) => $r->data[$field] ?? null)->filter(fn ($v) => $v !== null && $v !== '' && is_numeric($v));
-                if ($values->isNotEmpty()) {
-                    $metrics[$kind.' / '.$field] = ['value' => (in_array($field, ['satisfaction_score', 'quality_score', 'probability']) ? $values->avg() : $values->sum()), 'coverage' => $values->count(), 'records' => $group->count(), 'note' => 'Sum of approved records; compare like-for-like periods.'];
+                if ($values->isEmpty())continue;
+                $note='Sum of known approved values; source coverage is shown.';$value=$values->sum();$coverage=$values->count();
+                if(in_array($field,['satisfaction_score','quality_score','probability'],true)){$value=$values->avg();$note='Mean of recorded ratings; source coverage is shown.';}
+                elseif(str_ends_with($field,'_percent')||str_ends_with($field,'_rate')){$value=null;$note='Source percentages are not added or averaged without a shared denominator. Use the source rows or defined KPI calculation.';}
+                elseif($group->first()->kind==='cash'&&in_array($field,['closing_balance','forecast'],true)){
+                    $balances=$group->filter(fn($r)=>!empty($r->data['account_ref'])&&is_numeric($r->data[$field]??null))->groupBy(fn($r)=>$r->data['account_ref'])->map(fn($g)=>$g->sortBy([['period_end','desc'],['id','desc']])->first());
+                    $value=FinanceReportingMath::sumKnown($balances,$field);$coverage=$balances->count();$note='Latest recorded snapshot per account; rows without an account reference cannot establish a balance.';
                 }
+                $metrics[$kind.' / '.$field] = ['value'=>$value,'coverage'=>$coverage,'records'=>$group->count(),'note'=>$note];
             }
         }
         // Snapshot headcounts must use the last snapshot for each owner, never sum snapshots.
@@ -215,4 +226,11 @@ class PerformanceHubReport
 
         return $metrics;
     }
+    private function pendingOverdue($item, Carbon $asOf): bool
+    {
+        return !in_array($item->workflow_state, ['verified','closed'])
+            && !ReviewAccountability::timelyCommitmentSubmission($item)
+            && $item->dueDate()?->lt($asOf);
+    }
+
 }
