@@ -104,7 +104,7 @@ class DepartmentSourcePerformance
             $metrics[] = $this->metric('On-time first submissions', $due->count() ?: null, $due->isNotEmpty() ? $onTime->count() : null, 'briefs', $due->count(), $due->whereNotNull('first_submitted_at')->count(), 'On-time first submissions / all briefs due against the Creative HOD deadline. Missing submissions earn zero credit; future due dates are excluded.');
         } else {
             $categories = match ($department) {
-                'operations_projects' => [['Projects & activations', ['project', 'activation', 'weekly_update', 'team_allocation']], ['Assets & POSM', ['posm_deployment']], ['Procurement & execution', ['fabrication', 'procurement', 'supplier', 'production', 'milestone']], ['Reports, approvals & risks', ['client_approval', 'project_report', 'risk_issue', 'risk']]],
+                'operations_projects' => [['Projects & activations', ['activation', 'weekly_update', 'team_allocation']], ['Assets & POSM', ['posm_deployment']], ['Procurement & execution', ['fabrication', 'procurement']]],
                 'brands_marketing' => [['People & team coverage', ['people']], ['Merchandising performance', ['perfect_store', 'campaign']], ['Activations & visibility', ['activation', 'visibility']], ['Weekly workstreams', ['workstream']]],
                 'finance' => [['Revenue', ['revenue', 'revenue_target', 'profitability']], ['Invoices', ['invoice', 'payable']], ['Cash Flow', ['cash', 'receipt', 'payment']], ['Expenses', ['expense']], ['Commercial Risks', ['commercial_risk']], ['Payroll', ['payroll']], ['Taxes & SSNIT', ['tax']]],
                 'hr_admin' => [['Workforce & attendance', ['workforce']], ['Recruitment', ['vacancy']], ['Employee reviews & cases', ['employee_case', 'improvement_plan']], ['Fleet & facilities', ['vehicle', 'fuel', 'maintenance', 'trip', 'asset', 'facility_request']]],
@@ -140,7 +140,7 @@ class DepartmentSourcePerformance
             $pairs = match ($department) {
                 'operations_projects' => [['Activation target achievement', ['activation'], 'target_quantity', 'actual_quantity']],
                 'brands_marketing' => [['Active staff coverage', ['people'], 'planned_count', 'active_count'], ['Visibility coverage', ['visibility'], 'planned_scope', 'active_scope'], ['Visibility deployment', ['visibility'], 'scheduled', 'deployed'], ['Sales target achievement', ['activation'], 'target_sales', 'total_sales'], ['Reach target achievement', ['activation'], 'target_reach', 'total_reach'], ['Outlet coverage', ['campaign'], 'outlets_planned', 'outlets_visited'], ['Perfect Store achievement', ['perfect_store', 'campaign'], 'perfect_store_target_percent', 'perfect_store_actual_percent']],
-                'finance' => [['Revenue target achievement', ['revenue'], 'target', 'actual']],
+                'finance' => [], // Finance has separate target, consolidated-total and direct-entry sources.
                 'hr_admin' => [['Workforce coverage', ['workforce'], 'approved_headcount', 'actual_headcount'], ['Appraisals completed', ['workforce'], 'reviews_due', 'reviews_completed']],
                 default => [],
             };
@@ -164,6 +164,24 @@ class DepartmentSourcePerformance
                         'Reported actual / all recorded targets for the same measure, including target rows with no reported actual.');
                 }
             }
+        }
+        if ($department === 'finance') {
+            $revenueRows = $records->where('kind', 'revenue');
+            $ledger = $revenueRows->reject(fn ($r) => ($r->data['revenue_type'] ?? 'monthly_total') === 'direct');
+            $targets = $records->where('kind', 'revenue_target');
+            $targetRows = ($targets->isNotEmpty() ? $targets : $ledger)->filter(fn ($r) => is_numeric($r->data['target'] ?? null) && $r->data['target'] > 0);
+            $confirmed = app(ClientRelationsCentre::class)->latest(CrmPipelineProject::where('source_period_confirmed', true)->whereDate('week_start', '>=', $from)->whereDate('week_start', '<=', $to)
+                ->where(fn ($q) => $q->whereNull('week_end')->orWhereDate('week_end', '<=', $to))->get())
+                ->filter(fn ($p) => (!$owner || (int) $p->revenue_finance_by === $owner) && $p->confirmedRevenue() !== null);
+            // Consolidated totals already include underlying revenue: never add CRM or direct entries again.
+            $resultRows = $ledger->isNotEmpty() ? $ledger : $revenueRows;
+            $known = $resultRows->filter(fn ($r) => is_numeric($r->data['actual'] ?? null));
+            $actual = $known->isNotEmpty() || ($ledger->isEmpty() && $confirmed->isNotEmpty())
+                ? $known->sum(fn ($r) => (float) $r->data['actual']) + ($ledger->isEmpty() ? $confirmed->sum(fn ($p) => $p->confirmedRevenue()) : 0) : null;
+            $expected = max($targetRows->count(), $resultRows->count() + ($ledger->isEmpty() ? $confirmed->count() : 0));
+            $reported = $actual === null ? 0 : max(0, $expected - ($resultRows->count() - $known->count()));
+            $metrics[] = $this->metric('Revenue target achievement', $targetRows->isEmpty() ? null : $targetRows->sum(fn ($r) => (float) $r->data['target']), $actual, 'GHS', $expected, $reported,
+                'Approved revenue / approved targets. Separate revenue targets take priority. Consolidated monthly totals are used when present; otherwise Finance direct entries and Finance-confirmed CRM projects are combined once. Missing actuals remain unreported.');
         }
         $metrics = array_merge($metrics, $this->additionalMetrics($department, $records, $weekly, $from, $to));
         if ($department === 'hr_admin') {
@@ -209,6 +227,8 @@ class DepartmentSourcePerformance
                 $metric['achievement'] = null;
                 $metric['state'] = 'New performance cycle starts '.$reset->format('d M Y').' · no prior-cycle credit';
             }
+            // Preserve this flag before shared dashboards redact confidential target / actual values.
+            $metric['has_measured_result'] = $metric['achievement'] !== null && $metric['actual'] !== null;
             $metric['credited'] = min(100, max(0, $metric['achievement'] ?? 0));
         }
         unset($metric);
@@ -216,10 +236,10 @@ class DepartmentSourcePerformance
         foreach ($areas as &$reportArea) {
             $measures = collect($metrics)->where('area', $reportArea['name']);
             $reportArea['achievement_credit'] = $reportArea['reported'] ? (PerformanceMath::creditedWeightedScore($measures) ?? 0.0) : 0.0;
-            $reportArea['measured'] = $measures->whereNotNull('achievement')->count();
+            $reportArea['measured'] = $measures->where('has_measured_result', true)->count();
             $reportArea['results_expected'] = $measures->count();
             $reportArea['result_gap'] = ! $reportArea['reported'] ? 'Required report missing · 0 achievement credit'
-                : ($measures->isEmpty() || $measures->contains(fn ($m) => $m['target'] === null || $m['reported'] < $m['expected']) ? 'Target or measurable result needs setup · 0 credit for each missing measure' : null);
+                : ($measures->isEmpty() || $measures->contains(fn ($m) => $m['achievement'] === null || !$m['has_measured_result'] || $m['reported'] < $m['expected']) ? 'Target or measurable result needs setup · 0 credit for each missing measure' : null);
         }
         unset($reportArea);
         if ($resetPending) {
@@ -252,6 +272,13 @@ class DepartmentSourcePerformance
                 $individualArea['state'] = 'No assigned reporting obligation';
                 $individualArea['result_gap'] = null;
             }
+            $individualArea['measurement_state'] = match (true) {
+                !$individualArea['applicable'] => 'not_applicable',
+                !empty($individualArea['awaiting_review']) => 'pending_review',
+                $individualArea['measured'] > 0 => 'measured',
+                !$individualArea['reported'] => 'no_records',
+                default => 'not_measured',
+            };
         }
         unset($individualArea);
         $reported = collect($areas)->where('reported', true)->count();
@@ -259,6 +286,7 @@ class DepartmentSourcePerformance
 
         return ['department' => $department, 'areas' => $areas, 'metrics' => $metrics, 'expected' => count($areas), 'reported' => $reported, 'missing' => count($areas) - $reported,
             'achievement_credit' => $businessCredit ?? 0.0,
+            'has_measured_result' => collect($areas)->contains(fn ($a) => $a['measurement_state'] === 'measured'),
             'scoring_note' => 'Equal share per required reporting area; recorded targets and actuals determine achievement. Missing reports, targets or results earn zero credit. Manager-assigned KPI weights take priority in formal scoring.',
             'attendance' => $includeAttendance ? $this->attendance($department, $from, $to, $owner) : null,
             'coverage' => count($areas) ? round(100 * $reported / count($areas), 1) : null,
@@ -278,8 +306,7 @@ class DepartmentSourcePerformance
             'creatives' => str_contains($name, 'Quality') || str_contains($name, 'approval') ? 'Quality & revisions' : (str_contains($name, 'planning') ? 'Briefs & planning' : 'Delivery & review'),
             'operations_projects' => match (true) {
                 str_contains($name, 'POSM') => 'Assets & POSM',
-                str_contains($name, 'procurement') || str_contains($name, 'production') || str_contains($name, 'budget') => 'Procurement & execution',
-                str_contains($name, 'report') || str_contains($name, 'risk') => 'Reports, approvals & risks',
+                str_contains($name, 'procurement') || str_contains($name, 'fabrication') => 'Procurement & execution',
                 default => 'Projects & activations',
             },
             'hr_admin' => str_contains($name, 'recruitment') ? 'Recruitment' : (str_contains($name, 'Appraisals') ? 'Employee reviews & cases' : ((str_contains($name, 'maintenance') || str_contains($name, 'fuel')) ? 'Fleet & facilities' : 'Workforce & attendance')),
@@ -331,12 +358,10 @@ class DepartmentSourcePerformance
             $ratio('Published workstream completion', $latest, fn ($r) => in_array($r->workflow_state, ['verified', 'closed'], true) || ($r->report_status === 'reviewed' && $r->status === 'Done'), 'Completed workstreams with manager publication / latest published workstreams. Distinct from independent task verification.');
         }
         if ($department === 'operations_projects') {
-            $ratio('Due project completion', $due($records->where('kind', 'project'), 'ends_on'), fn ($r) => strtolower($r->data['project_status'] ?? '') === 'completed', 'Completed projects / projects with recorded end dates due in this period.');
+            $ratio('Due activation completion', $due($records->where('kind', 'activation')->reject(fn ($r) => strtolower($r->data['activation_status'] ?? '') === 'cancelled'), 'ends_on'), fn ($r) => strtolower($r->data['activation_status'] ?? $r->status) === 'completed', 'Completed activations / non-cancelled activations with recorded end dates due in this period. Future and unconfirmed end dates are excluded.');
             $ratio('Due POSM returns', $due($records->where('kind', 'posm_deployment'), 'expected_return_on'), fn ($r) => isset($r->data['returned_quantity'],$r->data['quantity']) && $r->data['returned_quantity'] >= $r->data['quantity'], 'Fully returned deployments / deployments due for return; partial returns do not count as complete.');
             $ratio('Due procurement fulfilment', $due($records->where('kind', 'procurement'), 'required_on'), fn ($r) => strtolower($r->data['delivery_status'] ?? '') === 'delivered', 'Delivered procurement / recorded items due.');
-            $ratio('Due production completion', $due($records->where('kind', 'production'), 'due_on'), fn ($r) => strtolower($r->data['production_status'] ?? '') === 'completed', 'Completed production / recorded production due.');
-            $ratio('On-time project reports', $due($records->where('kind', 'project_report'), 'due_on'), fn ($r) => ! empty($r->data['shared_on']) && $r->data['shared_on'] <= $r->data['due_on'], 'Reports shared by deadline / all dated reports due.');
-            $ratio('Due risk resolution', $due($records->whereIn('kind', ['risk_issue', 'risk']), 'due_on'), fn ($r) => ! empty($r->data['resolved_on']) && $r->data['resolved_on'] <= $r->data['due_on'], 'Issues resolved by deadline / dated issues due.');
+            $ratio('On-time fabrication delivery', $due($records->where('kind', 'fabrication'), 'due_on'), fn ($r) => !empty($r->data['delivered_on']) && $r->data['delivered_on'] <= $r->data['due_on'], 'Fabrication delivered by its recorded deadline / fabrication work due. Future and unconfirmed deadlines are excluded.');
         }
         if ($department === 'finance') {
             foreach (['payroll' => 'Payroll on-time settlement', 'tax' => 'Statutory on-time settlement', 'payment' => 'On-time cash payment', 'receipt' => 'On-time cash receipt'] as $kind => $label) {
@@ -359,7 +384,7 @@ class DepartmentSourcePerformance
             $ratio('On-time maintenance', $due($records->where('kind', 'maintenance'), 'scheduled_on'), fn ($r) => ! empty($r->data['completed_on']) && $r->data['completed_on'] <= $r->data['scheduled_on'], 'Maintenance completed by its scheduled date / recorded maintenance due.');
         }
         $budgetKinds = match ($department) {
-            'finance' => ['expense' => 'Operating expense budget compliance'],'operations_projects' => ['project' => 'Project budget compliance'],'hr_admin' => ['fuel' => 'Fleet fuel budget compliance'],default => []
+            'finance' => ['expense' => 'Operating expense budget compliance'],'hr_admin' => ['fuel' => 'Fleet fuel budget compliance'],default => []
         };
         foreach ($budgetKinds as $kind => $label) {
             $rows = $records->where('kind', $kind)->filter(fn ($r) => isset($r->data['budget']) && is_numeric($r->data['budget']) && $r->data['budget'] > 0);

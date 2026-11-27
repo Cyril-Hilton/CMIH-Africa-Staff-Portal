@@ -104,7 +104,7 @@ class ReviewAccountability
             $area=match($department){
                 'brands_marketing'=>match($kind){'people'=>'People & team coverage','perfect_store','campaign'=>'Merchandising performance','activation','visibility'=>'Activations & visibility','workstream'=>'Weekly workstreams',default=>null},
                 'finance'=>match($kind){'revenue','revenue_target','profitability'=>'Revenue','invoice','payable'=>'Invoices','cash','receipt','payment'=>'Cash Flow','expense'=>'Expenses','commercial_risk'=>'Commercial Risks','payroll'=>'Payroll','tax'=>'Taxes & SSNIT',default=>null},
-                'operations_projects'=>match($kind){'project','activation','weekly_update','team_allocation'=>'Projects & activations','posm_deployment'=>'Assets & POSM','fabrication','procurement','supplier','production','milestone'=>'Procurement & execution','client_approval','project_report','risk_issue','risk'=>'Reports, approvals & risks',default=>null},
+                'operations_projects'=>match($kind){'activation','weekly_update','team_allocation'=>'Projects & activations','posm_deployment'=>'Assets & POSM','fabrication','procurement'=>'Procurement & execution',default=>null},
                 'client_relations'=>match($kind){'project','weekly'=>'Projects & delivery','target'=>'Revenue','client'=>'Growth & pipeline',default=>null},
                 default=>null,
             };
