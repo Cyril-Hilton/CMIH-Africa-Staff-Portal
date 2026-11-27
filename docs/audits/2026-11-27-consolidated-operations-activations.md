@@ -6,4 +6,4 @@ The consolidated register now has simultaneous Brand, Location and Project Lead 
 
 Validation: **25 tests / 428 assertions passed**, covering both standalone Operations and weekly dashboard rendering, the absence of duplicate Overview tables, exactly one activation-table container, combined filtering with data beyond page one, ordering, matching export rows, and the existing approval/import/attendance/reporting flows. No business data is written by this change.
 
-Production verification pending receipt.
+Confirmed deployed: four runtime files. Live verification found no Overview breakdown tables, exactly one consolidated activation-table container under Projects, all three combined filter controls, and the existing four overview diagrams and approval workspace. Ten Operations role/tab combinations and all six executive department panels still rendered successfully. Protected business data hashes were unchanged. Backup: `cmih-consolidated-activations-20261127-20261127-144903`.
