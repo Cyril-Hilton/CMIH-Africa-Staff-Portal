@@ -138,6 +138,7 @@ class DepartmentController extends Controller
     public function hr(Request $request)
     {
         app(\App\Services\AssetTableFilters::class)->values($request);
+        app(\App\Services\OperationsTableQuery::class)->validateAll($request);
         if(!$request->boolean('hr_existing') && (\App\Services\HrLiveRegisters::full($request->user())||$request->user()->isLineManager()))return app(\App\Http\Controllers\Portal\HrRegisterController::class)->index($request);
         $viewer = $request->user();
         $auditOnly = $viewer->canAuditHrAndFinance() && ! $viewer->hasFullHrAccess();
@@ -737,6 +738,7 @@ class DepartmentController extends Controller
     public function operations(Request $request): View
     {
         app(\App\Services\AssetTableFilters::class)->values($request);
+        app(\App\Services\OperationsTableQuery::class)->validateAll($request);
         $user = $request->user();
         $this->authorizeDepartment('operations', $user);
         app(\App\Services\DashboardReportingPeriod::class)->apply($request);

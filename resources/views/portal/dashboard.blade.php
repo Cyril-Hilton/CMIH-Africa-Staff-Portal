@@ -354,7 +354,7 @@
         $weeklyPriorityOptions = ['Low', 'Medium', 'High', 'Urgent'];
     @endphp
 
-    <div @if($executiveActivity !== null && !request()->filled('weekly_department')) hidden @endif x-data="{ department: @js($weeklyDepartmentFilter) }" id="weekly-consolidated-live-region"
+    <div x-data="{ department: @js($weeklyDepartmentFilter) }" id="weekly-consolidated-live-region"
          data-silent-region="weekly-consolidated-table"
          data-refresh-url="{{ route('portal.dashboard.live', array_merge(request()->query(), ['weekly_department' => $weeklyDepartmentFilter]), false) }}"
          data-current-weekly-department="{{ $weeklyDepartmentFilter }}"

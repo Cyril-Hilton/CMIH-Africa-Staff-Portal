@@ -13,11 +13,11 @@ return [
     ],
     'groups' => [
         'weekly' => ['team_allocation', 'weekly_update'],
-        'projects' => ['project', 'activation', 'milestone'],
+        'projects' => ['activation'],
         'assets' => ['posm_deployment'],
-        'execution' => ['procurement', 'supplier', 'production', 'fabrication'],
+        'execution' => ['procurement', 'fabrication'],
     ],
-    'retired_kinds' => ['milestone', 'client_approval', 'project_report', 'risk_issue', 'risk'],
+    'retired_kinds' => ['project', 'supplier', 'production', 'milestone', 'client_approval', 'project_report', 'risk_issue', 'risk'],
     'retired_project_fields' => ['completed_on', 'rework_count', 'complaints', 'quality_issues', 'supporting_team', 'ends_on', 'due_on', 'project_stage', 'progress_percent', 'action_due_on', 'is_activation', 'outlet', 'primary_requirement'],
     'private_fields' => ['budget', 'actual_cost', 'revenue', 'cost_to_completion', 'cost', 'contact_person', 'payment_status', 'exposure'],
     'tables' => [

@@ -1,5 +1,5 @@
 @php($warehouseTab = request('ops_warehouse', 'inventory'))
-<section class="br-table-section">
+<section class="br-table-section" id="ops-table-movements">
     <header class="br-table-heading"><h4>Warehouse Assets</h4><a class="ops-button ops-primary" href="{{ route('portal.assets.warehouse.index') }}">Open Warehouse</a></header>
     <nav class="br-staff ops-staff" aria-label="Warehouse views">
         @foreach(['inventory' => 'Current Inventory', 'movements' => 'Issue & Return History'] as $view => $label)
@@ -19,6 +19,7 @@
         </div>
         @include('portal.operations.report-pagination', ['page' => $inventory, 'paginationLabel' => 'Warehouse inventory'])
     @else
+        @include('portal.operations.table-filters',['tableKey'=>'movements','tableLabel'=>'Issue & return history'])
         @unless($warehouseHistory)<p class="br-note">Showing warehouse movements from your requests.</p>@endunless
         @include('portal.operations.report-movements', ['rows' => $movements, 'emptyMessage' => 'No issued or returned assets in this view.'])
         @include('portal.operations.report-pagination', ['page' => $movements, 'paginationLabel' => 'Warehouse movements'])

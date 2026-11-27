@@ -426,6 +426,13 @@ Route::middleware(['auth', 'active', 'clocked_in'])->prefix('portal')->name('por
     Route::post('/finance/advances/{advance}/cvo-action', [\App\Http\Controllers\Portal\DepartmentController::class, 'cvoActionAdvance'])->name('finance.advances.cvo-action');
     Route::post('/finance/advances/{advance}/repayments', [\App\Http\Controllers\Portal\DepartmentController::class, 'storeAdvanceRepayment'])->name('finance.advances.repayments.store');
 
+    Route::get('/operations/activation-transfers', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'index'])->name('operations.activation-transfers.index');
+    Route::get('/operations/activation-transfers/template', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'template'])->name('operations.activation-transfers.template');
+    Route::post('/operations/activation-transfers/preview', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'preview'])->name('operations.activation-transfers.preview');
+    Route::post('/operations/activation-transfers/export', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'requestExport'])->name('operations.activation-transfers.export');
+    Route::post('/operations/activation-transfers/{transfer}/submit', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'submit'])->name('operations.activation-transfers.submit');
+    Route::post('/operations/activation-transfers/{transfer}/review', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'review'])->name('operations.activation-transfers.review');
+    Route::get('/operations/activation-transfers/{transfer}/download', [\App\Http\Controllers\Portal\OperationsActivationTransferController::class, 'download'])->name('operations.activation-transfers.download');
     Route::post('/operations/reporting', [\App\Http\Controllers\Portal\OperationsReportingController::class, 'save'])->name('operations.reporting.save');
     Route::post('/operations/reporting/{submission}/review', [\App\Http\Controllers\Portal\OperationsReportingController::class, 'review'])->name('operations.reporting.review');
     Route::get('/operations', [\App\Http\Controllers\Portal\DepartmentController::class, 'operations'])->name('operations');

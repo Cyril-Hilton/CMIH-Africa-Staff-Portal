@@ -25,42 +25,14 @@ class OperationsReportingWorkspaceTest extends TestCase
         $this->travelTo(now()->setDate(2026, 11, 14)->setTime(12, 0));
     }
 
-    public function test_circled_master_project_fields_are_retired_without_erasing_saved_history(): void
+    public function test_retired_master_project_fields_and_saved_history_remain_in_the_database_only(): void
     {
-        $manager = $this->person('manager');
-        $staff = $this->person();
-        $retired = ['completed_on', 'rework_count', 'complaints', 'quality_issues', 'supporting_team', 'ends_on', 'due_on',
-            'project_stage', 'progress_percent', 'action_due_on', 'is_activation', 'outlet', 'primary_requirement'];
-        $this->assertEqualsCanonicalizing($retired, config('operations_tracker.retired_project_fields'));
-        foreach ([$manager, $staff] as $viewer) {
-            foreach (['dashboard', 'portal.operations'] as $route) {
-                $html = $this->actingAs($viewer)->get(route($route, ['weekly_department'=>'operations_projects', 'ops_tab'=>'projects', 'ops_add'=>'project']))
-                    ->assertOk()->getContent();
-                foreach ($retired as $field) $this->assertStringNotContainsString('name="data['.$field.']"', $html);
-                foreach (['awarded_on', 'started_on', 'satisfaction_score', 'brand', 'location', 'starts_on', 'project_status', 'key_issue', 'team_handyman_requirement'] as $field) {
-                    $this->assertStringContainsString('name="data['.$field.']"', $html);
-                }
-            }
-        }
-        $this->actingAs($manager)->post(route('portal.operations.reporting.save'), [
-            'kind'=>'project', 'title'=>'Simplified project', 'week'=>'2026-11-09', 'status'=>'planned',
-            'data'=>['brand'=>'Dove', 'project_status'=>'Planning', 'progress_percent'=>55],
-        ])->assertSessionHasNoErrors();
-        $record = PerformanceRegister::sole();
-        $this->assertArrayNotHasKey('progress_percent', $record->data);
-        $record->update(['data'=> $record->data + ['progress_percent'=>40,'ends_on'=>'2026-11-14','supporting_team'=>'Retained earlier report']]);
-        $this->post(route('portal.operations.reporting.save'), [
-            'kind'=>'project','source'=>$record->id,'source_version'=>OperationsReporting::version($record->fresh()),
-            'title'=>'Simplified project updated','week'=>'2026-11-09','status'=>'in_progress',
-            'data'=>['brand'=>'Dove updated','project_status'=>'In Progress','progress_percent'=>99],
-        ])->assertSessionHasNoErrors();
-        $record->refresh();
-        $this->assertSame(40, $record->data['progress_percent']);
-        $this->assertSame('2026-11-14', $record->data['ends_on']);
-        $this->assertSame('Retained earlier report', $record->data['supporting_team']);
-        $this->assertSame('Dove updated', strip_tags($record->data['brand']));
-        $this->assertArrayHasKey('progress_percent', OperationsReporting::schemas()['weekly_update']);
-        $this->assertArrayHasKey('ends_on', OperationsReporting::schemas()['activation']);
+        $manager=$this->person('manager');
+        $record=PerformanceRegister::create(['reference'=>'HISTORY-MASTER','department'=>'operations_projects','kind'=>'project','owner_id'=>$manager->id,'title'=>'Retained master history','period_start'=>'2026-11-09','period_end'=>'2026-11-15','status'=>'planned','approved_at'=>now(),'data'=>['progress_percent'=>40,'ends_on'=>'2026-11-14','supporting_team'=>'Retained earlier report']]);
+        foreach(['dashboard','portal.operations'] as $route)$this->actingAs($manager)->get(route($route,['weekly_department'=>'operations_projects','ops_tab'=>'projects','ops_add'=>'project']))->assertOk()->assertDontSee('Retained master history')->assertDontSee('Add Master project');
+        $this->post(route('portal.operations.reporting.save'),['kind'=>'project','title'=>'No replacement','week'=>'2026-11-09','status'=>'planned'])->assertSessionHasErrors('kind');
+        $this->assertSame(40,$record->fresh()->data['progress_percent']);$this->assertSame('Retained earlier report',$record->fresh()->data['supporting_team']);
+        $this->assertArrayHasKey('progress_percent',OperationsReporting::schemas()['weekly_update']);$this->assertArrayHasKey('ends_on',OperationsReporting::schemas()['activation']);
     }
 
     public function test_actual_weekly_entry_forms_submit_for_staff_and_hod_with_the_warehouse_checklist(): void
@@ -72,7 +44,7 @@ class OperationsReportingWorkspaceTest extends TestCase
                 'status' => 'Available', 'warehouse_quantity' => 5, 'is_warehouse_tracked' => true, 'added_by' => $manager->id]);
         }
         foreach ([$staff, $manager] as $actor) {
-            foreach (['weekly_update', 'project', 'activation', 'team_allocation'] as $kind) {
+            foreach (['weekly_update', 'activation', 'team_allocation'] as $kind) {
                 $url = route('dashboard', ['weekly_department' => 'operations_projects', 'ops_tab' => 'weekly',
                     'ops_add' => $kind, 'report_period' => 'week', 'report_date' => '2026-11-09']);
                 $html = $this->actingAs($actor)->get($url)->assertOk()->getContent();
@@ -260,9 +232,9 @@ class OperationsReportingWorkspaceTest extends TestCase
         $owner = $this->person('manager');
         $other = $this->person('staff', 'finance');
         $this->actingAs($owner)->post(route('portal.operations.reporting.save'), [
-            'kind' => 'supplier', 'title' => 'Historic supplier audit', 'week' => '2026-10-19',
+            'kind' => 'procurement', 'title' => 'Historic procurement audit', 'week' => '2026-10-19',
             'status' => 'completed', 'module_entry' => 1,
-            'data' => ['supplier_name' => 'Test supplier', 'contact_person' => 'Private contact marker', 'cost' => 912345],
+            'data' => ['item_service' => 'Test procurement', 'supplier' => 'Test supplier', 'cost' => 912345],
         ])->assertRedirect();
         WeeklyConsolidatedItem::create([
             'department' => 'operations_projects', 'week_start' => '2026-10-19', 'week_end' => '2026-10-25',
@@ -271,14 +243,14 @@ class OperationsReportingWorkspaceTest extends TestCase
         ]);
         $selection = ['weekly_department' => 'operations_projects', 'ops_tab' => 'execution', 'ops_owner' => $owner->id, 'ops_q' => 'Historic', 'report_date' => '2026-10-19'];
         $this->actingAs($other)->get(route('dashboard', $selection + ['report_period' => 'year']))
-            ->assertOk()->assertSee('Historic supplier audit')->assertDontSee('Private contact marker')->assertDontSee('912345');
+            ->assertOk()->assertSee('Historic procurement audit')->assertDontSee('Private contact marker')->assertDontSee('912345');
         $this->get(route('portal.operations'))->assertForbidden();
         $this->actingAs($owner)->get(route('portal.operations', $selection + ['report_period' => 'month']))
-            ->assertOk()->assertSee('Private contact marker');
+            ->assertOk()->assertSee('Historic procurement audit');
         $this->get(route('dashboard', array_replace($selection, ['ops_tab' => 'weekly', 'report_period' => 'week'])))
             ->assertOk()->assertDontSee('Historical workstream marker')->assertDontSee('Retained weekly content');
         $this->get(route('dashboard', array_replace($selection, ['report_date' => '2026-11-14'])))
-            ->assertOk()->assertDontSee('Historic supplier audit');
+            ->assertOk()->assertDontSee('Historic procurement audit');
     }
 
     public function test_inventory_and_activation_rows_show_scoped_warehouse_movements_without_changing_stock(): void

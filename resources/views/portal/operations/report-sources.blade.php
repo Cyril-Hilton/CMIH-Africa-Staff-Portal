@@ -7,11 +7,12 @@
         @php
             $index = array_key_exists((int) request('ops_source'), $sourceArchive) ? (int) request('ops_source') : 0;
             $source = $sourceArchive[$index];
+            $sourceRows=app(\App\Services\OperationsTableQuery::class)->collection(collect($source['rows']),request(),'sources');$sourcePerPage=(int)(request('ops_tables.sources.rows',25));
             $page = new \Illuminate\Pagination\LengthAwarePaginator(
-                array_slice($source['rows'], ((int) request('ops_source_page', 1) - 1) * 25, 25),
-                count($source['rows']), 25, (int) request('ops_source_page', 1),
-                ['path' => route('portal.operations'), 'pageName' => 'ops_source_page']);
-            $page->appends(['ops_tab' => 'sources', 'ops_source' => $index])->fragment('operations-reporting');
+                $sourceRows->forPage(max(1,(int)request('ops_source_page',1)),$sourcePerPage)->values(),
+                $sourceRows->count(), $sourcePerPage, (int) request('ops_source_page', 1),
+                ['path' => url()->current(), 'pageName' => 'ops_source_page']);
+            $page->appends(request()->query()+['ops_tab' => 'sources', 'ops_source' => $index])->fragment('operations-reporting');
         @endphp
         <nav class="br-staff" aria-label="Source worksheet">
             @foreach($sourceArchive as $id => $sheet)
@@ -22,8 +23,9 @@
             <h5>{{ $source['workbook'] }} · {{ $source['sheet'] }} @if($source['hidden']) (hidden in source) @endif</h5>
             <a class="ops-button" href="{{ $source['url'] }}" rel="noopener noreferrer">Open Original Workbook</a>
         </header>
-        <div class="br-table-wrap" tabindex="0" role="region" aria-label="Source cell values">
-            <table class="br-table ops-table">
+        @include('portal.operations.table-filters',['tableKey'=>'sources','tableLabel'=>'Original source rows'])
+        <div id="ops-table-sources" class="br-table-wrap" tabindex="0" role="region" aria-label="Source cell values">
+            <table class="br-table ops-table" data-table-enhancer="off">
                 <thead><tr><th scope="col">Sheet row</th><th scope="col">Original cells</th></tr></thead>
                 <tbody>
                     @foreach($page as $row)

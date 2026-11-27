@@ -1,4 +1,5 @@
 @php
+    $tableKey=!empty($undated)?'posm_undated':$kind;
     $columns = match ($kind) {
         'project' => ['brand', 'project_status', 'rag_status'],
         'activation' => ['brand', 'location', 'starts_on', 'ends_on', 'report_shared'],
@@ -16,20 +17,23 @@
     };
     $tracker = app(\App\Services\OperationsTracker::class);
 @endphp
-<section class="br-table-section">
+<section class="br-table-section" id="ops-table-{{ $tableKey }}">
     <header class="br-table-heading"><h4>{{ !empty($undated) ? 'POSM with no deployment date' : $labels[$kind] }} <small>{{ $entries->total() }}</small></h4>
         @if($member && empty($undated))<a class="ops-button ops-primary" href="{{ $workspaceUrl(['ops_add' => $kind]) }}">Add {{ $kind === 'weekly_update' ? 'Weekly Update' : \Illuminate\Support\Str::singular($labels[$kind]) }}</a>@endif
+        @if($kind==='activation'&&$member)<a class="ops-button" href="{{ route('portal.operations.activation-transfers.index') }}">Import Excel / Export approvals</a>@endif
     </header>
+    @if($kind==='activation'&&$member)@include('portal.operations.activation-export-request')@endif
+    @include('portal.operations.table-filters',['tableKey'=>$tableKey,'tableLabel'=>$labels[$kind]])
     @if(!empty($undated))<p>Source records without a deployment date. They appear separately and do not affect period totals or warehouse balances.</p>@endif
     <div class="br-table-wrap" tabindex="0" role="region" aria-label="{{ $labels[$kind] }}">
-        <table class="br-table ops-table">
+        <table class="br-table ops-table" data-table-enhancer="off">
             <thead><tr>
-                @include('portal.operations.report-sort', ['column' => $kind === 'activation' ? 'Activation' : 'Activity', 'sortKey' => 'title'])
+                @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => $kind === 'activation' ? 'Activation' : 'Activity', 'sortKey' => 'title'])
                 <th scope="col">Client</th>
                 <th scope="col">Supporting Staff</th>
-                @include('portal.operations.report-sort', ['column' => 'Owner', 'sortKey' => 'owner'])
+                @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => 'Owner', 'sortKey' => 'owner'])
                 @foreach($columns as $column)<th scope="col">{{ \Illuminate\Support\Str::headline($column) }}</th>@endforeach
-                @include('portal.operations.report-sort', ['column' => 'Status', 'sortKey' => 'status'])
+                @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => 'Status', 'sortKey' => 'status'])
                 <th scope="col">Reporting Week</th>
             </tr></thead>
             @forelse($entries as $entry)

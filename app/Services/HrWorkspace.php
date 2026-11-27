@@ -37,7 +37,7 @@ class HrWorkspace {
   $stats=$tab==='overview'?[]:$registers->stats($tab,$u,$from,$to);
   $groups=$tab==='overview'?[]:$registers->groups($tab,$u);
   $v += app(AssetTableFilters::class)->values($request);
-  if(isset($groups['asset'])){$assetIds=app(AssetTableFilters::class)->apply(\App\Models\Asset::query(),$request)->pluck('id');$groups['asset']['rows']=$groups['asset']['rows']->whereIn('id',$assetIds)->values();}
+  if(isset($groups['asset'])){$assetIds=app(AssetTableFilters::class)->apply(\App\Models\Asset::query(),$request)->pluck('id');$groups['asset']['rows']=$groups['asset']['rows']->whereIn('id',$assetIds)->values();if($request->filled('asset_sort')){$assetOrder=array_flip($assetIds->all());$groups['asset']['rows']=$groups['asset']['rows']->sortBy(fn($row)=>$assetOrder[$row['id']]??PHP_INT_MAX)->values();}}
   $home=[];$alerts=[];$upcoming=collect();$tabCounts=[];
   if($tab==='overview'){
    $home=['Headcount'=>$registers->stats('people',$u,$from,$to)['Active headcount'],'Vehicles available'=>$registers->stats('fleet',$u,$from,$to)['Available'],'Total office assets'=>$registers->stats('assets',$u,$from,$to)['Total assets'],'Open vacancies'=>$registers->stats('recruitment',$u,$from,$to)['Open vacancies'],'Attendance rate (%)'=>$registers->attendance($u,$from,$to)['rate']];

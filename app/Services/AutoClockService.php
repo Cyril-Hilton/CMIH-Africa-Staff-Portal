@@ -26,8 +26,13 @@ class AutoClockService
             if ($resetAt && $date->lte(Carbon::parse($resetAt)->startOfDay())) return;
         }
 
+        if(self::isWilliam($user) && ($date->lt(Carbon::parse('2026-11-27')) || in_array($date->toDateString(),CompanyCalendar::nonWorkingDates(),true) || \App\Models\LeaveApplication::where('user_id',$user->id)->where('status','approved')->whereDate('start_date','<=',$date)->whereDate('end_date','>=',$date)->exists()))return;
+
         // 1. Ensure daily task exists
-        if (self::isCurtisBarnor($user)) {
+        if (self::isWilliam($user)) {
+            $taskTitle = 'Coaching, directing and driving teams accountability';
+            $taskDetails = 'Daily Brands team coaching, direction and accountability follow-up.';
+        } elseif (self::isCurtisBarnor($user)) {
             $taskTitle = '3D/4D Product Mockups and Creative Design Development';
             $taskDetails = 'Daily creative production covering 3D/4D mockups, visual refinements, campaign design assets, and creative concept upgrades.';
         } elseif (self::isCyril($user)) {
@@ -67,7 +72,7 @@ class AutoClockService
             ]);
             $task->forceFill([
                 'created_at' => $date->copy()->setTime(8, 15),
-                'updated_at' => $date->copy()->setTime(17, 0),
+                'updated_at' => self::isWilliam($user) ? now() : $date->copy()->setTime(17, 0),
             ])->save();
 
             if ($requiresCompletionReview) {
@@ -132,7 +137,7 @@ class AutoClockService
             $updates['status'] = 'On Time';
         }
 
-        if (! $attendance->daily_objective) {
+        if (! $attendance->daily_objective || self::isWilliam($user)) {
             $updates['daily_objective'] = $taskTitle;
         }
 
@@ -156,11 +161,11 @@ class AutoClockService
     /** Recognise only the completed, self-assigned task covered by the auto-clock policy. */
     public static function isCompletedAutomaticTask(Task $task, User $user): bool
     {
-        $title = self::isCurtisBarnor($user)
+        $title = self::isWilliam($user) ? 'Coaching, directing and driving teams accountability' : (self::isCurtisBarnor($user)
             ? '3D/4D Product Mockups and Creative Design Development'
             : (self::isCyril($user)
                 ? 'CMIH Portal Maintainance and Feature Upgrade'
-                : 'Overall App Supervision & Staff Management');
+                : 'Overall App Supervision & Staff Management'));
 
         return self::isAutoClockUser($user)
             && (int) $task->assigned_to === (int) $user->id
@@ -174,7 +179,7 @@ class AutoClockService
     public static function isAutoClockUser(User $user): bool
     {
         return !$user->isServiceAccount() && !$user->isSupervisionOnly()
-            && (self::isCyril($user) || self::isCurtisBarnor($user));
+            && (self::isCyril($user) || self::isCurtisBarnor($user) || self::isWilliam($user));
     }
 
     public static function backfillCurrentMonthForUser(User $user, ?Carbon $date = null): void
@@ -227,6 +232,7 @@ class AutoClockService
             ->orWhere('name', 'like', '%Cyril Hilton%')
             ->orWhere('name', 'like', '%Curtis Barnor%')
             ->orWhere('name', 'like', '%Curtis Banor%')
+            ->orWhere('name', 'William Quartey')
             ->get()
             ->filter(fn (User $user) => self::isAutoClockUser($user));
 
@@ -259,6 +265,11 @@ class AutoClockService
         $date = $date ?? Carbon::today();
 
         self::backfillAll($date->copy()->startOfMonth(), $date);
+    }
+
+    private static function isWilliam(User $user): bool
+    {
+        return $user->isActive() && strtolower(trim($user->name))==='william quartey' && User::normalizeDepartmentKey($user->department)==='brands_marketing' && PerformanceAccess::manages($user,'brands_marketing');
     }
 
     private static function isCyril(User $user): bool

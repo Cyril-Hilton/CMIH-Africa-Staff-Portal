@@ -64,10 +64,13 @@ class OperationsReporting
         if (! $request->attributes->get('dashboard_reporting_period')) {
             app(DashboardReportingPeriod::class)->apply($request);
         }
+        app(OperationsTableQuery::class)->validateAll($request);
         $user = $request->user();
         $member = self::member($user);
         $manager = self::manager($user);
         $warehouseHistory = $member && $user->canExportWarehouseAssets();
+        if(in_array($request->query('ops_add'),config('operations_tracker.retired_kinds'),true))$request->query->remove('ops_add');
+        if($request->integer('ops_edit')&&PerformanceRegister::whereKey($request->integer('ops_edit'))->whereIn('kind',config('operations_tracker.retired_kinds'))->exists())$request->query->remove('ops_edit');
         if(in_array($request->query('ops_tab'),['follow-up','kpis'],true))$request->query->set('ops_tab','weekly');
         $filters = $request->validate([
             'ops_tab' => ['nullable', Rule::in(array_keys(config('operations_tracker.tabs')))],
@@ -100,6 +103,7 @@ class OperationsReporting
         $anchor = $modules ? 'operations-reporting' : 'staff-weekly-performance';
         $returnQuery = $request->only(['report_period', 'report_date', 'ops_tab', 'ops_owner', 'ops_q', 'ops_sort', 'ops_status', 'ops_direction', 'ops_rows', 'ops_warehouse', 'ops_source']);
         $returnQuery += app(AssetTableFilters::class)->values($request);
+        if($request->has('ops_tables')){$request->validate(['ops_tables'=>'array']);$returnQuery['ops_tables']=$request->input('ops_tables');}
         $returnQuery['ops_tab'] = $tab;
         $returnQuery += $modules ? ['module_view' => 'overview'] : ['weekly_department' => self::DEPARTMENT];
         $workspaceUrl = fn (array $parameters = [], bool $keepPeriod = true) => route(
@@ -119,6 +123,7 @@ class OperationsReporting
                 ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match
                     ->where('title', 'like', "%$search%")->orWhere('client', 'like', "%$search%")
                     ->orWhere('data->brand', 'like', "%$search%")->orWhere('data->location', 'like', "%$search%")));
+            app(OperationsTableQuery::class)->apply($undatedPosm,$request,'posm_undated');
             $this->sort($undatedPosm, $sort, $direction, 'title', 'owner_id', 'period_start');
             $undatedPosm = $undatedPosm->orderBy('id')->paginate($perPage, ['*'], 'ops_undated_page')->appends($returnQuery)->fragment($anchor);
         }
@@ -142,7 +147,7 @@ class OperationsReporting
             ->orWhereIn('id', $historicalOwners->merge($collaboratorIds)->filter()->unique()))->orderBy('name')->get();
         $teamStaff = $staff->filter(fn (User $person) => User::normalizeDepartmentKey($person->department) === self::DEPARTMENT);
         $registers = $weeklyRows = $campaignRows = $inventory = $movements = $summary = $breakdowns = [];
-        $kpiRows = $deliveryRows = $executionTrend = [];
+        $kpiRows = $deliveryRows = $executionTrend = $overviewCharts = [];
         $paginate = fn (Builder $query, string $page) => $query->paginate($perPage, ['*'], $page)->appends($returnQuery)->fragment($anchor);
         $filtered = (clone $published)->when($owner, fn (Builder $query) => $query->where(fn (Builder $person) => $person->where('owner_id', $owner)->orWhereJsonContains('data->collaborator_ids', (int) $owner)))
             ->when($filters['ops_status'] ?? null, fn (Builder $query, $status) => $query->where('status', $status))
@@ -160,12 +165,15 @@ class OperationsReporting
                     });
                 }
             }));
+        $activationExportQuery=app(OperationsTableQuery::class)->apply((clone $filtered)->where('kind','activation'),$request,'activation');
         if ($tab === 'overview') {
             $rows = $filtered->get();
             $summary = app(OperationsTracker::class)->summary($rows);
             $activationRows = $rows->where('kind', 'activation');
             $summary['activations_completed'] = $activationRows->filter(fn ($row) => self::activationExecuted($row))->count();
             $executionTrend = $this->executionTrend($approved, $request->query('report_period', 'week'), $from, $to, $owner, $search);
+            $overviewCharts=app(OperationsOverviewCharts::class)->build($rows,$executionTrend);
+            $summary['activation_targets_met']=$overviewCharts['targets_met'];$summary['pending_procurements']=$overviewCharts['pending_procurements'];$summary['overdue_fabrications']=$overviewCharts['overdue_fabrications'];
             $summary['activation_reports_shared'] = $activationRows->filter(fn ($row) => (! empty($row->data['report_shared_on']) || ($row->data['import_report_shared'] ?? null) === true))->count();
             foreach (['brand' => 'Brand', 'location' => 'Location', 'lead' => 'Project Lead'] as $field => $label) {
                 $breakdowns[$label] = $rows->where('kind', 'activation')->countBy(fn ($row) => $field === 'lead'
@@ -175,8 +183,9 @@ class OperationsReporting
         }
         foreach (config('operations_tracker.groups')[$tab] ?? [] as $kind) {
             $query = (clone $filtered)->where('kind', $kind);
+            $tableQuery=app(OperationsTableQuery::class);$tableQuery->apply($query,$request,$kind);
             $this->sort($query, $sort, $direction, 'title', 'owner_id', 'period_start');
-            $registers[$kind] = $paginate($query->orderByDesc('id'), 'ops_'.$kind.'_page');
+            $registers[$kind] = $query->orderByDesc('id')->paginate((int)($tableQuery->values($request,$kind)['rows']??$perPage),['*'],'ops_'.$kind.'_page')->appends($returnQuery)->fragment('ops-table-'.$kind);
         }
         if ($tab === 'weekly') {
             $weekly->with('leadStaff')->when($owner, fn (Builder $q) => $q->where(fn (Builder $person) => $person->where('lead_staff_id', $owner)->orWhereJsonContains('supporting_staff_ids', (int) $owner)->orWhereJsonContains('supporting_staff_ids', (string) $owner)))
@@ -209,12 +218,13 @@ class OperationsReporting
                 ->when($owner, fn (Builder $q) => $q->where(fn($person)=>$person->where('requested_by',$owner)->orWhere('custodian_id',$owner)))
                 ->when($search !== '', fn (Builder $q) => $q->where(fn (Builder $match) => $match
                     ->where('destination_location', 'like', "%$search%")->orWhereHas('asset', fn ($asset) => $asset->where('name', 'like', "%$search%"))));
+            app(OperationsTableQuery::class)->apply($movementQuery,$request,'movements');
             if ($sort === 'title') {
                 $movementQuery->orderBy(Asset::select('name')->whereColumn('assets.id', 'asset_warehouse_requests.asset_id'), $direction);
             } else {
                 $this->sort($movementQuery, $sort, $direction, 'request_code', 'requested_by', 'issued_at');
             }
-            $movements = $paginate($movementQuery->orderByDesc('id'), 'ops_movement_page');
+            $movements = $movementQuery->orderByDesc('id')->paginate((int)(app(OperationsTableQuery::class)->values($request,'movements')['rows']??$perPage),['*'],'ops_movement_page')->appends($returnQuery)->fragment('ops-table-movements');
         }
 
         $activationIds = isset($registers['activation']) ? $registers['activation']->pluck('id') : collect();
@@ -257,7 +267,7 @@ class OperationsReporting
             $sourceArchive = json_decode(file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
         }
 
-        return compact('reviewSources', 'reviewCounts', 'reviewState', 'sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
+        return compact('overviewCharts', 'activationExportQuery', 'reviewSources', 'reviewCounts', 'reviewState', 'sourceArchive', 'undatedPosm', 'tab', 'filters', 'from', 'to', 'staff', 'teamStaff', 'owner', 'member', 'manager', 'warehouseHistory', 'modules', 'anchor', 'registers', 'weeklyRows', 'campaignRows', 'inventory', 'movements', 'summary', 'breakdowns', 'linkedMovements', 'linkedPosm', 'checkoutLogs', 'submissions', 'edit', 'newKind', 'campaignOptions', 'kpiRows', 'deliveryRows', 'workspaceUrl', 'collaborationStaff', 'reviewCollaborators', 'executionTrend');
     }
 
     public static function activationExecuted(PerformanceRegister $row): bool
