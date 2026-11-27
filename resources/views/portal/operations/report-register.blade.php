@@ -31,7 +31,7 @@
                 @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => $kind === 'activation' ? 'Activation' : 'Activity', 'sortKey' => 'title'])
                 <th scope="col">Client</th>
                 <th scope="col">Supporting Staff</th>
-                @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => 'Owner', 'sortKey' => 'owner'])
+                @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => $kind==='activation'?'Project Lead':'Owner', 'sortKey' => 'owner'])
                 @foreach($columns as $column)<th scope="col">{{ \Illuminate\Support\Str::headline($column) }}</th>@endforeach
                 @include('portal.operations.report-sort', ['tableKey'=>$tableKey,'column' => 'Status', 'sortKey' => 'status'])
                 <th scope="col">Reporting Week</th>

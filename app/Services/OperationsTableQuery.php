@@ -20,6 +20,7 @@ class OperationsTableQuery
         if ($key==='sources') return ['number'=>'Sheet row','cells'=>'Original cells'];
         if (str_starts_with($key,'breakdown_')) return ['name'=>'Category','count'=>'Activations'];
         $fields=['title'=>'Activity / activation','client'=>'Client','project'=>'Project','owner_id'=>'Owner','status'=>'Status','period_start'=>'Reporting week'];
+        if($key==='activation')$fields['owner_id']='Project lead';
         foreach(OperationsReporting::fields($key==='posm_undated'?'posm_deployment':$key,false) as $field=>$type)$fields['data->'.$field]=str($field)->headline()->toString();
         return $fields;
     }
@@ -27,11 +28,14 @@ class OperationsTableQuery
     {
         abort_unless(preg_match('/^[a-z_]+$/',$key),422);
         $data=$request->input('ops_tables.'.$key,[]);abort_unless(is_array($data),422,'Invalid table filters.');
-        return validator($data,['q'=>'nullable|string|max:150','field'=>['nullable',Rule::in(array_keys($this->fields($key)))],'value'=>'nullable|string|max:150','sort'=>['nullable',Rule::in(array_keys($this->fields($key)))],'direction'=>'nullable|in:asc,desc','rows'=>'nullable|in:10,25,50'])->validate();
+        $rules=['q'=>'nullable|string|max:150','field'=>['nullable',Rule::in(array_keys($this->fields($key)))],'value'=>'nullable|string|max:150','sort'=>['nullable',Rule::in(array_keys($this->fields($key)))],'direction'=>'nullable|in:asc,desc','rows'=>'nullable|in:10,25,50'];
+        if($key==='activation')$rules+=array_fill_keys(['brand','location','lead'],'nullable|string|max:150');
+        return validator($data,$rules)->validate();
     }
     public function apply(Builder $query,Request $request,string $key):Builder
     {
         $f=$this->values($request,$key);$columns=array_keys($this->fields($key));
+        if($key==='activation')foreach(['brand'=>'data->brand','location'=>'data->location','lead'=>'owner_id'] as $filter=>$field)if(!empty($f[$filter]))$query->where(fn($w)=>$this->match($w,$field,$f[$filter],$key));
         if(!empty($f['q']))$query->where(function($w)use($columns,$f,$key){foreach($columns as $column)$this->match($w,$column,$f['q'],$key,'or');});
         if(!empty($f['field'])&&isset($f['value'])&&$f['value']!=='')$query->where(fn($w)=>$this->match($w,$f['field'],$f['value'],$key));
         if(!empty($f['sort'])){
