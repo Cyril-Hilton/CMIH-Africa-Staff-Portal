@@ -32,6 +32,16 @@ class OperationsUpgradeNovemberTest extends TestCase {
   $this->get(route('dashboard',$p+['ops_tables'=>['activation'=>['sort'=>'malicious']]]))->assertOk();
   $p['ops_tables']['activation']['sort']='malicious';$this->get(route('dashboard',$p))->assertSessionHasErrors();
  }
+ public function test_suppliers_and_production_cannot_return_through_older_configuration_or_direct_table_rendering():void {
+  config(['operations_tracker.retired_kinds'=>['milestone'],'operations_tracker.groups.execution'=>['procurement','fabrication','supplier','production']]);
+  $u=$this->hod();foreach(['supplier','production'] as $kind){$this->row($u,$kind,'Retired table source '.$kind);$this->assertArrayNotHasKey($kind,\App\Services\OperationsReporting::schemas());$this->assertSame('',trim(view('portal.operations.report-register',['kind'=>$kind])->render()));}
+  foreach([$u,User::factory()->create(['department'=>'operations_projects','status'=>'active','access_role'=>'staff'])] as $viewer)foreach(['dashboard','portal.operations'] as $route){
+   $html=$this->actingAs($viewer)->get(route($route,['weekly_department'=>'operations_projects','ops_tab'=>'execution']))->assertOk()->getContent();
+   foreach(['supplier','production'] as $kind){$this->assertStringNotContainsString('id="ops-table-'.$kind.'"',$html);$this->assertStringNotContainsString('ops_add='.$kind,$html);$this->assertStringNotContainsString('Retired table source '.$kind,$html);}
+   $this->assertStringContainsString('id="ops-table-procurement"',$html);$this->assertStringContainsString('id="ops-table-fabrication"',$html);
+  }
+  $this->assertDatabaseCount('performance_registers',2);
+ }
  public function test_assets_can_be_filtered_and_sorted_across_all_inventory_pages():void {
   $u=$this->hod();foreach(range(1,15) as $i)Asset::create(['name'=>'ZZZ unrelated '.$i,'type'=>'Furniture','brand'=>'Other','is_warehouse_tracked'=>true,'added_by'=>$u->id,'status'=>'Available']);foreach(['AAA branded asset','BBB branded asset'] as $name)Asset::create(['name'=>$name,'type'=>'Sound','brand'=>'Dove','location'=>'Accra','is_warehouse_tracked'=>true,'added_by'=>$u->id,'assigned_to'=>$u->id,'status'=>'Available']);
   $r=$this->actingAs($u)->get(route('dashboard',['weekly_department'=>'operations_projects','ops_tab'=>'assets','asset_brand'=>'Dove','asset_sort'=>'name','asset_direction'=>'desc']))->assertOk()->assertSeeInOrder(['BBB branded asset','AAA branded asset'])->assertDontSee('ZZZ unrelated 1')->assertSee('name="asset_sort"',false);

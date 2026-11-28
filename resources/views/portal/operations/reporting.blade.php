@@ -105,7 +105,7 @@
     @endif
 
     @foreach($registers as $kind => $entries)
-        @continue($kind === 'milestone')
+        @continue(!array_key_exists($kind, \App\Services\OperationsReporting::schemas()))
         @include('portal.operations.report-register')
     @endforeach
 

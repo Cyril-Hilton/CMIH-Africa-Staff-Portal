@@ -1,3 +1,4 @@
+@if(array_key_exists($kind, \App\Services\OperationsReporting::schemas()))
 @php
     $tableKey=!empty($undated)?'posm_undated':$kind;
     $columns = match ($kind) {
@@ -7,8 +8,6 @@
         'team_allocation' => ['outlet', 'location', 'setup_on', 'activation_dates_as_reported', 'client_service', 'technical_support', 'handyman', 'transport'],
         'fabrication' => ['quantity', 'vendor', 'artwork_shared', 'starts_on', 'due_on', 'delivered_on'],
         'procurement' => ['item_service', 'supplier', 'quantity', 'required_on', 'delivery_status'],
-        'supplier' => ['supplier_name', 'delivery_on', 'performance'],
-        'production' => ['production_item', 'due_on', 'quality_check'],
         'client_approval' => ['item_for_approval', 'approval_status', 'next_follow_up_on'],
         'project_report' => ['due_on', 'report_status', 'shared_on'],
         'risk_issue' => ['category', 'priority', 'due_on', 'rag_status'],
@@ -98,3 +97,5 @@
     </div>
     @include('portal.operations.report-pagination', ['page' => $entries, 'paginationLabel' => $labels[$kind]])
 </section>
+
+@endif

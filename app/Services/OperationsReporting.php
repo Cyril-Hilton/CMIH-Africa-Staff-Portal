@@ -37,9 +37,15 @@ class OperationsReporting
         return self::member($user) && (PerformanceAccess::manages($user, self::DEPARTMENT) || $user->isActingForOperationsDepartmentLead());
     }
 
+    public static function retiredKinds(): array
+    {
+        // Keep removed dashboard tables retired even when an older config cache is loaded.
+        return array_values(array_unique(array_merge(['project', 'supplier', 'production'], config('operations_tracker.retired_kinds', []))));
+    }
+
     public static function schemas(): array
     {
-        return array_diff_key(config('department_reporting.'.self::DEPARTMENT),array_flip(config('operations_tracker.retired_kinds')));
+        return array_diff_key(config('department_reporting.'.self::DEPARTMENT),array_flip(self::retiredKinds()));
     }
 
     public static function fields(string $kind, bool $private): array
@@ -69,8 +75,8 @@ class OperationsReporting
         $member = self::member($user);
         $manager = self::manager($user);
         $warehouseHistory = $member && $user->canExportWarehouseAssets();
-        if(in_array($request->query('ops_add'),config('operations_tracker.retired_kinds'),true))$request->query->remove('ops_add');
-        if($request->integer('ops_edit')&&PerformanceRegister::whereKey($request->integer('ops_edit'))->whereIn('kind',config('operations_tracker.retired_kinds'))->exists())$request->query->remove('ops_edit');
+        if(in_array($request->query('ops_add'),self::retiredKinds(),true))$request->query->remove('ops_add');
+        if($request->integer('ops_edit')&&PerformanceRegister::whereKey($request->integer('ops_edit'))->whereIn('kind',self::retiredKinds())->exists())$request->query->remove('ops_edit');
         if(in_array($request->query('ops_tab'),['follow-up','kpis'],true))$request->query->set('ops_tab','weekly');
         $filters = $request->validate([
             'ops_tab' => ['nullable', Rule::in(array_keys(config('operations_tracker.tabs')))],
@@ -181,7 +187,7 @@ class OperationsReporting
                     : strip_tags($row->data[$field] ?? 'Not recorded'))->sortDesc();
             }
         }
-        foreach (config('operations_tracker.groups')[$tab] ?? [] as $kind) {
+        foreach (array_intersect(config('operations_tracker.groups')[$tab] ?? [], array_keys(self::schemas())) as $kind) {
             $query = (clone $filtered)->where('kind', $kind);
             $tableQuery=app(OperationsTableQuery::class);$tableQuery->apply($query,$request,$kind);
             $this->sort($query, $sort, $direction, 'title', 'owner_id', 'period_start');
